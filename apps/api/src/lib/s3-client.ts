@@ -12,6 +12,16 @@ export function getS3Client(): S3Client {
   const endpoint = process.env.AWS_ENDPOINT_URL; // set in dev (LocalStack); unset in prod
   _client = new S3Client({
     region: process.env.AWS_REGION ?? 'ap-south-1',
+    // AWS SDK v3 ≥3.729 changed the default to `WHEN_SUPPORTED`, which makes
+    // CompleteMultipartUpload return an `x-amz-checksum-crc32` header that
+    // LocalStack 4.0 doesn't always populate consistently — the SDK then
+    // throws `Checksum Type mismatch ... expected null, actual crc32` during
+    // response deserialization. `WHEN_REQUIRED` (the pre-3.729 default)
+    // restricts checksums to operations that mandate them, restoring
+    // compatibility for LocalStack-targeted dev + tests. Real AWS S3 still
+    // honors checksums on operations that require them.
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    responseChecksumValidation: 'WHEN_REQUIRED',
     ...(endpoint ? { endpoint, forcePathStyle: true } : {}),
   });
   return _client;
