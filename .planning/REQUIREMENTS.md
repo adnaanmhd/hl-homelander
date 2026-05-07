@@ -252,9 +252,9 @@
 
 ### Distribution & Build Flavors
 
-- [ ] **DIST-01**: Three build flavors exist: `apkRollout` (signed APK distributed to clan chiefs), `playStore`, and `iosAppStore`
-- [ ] **DIST-02**: Different `applicationId` per Android flavor enables co-installation
-- [ ] **DIST-03**: Remote Config keys the install-source-check bypass by `applicationId`; `playStore` flavor cannot opt into bypass
+- [x] **DIST-01**: Three build flavors exist: `apkRollout` (signed APK distributed to clan chiefs), `playStore`, and `iosAppStore`
+- [x] **DIST-02**: Different `applicationId` per Android flavor enables co-installation
+- [x] **DIST-03**: Remote Config keys the install-source-check bypass by `applicationId`; `playStore` flavor cannot opt into bypass
 - [x] **DIST-04**: Backend `/auth/google` validates that the supplied build-flavor field matches a known flavor and applies the matching install-source policy
 - [ ] **DIST-05**: Play Store rollout is staged: 1% → 5% → 25% → 100% with k6 load-test gate at each stage
 - [ ] **DIST-06**: iOS App Store ships ≤2 weeks after Play Store rollout (within the same MVP milestone)
@@ -546,9 +546,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | OBS-03      | Phase 7 | Pending               |
 | OBS-04      | Phase 7 | Pending               |
 | OBS-05      | Phase 7 | Pending               |
-| DIST-01     | Phase 1 | Pending               |
-| DIST-02     | Phase 1 | Pending               |
-| DIST-03     | Phase 1 | Pending               |
+| DIST-01     | Phase 1 | Complete              |
+| DIST-02     | Phase 1 | Complete              |
+| DIST-03     | Phase 1 | Complete              |
 | DIST-04     | Phase 1 | Complete              |
 | DIST-05     | Phase 7 | Pending               |
 | DIST-06     | Phase 7 | Pending               |

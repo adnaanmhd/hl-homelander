@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Plan 01-08 complete + committed (commits d189572, 90df5a9, 5dae6e1). Full /me + /contributions + /events + /feedback + /app/version surface — API-10/11/12/13/14/15 shipped. Migration 0004 installs the recordings → contributions denormalization trigger; DSR cron stub logs daily candidates past the 30-day grace (Phase 5 owns actual hard-delete). 24 new vitest tests across 6 files; 108 total green. Phase 1 backend API surface is feature-complete (only hash-verify worker — Phase 5 — remains). Ready for plan 01-09.
-last_updated: '2026-05-07T15:29:03.774Z'
+stopped_at: Plan 01-09 complete + committed (commits 79809ab, 5220af8, a2049bd). Two Android product flavors (apkRollout=ai.humynlabs.capture.apk, playStore=ai.humynlabs.capture per D-FLAV-01) with per-flavor manifest source sets gating REQUEST_INSTALL_PACKAGES; CI gate verify-merged-manifests.sh asserts merge correctness; custom Kotlin AppFlavor TurboModule + typed JS wrapper expose flavor + applicationId at runtime; per-flavor .env files; keystores .gitignore in place. DIST-07 rescinded (third compatRecon flavor not built); iOS deferred to Phase 7. STATE.md applicationId blocker resolved. pnpm typecheck green across all 3 TS workspaces. Ready for plan 01-10 (Terraform infra).
+last_updated: '2026-05-07T15:46:29.971Z'
 last_activity: 2026-05-07
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 13
-  completed_plans: 8
-  percent: 62
+  completed_plans: 9
+  percent: 69
 ---
 
 # Project State
@@ -26,33 +26,34 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 1 (foundation-backend-distribution-recon) — EXECUTING
-Plan: 8 of 13 complete (sequential order in wave 1+2: 01-01 ✓ → 01-03 ✓ → 01-02 ✓ → 01-04 ✓ → 01-05 ✓ → 01-06 ✓ → 01-07 ✓ → 01-08 ✓; 01-09 next)
-Status: Plan 01-08 complete; full /me + /contributions + /events + /feedback + /app/version surface shipped + 24 new vitest tests; ready for 01-09
+Plan: 9 of 13 complete (sequential order in wave 1+2: 01-01 ✓ → 01-03 ✓ → 01-02 ✓ → 01-04 ✓ → 01-05 ✓ → 01-06 ✓ → 01-07 ✓ → 01-08 ✓ → 01-09 ✓; 01-10 next)
+Status: Plan 01-09 complete; Android product-flavor scaffolding + manifest-merger CI gate + AppFlavor module shipped; ready for 01-10
 Last activity: 2026-05-07
 
-Progress: [██████░░░░] 62%
+Progress: [███████░░░] 69%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 8
-- Average duration: ~11 min
-- Total execution time: ~1.45 hours
+- Total plans completed: 9
+- Average duration: ~10.4 min
+- Total execution time: ~1.57 hours
 
 **By Phase:**
 
-| Phase    | Plans  | Total  | Avg/Plan |
-| -------- | ------ | ------ | -------- |
-| Phase 01 | 8 / 13 | 87 min | ~11 min  |
+| Phase    | Plans  | Total  | Avg/Plan  |
+| -------- | ------ | ------ | --------- |
+| Phase 01 | 9 / 13 | 94 min | ~10.4 min |
 
 **Recent Trend:**
 
-- Last 8 plans: 01-01 (7 min, 3 tasks, 22 files), 01-03 (5 min, 3 tasks, 7 files), 01-02 (6 min, 3 tasks + checkpoint, 11 files), 01-04 (9 min, 3 tasks, 18 files), 01-05 (13 min, 4 tasks, 25 files), 01-06 (18 min, 3 tasks, 17 files), 01-07 (12 min, 4 tasks, 17 files), 01-08 (17 min, 3 tasks, 28 files)
-- Trend: 01-08 the second-longest of the phase — 7 endpoint groups in one plan, 5 deviations to resolve, full multipart wiring + DSR cron + migration 0004 trigger. Phase 1 backend API surface is now feature-complete (only hash-verify worker — Phase 5 — remains). Plan 01-09 should be lighter (final API hardening).
+- Last 9 plans: 01-01 (7 min, 3 tasks, 22 files), 01-03 (5 min, 3 tasks, 7 files), 01-02 (6 min, 3 tasks + checkpoint, 11 files), 01-04 (9 min, 3 tasks, 18 files), 01-05 (13 min, 4 tasks, 25 files), 01-06 (18 min, 3 tasks, 17 files), 01-07 (12 min, 4 tasks, 17 files), 01-08 (17 min, 3 tasks, 28 files), 01-09 (7 min, 3 tasks, 19 files)
+- Trend: 01-09 the lightest of the phase — pure mobile-side scaffolding (no backend wiring, no DB migrations, no live-server smoke), 5 deviations all auto-fixed in-task, lands cleanly under the 11-min phase average. Phase 1 mobile scaffold is now ready for plan 01-13's Sign-In screen.
 
 _Updated after each plan completion_
 | Phase 01 P08 | 17 min | 3 tasks | 28 files |
+| Phase 1 P9 | 7min | 3 tasks | 19 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,11 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 1]: Plan 01-08: GET /app/version intentionally NO requireAuth — pre-sign-in clients need force_upgrade BEFORE they can sign in; Cache-Control public, max-age=21600 (6h) lets CDN edges serve copies, eating most of the load.
 - [Phase ?]: [Phase 1]: Plan 01-08: feedback diagnostic stored BOTH in S3 (full 5 MB) AND inline on row (first 100 KB after JSON.parse + truncate) — support reads inline without an S3 hop, investigators read full file from S3; inline always wraps with {\_s3_key} so each row is self-describing.
 - [Phase ?]: [Phase 1]: Plan 01-08: EVENT_NAMES is a hard-coded const (14 names) — adding a new telemetry event requires shipping shared/types release; type-level schema-creep guard against one-off telemetry calls (T-1.8-05).
+- [Phase ?]: [Phase 1]: Plan 01-09: Locked Android applicationIds per D-FLAV-01 — apkRollout=ai.humynlabs.capture.apk, playStore=ai.humynlabs.capture. Resolves the STATE.md blocker entry. Sources cited inline in 01-09-SUMMARY.md (PLAN.md frontmatter + CONTEXT.md D-FLAV-01 + apps/api/test/routes/auth-google-iosAppStore.test.ts fixture + plan 05's flavor-allowlist.ts).
+- [Phase ?]: [Phase 1]: Plan 01-09: Per-flavor manifest source-set gating for REQUEST_INSTALL_PACKAGES — base android/app/src/main/AndroidManifest.xml never declares the install-source permission; flavor-only android/app/src/apkRollout/AndroidManifest.xml adds it. CI gate apps/mobile/scripts/verify-merged-manifests.sh asserts the merge outcome at every PR (T-1.9-01 mitigation, Pattern 35).
+- [Phase ?]: [Phase 1]: Plan 01-09: Custom Kotlin AppFlavor TurboModule overrides RESEARCH §4.7 react-native-config recommendation per prompt directive. BuildConfig.FLAVOR_NAME + BuildConfig.APPLICATION_ID surfaced via getConstants() so JS reads NativeModules.AppFlavor.flavor sync without another bundler dep (Pattern 37).
+- [Phase ?]: [Phase 1]: Plan 01-09: react-native types deferred to plan 01-13 via minimal NativeModules ambient shim at apps/mobile/src/types/react-native.d.ts. Real react-native@0.83.x install lands in plan 13 (deletes the shim); plan 09 keeps the dep tree small for a scaffold whose only TS surface is one NativeModules access.
+- [Phase ?]: [Phase 1]: Plan 01-09: Refined root .gitignore from blanket 'apps/mobile/android/keystores/' to 'apps/mobile/android/keystores/\*' + '!apps/mobile/android/keystores/.gitignore' so the directory marker is tracked while every keystore file remains ignored. Defense-in-depth alongside the in-dir .gitignore (Pattern 36).
 
 ### Pending Todos
 
@@ -111,7 +117,7 @@ None yet.
 
 Decisions to resolve during phase planning (per research SUMMARY.md):
 
-- Phase 1: APK build flavor `applicationId` choice (`ai.humynlabs.capture.apk` vs `ai.humynlabs.capture`) — locked before flavor structure built
+- ~~Phase 1: APK build flavor `applicationId` choice (`ai.humynlabs.capture.apk` vs `ai.humynlabs.capture`) — locked before flavor structure built~~ — **RESOLVED in plan 01-09:** apkRollout=`ai.humynlabs.capture.apk`, playStore=`ai.humynlabs.capture` per D-FLAV-01.
 - Phase 1: Embedding provider for `/tasks` semantic search (OpenAI `text-embedding-3-small` vs local sentence-transformers)
 - Phase 1: DPDP / LGPD counsel engagement is an operational track that gates Play Store launch (Phase 7)
 - Phase 2: Final Help Center support email (`[EMAIL_ADDRESS]` placeholder); compat-fail "what now" recovery copy needs final wording
@@ -127,6 +133,6 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-07T15:29:03.771Z
-Stopped at: Plan 01-08 complete + committed (commits d189572, 90df5a9, 5dae6e1). Full /me + /contributions + /events + /feedback + /app/version surface — API-10/11/12/13/14/15 shipped. Migration 0004 installs the recordings → contributions denormalization trigger; DSR cron stub logs daily candidates past the 30-day grace (Phase 5 owns actual hard-delete). 24 new vitest tests across 6 files; 108 total green. Phase 1 backend API surface is feature-complete (only hash-verify worker — Phase 5 — remains). Ready for plan 01-09.
+Last session: 2026-05-07T15:46:29.960Z
+Stopped at: Plan 01-09 complete + committed (commits 79809ab, 5220af8, a2049bd). Two Android product flavors (apkRollout=ai.humynlabs.capture.apk, playStore=ai.humynlabs.capture per D-FLAV-01) with per-flavor manifest source sets gating REQUEST_INSTALL_PACKAGES; CI gate verify-merged-manifests.sh asserts merge correctness; custom Kotlin AppFlavor TurboModule + typed JS wrapper expose flavor + applicationId at runtime; per-flavor .env files; keystores .gitignore in place. DIST-07 rescinded (third compatRecon flavor not built); iOS deferred to Phase 7. STATE.md applicationId blocker resolved. pnpm typecheck green across all 3 TS workspaces. Ready for plan 01-10 (Terraform infra).
 Resume file: None
