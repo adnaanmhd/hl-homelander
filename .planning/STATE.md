@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Plan 01-06 complete + committed (commits 8433d7e, 14752c0, 78e5171, 20a17f9). Full /tasks/\* surface — GET /tasks (cursor-paginated list) + GET /tasks/:id + GET /tasks/search (RRF k=60 hybrid HNSW vector cosine + tsvector ts_rank, verbatim from RESEARCH §1.3) + POST /task-requests (auth + idempotency + per-user 10/min rate-limit). @xenova/transformers all-MiniLM-L6-v2 embedder singleton; idempotent `pnpm seed:tasks` upserts 65 tasks via ON CONFLICT (slug) DO UPDATE. 64 vitest tests across 16 files green; live HTTP smoke against running server confirmed /tasks list/get/search return correct data and unauth POST /task-requests returns 401. Patterns 24-28 documented. Ready for plan 01-07 (recordings).
-last_updated: '2026-05-07T14:18:26.304Z'
+stopped_at: Plan 01-08 complete + committed (commits d189572, 90df5a9, 5dae6e1). Full /me + /contributions + /events + /feedback + /app/version surface — API-10/11/12/13/14/15 shipped. Migration 0004 installs the recordings → contributions denormalization trigger; DSR cron stub logs daily candidates past the 30-day grace (Phase 5 owns actual hard-delete). 24 new vitest tests across 6 files; 108 total green. Phase 1 backend API surface is feature-complete (only hash-verify worker — Phase 5 — remains). Ready for plan 01-09.
+last_updated: '2026-05-07T15:29:03.774Z'
 last_activity: 2026-05-07
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 13
-  completed_plans: 6
-  percent: 46
+  completed_plans: 8
+  percent: 62
 ---
 
 # Project State
@@ -26,32 +26,33 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 1 (foundation-backend-distribution-recon) — EXECUTING
-Plan: 6 of 13 complete (sequential order in wave 1+2: 01-01 ✓ → 01-03 ✓ → 01-02 ✓ → 01-04 ✓ → 01-05 ✓ → 01-06 ✓; 01-07 next)
-Status: Plan 01-06 complete; full /tasks/\* surface shipped + 64 vitest tests green; ready for 01-07 (recordings)
+Plan: 8 of 13 complete (sequential order in wave 1+2: 01-01 ✓ → 01-03 ✓ → 01-02 ✓ → 01-04 ✓ → 01-05 ✓ → 01-06 ✓ → 01-07 ✓ → 01-08 ✓; 01-09 next)
+Status: Plan 01-08 complete; full /me + /contributions + /events + /feedback + /app/version surface shipped + 24 new vitest tests; ready for 01-09
 Last activity: 2026-05-07
 
-Progress: [█████░░░░░] 46%
+Progress: [██████░░░░] 62%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 6
-- Average duration: ~10 min
-- Total execution time: ~0.97 hours
+- Total plans completed: 8
+- Average duration: ~11 min
+- Total execution time: ~1.45 hours
 
 **By Phase:**
 
 | Phase    | Plans  | Total  | Avg/Plan |
 | -------- | ------ | ------ | -------- |
-| Phase 01 | 6 / 13 | 58 min | ~10 min  |
+| Phase 01 | 8 / 13 | 87 min | ~11 min  |
 
 **Recent Trend:**
 
-- Last 6 plans: 01-01 (7 min, 3 tasks, 22 files), 01-03 (5 min, 3 tasks, 7 files), 01-02 (6 min, 3 tasks + checkpoint, 11 files), 01-04 (9 min, 3 tasks, 18 files), 01-05 (13 min, 4 tasks, 25 files), 01-06 (18 min, 3 tasks, 17 files)
-- Trend: 01-06 is the longest plan to date — RRF SQL + embedder integration + new seed pipeline + 26 new tests + 5 deviations to resolve. Future task-on-existing-plumbing plans (01-07, 01-08) should land closer to ~10 min.
+- Last 8 plans: 01-01 (7 min, 3 tasks, 22 files), 01-03 (5 min, 3 tasks, 7 files), 01-02 (6 min, 3 tasks + checkpoint, 11 files), 01-04 (9 min, 3 tasks, 18 files), 01-05 (13 min, 4 tasks, 25 files), 01-06 (18 min, 3 tasks, 17 files), 01-07 (12 min, 4 tasks, 17 files), 01-08 (17 min, 3 tasks, 28 files)
+- Trend: 01-08 the second-longest of the phase — 7 endpoint groups in one plan, 5 deviations to resolve, full multipart wiring + DSR cron + migration 0004 trigger. Phase 1 backend API surface is now feature-complete (only hash-verify worker — Phase 5 — remains). Plan 01-09 should be lighter (final API hardening).
 
 _Updated after each plan completion_
+| Phase 01 P08 | 17 min | 3 tasks | 28 files |
 
 ## Accumulated Context
 
@@ -92,6 +93,15 @@ Recent decisions affecting current work:
 - [Phase 1]: Plan 01-06: Async keyGenerator for authenticated-tier rate-limit (Pattern 26) — @fastify/rate-limit fires before route preHandlers, so keyGenerator must do its own best-effort jwtVerify() and fall back to per-IP. Same shape as plan 04 idempotency hook-ordering fix.
 - [Phase 1]: Plan 01-06: Vitest pool: 'forks' + singleFork: true (Pattern 24) — multiple test files race on shared Postgres state via blanket db.delete in beforeEach; serialized execution is the bridge until plan 12 BEGIN/ROLLBACK isolation lands.
 - [Phase 1]: Plan 01-06: /tasks/search must register BEFORE /tasks/:id (Pattern 28) — Fastify radix-tree precedence; literal beats wildcard when sequential.
+- [Phase ?]: [Phase 1]: Plan 01-08: Per-applicationId rate-limit bucket on DELETE /me — 5/min keyed by 'delete-me:${applicationId}' caps account-deletion DoS even with rotating JWTs from the same build flavor (Pattern 29).
+- [Phase ?]: [Phase 1]: Plan 01-08: Migration 0004 trigger AUTO-DELETES empty contribution buckets when v_count=0 — keeps the contributions table sparse and matches /contributions/timeseries oldest-first iteration semantics (Pattern 30).
+- [Phase ?]: [Phase 1]: Plan 01-08: AppVersionResponseSchema = z.discriminatedUnion('flavor') — three concrete shapes (apkRollout, playStore, iosAppStore) per D-APK-02; clients narrow on flavor for type-safe upgrade-URL access (Pattern 33).
+- [Phase ?]: [Phase 1]: Plan 01-08: /feedback registers @fastify/multipart INSIDE the route plugin (not globally) — global idempotency hook keeps its standard JSON-body hash path; multipart hash falls back to (method, path, undefined-body) which is acceptable since UUIDv4 reuse with different multipart body is a client error (Pattern 31).
+- [Phase ?]: [Phase 1]: Plan 01-08: Test-side idempotency_keys cleanup — deterministic UUIDs in vitest files would replay stale responses across runs; beforeAll/beforeEach deletes idempotency_keys for the test user (Pattern 32). Plan 12 BEGIN/ROLLBACK isolation will retire this.
+- [Phase ?]: [Phase 1]: Plan 01-08: NODE_ENV=test gate on startDsrCron — singleFork test pool would accumulate setInterval handles + log noise across test files; production server.ts boot path always runs it (Pattern 34).
+- [Phase ?]: [Phase 1]: Plan 01-08: GET /app/version intentionally NO requireAuth — pre-sign-in clients need force_upgrade BEFORE they can sign in; Cache-Control public, max-age=21600 (6h) lets CDN edges serve copies, eating most of the load.
+- [Phase ?]: [Phase 1]: Plan 01-08: feedback diagnostic stored BOTH in S3 (full 5 MB) AND inline on row (first 100 KB after JSON.parse + truncate) — support reads inline without an S3 hop, investigators read full file from S3; inline always wraps with {\_s3_key} so each row is self-describing.
+- [Phase ?]: [Phase 1]: Plan 01-08: EVENT_NAMES is a hard-coded const (14 names) — adding a new telemetry event requires shipping shared/types release; type-level schema-creep guard against one-off telemetry calls (T-1.8-05).
 
 ### Pending Todos
 
@@ -117,6 +127,6 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-07T14:17:36.536Z
-Stopped at: Plan 01-05 complete + committed (commits 2cb595e, 3964776, 0df210a, 0be0403). Full /auth/\* surface — POST /auth/nonce + POST /auth/google with Google ID token verify + Play Integrity decode + flavor allowlist + install-source bypass + atomic users/profiles/consent_log upsert + 30-day HS256 JWT. 38 vitest tests across 11 files green; live smoke confirmed iosAppStore 501 + integrity-flavor-not-supported (W6 gate) and (playStore, .apk) 403 + forbidden. Ready for plan 01-06 (tasks routes).
+Last session: 2026-05-07T15:29:03.771Z
+Stopped at: Plan 01-08 complete + committed (commits d189572, 90df5a9, 5dae6e1). Full /me + /contributions + /events + /feedback + /app/version surface — API-10/11/12/13/14/15 shipped. Migration 0004 installs the recordings → contributions denormalization trigger; DSR cron stub logs daily candidates past the 30-day grace (Phase 5 owns actual hard-delete). 24 new vitest tests across 6 files; 108 total green. Phase 1 backend API surface is feature-complete (only hash-verify worker — Phase 5 — remains). Ready for plan 01-09.
 Resume file: None

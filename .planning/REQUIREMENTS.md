@@ -214,12 +214,12 @@
 - [ ] **API-07**: `PATCH /recordings/{id}` updates upload status / progress with idempotency-key support
 - [ ] **API-08**: `GET /recordings?range=` returns the user's recordings (with filters)
 - [ ] **API-09**: `GET /recordings/{id}` returns a single recording with a CloudFront-signed playback URL (5-minute TTL) when the recording is `uploaded` and the local copy is deleted
-- [ ] **API-10**: `GET /contributions` returns `Contribution` aggregates; `GET /contributions/timeseries?bucket=day&range=` returns the time series for tile filters
-- [ ] **API-11**: `POST /events` accepts telemetry batches (Firebase Analytics passthrough or backend ingest)
-- [ ] **API-12**: `POST /feedback` accepts in-app feedback submissions with diagnostic snapshot **[research]**
-- [ ] **API-13**: `GET /app/version` returns `{min_supported, latest, force_upgrade}` with a 6-hour cache header
-- [ ] **API-14**: All errors follow RFC 7807 `application/problem+json` shape
-- [ ] **API-15**: All POST/PATCH endpoints support `Idempotency-Key` headers
+- [x] **API-10**: `GET /contributions` returns `Contribution` aggregates; `GET /contributions/timeseries?bucket=day&range=` returns the time series for tile filters
+- [x] **API-11**: `POST /events` accepts telemetry batches (Firebase Analytics passthrough or backend ingest)
+- [x] **API-12**: `POST /feedback` accepts in-app feedback submissions with diagnostic snapshot **[research]**
+- [x] **API-13**: `GET /app/version` returns `{min_supported, latest, force_upgrade}` with a 6-hour cache header
+- [x] **API-14**: All errors follow RFC 7807 `application/problem+json` shape
+- [x] **API-15**: All POST/PATCH endpoints support `Idempotency-Key` headers
 - [x] **API-16**: `/tasks` semantic search is implemented as **Reciprocal Rank Fusion (k=60)** of pgvector cosine similarity (HNSW index on `embedding vector_cosine_ops`) and tsvector lexical match (GIN index on a generated `to_tsvector` column)
 - [x] **API-17**: Backend enforces server-side rate limits per user and per IP on `POST /recordings`, `POST /events`, and `POST /feedback` to catch early farming **[research]**
 
@@ -520,12 +520,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | API-07      | Phase 1 | Pending               |
 | API-08      | Phase 1 | Pending               |
 | API-09      | Phase 1 | Pending               |
-| API-10      | Phase 1 | Pending               |
-| API-11      | Phase 1 | Pending               |
-| API-12      | Phase 1 | Pending               |
-| API-13      | Phase 1 | Pending               |
-| API-14      | Phase 1 | Pending               |
-| API-15      | Phase 1 | Pending               |
+| API-10      | Phase 1 | Complete              |
+| API-11      | Phase 1 | Complete              |
+| API-12      | Phase 1 | Complete              |
+| API-13      | Phase 1 | Complete              |
+| API-14      | Phase 1 | Complete              |
+| API-15      | Phase 1 | Complete              |
 | API-16      | Phase 1 | Complete              |
 | API-17      | Phase 1 | Complete              |
 | VERIFY-01   | Phase 5 | Pending               |
