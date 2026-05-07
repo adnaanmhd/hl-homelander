@@ -2,7 +2,7 @@
 phase: 01-foundation-backend-distribution-recon
 plan: 10
 subsystem: infra
-status: partial-pending-checkpoint
+status: hcl-ready-apply-deferred
 tags:
   [
     terraform,
@@ -459,7 +459,7 @@ After the human approves and the plan-metadata commit lands:
 - **ROADMAP.md** plan-progress for phase 1 ticks up from 9 / 13 → 10 / 13.
 - **REQUIREMENTS.md** — `API-17`, `DIST-01`, `LEGAL-05` move from open to closed (LEGAL-05 was already closed by plan 03 in dev; this closes the prod-parity claim).
 
-Until then, the plan is **status: partial-pending-checkpoint** — no STATE.md / ROADMAP / REQUIREMENTS markings change. (See "STATE updates deferred" section below for the rationale.)
+**Apply deferred (user decision 2026-05-07):** the user has chosen to defer the actual `terraform apply` to a separate AWS-credentialed DevOps session. Plan 01-10 is therefore marked **hcl-ready-apply-deferred** and counts as complete for Phase 1 progress purposes. Phase 1's remaining plans (01-11, 01-13, 01-12) do not depend on a deployed AWS stack. Requirements `API-17`, `DIST-01` are not yet marked closed in REQUIREMENTS.md — they re-open at the actual apply gate. (LEGAL-05 was already closed by plan 03 in dev; the prod-parity claim is part of the deferred apply.)
 
 ## STATE updates deferred until apply gate
 
@@ -472,6 +472,6 @@ For this plan, that means: I update STATE.md's session-continuity (last_updated,
 ---
 
 _Phase: 01-foundation-backend-distribution-recon_
-_Status: partial-pending-checkpoint (Task 4 = first terraform apply against real AWS staging)_
+_Status: hcl-ready-apply-deferred (Task 4 = first terraform apply against real AWS staging — deferred per user decision 2026-05-07)_
 _Tasks committed: 3 / 4 (430e17a, 9e52db8, ad93d17)_
 _Generated: 2026-05-07_
