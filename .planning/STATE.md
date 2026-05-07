@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Plan 01-02 Tasks 1-3 complete + committed; Task 4 [BLOCKING] human-verify checkpoint — all 8 verification steps PASSED against live Postgres 17 + pgvector 0.8.2. Awaiting human-verify approval before advancing plan counter to 04 and updating ROADMAP.md.
-last_updated: '2026-05-07T13:00:44Z'
+stopped_at: Plan 01-04 complete + committed (3 tasks, commits c69be84, 1516fca, 824bd2c). Fastify 5.8.5 buildApp() factory + 6 cross-cutting plugins + healthz/readyz routes + 12 vitest tests all green. Live smoke against running server confirmed /healthz 200, /readyz 200, problem+json error format, idempotency UUIDv4 enforcement, rate-limit anonymous-tier 429+retry-after, pino redact. Ready for plan 01-05 (auth /auth/google).
+last_updated: '2026-05-07T13:24:27Z'
 last_activity: 2026-05-07
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 13
-  completed_plans: 2
-  percent: 15
+  completed_plans: 4
+  percent: 31
 ---
 
 # Project State
@@ -26,30 +26,30 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 1 (foundation-backend-distribution-recon) — EXECUTING
-Plan: 2 of 13 (sequential order in wave 1: 01-01 ✓ → 01-03 ✓ → 01-02 ← BLOCKING checkpoint pending user approval; 01-04 next once approved)
-Status: Plan 01-02 Tasks 1-3 committed; Task 4 [BLOCKING] schema-push verified live, awaiting human-verify approval
+Plan: 4 of 13 complete (sequential order in wave 1+2: 01-01 ✓ → 01-03 ✓ → 01-02 ✓ → 01-04 ✓; 01-05 next)
+Status: Plan 01-04 complete; Fastify skeleton + cross-cutting plugins shipped; ready for 01-05 (auth /auth/google)
 Last activity: 2026-05-07
 
-Progress: [██░░░░░░░░] 15%
+Progress: [███░░░░░░░] 31%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 2
-- Average duration: 6 min
-- Total execution time: ~0.20 hours
+- Total plans completed: 4
+- Average duration: ~6.75 min
+- Total execution time: ~0.45 hours
 
 **By Phase:**
 
-| Phase    | Plans  | Total  | Avg/Plan |
-| -------- | ------ | ------ | -------- |
-| Phase 01 | 2 / 13 | 12 min | 6 min    |
+| Phase    | Plans  | Total  | Avg/Plan  |
+| -------- | ------ | ------ | --------- |
+| Phase 01 | 4 / 13 | 27 min | ~6.75 min |
 
 **Recent Trend:**
 
-- Last 5 plans: 01-01 (7 min, 3 tasks, 22 files), 01-03 (5 min, 3 tasks, 7 files)
-- Trend: stable; image-pull-bound plans hover ~5 min
+- Last 5 plans: 01-01 (7 min, 3 tasks, 22 files), 01-03 (5 min, 3 tasks, 7 files), 01-02 (6 min, 3 tasks + checkpoint, 11 files), 01-04 (9 min, 3 tasks, 18 files)
+- Trend: stable; plans with cross-cutting plumbing (01-04) hover ~9 min, infra/schema plans ~5-6 min
 
 _Updated after each plan completion_
 
@@ -76,6 +76,10 @@ Recent decisions affecting current work:
 - [Phase 1]: Plan 01-02: Renamed drizzle-kit auto-generated migration filename `0000_overconfident_major_mapleleaf.sql` → `0001_init.sql` (and `meta/_journal.json` tag accordingly); auto-name's random third-word component is non-deterministic across machines, deterministic naming makes the migration committable
 - [Phase 1]: Plan 01-02: 0001_init.sql is a hybrid file — drizzle-kit auto-generated DDL bookended by hand-written CREATE EXTENSION (top) and DROP/ADD generated tsvector + HNSW + GIN (bottom). Future migrations needing pg-only features follow the same pattern (Pattern 9)
 - [Phase 1]: Plan 01-02: schema declares `nameSearch` as a regular tsvector column in Drizzle (Drizzle 0.45 has no GENERATED ALWAYS DSL); migration replaces it with the generated variant. INSERT/UPDATE statements against tasks must NOT include name_search in the column list (Postgres rejects writes to GENERATED ALWAYS columns) — plan 01-06 task seeding inherits this rule
+- [Phase 1]: Plan 01-04: fastify-type-provider-zod 4.x is incompatible with zod@4 (locked in plan 01-01) — bumped to 6.1.0 (first version with peer zod >= 4.1.5); the API surface used (validatorCompiler, serializerCompiler, ZodTypeProvider) is unchanged
+- [Phase 1]: Plan 01-04: Idempotency global preHandler MUST decode the JWT itself via best-effort `req.jwtVerify()` — Fastify runs `app.addHook('preHandler', ...)` BEFORE route-level requireAuth, so the original `req.user.sub` lookup always observed undefined and persistence never fired. Failed token decodes fall through to route-level requireAuth for the standard 401.
+- [Phase 1]: Plan 01-04: @fastify/rate-limit's errorResponseBuilder THROWS its return value through setErrorHandler; returning a plain object falls through the catch-all 500 branch. Builder now returns Error subclass with `.problemDetail` field; error-handler short-circuits on that (Pattern 14) — preserves wire-side extensions like `tier: 'anonymous'` and `retryAfterSeconds`.
+- [Phase 1]: Plan 01-04: req.user typing across the codebase comes from augmenting `@fastify/jwt`'s FastifyJWT interface (`payload: JwtPayload; user: JwtPayload`), not the Fastify-side FastifyRequest interface (which collides with @fastify/jwt's own augmentation) — Pattern 15.
 
 ### Pending Todos
 
@@ -101,6 +105,6 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-07T13:00:44Z
-Stopped at: Plan 01-02 Tasks 1-3 complete + committed (commits cb48b9d, af994ed, e5bda2c). Task 4 [BLOCKING] human-verify checkpoint — `pnpm db:migrate` applied 0001_init.sql cleanly to postgres://humyn:humyn@localhost:5432/humyn_dev; all 8 verification steps PASSED (vector extension active, 11 tables present, HNSW with vector_cosine_ops + m=16 + ef_construction=64, GIN on name_search, name_search is GENERATED ALWAYS, INSERT/SELECT/DELETE smoke against vector(384) succeeded). Awaiting user approval to mark plan complete and advance to 01-04.
-Resume file: .planning/phases/01-foundation-backend-distribution-recon/01-02-SUMMARY.md (Live Verification section)
+Last session: 2026-05-07T13:24:27Z
+Stopped at: Plan 01-04 complete + committed (commits c69be84, 1516fca, 824bd2c). Fastify 5.8.5 buildApp() factory + 6 cross-cutting plugins (problem-detail/error-handler, zod, request-id, logger, idempotency, rate-limit, auth) + healthz/readyz routes wired; 12 vitest tests across 5 files all green against live Postgres + JWT-signed test tokens; live smoke against running server on :8080 confirmed all five success-criteria invariants. Ready for plan 01-05 (auth /auth/google + Google Sign-In + Play Integrity).
+Resume file: .planning/phases/01-foundation-backend-distribution-recon/01-04-SUMMARY.md
