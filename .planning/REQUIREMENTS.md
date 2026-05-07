@@ -4,6 +4,7 @@
 **Core Value:** On-device capture quality is non-negotiable — every uploaded segment must hit the locked spec (1080p / 30 FPS / ≥110° dFOV / IMU sustained ≥100 Hz / ±1 ms timestamp alignment) or the bytes are worthless for training.
 
 > Requirements are derived verbatim where possible from the locked spec assets:
+>
 > - `idea-brief.md` (canonical product spec)
 > - `design-spec.md` + `prototype.html` (locked designs)
 > - `engineering-handoff.md` (locked engineering contract)
@@ -44,7 +45,7 @@
 - [ ] **COMPAT-04**: Compatibility check re-runs after every app update or OS update, and on a new device with the same Google account
 - [ ] **COMPAT-05**: When the compat bar is later raised, devices that previously passed but now fail are blocked from new recordings (existing recordings remain accessible for upload)
 - [ ] **COMPAT-06**: On compat fail, the screen lists exactly which checks failed; user cannot proceed beyond the screen
-- [ ] **COMPAT-07**: Compat-check verifies *behavior* not advertised metadata: NAL-unit parse on a test clip to detect B-frame leakage; OIS-OFF readback via `LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION`; HDR-mode SDR force via `DynamicRangeProfile.STANDARD`; IMU inter-sample p99 ≤ 12 ms with `maxReportLatency=0` **[research]**
+- [ ] **COMPAT-07**: Compat-check verifies _behavior_ not advertised metadata: NAL-unit parse on a test clip to detect B-frame leakage; OIS-OFF readback via `LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION`; HDR-mode SDR force via `DynamicRangeProfile.STANDARD`; IMU inter-sample p99 ≤ 12 ms with `maxReportLatency=0` **[research]**
 - [ ] **COMPAT-08**: Compat-fail "what now" recovery page presents next steps (try a different qualifying device; contact support); not a brick **[research]**
 
 ### Onboarding Tutorial
@@ -138,7 +139,7 @@
 - [ ] **REC-11**: Battery drop to ≤5% ends the current segment immediately
 - [ ] **REC-12**: Phone-call answered, alarm rings, rotation out of landscape, force-quit, OS-evict, or storage-full mid-record stops the recording per `idea-brief.md` §10 lifecycle table (upload if ≥60 s; discard if not)
 - [ ] **REC-13**: Phone-call declined → recording continues
-- [ ] **REC-14**: TTS uses Indian English female voice (en-IN) with the documented fallback chain (en-IN female → en-IN neutral → en-US female → first available en-*); rate 1.0, pitch 0.95, volume 0.85
+- [ ] **REC-14**: TTS uses Indian English female voice (en-IN) with the documented fallback chain (en-IN female → en-IN neutral → en-US female → first available en-\*); rate 1.0, pitch 0.95, volume 0.85
 - [ ] **REC-15**: Voice cues are duplicated as the centered VoiceCue overlay text for accessibility
 - [ ] **REC-16**: System runs a recurring storage check before each recording start (compat-time check is one-time only) **[research]**
 
@@ -244,7 +245,7 @@
 ### Observability
 
 - [ ] **OBS-01**: System reports native + JVM crash and ANR via Firebase Crashlytics
-- [ ] **OBS-02**: System emits the full event funnel from `engineering-handoff.md` §11 (signup_*, permission_*, compat_*, recording_*, gate_*, upload_*, history_*, profile_*, help_*) via Firebase Analytics
+- [ ] **OBS-02**: System emits the full event funnel from `engineering-handoff.md` §11 (signup*\*, permission*_, compat\__, recording*\*, gate*_, upload\__, history*\*, profile*_, help\__) via Firebase Analytics
 - [ ] **OBS-03**: Backend emits structured CloudWatch logs; per-device-model + per-OS-version + per-locale cohorts surface in dashboards
 - [ ] **OBS-04**: BullMQ dashboard (Bull-Board) exposes queue depth, retry counts, and DLQ for the hash-verify worker
 - [ ] **OBS-05**: System **does NOT** ship Sentry, Datadog, or third-party RUM at MVP (per `idea-brief.md` §12)
@@ -275,7 +276,7 @@
 - [ ] **LEGAL-02**: Consent text in `idea-brief.md` §5.2 is the canonical version; consent timestamps logged server-side with version
 - [ ] **LEGAL-03**: ANPD (Brazil) and DPB (India) takedown response procedure is documented operationally
 - [ ] **LEGAL-04**: Data-subject-rights API surface is defined (export, delete) — implementation may be operational at MVP
-- [ ] **LEGAL-05**: S3 bucket has a lifecycle policy from day 0 (Glacier IR at +7 days, Deep Archive at +90 days) **[research]**
+- [x] **LEGAL-05**: S3 bucket has a lifecycle policy from day 0 (Glacier IR at +7 days, Deep Archive at +90 days) **[research]** — _Plan 01-03: lifecycle defined as code in `infra/localstack/init/01-create-buckets.sh` and applied to `humyn-recordings-dev` (verified runtime: GLACIER_IR @ +7d, DEEP_ARCHIVE @ +90d, AbortIncompleteMultipartUpload @ +1d). Plan 01-10 Terraform will mirror this byte-identical JSON for prod._
 
 ## v2 Requirements
 
@@ -344,233 +345,235 @@ Deferred to a future release. Tracked but not in current roadmap.
 
 Explicitly excluded. Documented to prevent scope creep.
 
-| Feature | Reason |
-|---------|--------|
-| SSO with KGeN | SSO integration is its own coordination cost; Google works for both target geos |
-| Multi-account on a single device | Complicates session management with no clear MVP value |
-| Manual upload cancel | Prevents users from losing data they thought they'd kept |
-| User-side recording deletion (local or server) | Integrity of the dataset; deletion creates payout-dispute and dataset-management complexity |
-| Streaming uploaded recordings back after local copy is cleared | Signed-URL playback adds backend surface for no clear MVP user value |
-| Programmatic Do Not Disturb during recording | Requires `ACCESS_NOTIFICATION_POLICY` and Settings deep-link; not justified |
-| Additional client-side file encryption beyond Android FBE | Marginal security gain doesn't justify the I/O cost; rejected, not deferred |
-| MVP success metrics | Explicit user choice — ship and learn |
-| Mobile dark mode (non-recording surfaces) | Not enough usage data to design well; tokens are future-proofed |
-| Web / PWA / desktop / tablet builds | Capture flow needs platform sensors web can't reliably hit |
-| Editable Google profile fields beyond name / age / gender | Avatar editing wasn't in spec and would add an upload surface |
-| Bystander-consent in-app secondary-subject screen | Deferred per `strategic-suggestions.md` §4; uploader-attest model retained pending counsel review |
+| Feature                                                        | Reason                                                                                            |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| SSO with KGeN                                                  | SSO integration is its own coordination cost; Google works for both target geos                   |
+| Multi-account on a single device                               | Complicates session management with no clear MVP value                                            |
+| Manual upload cancel                                           | Prevents users from losing data they thought they'd kept                                          |
+| User-side recording deletion (local or server)                 | Integrity of the dataset; deletion creates payout-dispute and dataset-management complexity       |
+| Streaming uploaded recordings back after local copy is cleared | Signed-URL playback adds backend surface for no clear MVP user value                              |
+| Programmatic Do Not Disturb during recording                   | Requires `ACCESS_NOTIFICATION_POLICY` and Settings deep-link; not justified                       |
+| Additional client-side file encryption beyond Android FBE      | Marginal security gain doesn't justify the I/O cost; rejected, not deferred                       |
+| MVP success metrics                                            | Explicit user choice — ship and learn                                                             |
+| Mobile dark mode (non-recording surfaces)                      | Not enough usage data to design well; tokens are future-proofed                                   |
+| Web / PWA / desktop / tablet builds                            | Capture flow needs platform sensors web can't reliably hit                                        |
+| Editable Google profile fields beyond name / age / gender      | Avatar editing wasn't in spec and would add an upload surface                                     |
+| Bystander-consent in-app secondary-subject screen              | Deferred per `strategic-suggestions.md` §4; uploader-attest model retained pending counsel review |
 
 ## Traceability
 
 Which phases cover which requirements. Updated during roadmap creation.
 
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| AUTH-01 | Phase 2 | Pending |
-| AUTH-02 | Phase 2 | Pending |
-| AUTH-03 | Phase 2 | Pending |
-| AUTH-04 | Phase 2 | Pending |
-| AUTH-05 | Phase 2 | Pending |
-| AUTH-06 | Phase 1 | Pending |
-| AUTH-07 | Phase 2 | Pending |
-| AUTH-08 | Phase 2 | Pending |
-| AUTH-09 | Phase 2 | Pending |
-| AUTH-10 | Phase 2 | Pending |
-| AUTH-11 | Phase 2 | Pending |
-| PERM-01 | Phase 2 | Pending |
-| PERM-02 | Phase 2 | Pending |
-| PERM-03 | Phase 2 | Pending |
-| PERM-04 | Phase 2 | Pending |
-| COMPAT-01 | Phase 2 | Pending |
-| COMPAT-02 | Phase 2 | Pending |
-| COMPAT-03 | Phase 2 | Pending |
-| COMPAT-04 | Phase 2 | Pending |
-| COMPAT-05 | Phase 2 | Pending |
-| COMPAT-06 | Phase 2 | Pending |
-| COMPAT-07 | Phase 2 | Pending |
-| COMPAT-08 | Phase 2 | Pending |
-| ONB-01 | Phase 2 | Pending |
-| ONB-02 | Phase 2 | Pending |
-| ONB-03 | Phase 4 | Pending |
-| ONB-04 | Phase 4 | Pending |
-| ONB-05 | Phase 4 | Pending |
-| ONB-06 | Phase 4 | Pending |
-| ONB-07 | Phase 4 | Pending |
-| ONB-08 | Phase 4 | Pending |
-| HOME-01 | Phase 6 | Pending |
-| HOME-02 | Phase 6 | Pending |
-| HOME-03 | Phase 6 | Pending |
-| HOME-04 | Phase 6 | Pending |
-| HOME-05 | Phase 6 | Pending |
-| HOME-06 | Phase 6 | Pending |
-| HOME-07 | Phase 2 | Pending |
-| HOME-08 | Phase 2 | Pending |
-| HOME-09 | Phase 6 | Pending |
-| HOME-10 | Phase 6 | Pending |
-| TASK-01 | Phase 6 | Pending |
-| TASK-02 | Phase 6 | Pending |
-| TASK-03 | Phase 6 | Pending |
-| TASK-04 | Phase 6 | Pending |
-| TASK-05 | Phase 6 | Pending |
-| TASK-06 | Phase 6 | Pending |
-| TASK-07 | Phase 6 | Pending |
-| TASK-08 | Phase 6 | Pending |
-| TASK-09 | Phase 6 | Pending |
-| TASK-10 | Phase 6 | Pending |
-| CAP-01 | Phase 3 | Pending |
-| CAP-02 | Phase 3 | Pending |
-| CAP-03 | Phase 3 | Pending |
-| CAP-04 | Phase 3 | Pending |
-| CAP-05 | Phase 3 | Pending |
-| CAP-06 | Phase 3 | Pending |
-| CAP-07 | Phase 3 | Pending |
-| CAP-08 | Phase 3 | Pending |
-| CAP-09 | Phase 3 | Pending |
-| CAP-10 | Phase 3 | Pending |
-| CAP-11 | Phase 3 | Pending |
-| CAP-12 | Phase 3 | Pending |
-| CAP-13 | Phase 3 | Pending |
-| CAP-14 | Phase 3 | Pending |
-| CAP-15 | Phase 3 | Pending |
-| CAP-16 | Phase 3 | Pending |
-| CAP-17 | Phase 3 | Pending |
-| CAP-18 | Phase 3 | Pending |
-| CAP-19 | Phase 3 | Pending |
-| HAND-01 | Phase 4 | Pending |
-| HAND-02 | Phase 4 | Pending |
-| HAND-03 | Phase 4 | Pending |
-| HAND-04 | Phase 4 | Pending |
-| HAND-05 | Phase 4 | Pending |
-| HAND-06 | Phase 4 | Pending |
-| HAND-07 | Phase 4 | Pending |
-| HAND-08 | Phase 4 | Pending |
-| HAND-09 | Phase 4 | Pending |
-| HAND-10 | Phase 4 | Pending |
-| HAND-11 | Phase 4 | Pending |
-| HAND-12 | Phase 4 | Pending |
-| HAND-13 | Phase 4 | Pending |
-| HAND-14 | Phase 4 | Pending |
-| REC-01 | Phase 4 | Pending |
-| REC-02 | Phase 4 | Pending |
-| REC-03 | Phase 4 | Pending |
-| REC-04 | Phase 4 | Pending |
-| REC-05 | Phase 4 | Pending |
-| REC-06 | Phase 4 | Pending |
-| REC-07 | Phase 4 | Pending |
-| REC-08 | Phase 4 | Pending |
-| REC-09 | Phase 4 | Pending |
-| REC-10 | Phase 4 | Pending |
-| REC-11 | Phase 4 | Pending |
-| REC-12 | Phase 4 | Pending |
-| REC-13 | Phase 4 | Pending |
-| REC-14 | Phase 4 | Pending |
-| REC-15 | Phase 4 | Pending |
-| REC-16 | Phase 4 | Pending |
-| UP-01 | Phase 5 | Pending |
-| UP-02 | Phase 5 | Pending |
-| UP-03 | Phase 5 | Pending |
-| UP-04 | Phase 5 | Pending |
-| UP-05 | Phase 5 | Pending |
-| UP-06 | Phase 5 | Pending |
-| UP-07 | Phase 5 | Pending |
-| UP-08 | Phase 5 | Pending |
-| UP-09 | Phase 5 | Pending |
-| UP-10 | Phase 5 | Pending |
-| UP-11 | Phase 5 | Pending |
-| UP-12 | Phase 5 | Pending |
-| UP-13 | Phase 5 | Pending |
-| UP-14 | Phase 5 | Pending |
-| UP-15 | Phase 5 | Pending |
-| UP-16 | Phase 5 | Pending |
-| UP-17 | Phase 5 | Pending |
-| UP-18 | Phase 5 | Pending |
-| UP-19 | Phase 5 | Pending |
-| HIST-01 | Phase 6 | Pending |
-| HIST-02 | Phase 6 | Pending |
-| HIST-03 | Phase 6 | Pending |
-| HIST-04 | Phase 6 | Pending |
-| HIST-05 | Phase 6 | Pending |
-| HIST-06 | Phase 6 | Pending |
-| HIST-07 | Phase 6 | Pending |
-| HIST-08 | Phase 6 | Pending |
-| HIST-09 | Phase 6 | Pending |
-| HIST-10 | Phase 6 | Pending |
-| HIST-11 | Phase 6 | Pending |
-| PROF-01 | Phase 2 | Pending |
-| PROF-02 | Phase 2 | Pending |
-| PROF-03 | Phase 2 | Pending |
-| PROF-04 | Phase 2 | Pending |
-| PROF-05 | Phase 2 | Pending |
-| HELP-01 | Phase 2 | Pending |
-| HELP-02 | Phase 2 | Pending |
-| HELP-03 | Phase 2 | Pending |
-| HELP-04 | Phase 2 | Pending |
-| HELP-05 | Phase 2 | Pending |
-| UPG-01 | Phase 2 | Pending |
-| UPG-02 | Phase 2 | Pending |
-| UPG-03 | Phase 2 | Pending |
-| UPG-04 | Phase 2 | Pending |
-| UPG-05 | Phase 2 | Pending |
-| API-01 | Phase 1 | Pending |
-| API-02 | Phase 1 | Pending |
-| API-03 | Phase 1 | Pending |
-| API-04 | Phase 1 | Pending |
-| API-05 | Phase 1 | Pending |
-| API-06 | Phase 1 | Pending |
-| API-07 | Phase 1 | Pending |
-| API-08 | Phase 1 | Pending |
-| API-09 | Phase 1 | Pending |
-| API-10 | Phase 1 | Pending |
-| API-11 | Phase 1 | Pending |
-| API-12 | Phase 1 | Pending |
-| API-13 | Phase 1 | Pending |
-| API-14 | Phase 1 | Pending |
-| API-15 | Phase 1 | Pending |
-| API-16 | Phase 1 | Pending |
-| API-17 | Phase 1 | Pending |
-| VERIFY-01 | Phase 5 | Pending |
-| VERIFY-02 | Phase 5 | Pending |
-| VERIFY-03 | Phase 5 | Pending |
-| VERIFY-04 | Phase 5 | Pending |
-| VERIFY-05 | Phase 5 | Pending |
-| VERIFY-06 | Phase 5 | Pending |
-| VERIFY-07 | Phase 5 | Pending |
-| FRAUD-01 | Phase 1 | Pending |
-| FRAUD-02 | Phase 1 | Pending |
-| FRAUD-03 | Phase 5 | Pending |
-| FRAUD-04 | Phase 5 | Pending |
-| FRAUD-05 | Phase 5 | Pending |
-| FRAUD-06 | Phase 5 | Pending |
-| OBS-01 | Phase 7 | Pending |
-| OBS-02 | Phase 7 | Pending |
-| OBS-03 | Phase 7 | Pending |
-| OBS-04 | Phase 7 | Pending |
-| OBS-05 | Phase 7 | Pending |
-| DIST-01 | Phase 1 | Pending |
-| DIST-02 | Phase 1 | Pending |
-| DIST-03 | Phase 1 | Pending |
-| DIST-04 | Phase 1 | Pending |
-| DIST-05 | Phase 7 | Pending |
-| DIST-06 | Phase 7 | Pending |
-| DIST-07 | Phase 1 | Pending |
-| IOS-01 | Phase 7 | Pending |
-| IOS-02 | Phase 7 | Pending |
-| IOS-03 | Phase 7 | Pending |
-| IOS-04 | Phase 7 | Pending |
-| IOS-05 | Phase 7 | Pending |
-| IOS-06 | Phase 7 | Pending |
-| IOS-07 | Phase 7 | Pending |
-| LEGAL-01 | Phase 1 | Pending |
-| LEGAL-02 | Phase 1 | Pending |
-| LEGAL-03 | Phase 1 | Pending |
-| LEGAL-04 | Phase 1 | Pending |
-| LEGAL-05 | Phase 1 | Pending |
+| Requirement | Phase   | Status                |
+| ----------- | ------- | --------------------- |
+| AUTH-01     | Phase 2 | Pending               |
+| AUTH-02     | Phase 2 | Pending               |
+| AUTH-03     | Phase 2 | Pending               |
+| AUTH-04     | Phase 2 | Pending               |
+| AUTH-05     | Phase 2 | Pending               |
+| AUTH-06     | Phase 1 | Pending               |
+| AUTH-07     | Phase 2 | Pending               |
+| AUTH-08     | Phase 2 | Pending               |
+| AUTH-09     | Phase 2 | Pending               |
+| AUTH-10     | Phase 2 | Pending               |
+| AUTH-11     | Phase 2 | Pending               |
+| PERM-01     | Phase 2 | Pending               |
+| PERM-02     | Phase 2 | Pending               |
+| PERM-03     | Phase 2 | Pending               |
+| PERM-04     | Phase 2 | Pending               |
+| COMPAT-01   | Phase 2 | Pending               |
+| COMPAT-02   | Phase 2 | Pending               |
+| COMPAT-03   | Phase 2 | Pending               |
+| COMPAT-04   | Phase 2 | Pending               |
+| COMPAT-05   | Phase 2 | Pending               |
+| COMPAT-06   | Phase 2 | Pending               |
+| COMPAT-07   | Phase 2 | Pending               |
+| COMPAT-08   | Phase 2 | Pending               |
+| ONB-01      | Phase 2 | Pending               |
+| ONB-02      | Phase 2 | Pending               |
+| ONB-03      | Phase 4 | Pending               |
+| ONB-04      | Phase 4 | Pending               |
+| ONB-05      | Phase 4 | Pending               |
+| ONB-06      | Phase 4 | Pending               |
+| ONB-07      | Phase 4 | Pending               |
+| ONB-08      | Phase 4 | Pending               |
+| HOME-01     | Phase 6 | Pending               |
+| HOME-02     | Phase 6 | Pending               |
+| HOME-03     | Phase 6 | Pending               |
+| HOME-04     | Phase 6 | Pending               |
+| HOME-05     | Phase 6 | Pending               |
+| HOME-06     | Phase 6 | Pending               |
+| HOME-07     | Phase 2 | Pending               |
+| HOME-08     | Phase 2 | Pending               |
+| HOME-09     | Phase 6 | Pending               |
+| HOME-10     | Phase 6 | Pending               |
+| TASK-01     | Phase 6 | Pending               |
+| TASK-02     | Phase 6 | Pending               |
+| TASK-03     | Phase 6 | Pending               |
+| TASK-04     | Phase 6 | Pending               |
+| TASK-05     | Phase 6 | Pending               |
+| TASK-06     | Phase 6 | Pending               |
+| TASK-07     | Phase 6 | Pending               |
+| TASK-08     | Phase 6 | Pending               |
+| TASK-09     | Phase 6 | Pending               |
+| TASK-10     | Phase 6 | Pending               |
+| CAP-01      | Phase 3 | Pending               |
+| CAP-02      | Phase 3 | Pending               |
+| CAP-03      | Phase 3 | Pending               |
+| CAP-04      | Phase 3 | Pending               |
+| CAP-05      | Phase 3 | Pending               |
+| CAP-06      | Phase 3 | Pending               |
+| CAP-07      | Phase 3 | Pending               |
+| CAP-08      | Phase 3 | Pending               |
+| CAP-09      | Phase 3 | Pending               |
+| CAP-10      | Phase 3 | Pending               |
+| CAP-11      | Phase 3 | Pending               |
+| CAP-12      | Phase 3 | Pending               |
+| CAP-13      | Phase 3 | Pending               |
+| CAP-14      | Phase 3 | Pending               |
+| CAP-15      | Phase 3 | Pending               |
+| CAP-16      | Phase 3 | Pending               |
+| CAP-17      | Phase 3 | Pending               |
+| CAP-18      | Phase 3 | Pending               |
+| CAP-19      | Phase 3 | Pending               |
+| HAND-01     | Phase 4 | Pending               |
+| HAND-02     | Phase 4 | Pending               |
+| HAND-03     | Phase 4 | Pending               |
+| HAND-04     | Phase 4 | Pending               |
+| HAND-05     | Phase 4 | Pending               |
+| HAND-06     | Phase 4 | Pending               |
+| HAND-07     | Phase 4 | Pending               |
+| HAND-08     | Phase 4 | Pending               |
+| HAND-09     | Phase 4 | Pending               |
+| HAND-10     | Phase 4 | Pending               |
+| HAND-11     | Phase 4 | Pending               |
+| HAND-12     | Phase 4 | Pending               |
+| HAND-13     | Phase 4 | Pending               |
+| HAND-14     | Phase 4 | Pending               |
+| REC-01      | Phase 4 | Pending               |
+| REC-02      | Phase 4 | Pending               |
+| REC-03      | Phase 4 | Pending               |
+| REC-04      | Phase 4 | Pending               |
+| REC-05      | Phase 4 | Pending               |
+| REC-06      | Phase 4 | Pending               |
+| REC-07      | Phase 4 | Pending               |
+| REC-08      | Phase 4 | Pending               |
+| REC-09      | Phase 4 | Pending               |
+| REC-10      | Phase 4 | Pending               |
+| REC-11      | Phase 4 | Pending               |
+| REC-12      | Phase 4 | Pending               |
+| REC-13      | Phase 4 | Pending               |
+| REC-14      | Phase 4 | Pending               |
+| REC-15      | Phase 4 | Pending               |
+| REC-16      | Phase 4 | Pending               |
+| UP-01       | Phase 5 | Pending               |
+| UP-02       | Phase 5 | Pending               |
+| UP-03       | Phase 5 | Pending               |
+| UP-04       | Phase 5 | Pending               |
+| UP-05       | Phase 5 | Pending               |
+| UP-06       | Phase 5 | Pending               |
+| UP-07       | Phase 5 | Pending               |
+| UP-08       | Phase 5 | Pending               |
+| UP-09       | Phase 5 | Pending               |
+| UP-10       | Phase 5 | Pending               |
+| UP-11       | Phase 5 | Pending               |
+| UP-12       | Phase 5 | Pending               |
+| UP-13       | Phase 5 | Pending               |
+| UP-14       | Phase 5 | Pending               |
+| UP-15       | Phase 5 | Pending               |
+| UP-16       | Phase 5 | Pending               |
+| UP-17       | Phase 5 | Pending               |
+| UP-18       | Phase 5 | Pending               |
+| UP-19       | Phase 5 | Pending               |
+| HIST-01     | Phase 6 | Pending               |
+| HIST-02     | Phase 6 | Pending               |
+| HIST-03     | Phase 6 | Pending               |
+| HIST-04     | Phase 6 | Pending               |
+| HIST-05     | Phase 6 | Pending               |
+| HIST-06     | Phase 6 | Pending               |
+| HIST-07     | Phase 6 | Pending               |
+| HIST-08     | Phase 6 | Pending               |
+| HIST-09     | Phase 6 | Pending               |
+| HIST-10     | Phase 6 | Pending               |
+| HIST-11     | Phase 6 | Pending               |
+| PROF-01     | Phase 2 | Pending               |
+| PROF-02     | Phase 2 | Pending               |
+| PROF-03     | Phase 2 | Pending               |
+| PROF-04     | Phase 2 | Pending               |
+| PROF-05     | Phase 2 | Pending               |
+| HELP-01     | Phase 2 | Pending               |
+| HELP-02     | Phase 2 | Pending               |
+| HELP-03     | Phase 2 | Pending               |
+| HELP-04     | Phase 2 | Pending               |
+| HELP-05     | Phase 2 | Pending               |
+| UPG-01      | Phase 2 | Pending               |
+| UPG-02      | Phase 2 | Pending               |
+| UPG-03      | Phase 2 | Pending               |
+| UPG-04      | Phase 2 | Pending               |
+| UPG-05      | Phase 2 | Pending               |
+| API-01      | Phase 1 | Pending               |
+| API-02      | Phase 1 | Pending               |
+| API-03      | Phase 1 | Pending               |
+| API-04      | Phase 1 | Pending               |
+| API-05      | Phase 1 | Pending               |
+| API-06      | Phase 1 | Pending               |
+| API-07      | Phase 1 | Pending               |
+| API-08      | Phase 1 | Pending               |
+| API-09      | Phase 1 | Pending               |
+| API-10      | Phase 1 | Pending               |
+| API-11      | Phase 1 | Pending               |
+| API-12      | Phase 1 | Pending               |
+| API-13      | Phase 1 | Pending               |
+| API-14      | Phase 1 | Pending               |
+| API-15      | Phase 1 | Pending               |
+| API-16      | Phase 1 | Pending               |
+| API-17      | Phase 1 | Pending               |
+| VERIFY-01   | Phase 5 | Pending               |
+| VERIFY-02   | Phase 5 | Pending               |
+| VERIFY-03   | Phase 5 | Pending               |
+| VERIFY-04   | Phase 5 | Pending               |
+| VERIFY-05   | Phase 5 | Pending               |
+| VERIFY-06   | Phase 5 | Pending               |
+| VERIFY-07   | Phase 5 | Pending               |
+| FRAUD-01    | Phase 1 | Pending               |
+| FRAUD-02    | Phase 1 | Pending               |
+| FRAUD-03    | Phase 5 | Pending               |
+| FRAUD-04    | Phase 5 | Pending               |
+| FRAUD-05    | Phase 5 | Pending               |
+| FRAUD-06    | Phase 5 | Pending               |
+| OBS-01      | Phase 7 | Pending               |
+| OBS-02      | Phase 7 | Pending               |
+| OBS-03      | Phase 7 | Pending               |
+| OBS-04      | Phase 7 | Pending               |
+| OBS-05      | Phase 7 | Pending               |
+| DIST-01     | Phase 1 | Pending               |
+| DIST-02     | Phase 1 | Pending               |
+| DIST-03     | Phase 1 | Pending               |
+| DIST-04     | Phase 1 | Pending               |
+| DIST-05     | Phase 7 | Pending               |
+| DIST-06     | Phase 7 | Pending               |
+| DIST-07     | Phase 1 | Pending               |
+| IOS-01      | Phase 7 | Pending               |
+| IOS-02      | Phase 7 | Pending               |
+| IOS-03      | Phase 7 | Pending               |
+| IOS-04      | Phase 7 | Pending               |
+| IOS-05      | Phase 7 | Pending               |
+| IOS-06      | Phase 7 | Pending               |
+| IOS-07      | Phase 7 | Pending               |
+| LEGAL-01    | Phase 1 | Pending               |
+| LEGAL-02    | Phase 1 | Pending               |
+| LEGAL-03    | Phase 1 | Pending               |
+| LEGAL-04    | Phase 1 | Pending               |
+| LEGAL-05    | Phase 1 | Complete (Plan 01-03) |
 
 **Coverage:**
+
 - v1 requirements: 199
 - Mapped to phases: 199
 - Unmapped: 0
 
 **Per-phase counts:**
+
 - Phase 1 (Foundation, Backend & Distribution Recon): 30 requirements
 - Phase 2 (Mobile Shell, Onboarding, Permissions, Compat & Profile): 41 requirements
 - Phase 3 (HumynCapture Native Module): 19 requirements
@@ -581,5 +584,6 @@ Which phases cover which requirements. Updated during roadmap creation.
 - **Total mapped:** 199 / 199 (100% coverage)
 
 ---
-*Requirements defined: 2026-05-07*
-*Last updated: 2026-05-07 — Traceability written by roadmapper (7 phases, 199 requirements, 100% coverage)*
+
+_Requirements defined: 2026-05-07_
+_Last updated: 2026-05-07 — Traceability written by roadmapper (7 phases, 199 requirements, 100% coverage)_
