@@ -27,7 +27,12 @@ const banner = `// THIS FILE IS GENERATED. Do not edit by hand.
 // hash refresh fails the build (W7).
 `;
 
-const body = `export const CONSENT_TEXT_SHA256 = '${hash}';
+// Emit in the prettier-canonical split form: prettier (printWidth=100) splits
+// `export const CONSENT_TEXT_SHA256 = '<64-char-hex>';` (102 cols) onto two
+// lines. Match it here so re-running `pnpm legal:hash` post-commit yields no
+// diff (the determinism contract the boot-guard relies on).
+const body = `export const CONSENT_TEXT_SHA256 =
+  '${hash}';
 `;
 
 writeFileSync(HASH_FILE, banner + body, 'utf8');
