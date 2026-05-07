@@ -16,7 +16,8 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:migrate": "tsx scripts/migrate.ts",
-    "seed:tasks": "tsx scripts/seed-tasks.ts"
+    "seed:tasks": "tsx scripts/seed-tasks.ts",
+    "legal:hash": "tsx scripts/legal-hash.ts"
   },
   "dependencies": {
     "@humyn/shared-types": "workspace:*",

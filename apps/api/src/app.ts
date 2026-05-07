@@ -18,8 +18,13 @@ import eventsPostRoute from './routes/events/post.js';
 import feedbackPostRoute from './routes/feedback/post.js';
 import appVersionGetRoute from './routes/app-version/get.js';
 import { startDsrCron } from './cron/dsr-hard-delete.js';
+import { verifyConsentTextHash } from './legal/boot-guard.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
+  // Plan 01-11 — refuse to start on consent-text drift. MUST run before any
+  // plugin/route registration so a stale consent_log row is never written.
+  verifyConsentTextHash();
+
   const app = Fastify({ logger: loggerOptions, disableRequestLogging: false });
 
   // Order matters:

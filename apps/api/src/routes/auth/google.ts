@@ -15,11 +15,8 @@ import { decodeIntegrityToken } from '../../auth/verify-play-integrity.js';
 import { mintJwt } from '../../auth/jwt-mint.js';
 import { buildProblemDetail, PROBLEM_SLUGS } from '../../lib/problem-detail.js';
 import { AuthGoogleRequestSchema, AuthGoogleResponseSchema } from '@humyn/shared-types';
-
-// Plan 11 will replace this with the real consent text hash. For now, placeholder.
-// TODO(plan-01-11): import CONSENT_TEXT_HASH from '../../legal/consent-text.js'
-const CONSENT_TEXT_HASH_PLACEHOLDER = 'PENDING_LEGAL_TEXT_HASH';
-const CONSENT_VERSION = '1.0.0' as const;
+import { CONSENT_VERSION } from '../../legal/consent-text.js';
+import { CONSENT_TEXT_SHA256 } from '../../legal/consent-text-hash.js';
 
 const PROBLEM_CT = 'application/problem+json';
 
@@ -225,7 +222,7 @@ export default async function googleAuthRoutes(app: FastifyInstance) {
           id: ulid(),
           userId,
           consentVersion: CONSENT_VERSION,
-          consentTextHash: CONSENT_TEXT_HASH_PLACEHOLDER,
+          consentTextHash: CONSENT_TEXT_SHA256,
           acceptedAt: new Date(),
           ip,
           userAgent: ua,
