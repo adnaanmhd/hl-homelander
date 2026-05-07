@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 1 context gathered
-last_updated: "2026-05-07T12:07:05.362Z"
-last_activity: 2026-05-07 -- Phase 1 execution started
+stopped_at: Plan 01-01 complete; ready for Plan 01-02 (Postgres schema + Drizzle migrations)
+last_updated: '2026-05-07T12:26:06.339Z'
+last_activity: 2026-05-07
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 13
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 8
 ---
 
 # Project State
@@ -26,32 +26,32 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 1 (foundation-backend-distribution-recon) — EXECUTING
-Plan: 1 of 13
-Status: Executing Phase 1
-Last activity: 2026-05-07 -- Phase 1 execution started
+Plan: 2 of 13
+Status: Ready to execute
+Last activity: 2026-05-07
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 8%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0
-- Average duration: —
-- Total execution time: 0 hours
+- Total plans completed: 1
+- Average duration: 7 min
+- Total execution time: ~0.12 hours
 
 **By Phase:**
 
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| — | — | — | — |
+| Phase    | Plans  | Total | Avg/Plan |
+| -------- | ------ | ----- | -------- |
+| Phase 01 | 1 / 13 | 7 min | 7 min    |
 
 **Recent Trend:**
 
-- Last 5 plans: —
+- Last 5 plans: 01-01 (7 min, 3 tasks, 22 files)
 - Trend: —
 
-*Updated after each plan completion*
+_Updated after each plan completion_
 
 ## Accumulated Context
 
@@ -66,6 +66,9 @@ Recent decisions affecting current work:
 - Init: Hand-detection gate (one-shot pre-record) moved into MVP, supersedes deferred entry
 - Init: Server-side IMU liveness fraud check **promoted from v2 to MVP** backend scope (Phase 5) — capture spec already collects the data; on-device hand-gate alone is trivially defeated by TV-replay
 - Roadmap: Horizontal-layer phase structure (7 phases) compressed from research's 12-phase suggestion per granularity=standard
+- [Phase 1]: Plan 01-01: ESLint 9.16.0 forced flat-config migration; created eslint.config.mjs at root, deleted .eslintrc.json, added @eslint/js + typescript-eslint umbrella
+- [Phase 1]: Plan 01-01: @aws-sdk/cloudfront-signer pinned at 3.1036.0 (not 3.1044.0); cloudfront-signer is on a slower release cadence than other AWS SDK v3 modules
+- [Phase 1]: Plan 01-01: bootstrap pnpm via corepack (corepack prepare pnpm@9.15.0 --activate); matches package.json packageManager pin and is reproducible across machines
 
 ### Pending Todos
 
@@ -85,12 +88,12 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Deferred Items
 
-| Category | Item | Status | Deferred At |
-|----------|------|--------|-------------|
-| *(none — first milestone)* | | | |
+| Category                   | Item | Status | Deferred At |
+| -------------------------- | ---- | ------ | ----------- |
+| _(none — first milestone)_ |      |        |             |
 
 ## Session Continuity
 
-Last session: 2026-05-07T09:42:10.630Z
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-foundation-backend-distribution-recon/01-CONTEXT.md
+Last session: 2026-05-07T12:25:38.419Z
+Stopped at: Plan 01-01 complete; ready for Plan 01-02 (Postgres schema + Drizzle migrations)
+Resume file: .planning/phases/01-foundation-backend-distribution-recon/01-02-PLAN.md
