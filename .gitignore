@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+dist/
+*.tsbuildinfo
+apps/api/dist/
+apps/mobile/android/app/build/
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+
+# Test / coverage
+coverage/
+.vitest-temp/
+
+# Mobile signing & native
+apps/mobile/android/keystores/
+apps/mobile/ios/Pods/
+
+# Terraform local state (do not check in keep root reference)
+infra/terraform/**/.terraform/
+infra/terraform/**/*.tfstate*
+infra/terraform/**/.terraform.lock.hcl
+
+# ONNX / ML model cache
+models/
