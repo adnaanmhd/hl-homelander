@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Plan 01-04 complete + committed (3 tasks, commits c69be84, 1516fca, 824bd2c). Fastify 5.8.5 buildApp() factory + 6 cross-cutting plugins + healthz/readyz routes + 12 vitest tests all green. Live smoke against running server confirmed /healthz 200, /readyz 200, problem+json error format, idempotency UUIDv4 enforcement, rate-limit anonymous-tier 429+retry-after, pino redact. Ready for plan 01-05 (auth /auth/google).
-last_updated: '2026-05-07T13:24:27Z'
+stopped_at: Plan 01-05 complete + committed (commits 2cb595e, 3964776, 0df210a, 0be0403). Full /auth/* surface — POST /auth/nonce + POST /auth/google with Google ID token verify + Play Integrity decode + flavor allowlist + install-source bypass + atomic users/profiles/consent_log upsert + 30-day HS256 JWT. 38 vitest tests across 11 files green; live smoke confirmed iosAppStore 501 + integrity-flavor-not-supported (W6 gate) and (playStore, .apk) 403 + forbidden. Ready for plan 01-06 (tasks routes).
+last_updated: '2026-05-07T13:52:41.138Z'
 last_activity: 2026-05-07
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 13
-  completed_plans: 4
-  percent: 31
+  completed_plans: 5
+  percent: 38
 ---
 
 # Project State
@@ -26,30 +26,30 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 1 (foundation-backend-distribution-recon) — EXECUTING
-Plan: 4 of 13 complete (sequential order in wave 1+2: 01-01 ✓ → 01-03 ✓ → 01-02 ✓ → 01-04 ✓; 01-05 next)
-Status: Plan 01-04 complete; Fastify skeleton + cross-cutting plugins shipped; ready for 01-05 (auth /auth/google)
+Plan: 5 of 13 complete (sequential order in wave 1+2: 01-01 ✓ → 01-03 ✓ → 01-02 ✓ → 01-04 ✓ → 01-05 ✓; 01-06 next)
+Status: Plan 01-05 complete; full /auth/\* surface shipped + 38 vitest tests green; ready for 01-06 (tasks routes)
 Last activity: 2026-05-07
 
-Progress: [███░░░░░░░] 31%
+Progress: [████░░░░░░] 38%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 4
-- Average duration: ~6.75 min
-- Total execution time: ~0.45 hours
+- Total plans completed: 5
+- Average duration: ~8 min
+- Total execution time: ~0.67 hours
 
 **By Phase:**
 
-| Phase    | Plans  | Total  | Avg/Plan  |
-| -------- | ------ | ------ | --------- |
-| Phase 01 | 4 / 13 | 27 min | ~6.75 min |
+| Phase    | Plans  | Total  | Avg/Plan |
+| -------- | ------ | ------ | -------- |
+| Phase 01 | 5 / 13 | 40 min | ~8 min   |
 
 **Recent Trend:**
 
-- Last 5 plans: 01-01 (7 min, 3 tasks, 22 files), 01-03 (5 min, 3 tasks, 7 files), 01-02 (6 min, 3 tasks + checkpoint, 11 files), 01-04 (9 min, 3 tasks, 18 files)
-- Trend: stable; plans with cross-cutting plumbing (01-04) hover ~9 min, infra/schema plans ~5-6 min
+- Last 5 plans: 01-01 (7 min, 3 tasks, 22 files), 01-03 (5 min, 3 tasks, 7 files), 01-02 (6 min, 3 tasks + checkpoint, 11 files), 01-04 (9 min, 3 tasks, 18 files), 01-05 (13 min, 4 tasks, 25 files)
+- Trend: stable; plans with cross-cutting plumbing (01-04, 01-05) hover ~9-13 min, infra/schema plans ~5-6 min
 
 _Updated after each plan completion_
 
@@ -80,6 +80,13 @@ Recent decisions affecting current work:
 - [Phase 1]: Plan 01-04: Idempotency global preHandler MUST decode the JWT itself via best-effort `req.jwtVerify()` — Fastify runs `app.addHook('preHandler', ...)` BEFORE route-level requireAuth, so the original `req.user.sub` lookup always observed undefined and persistence never fired. Failed token decodes fall through to route-level requireAuth for the standard 401.
 - [Phase 1]: Plan 01-04: @fastify/rate-limit's errorResponseBuilder THROWS its return value through setErrorHandler; returning a plain object falls through the catch-all 500 branch. Builder now returns Error subclass with `.problemDetail` field; error-handler short-circuits on that (Pattern 14) — preserves wire-side extensions like `tier: 'anonymous'` and `retryAfterSeconds`.
 - [Phase 1]: Plan 01-04: req.user typing across the codebase comes from augmenting `@fastify/jwt`'s FastifyJWT interface (`payload: JwtPayload; user: JwtPayload`), not the Fastify-side FastifyRequest interface (which collides with @fastify/jwt's own augmentation) — Pattern 15.
+- [Phase 1]: Plan 01-05: Idempotent migration runner with schema_migrations bookkeeping table — plan 02's runner hard-coded 0001_init.sql; backfilled the bookkeeping table by hand once at this transition (Pattern 23)
+- [Phase 1]: Plan 01-05: JwtPayload.iat/exp relaxed to optional in apps/api/src/plugins/auth.ts — exactOptionalPropertyTypes broke app.jwt.sign at the sign site; jsonwebtoken auto-fills both at sign-time and asserts at verify-time so runtime guarantee preserved
+- [Phase 1]: Plan 01-05: Response schema intentionally omitted from /auth/google ZodTypeProvider config — declaring response: { 200: ... } narrows reply.code() to 200, breaking non-200 problem-detail returns. Body schema still validated; happy-path response shape enforced manually in the return statement (Pattern 22)
+- [Phase 1]: Plan 01-05: Status code split 401 vs 403 for integrity rejects — nonce + stale = 401 (auth gate); device-integrity + flavor + package + allowlist mismatches = 403 (policy gate). RFC 7235-correct semantics; refines plan body's universal-403 (Pattern 21)
+- [Phase 1]: Plan 01-05: PENDING_LEGAL_TEXT_HASH placeholder in /auth/google — plan 11 owns the consent text + sha256; consent_log rows still written (D-LEGAL-03 audit trail). Plan 11 swaps the constant + can backfill historical rows if counsel requires
+- [Phase 1]: Plan 01-05: Three-gate install-source bypass — (1) STATIC_BYPASS_ALLOWED hard-codes playStore=false; (2) flavor-allowlist cross-check; (3) Remote Config key keyed by applicationId. ALL three must pass; playStore APK structurally cannot read the apkRollout RC key (Pattern 17)
+- [Phase 1]: Plan 01-05: W6 Phase-1 iOS gate via gatePhase1Flavor() throwing UnsupportedFlavorError — /auth/google emits 501 + integrity-flavor-not-supported. Phase 7 swaps the gate body for App Attest verification; the route handler is unchanged (Pattern 18)
 
 ### Pending Todos
 
@@ -105,6 +112,6 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-07T13:24:27Z
-Stopped at: Plan 01-04 complete + committed (commits c69be84, 1516fca, 824bd2c). Fastify 5.8.5 buildApp() factory + 6 cross-cutting plugins (problem-detail/error-handler, zod, request-id, logger, idempotency, rate-limit, auth) + healthz/readyz routes wired; 12 vitest tests across 5 files all green against live Postgres + JWT-signed test tokens; live smoke against running server on :8080 confirmed all five success-criteria invariants. Ready for plan 01-05 (auth /auth/google + Google Sign-In + Play Integrity).
-Resume file: .planning/phases/01-foundation-backend-distribution-recon/01-04-SUMMARY.md
+Last session: 2026-05-07T13:52:41.130Z
+Stopped at: Plan 01-05 complete + committed (commits 2cb595e, 3964776, 0df210a, 0be0403). Full /auth/\* surface — POST /auth/nonce + POST /auth/google with Google ID token verify + Play Integrity decode + flavor allowlist + install-source bypass + atomic users/profiles/consent_log upsert + 30-day HS256 JWT. 38 vitest tests across 11 files green; live smoke confirmed iosAppStore 501 + integrity-flavor-not-supported (W6 gate) and (playStore, .apk) 403 + forbidden. Ready for plan 01-06 (tasks routes).
+Resume file: .planning/phases/01-foundation-backend-distribution-recon/01-05-SUMMARY.md

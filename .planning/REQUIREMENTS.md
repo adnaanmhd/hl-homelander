@@ -23,7 +23,7 @@
 - [ ] **AUTH-03**: User can view full Terms of Use copy (verbatim from `idea-brief.md` §5.2 / `design-spec.md` §18.1) in a popup before consenting
 - [ ] **AUTH-04**: System fetches `name`, `email`, `birthday`/`age`, `gender` from Google on success; age and gender are nullable when Google withholds them
 - [ ] **AUTH-05**: System runs Play Integrity Standard verification at sign-in; rooted, emulator, and non-Play-Store devices are rejected
-- [ ] **AUTH-06**: APK build flavor bypasses the Play-Store install-source check via Remote Config (Play Store flavor cannot opt into bypass)
+- [x] **AUTH-06**: APK build flavor bypasses the Play-Store install-source check via Remote Config (Play Store flavor cannot opt into bypass)
 - [ ] **AUTH-07**: User session persists across app launches (token in Keychain / Keystore)
 - [ ] **AUTH-08**: User can log out from Profile (cancels in-flight upload, preserves local upload queue, returns to Sign-up)
 - [ ] **AUTH-09**: User can soft-delete account (30-day restore window via re-login; after 30 days, deletion is permanent; uploaded recordings stay on server)
@@ -205,7 +205,7 @@
 
 ### Backend API (Fastify + Postgres + S3)
 
-- [ ] **API-01**: `POST /auth/google` exchanges Google ID token + Play Integrity attestation token + build-flavor field for a Humyn session token
+- [x] **API-01**: `POST /auth/google` exchanges Google ID token + Play Integrity attestation token + build-flavor field for a Humyn session token
 - [x] **API-02**: `GET /me` returns the current user record; `PATCH /me` updates editable fields (name, age, gender)
 - [x] **API-03**: `DELETE /me` triggers 30-day soft delete; `POST /me/restore` restores within the window
 - [x] **API-04**: `GET /tasks?category=&setting=` returns the 65 tasks (paginated); `GET /tasks/{id}` returns a single task by slug; backend is seeded from `design-system/task-icons/mapping.json`
@@ -235,8 +235,8 @@
 
 ### Anti-fraud
 
-- [ ] **FRAUD-01**: Play Integrity Standard verification at sign-in only (per-upload attestation deferred to v2)
-- [ ] **FRAUD-02**: Backend rejects sign-in with rooted, emulator, and non-Play-Store-install verdicts (APK build flavor bypasses install-source check via Remote Config; Play Store flavor cannot opt into bypass)
+- [x] **FRAUD-01**: Play Integrity Standard verification at sign-in only (per-upload attestation deferred to v2)
+- [x] **FRAUD-02**: Backend rejects sign-in with rooted, emulator, and non-Play-Store-install verdicts (APK build flavor bypasses install-source check via Remote Config; Play Store flavor cannot opt into bypass)
 - [ ] **FRAUD-03**: Backend implements server-side IMU liveness fraud check on the uploaded IMU CSV (stillness gate, gravity-axis check, saccade density, optional walking-segment FFT, vision-motion correlation) per `imu-liveness-check.md` §4 — promoted from v2-deferred to MVP backend scope **[research]**
 - [ ] **FRAUD-04**: Backend produces a `liveness_score ∈ [0, 1]` per segment with the weighted formula in `imu-liveness-check.md` §5; thresholds are tunable
 - [ ] **FRAUD-05**: Per-account daily upload-rate cap enforced server-side as a coarse fraud heuristic
@@ -255,7 +255,7 @@
 - [ ] **DIST-01**: Three build flavors exist: `apkRollout` (signed APK distributed to clan chiefs), `playStore`, and `iosAppStore`
 - [ ] **DIST-02**: Different `applicationId` per Android flavor enables co-installation
 - [ ] **DIST-03**: Remote Config keys the install-source-check bypass by `applicationId`; `playStore` flavor cannot opt into bypass
-- [ ] **DIST-04**: Backend `/auth/google` validates that the supplied build-flavor field matches a known flavor and applies the matching install-source policy
+- [x] **DIST-04**: Backend `/auth/google` validates that the supplied build-flavor field matches a known flavor and applies the matching install-source policy
 - [ ] **DIST-05**: Play Store rollout is staged: 1% → 5% → 25% → 100% with k6 load-test gate at each stage
 - [ ] **DIST-06**: iOS App Store ships ≤2 weeks after Play Store rollout (within the same MVP milestone)
 - [ ] **DIST-07**: Standalone compat-only APK (`compatRecon` flavor) ships to ~50 clan chiefs **before** APK rollout to harvest device-model coverage data; addressable-fleet go/no-go gate **[research]**
@@ -371,7 +371,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AUTH-03     | Phase 2 | Pending               |
 | AUTH-04     | Phase 2 | Pending               |
 | AUTH-05     | Phase 2 | Pending               |
-| AUTH-06     | Phase 1 | Pending               |
+| AUTH-06     | Phase 1 | Complete              |
 | AUTH-07     | Phase 2 | Pending               |
 | AUTH-08     | Phase 2 | Pending               |
 | AUTH-09     | Phase 2 | Pending               |
@@ -511,7 +511,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UPG-03      | Phase 2 | Pending               |
 | UPG-04      | Phase 2 | Pending               |
 | UPG-05      | Phase 2 | Pending               |
-| API-01      | Phase 1 | Pending               |
+| API-01      | Phase 1 | Complete              |
 | API-02      | Phase 1 | Complete              |
 | API-03      | Phase 1 | Complete              |
 | API-04      | Phase 1 | Complete              |
@@ -535,8 +535,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | VERIFY-05   | Phase 5 | Pending               |
 | VERIFY-06   | Phase 5 | Pending               |
 | VERIFY-07   | Phase 5 | Pending               |
-| FRAUD-01    | Phase 1 | Pending               |
-| FRAUD-02    | Phase 1 | Pending               |
+| FRAUD-01    | Phase 1 | Complete              |
+| FRAUD-02    | Phase 1 | Complete              |
 | FRAUD-03    | Phase 5 | Pending               |
 | FRAUD-04    | Phase 5 | Pending               |
 | FRAUD-05    | Phase 5 | Pending               |
@@ -549,7 +549,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DIST-01     | Phase 1 | Pending               |
 | DIST-02     | Phase 1 | Pending               |
 | DIST-03     | Phase 1 | Pending               |
-| DIST-04     | Phase 1 | Pending               |
+| DIST-04     | Phase 1 | Complete              |
 | DIST-05     | Phase 7 | Pending               |
 | DIST-06     | Phase 7 | Pending               |
 | DIST-07     | Phase 1 | Pending               |
