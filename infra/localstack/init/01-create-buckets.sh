@@ -15,6 +15,31 @@ awslocal s3api create-bucket \
   --region ap-south-1 \
   --create-bucket-configuration LocationConstraint=ap-south-1 || true
 
+# humyn-feedback-dev — diagnostic-attachment bucket for POST /feedback (plan 01-08)
+awslocal s3api create-bucket \
+  --bucket humyn-feedback-dev \
+  --region ap-south-1 \
+  --create-bucket-configuration LocationConstraint=ap-south-1 || true
+
+awslocal s3api put-public-access-block \
+  --bucket humyn-feedback-dev \
+  --public-access-block-configuration \
+    "BlockPublicAcls=true,BlockPublicPolicy=true,IgnorePublicAcls=true,RestrictPublicBuckets=true"
+
+# 90-day expiration on feedback bucket — diagnostic snapshots are short-lived support data
+awslocal s3api put-bucket-lifecycle-configuration \
+  --bucket humyn-feedback-dev \
+  --lifecycle-configuration '{
+    "Rules": [
+      {
+        "ID": "expire-old-feedback",
+        "Status": "Enabled",
+        "Filter": {"Prefix": ""},
+        "Expiration": {"Days": 90}
+      }
+    ]
+  }'
+
 # Versioning on the recordings bucket (matches RESEARCH §3.6)
 awslocal s3api put-bucket-versioning \
   --bucket humyn-recordings-dev \
