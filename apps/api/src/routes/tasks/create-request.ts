@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { ulid } from 'ulid';
 import { db, schema } from '../../db/index.js';
@@ -8,9 +8,24 @@ import type { JwtPayload } from '../../plugins/auth.js';
 // POST /task-requests — authenticated. JWT.sub becomes task_requests.user_id;
 // no client control over the userId field (mitigates T-1.6-07 spoofing).
 //
-// Authenticated-tier rate limit (per-user, 10/min) keyed by user:<sub>; bucket
-// is disjoint from the anonymous-tier (per-IP) bucket per Pattern 16.
-//
+// Authenticated-tier rate limit (per-user, 10/min) keyed by `user:<sub>`. The
+// keyGenerator must decode the JWT itself because @fastify/rate-limit fires
+// BEFORE the route's preHandler list (and therefore before requireAuth has
+// populated req.user). This mirrors the pattern in plugins/idempotency.ts —
+// best-effort jwtVerify(), fall back to per-IP if missing/invalid (the route
+// will still 401 from requireAuth, so the fall-back bucket is harmless).
+// Pattern 16 (disjoint buckets) is preserved: signed-in users hit `user:<sub>`,
+// pre-auth-failure traffic hits `ip:<ip>`.
+async function rateLimitKey(req: FastifyRequest): Promise<string> {
+  try {
+    await req.jwtVerify();
+  } catch {
+    return `ip:${req.ip}`;
+  }
+  const u = req.user as JwtPayload | undefined;
+  return u?.sub ? `user:${u.sub}` : `ip:${req.ip}`;
+}
+
 // Response schema is omitted from the type provider so reply.code(201) is not
 // type-narrowed (Pattern 22). The 201 payload shape matches TaskRequestSchema.
 export default async function taskRequestRoutes(app: FastifyInstance) {
@@ -23,7 +38,7 @@ export default async function taskRequestRoutes(app: FastifyInstance) {
         rateLimit: {
           max: 10,
           timeWindow: '1 minute',
-          keyGenerator: (req) => `user:${(req.user as JwtPayload).sub}`,
+          keyGenerator: rateLimitKey,
         },
       },
     },
