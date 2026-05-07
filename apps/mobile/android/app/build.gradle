@@ -1,0 +1,95 @@
+apply plugin: "com.android.application"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.facebook.react"
+
+android {
+    namespace 'ai.humynlabs.capture'
+    compileSdk rootProject.ext.compileSdkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+
+    defaultConfig {
+        // Default applicationId is overridden per-flavor below; this value is the
+        // canonical Play Store id and acts as a defensive fallback only.
+        applicationId 'ai.humynlabs.capture'
+        minSdk rootProject.ext.minSdkVersion
+        targetSdk rootProject.ext.targetSdkVersion
+        versionCode (project.hasProperty('humynVersionCode')
+                     ? project.humynVersionCode.toInteger() : 1)
+        versionName (project.hasProperty('humynVersionName')
+                     ? project.humynVersionName : '0.1.0')
+    }
+
+    flavorDimensions += 'distribution'
+
+    productFlavors {
+        playStore {
+            dimension 'distribution'
+            // D-FLAV-01: canonical, permanent applicationId on Play Store.
+            applicationId 'ai.humynlabs.capture'
+            versionNameSuffix ''
+            buildConfigField 'String', 'FLAVOR_NAME', '"playStore"'
+            buildConfigField 'String', 'APPLICATION_ID', '"ai.humynlabs.capture"'
+        }
+        apkRollout {
+            dimension 'distribution'
+            // D-FLAV-01: `.apk` suffix lets the apkRollout build co-install with playStore
+            // and is the wire-side identifier the server allowlist (plan 05) cross-checks.
+            applicationId 'ai.humynlabs.capture.apk'
+            versionNameSuffix '-apk'
+            buildConfigField 'String', 'FLAVOR_NAME', '"apkRollout"'
+            buildConfigField 'String', 'APPLICATION_ID', '"ai.humynlabs.capture.apk"'
+        }
+        // NOTE: Two flavors only. DIST-07 (third-flavor recon build) is rescinded per
+        // CONTEXT.md D-DIST-01. iOS distribution is an Xcode scheme target, not an Android
+        // product flavor; Phase 7 wires that separately.
+    }
+
+    signingConfigs {
+        playStoreRelease {
+            storeFile file(System.getenv('PLAY_STORE_KEYSTORE_PATH')
+                           ?: "${rootProject.projectDir}/keystores/playstore.keystore")
+            storePassword System.getenv('PLAY_STORE_KEYSTORE_PASSWORD')
+            keyAlias System.getenv('PLAY_STORE_KEY_ALIAS')
+            keyPassword System.getenv('PLAY_STORE_KEY_PASSWORD')
+        }
+        apkRolloutRelease {
+            storeFile file(System.getenv('APK_ROLLOUT_KEYSTORE_PATH')
+                           ?: "${rootProject.projectDir}/keystores/apkrollout.keystore")
+            storePassword System.getenv('APK_ROLLOUT_KEYSTORE_PASSWORD')
+            keyAlias System.getenv('APK_ROLLOUT_KEY_ALIAS')
+            keyPassword System.getenv('APK_ROLLOUT_KEY_PASSWORD')
+        }
+    }
+
+    buildTypes {
+        debug {
+            // Both flavors use the standard Android debug keystore in dev.
+        }
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            productFlavors.playStore.signingConfig signingConfigs.playStoreRelease
+            productFlavors.apkRollout.signingConfig signingConfigs.apkRolloutRelease
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions { jvmTarget = '17' }
+}
+
+dependencies {
+    implementation("com.facebook.react:react-android")
+    if (hermesEnabled.toBoolean()) {
+        implementation("com.facebook.react:hermes-android")
+    }
+}
+
+apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)

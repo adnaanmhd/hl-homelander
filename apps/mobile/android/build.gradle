@@ -1,0 +1,20 @@
+// Root Gradle build script for the Humyn Labs Capture Android app.
+// Pinned per CLAUDE.md / STACK.md: AGP 8.7+, Kotlin 2.0.21+, compileSdk 35, minSdk 26, JDK 17.
+
+buildscript {
+    ext {
+        buildToolsVersion = "35.0.0"
+        minSdkVersion = 26
+        compileSdkVersion = 35
+        targetSdkVersion = 35
+        kotlinVersion = "2.0.21"
+        agpVersion = "8.7.3"
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle:${agpVersion}")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVersion}")
+        classpath("com.facebook.react:react-native-gradle-plugin")
+    }
+}
+
+apply plugin: "com.facebook.react.rootproject"

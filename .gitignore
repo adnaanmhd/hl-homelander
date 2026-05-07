@@ -19,7 +19,11 @@ coverage/
 .vitest-temp/
 
 # Mobile signing & native
-apps/mobile/android/keystores/
+# Ignore everything inside keystores/ EXCEPT the directory's own .gitignore so
+# the directory exists in the repo (real keystores arrive at CI runtime via
+# decrypted secrets). Defense-in-depth alongside apps/mobile/android/keystores/.gitignore.
+apps/mobile/android/keystores/*
+!apps/mobile/android/keystores/.gitignore
 apps/mobile/ios/Pods/
 
 # Terraform local state (do not check in keep root reference)
