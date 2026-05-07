@@ -43,10 +43,20 @@ async function idempotencyPlugin(app: FastifyInstance) {
       return reply.status(400).type(PROBLEM_CT).send(pd);
     }
 
-    // Auth plugin must have populated req.user.sub by now if route is authed.
-    // For /auth/* routes (idempotency: false above), this code path is skipped.
-    const userId = (req.user as { sub?: string } | undefined)?.sub;
-    if (!userId) return; // auth plugin will reject downstream — let it.
+    // The global preHandler runs BEFORE route-level requireAuth, so req.user
+    // is not populated yet. We decode the bearer token ourselves (best-effort)
+    // — if it fails, fall through and let the route's requireAuth handle the
+    // 401. Only when the JWT decodes cleanly do we have a userId for the
+    // (user_id, key) lookup.
+    let userId: string | undefined;
+    try {
+      // jwtVerify() populates req.user as a side effect on success.
+      await req.jwtVerify();
+      userId = (req.user as { sub?: string } | undefined)?.sub;
+    } catch {
+      // Token missing / invalid — let the route's requireAuth handle it.
+    }
+    if (!userId) return;
 
     const requestHash = hashRequest(req.method, req.url, req.body);
     const hit = await lookup(userId, key);
