@@ -52,4 +52,7 @@ export const PROBLEM_SLUGS = {
   integrityStale: 'integrity-stale',
   // Auth — W6 (plan 05 task 4): iosAppStore Phase-1 reject (App Attest in Phase 7)
   integrityFlavorNotSupported: 'integrity-flavor-not-supported',
+  // Recordings — plan 01-07 task 4 (API-08 + API-09)
+  recordingNotFound: 'recording-not-found',
+  recordingNotPlayable: 'recording-not-playable',
 } as const;
