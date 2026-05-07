@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 1 context gathered
-last_updated: "2026-05-07T11:56:12.171Z"
+last_updated: "2026-05-07T12:07:05.362Z"
 last_activity: 2026-05-07 -- Phase 1 execution started
 progress:
   total_phases: 7
@@ -21,11 +21,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-07)
 
 **Core value:** On-device capture quality is non-negotiable — every uploaded segment must hit the locked spec (1080p / 30 FPS / ≥110° dFOV / IMU sustained ≥100 Hz / ±1 ms timestamp alignment) or the bytes are worthless for training.
-**Current focus:** Phase 1 — Foundation, Backend & Distribution Recon
+**Current focus:** Phase 1 — foundation-backend-distribution-recon
 
 ## Current Position
 
-Phase: 1 (Foundation, Backend & Distribution Recon) — EXECUTING
+Phase: 1 (foundation-backend-distribution-recon) — EXECUTING
 Plan: 1 of 13
 Status: Executing Phase 1
 Last activity: 2026-05-07 -- Phase 1 execution started
