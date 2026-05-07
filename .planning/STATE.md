@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Plan 01-05 complete + committed (commits 2cb595e, 3964776, 0df210a, 0be0403). Full /auth/* surface — POST /auth/nonce + POST /auth/google with Google ID token verify + Play Integrity decode + flavor allowlist + install-source bypass + atomic users/profiles/consent_log upsert + 30-day HS256 JWT. 38 vitest tests across 11 files green; live smoke confirmed iosAppStore 501 + integrity-flavor-not-supported (W6 gate) and (playStore, .apk) 403 + forbidden. Ready for plan 01-06 (tasks routes).
-last_updated: '2026-05-07T13:52:41.138Z'
+stopped_at: Plan 01-05 complete + committed (commits 2cb595e, 3964776, 0df210a, 0be0403). Full /auth/\* surface — POST /auth/nonce + POST /auth/google with Google ID token verify + Play Integrity decode + flavor allowlist + install-source bypass + atomic users/profiles/consent_log upsert + 30-day HS256 JWT. 38 vitest tests across 11 files green; live smoke confirmed iosAppStore 501 + integrity-flavor-not-supported (W6 gate) and (playStore, .apk) 403 + forbidden. Ready for plan 01-06 (tasks routes).
+last_updated: '2026-05-07T14:18:26.304Z'
 last_activity: 2026-05-07
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 13
-  completed_plans: 5
-  percent: 38
+  completed_plans: 6
+  percent: 46
 ---
 
 # Project State
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 1 (foundation-backend-distribution-recon) — EXECUTING
-Plan: 5 of 13 complete (sequential order in wave 1+2: 01-01 ✓ → 01-03 ✓ → 01-02 ✓ → 01-04 ✓ → 01-05 ✓; 01-06 next)
-Status: Plan 01-05 complete; full /auth/\* surface shipped + 38 vitest tests green; ready for 01-06 (tasks routes)
+Plan: 6 of 13 complete (sequential order in wave 1+2: 01-01 ✓ → 01-03 ✓ → 01-02 ✓ → 01-04 ✓ → 01-05 ✓; 01-06 next)
+Status: Ready to execute
 Last activity: 2026-05-07
 
 Progress: [████░░░░░░] 38%
@@ -52,6 +52,7 @@ Progress: [████░░░░░░] 38%
 - Trend: stable; plans with cross-cutting plumbing (01-04, 01-05) hover ~9-13 min, infra/schema plans ~5-6 min
 
 _Updated after each plan completion_
+| Phase 1 P6 | 18 min | 3 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,11 @@ Recent decisions affecting current work:
 - [Phase 1]: Plan 01-05: PENDING_LEGAL_TEXT_HASH placeholder in /auth/google — plan 11 owns the consent text + sha256; consent_log rows still written (D-LEGAL-03 audit trail). Plan 11 swaps the constant + can backfill historical rows if counsel requires
 - [Phase 1]: Plan 01-05: Three-gate install-source bypass — (1) STATIC_BYPASS_ALLOWED hard-codes playStore=false; (2) flavor-allowlist cross-check; (3) Remote Config key keyed by applicationId. ALL three must pass; playStore APK structurally cannot read the apkRollout RC key (Pattern 17)
 - [Phase 1]: Plan 01-05: W6 Phase-1 iOS gate via gatePhase1Flavor() throwing UnsupportedFlavorError — /auth/google emits 501 + integrity-flavor-not-supported. Phase 7 swaps the gate body for App Attest verification; the route handler is unchanged (Pattern 18)
+- [Phase 1]: Plan 01-06: Markdown-table parser for task-taxonomy.md (Pattern 27) — taxonomy is a single | Category | Task | Setting | Description | Instructions | table; slugs come from mapping.json (joined by name with normalizeName collapsing parenthetical suffixes). Plan body's per-section parser was wrong format.
+- [Phase 1]: Plan 01-06: Embedder pooling=mean and normalize=true bound inside embed() (Pattern 25) — same configuration at seed and query time; drift collapses HNSW recall (T-1.6-06). Bypassing embed() is forbidden.
+- [Phase 1]: Plan 01-06: Async keyGenerator for authenticated-tier rate-limit (Pattern 26) — @fastify/rate-limit fires before route preHandlers, so keyGenerator must do its own best-effort jwtVerify() and fall back to per-IP. Same shape as plan 04 idempotency hook-ordering fix.
+- [Phase 1]: Plan 01-06: Vitest pool: 'forks' + singleFork: true (Pattern 24) — multiple test files race on shared Postgres state via blanket db.delete in beforeEach; serialized execution is the bridge until plan 12 BEGIN/ROLLBACK isolation lands.
+- [Phase 1]: Plan 01-06: /tasks/search must register BEFORE /tasks/:id (Pattern 28) — Fastify radix-tree precedence; literal beats wildcard when sequential.
 
 ### Pending Todos
 
@@ -112,6 +118,6 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-07T13:52:41.130Z
+Last session: 2026-05-07T14:17:36.536Z
 Stopped at: Plan 01-05 complete + committed (commits 2cb595e, 3964776, 0df210a, 0be0403). Full /auth/\* surface — POST /auth/nonce + POST /auth/google with Google ID token verify + Play Integrity decode + flavor allowlist + install-source bypass + atomic users/profiles/consent_log upsert + 30-day HS256 JWT. 38 vitest tests across 11 files green; live smoke confirmed iosAppStore 501 + integrity-flavor-not-supported (W6 gate) and (playStore, .apk) 403 + forbidden. Ready for plan 01-06 (tasks routes).
-Resume file: .planning/phases/01-foundation-backend-distribution-recon/01-05-SUMMARY.md
+Resume file: None

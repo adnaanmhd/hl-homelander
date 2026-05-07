@@ -209,7 +209,7 @@
 - [x] **API-02**: `GET /me` returns the current user record; `PATCH /me` updates editable fields (name, age, gender)
 - [x] **API-03**: `DELETE /me` triggers 30-day soft delete; `POST /me/restore` restores within the window
 - [x] **API-04**: `GET /tasks?category=&setting=` returns the 65 tasks (paginated); `GET /tasks/{id}` returns a single task by slug; backend is seeded from `design-system/task-icons/mapping.json`
-- [ ] **API-05**: `POST /task-requests` accepts a TaskRequest payload + optional sample video upload; `GET /task-requests` lists the user's requests (no client UI surfaces this list at MVP)
+- [x] **API-05**: `POST /task-requests` accepts a TaskRequest payload + optional sample video upload; `GET /task-requests` lists the user's requests (no client UI surfaces this list at MVP)
 - [ ] **API-06**: `POST /recordings` accepts metadata, mints multipart presigned PUT URLs, returns `{recording_id, uploadUrls[], expiresAt}`
 - [ ] **API-07**: `PATCH /recordings/{id}` updates upload status / progress with idempotency-key support
 - [ ] **API-08**: `GET /recordings?range=` returns the user's recordings (with filters)
@@ -220,7 +220,7 @@
 - [ ] **API-13**: `GET /app/version` returns `{min_supported, latest, force_upgrade}` with a 6-hour cache header
 - [ ] **API-14**: All errors follow RFC 7807 `application/problem+json` shape
 - [ ] **API-15**: All POST/PATCH endpoints support `Idempotency-Key` headers
-- [ ] **API-16**: `/tasks` semantic search is implemented as **Reciprocal Rank Fusion (k=60)** of pgvector cosine similarity (HNSW index on `embedding vector_cosine_ops`) and tsvector lexical match (GIN index on a generated `to_tsvector` column)
+- [x] **API-16**: `/tasks` semantic search is implemented as **Reciprocal Rank Fusion (k=60)** of pgvector cosine similarity (HNSW index on `embedding vector_cosine_ops`) and tsvector lexical match (GIN index on a generated `to_tsvector` column)
 - [x] **API-17**: Backend enforces server-side rate limits per user and per IP on `POST /recordings`, `POST /events`, and `POST /feedback` to catch early farming **[research]**
 
 ### Backend Hash-Verify Worker
@@ -515,7 +515,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | API-02      | Phase 1 | Complete              |
 | API-03      | Phase 1 | Complete              |
 | API-04      | Phase 1 | Complete              |
-| API-05      | Phase 1 | Pending               |
+| API-05      | Phase 1 | Complete              |
 | API-06      | Phase 1 | Pending               |
 | API-07      | Phase 1 | Pending               |
 | API-08      | Phase 1 | Pending               |
@@ -526,7 +526,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | API-13      | Phase 1 | Pending               |
 | API-14      | Phase 1 | Pending               |
 | API-15      | Phase 1 | Pending               |
-| API-16      | Phase 1 | Pending               |
+| API-16      | Phase 1 | Complete              |
 | API-17      | Phase 1 | Complete              |
 | VERIFY-01   | Phase 5 | Pending               |
 | VERIFY-02   | Phase 5 | Pending               |
