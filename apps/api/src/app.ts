@@ -10,6 +10,7 @@ import idempotencyPlugin from './plugins/idempotency.js';
 import healthzRoutes from './routes/healthz.js';
 import readyzRoutes from './routes/readyz.js';
 import authRoutes from './routes/auth/index.js';
+import tasksRoutes from './routes/tasks/index.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: loggerOptions, disableRequestLogging: false });
@@ -26,7 +27,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(healthzRoutes);
   await app.register(readyzRoutes);
   await app.register(authRoutes); // plan 01-05 — /auth/nonce + /auth/google
-  // Plans 06-08 register their routes here.
+  await app.register(tasksRoutes); // plan 01-06 — /tasks/{list,search,get-by-id} + /task-requests
+  // Plans 07-08 register their routes here.
 
   return app;
 }
