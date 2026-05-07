@@ -324,3 +324,53 @@ export const recordingsToVerify = pgTable('recordings_to_verify', {
   enqueuedAt: timestamp('enqueued_at', { withTimezone: true }).notNull().defaultNow(),
   attempts: integer('attempts').notNull().default(0),
 });
+
+// takedown_log — append-only audit row per processed ANPD/DPB takedown request
+// (D-LEGAL-04). Migration 0005 creates this table; Phase 1 enforces append-only
+// by code convention (no UPDATE/DELETE handlers wired). Phase 5+ may add a
+// row-level Postgres trigger to refuse mutation. Counsel relies on this for
+// regulator response-window evidence.
+export const takedownLog = pgTable(
+  'takedown_log',
+  {
+    id: varchar('id', { length: 26 }).primaryKey(),
+    requestReceivedAt: timestamp('request_received_at', { withTimezone: true }).notNull(),
+    requestAuthority: varchar('request_authority', { length: 80 }).notNull(),
+    affectedUserId: varchar('affected_user_id', { length: 26 }).references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    affectedRecordingIds: jsonb('affected_recording_ids').notNull().$type<string[]>(),
+    actionTaken: text('action_taken').notNull(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    counselReviewer: varchar('counsel_reviewer', { length: 120 }),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    requestReceivedIdx: index('takedown_log_received_idx').on(t.requestReceivedAt),
+    affectedUserIdx: index('takedown_log_user_idx').on(t.affectedUserId),
+  }),
+);
+
+// dsr_log — append-only audit row per DSR access/portability fulfillment via
+// the mailto + ops CLI flow (D-LEGAL-02). Ops writes one row each time they
+// hand the user an export ZIP link. Append-only by code convention (same
+// pattern as consent_log + takedown_log; T-1.11-04 mitigation).
+export const dsrLog = pgTable(
+  'dsr_log',
+  {
+    id: varchar('id', { length: 26 }).primaryKey(),
+    userId: varchar('user_id', { length: 26 })
+      .notNull()
+      .references(() => users.id, { onDelete: 'set null' }),
+    requestType: varchar('request_type', { length: 32 }).notNull(), // 'access' | 'portability'
+    requestReceivedAt: timestamp('request_received_at', { withTimezone: true }).notNull(),
+    fulfilledAt: timestamp('fulfilled_at', { withTimezone: true }),
+    opsEngineer: varchar('ops_engineer', { length: 120 }),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    userIdx: index('dsr_log_user_idx').on(t.userId),
+  }),
+);

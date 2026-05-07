@@ -33,3 +33,6 @@ infra/terraform/**/.terraform.lock.hcl
 
 # ONNX / ML model cache
 models/
+
+# DSR access/portability export bundles (ops CLI output; per-user PII — never commit)
+apps/api/dsr-exports/
