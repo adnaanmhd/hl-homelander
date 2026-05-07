@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Plan 01-05 complete + committed (commits 2cb595e, 3964776, 0df210a, 0be0403). Full /auth/\* surface — POST /auth/nonce + POST /auth/google with Google ID token verify + Play Integrity decode + flavor allowlist + install-source bypass + atomic users/profiles/consent_log upsert + 30-day HS256 JWT. 38 vitest tests across 11 files green; live smoke confirmed iosAppStore 501 + integrity-flavor-not-supported (W6 gate) and (playStore, .apk) 403 + forbidden. Ready for plan 01-06 (tasks routes).
+stopped_at: Plan 01-06 complete + committed (commits 8433d7e, 14752c0, 78e5171, 20a17f9). Full /tasks/\* surface — GET /tasks (cursor-paginated list) + GET /tasks/:id + GET /tasks/search (RRF k=60 hybrid HNSW vector cosine + tsvector ts_rank, verbatim from RESEARCH §1.3) + POST /task-requests (auth + idempotency + per-user 10/min rate-limit). @xenova/transformers all-MiniLM-L6-v2 embedder singleton; idempotent `pnpm seed:tasks` upserts 65 tasks via ON CONFLICT (slug) DO UPDATE. 64 vitest tests across 16 files green; live HTTP smoke against running server confirmed /tasks list/get/search return correct data and unauth POST /task-requests returns 401. Patterns 24-28 documented. Ready for plan 01-07 (recordings).
 last_updated: '2026-05-07T14:18:26.304Z'
 last_activity: 2026-05-07
 progress:
@@ -26,33 +26,32 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 1 (foundation-backend-distribution-recon) — EXECUTING
-Plan: 6 of 13 complete (sequential order in wave 1+2: 01-01 ✓ → 01-03 ✓ → 01-02 ✓ → 01-04 ✓ → 01-05 ✓; 01-06 next)
-Status: Ready to execute
+Plan: 6 of 13 complete (sequential order in wave 1+2: 01-01 ✓ → 01-03 ✓ → 01-02 ✓ → 01-04 ✓ → 01-05 ✓ → 01-06 ✓; 01-07 next)
+Status: Plan 01-06 complete; full /tasks/\* surface shipped + 64 vitest tests green; ready for 01-07 (recordings)
 Last activity: 2026-05-07
 
-Progress: [████░░░░░░] 38%
+Progress: [█████░░░░░] 46%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 5
-- Average duration: ~8 min
-- Total execution time: ~0.67 hours
+- Total plans completed: 6
+- Average duration: ~10 min
+- Total execution time: ~0.97 hours
 
 **By Phase:**
 
 | Phase    | Plans  | Total  | Avg/Plan |
 | -------- | ------ | ------ | -------- |
-| Phase 01 | 5 / 13 | 40 min | ~8 min   |
+| Phase 01 | 6 / 13 | 58 min | ~10 min  |
 
 **Recent Trend:**
 
-- Last 5 plans: 01-01 (7 min, 3 tasks, 22 files), 01-03 (5 min, 3 tasks, 7 files), 01-02 (6 min, 3 tasks + checkpoint, 11 files), 01-04 (9 min, 3 tasks, 18 files), 01-05 (13 min, 4 tasks, 25 files)
-- Trend: stable; plans with cross-cutting plumbing (01-04, 01-05) hover ~9-13 min, infra/schema plans ~5-6 min
+- Last 6 plans: 01-01 (7 min, 3 tasks, 22 files), 01-03 (5 min, 3 tasks, 7 files), 01-02 (6 min, 3 tasks + checkpoint, 11 files), 01-04 (9 min, 3 tasks, 18 files), 01-05 (13 min, 4 tasks, 25 files), 01-06 (18 min, 3 tasks, 17 files)
+- Trend: 01-06 is the longest plan to date — RRF SQL + embedder integration + new seed pipeline + 26 new tests + 5 deviations to resolve. Future task-on-existing-plumbing plans (01-07, 01-08) should land closer to ~10 min.
 
 _Updated after each plan completion_
-| Phase 1 P6 | 18 min | 3 tasks | 17 files |
 
 ## Accumulated Context
 
