@@ -365,13 +365,221 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (To be filled in by roadmapper) | — | Pending |
+| AUTH-01 | Phase 2 | Pending |
+| AUTH-02 | Phase 2 | Pending |
+| AUTH-03 | Phase 2 | Pending |
+| AUTH-04 | Phase 2 | Pending |
+| AUTH-05 | Phase 2 | Pending |
+| AUTH-06 | Phase 1 | Pending |
+| AUTH-07 | Phase 2 | Pending |
+| AUTH-08 | Phase 2 | Pending |
+| AUTH-09 | Phase 2 | Pending |
+| AUTH-10 | Phase 2 | Pending |
+| AUTH-11 | Phase 2 | Pending |
+| PERM-01 | Phase 2 | Pending |
+| PERM-02 | Phase 2 | Pending |
+| PERM-03 | Phase 2 | Pending |
+| PERM-04 | Phase 2 | Pending |
+| COMPAT-01 | Phase 2 | Pending |
+| COMPAT-02 | Phase 2 | Pending |
+| COMPAT-03 | Phase 2 | Pending |
+| COMPAT-04 | Phase 2 | Pending |
+| COMPAT-05 | Phase 2 | Pending |
+| COMPAT-06 | Phase 2 | Pending |
+| COMPAT-07 | Phase 2 | Pending |
+| COMPAT-08 | Phase 2 | Pending |
+| ONB-01 | Phase 2 | Pending |
+| ONB-02 | Phase 2 | Pending |
+| ONB-03 | Phase 4 | Pending |
+| ONB-04 | Phase 4 | Pending |
+| ONB-05 | Phase 4 | Pending |
+| ONB-06 | Phase 4 | Pending |
+| ONB-07 | Phase 4 | Pending |
+| ONB-08 | Phase 4 | Pending |
+| HOME-01 | Phase 6 | Pending |
+| HOME-02 | Phase 6 | Pending |
+| HOME-03 | Phase 6 | Pending |
+| HOME-04 | Phase 6 | Pending |
+| HOME-05 | Phase 6 | Pending |
+| HOME-06 | Phase 6 | Pending |
+| HOME-07 | Phase 2 | Pending |
+| HOME-08 | Phase 2 | Pending |
+| HOME-09 | Phase 6 | Pending |
+| HOME-10 | Phase 6 | Pending |
+| TASK-01 | Phase 6 | Pending |
+| TASK-02 | Phase 6 | Pending |
+| TASK-03 | Phase 6 | Pending |
+| TASK-04 | Phase 6 | Pending |
+| TASK-05 | Phase 6 | Pending |
+| TASK-06 | Phase 6 | Pending |
+| TASK-07 | Phase 6 | Pending |
+| TASK-08 | Phase 6 | Pending |
+| TASK-09 | Phase 6 | Pending |
+| TASK-10 | Phase 6 | Pending |
+| CAP-01 | Phase 3 | Pending |
+| CAP-02 | Phase 3 | Pending |
+| CAP-03 | Phase 3 | Pending |
+| CAP-04 | Phase 3 | Pending |
+| CAP-05 | Phase 3 | Pending |
+| CAP-06 | Phase 3 | Pending |
+| CAP-07 | Phase 3 | Pending |
+| CAP-08 | Phase 3 | Pending |
+| CAP-09 | Phase 3 | Pending |
+| CAP-10 | Phase 3 | Pending |
+| CAP-11 | Phase 3 | Pending |
+| CAP-12 | Phase 3 | Pending |
+| CAP-13 | Phase 3 | Pending |
+| CAP-14 | Phase 3 | Pending |
+| CAP-15 | Phase 3 | Pending |
+| CAP-16 | Phase 3 | Pending |
+| CAP-17 | Phase 3 | Pending |
+| CAP-18 | Phase 3 | Pending |
+| CAP-19 | Phase 3 | Pending |
+| HAND-01 | Phase 4 | Pending |
+| HAND-02 | Phase 4 | Pending |
+| HAND-03 | Phase 4 | Pending |
+| HAND-04 | Phase 4 | Pending |
+| HAND-05 | Phase 4 | Pending |
+| HAND-06 | Phase 4 | Pending |
+| HAND-07 | Phase 4 | Pending |
+| HAND-08 | Phase 4 | Pending |
+| HAND-09 | Phase 4 | Pending |
+| HAND-10 | Phase 4 | Pending |
+| HAND-11 | Phase 4 | Pending |
+| HAND-12 | Phase 4 | Pending |
+| HAND-13 | Phase 4 | Pending |
+| HAND-14 | Phase 4 | Pending |
+| REC-01 | Phase 4 | Pending |
+| REC-02 | Phase 4 | Pending |
+| REC-03 | Phase 4 | Pending |
+| REC-04 | Phase 4 | Pending |
+| REC-05 | Phase 4 | Pending |
+| REC-06 | Phase 4 | Pending |
+| REC-07 | Phase 4 | Pending |
+| REC-08 | Phase 4 | Pending |
+| REC-09 | Phase 4 | Pending |
+| REC-10 | Phase 4 | Pending |
+| REC-11 | Phase 4 | Pending |
+| REC-12 | Phase 4 | Pending |
+| REC-13 | Phase 4 | Pending |
+| REC-14 | Phase 4 | Pending |
+| REC-15 | Phase 4 | Pending |
+| REC-16 | Phase 4 | Pending |
+| UP-01 | Phase 5 | Pending |
+| UP-02 | Phase 5 | Pending |
+| UP-03 | Phase 5 | Pending |
+| UP-04 | Phase 5 | Pending |
+| UP-05 | Phase 5 | Pending |
+| UP-06 | Phase 5 | Pending |
+| UP-07 | Phase 5 | Pending |
+| UP-08 | Phase 5 | Pending |
+| UP-09 | Phase 5 | Pending |
+| UP-10 | Phase 5 | Pending |
+| UP-11 | Phase 5 | Pending |
+| UP-12 | Phase 5 | Pending |
+| UP-13 | Phase 5 | Pending |
+| UP-14 | Phase 5 | Pending |
+| UP-15 | Phase 5 | Pending |
+| UP-16 | Phase 5 | Pending |
+| UP-17 | Phase 5 | Pending |
+| UP-18 | Phase 5 | Pending |
+| UP-19 | Phase 5 | Pending |
+| HIST-01 | Phase 6 | Pending |
+| HIST-02 | Phase 6 | Pending |
+| HIST-03 | Phase 6 | Pending |
+| HIST-04 | Phase 6 | Pending |
+| HIST-05 | Phase 6 | Pending |
+| HIST-06 | Phase 6 | Pending |
+| HIST-07 | Phase 6 | Pending |
+| HIST-08 | Phase 6 | Pending |
+| HIST-09 | Phase 6 | Pending |
+| HIST-10 | Phase 6 | Pending |
+| HIST-11 | Phase 6 | Pending |
+| PROF-01 | Phase 2 | Pending |
+| PROF-02 | Phase 2 | Pending |
+| PROF-03 | Phase 2 | Pending |
+| PROF-04 | Phase 2 | Pending |
+| PROF-05 | Phase 2 | Pending |
+| HELP-01 | Phase 2 | Pending |
+| HELP-02 | Phase 2 | Pending |
+| HELP-03 | Phase 2 | Pending |
+| HELP-04 | Phase 2 | Pending |
+| HELP-05 | Phase 2 | Pending |
+| UPG-01 | Phase 2 | Pending |
+| UPG-02 | Phase 2 | Pending |
+| UPG-03 | Phase 2 | Pending |
+| UPG-04 | Phase 2 | Pending |
+| UPG-05 | Phase 2 | Pending |
+| API-01 | Phase 1 | Pending |
+| API-02 | Phase 1 | Pending |
+| API-03 | Phase 1 | Pending |
+| API-04 | Phase 1 | Pending |
+| API-05 | Phase 1 | Pending |
+| API-06 | Phase 1 | Pending |
+| API-07 | Phase 1 | Pending |
+| API-08 | Phase 1 | Pending |
+| API-09 | Phase 1 | Pending |
+| API-10 | Phase 1 | Pending |
+| API-11 | Phase 1 | Pending |
+| API-12 | Phase 1 | Pending |
+| API-13 | Phase 1 | Pending |
+| API-14 | Phase 1 | Pending |
+| API-15 | Phase 1 | Pending |
+| API-16 | Phase 1 | Pending |
+| API-17 | Phase 1 | Pending |
+| VERIFY-01 | Phase 5 | Pending |
+| VERIFY-02 | Phase 5 | Pending |
+| VERIFY-03 | Phase 5 | Pending |
+| VERIFY-04 | Phase 5 | Pending |
+| VERIFY-05 | Phase 5 | Pending |
+| VERIFY-06 | Phase 5 | Pending |
+| VERIFY-07 | Phase 5 | Pending |
+| FRAUD-01 | Phase 1 | Pending |
+| FRAUD-02 | Phase 1 | Pending |
+| FRAUD-03 | Phase 5 | Pending |
+| FRAUD-04 | Phase 5 | Pending |
+| FRAUD-05 | Phase 5 | Pending |
+| FRAUD-06 | Phase 5 | Pending |
+| OBS-01 | Phase 7 | Pending |
+| OBS-02 | Phase 7 | Pending |
+| OBS-03 | Phase 7 | Pending |
+| OBS-04 | Phase 7 | Pending |
+| OBS-05 | Phase 7 | Pending |
+| DIST-01 | Phase 1 | Pending |
+| DIST-02 | Phase 1 | Pending |
+| DIST-03 | Phase 1 | Pending |
+| DIST-04 | Phase 1 | Pending |
+| DIST-05 | Phase 7 | Pending |
+| DIST-06 | Phase 7 | Pending |
+| DIST-07 | Phase 1 | Pending |
+| IOS-01 | Phase 7 | Pending |
+| IOS-02 | Phase 7 | Pending |
+| IOS-03 | Phase 7 | Pending |
+| IOS-04 | Phase 7 | Pending |
+| IOS-05 | Phase 7 | Pending |
+| IOS-06 | Phase 7 | Pending |
+| IOS-07 | Phase 7 | Pending |
+| LEGAL-01 | Phase 1 | Pending |
+| LEGAL-02 | Phase 1 | Pending |
+| LEGAL-03 | Phase 1 | Pending |
+| LEGAL-04 | Phase 1 | Pending |
+| LEGAL-05 | Phase 1 | Pending |
 
 **Coverage:**
-- v1 requirements: TBC by roadmapper
-- Mapped to phases: TBC
-- Unmapped: TBC
+- v1 requirements: 199
+- Mapped to phases: 199
+- Unmapped: 0
+
+**Per-phase counts:**
+- Phase 1 (Foundation, Backend & Distribution Recon): 30 requirements
+- Phase 2 (Mobile Shell, Onboarding, Permissions, Compat & Profile): 41 requirements
+- Phase 3 (HumynCapture Native Module): 19 requirements
+- Phase 4 (HandDetector, Recording UX & Practice Tutorial): 36 requirements
+- Phase 5 (Upload Pipeline, Hash-Verify Worker & Anti-fraud): 30 requirements
+- Phase 6 (Tasks, History, Home Tiles & Hybrid Search): 29 requirements
+- Phase 7 (Observability, iOS Parity & Staged Rollout): 14 requirements
+- **Total mapped:** 199 / 199 (100% coverage)
 
 ---
 *Requirements defined: 2026-05-07*
-*Last updated: 2026-05-07 after initial definition*
+*Last updated: 2026-05-07 — Traceability written by roadmapper (7 phases, 199 requirements, 100% coverage)*
