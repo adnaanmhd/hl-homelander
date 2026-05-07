@@ -9,6 +9,25 @@ async function errorHandlerPlugin(app: FastifyInstance) {
   app.setErrorHandler((err: FastifyError | Error, req: FastifyRequest, reply: FastifyReply) => {
     const requestId = (req.id as string) ?? undefined;
 
+    // 0. Pre-built problem-detail (e.g. @fastify/rate-limit). When a plugin's
+    //    error builder attaches a `problemDetail` field to the thrown Error, use
+    //    it verbatim — skip slug remapping. This keeps wire-side fields like
+    //    `tier` and `retryAfterSeconds` intact.
+    const carried = (err as { problemDetail?: unknown }).problemDetail as
+      | Record<string, unknown>
+      | undefined;
+    if (
+      carried &&
+      typeof carried === 'object' &&
+      typeof carried.type === 'string' &&
+      typeof carried.status === 'number'
+    ) {
+      const status = carried.status;
+      if (status >= 500) req.log.error({ err }, 'server_error');
+      else req.log.warn({ err }, 'client_error');
+      return reply.status(status).type(PROBLEM_CONTENT_TYPE).send(carried);
+    }
+
     // 1. Zod validation errors → 400 problem-detail with `errors` extension.
     //    fastify-type-provider-zod re-wraps Zod failures inside a FastifyError
     //    with the original ZodError attached as `.cause` or `.validation`,
