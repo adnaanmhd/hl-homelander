@@ -46,6 +46,7 @@ export const qaStatusEnum = pgEnum('qa_status', [
   'uploaded',
   'verified',
   'hash-mismatch',
+  'rejected',
   'takedown',
 ]);
 
@@ -185,6 +186,9 @@ export const recordings = pgTable(
     ipAddress: text('ip_address'),
     // Build flavor of the producing client (for fraud/cohort analysis)
     flavor: flavorEnum('flavor').notNull(),
+    // Multipart upload tracking (added in plan 01-07 / migration 0003)
+    s3UploadId: text('s3_upload_id'), // AWS multipart upload ID — null until /init creates it
+    partsCount: integer('parts_count'), // Number of parts the client will upload (1..1000)
   },
   (t) => ({
     userCapturedIdx: index('recordings_user_captured_idx').on(t.userId, t.capturedAt),
@@ -309,3 +313,14 @@ export const authNonces = pgTable(
     expiresIdx: index('auth_nonces_expires_idx').on(t.expiresAt),
   }),
 );
+
+// recordings_to_verify — Postgres queue stub for the Phase 5 hash-verify worker.
+// At Phase 1 we only INSERT here when /finalize runs; Phase 5 adds the BullMQ-style
+// drain logic (CONTEXT D-HOST-04: Redis stand-up deferred to Phase 5).
+export const recordingsToVerify = pgTable('recordings_to_verify', {
+  recordingId: varchar('recording_id', { length: 26 })
+    .primaryKey()
+    .references(() => recordings.id, { onDelete: 'cascade' }),
+  enqueuedAt: timestamp('enqueued_at', { withTimezone: true }).notNull().defaultNow(),
+  attempts: integer('attempts').notNull().default(0),
+});
