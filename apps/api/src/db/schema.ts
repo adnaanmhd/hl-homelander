@@ -295,3 +295,17 @@ export const idempotencyKeys = pgTable(
     expiresIdx: index('idempotency_expires_idx').on(t.expiresAt),
   }),
 );
+
+// auth_nonces — backs POST /auth/nonce + /auth/google nonce verification per RESEARCH §2.6
+export const authNonces = pgTable(
+  'auth_nonces',
+  {
+    id: varchar('id', { length: 26 }).primaryKey(), // ULID — `nonceId`
+    nonceSha256: varchar('nonce_sha256', { length: 64 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (t) => ({
+    expiresIdx: index('auth_nonces_expires_idx').on(t.expiresAt),
+  }),
+);
