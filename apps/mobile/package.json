@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "lint": "echo \"mobile lint deferred to plan 13\" && exit 0",
-    "typecheck": "echo \"mobile typecheck deferred to plan 13\" && exit 0",
-    "test": "echo \"mobile tests deferred\" && exit 0"
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"mobile tests deferred\" && exit 0",
+    "verify-manifests": "bash scripts/verify-merged-manifests.sh"
   }
 }
