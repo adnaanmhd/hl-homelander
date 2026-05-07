@@ -5,4 +5,6 @@ export * from './auth.js';
 export * from './me.js';
 export * from './contributions.js';
 export * from './app-version.js';
+export * from './events.js';
+export * from './feedback.js';
 export const SHARED_TYPES_VERSION = '0.5.0' as const;
