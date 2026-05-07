@@ -3,11 +3,14 @@ import fp from 'fastify-plugin';
 import jwtPlugin from '@fastify/jwt';
 import { buildProblemDetail, PROBLEM_SLUGS } from '../lib/problem-detail.js';
 
-// Per D-AUTH-05
+// Per D-AUTH-05.
+// `iat` and `exp` are filled by jsonwebtoken at sign-time (from `expiresIn`)
+// and asserted at verify-time, so they are optional on the type to keep the
+// sign call ergonomic. They will always be present on a verified `req.user`.
 export interface JwtPayload {
   sub: string; // ULID
-  iat: number;
-  exp: number;
+  iat?: number;
+  exp?: number;
   flavor: 'apkRollout' | 'playStore' | 'iosAppStore';
   applicationId: string;
   integrity_verdict: 'passed' | 'bypassed_apk';

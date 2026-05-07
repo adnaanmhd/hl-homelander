@@ -50,4 +50,6 @@ export const PROBLEM_SLUGS = {
   integrityInstallSource: 'integrity-install-source',
   integrityNonce: 'integrity-nonce',
   integrityStale: 'integrity-stale',
+  // Auth — W6 (plan 05 task 4): iosAppStore Phase-1 reject (App Attest in Phase 7)
+  integrityFlavorNotSupported: 'integrity-flavor-not-supported',
 } as const;

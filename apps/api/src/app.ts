@@ -9,6 +9,7 @@ import rateLimitPlugin from './plugins/rate-limit.js';
 import idempotencyPlugin from './plugins/idempotency.js';
 import healthzRoutes from './routes/healthz.js';
 import readyzRoutes from './routes/readyz.js';
+import authRoutes from './routes/auth/index.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: loggerOptions, disableRequestLogging: false });
@@ -24,7 +25,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   // Routes
   await app.register(healthzRoutes);
   await app.register(readyzRoutes);
-  // Plans 05-08 register their routes here.
+  await app.register(authRoutes); // plan 01-05 — /auth/nonce + /auth/google
+  // Plans 06-08 register their routes here.
 
   return app;
 }
