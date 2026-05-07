@@ -33,7 +33,7 @@
     "@aws-sdk/client-s3": "3.1044.0",
     "@aws-sdk/s3-request-presigner": "3.1044.0",
     "@aws-sdk/client-secrets-manager": "3.1044.0",
-    "@aws-sdk/cloudfront-signer": "3.1044.0",
+    "@aws-sdk/cloudfront-signer": "3.1036.0",
     "@xenova/transformers": "2.17.2",
     "zod": "4.4.3",
     "ulid": "2.3.0",

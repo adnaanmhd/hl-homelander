@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+
+# Run lint-staged on staged TS/JSON/MD files.
+# This invokes per-file eslint --fix + prettier --write per the
+# `lint-staged` config in root package.json.
+pnpm exec lint-staged
+
+# After lint-staged passes, run typecheck across all workspaces.
+# Husky aborts the commit if either step exits non-zero.
+pnpm typecheck
