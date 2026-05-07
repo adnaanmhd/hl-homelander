@@ -5,6 +5,7 @@ export const QaStatusSchema = z.enum([
   'uploaded',
   'verified',
   'hash-mismatch',
+  'rejected',
   'takedown',
 ]);
 export type QaStatus = z.infer<typeof QaStatusSchema>;
