@@ -117,7 +117,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Requirements**: OBS-01, OBS-02, OBS-03, OBS-04, OBS-05, IOS-01, IOS-02, IOS-03, IOS-04, IOS-05, IOS-06, IOS-07, DIST-05, DIST-06
 **Success Criteria** (what must be TRUE):
 
-1. The full event funnel from `engineering-handoff.md` §11 (signup*\*, permission*_, compat\__, recording*\*, gate*_, upload\__, history*\*, profile*_, help\__) emits via Firebase Analytics, native + JVM crashes + ANRs report via Firebase Crashlytics, the backend emits structured CloudWatch logs with per-device-model + per-OS-version + per-locale cohorting, the Bull-Board dashboard surfaces queue depth + retry counts + DLQ for the hash-verify worker, and Sentry / Datadog / third-party RUM are explicitly absent at MVP
+1. The full event funnel from `engineering-handoff.md` §11 (signup*\*, permission*\_, compat\__, recording*\*, gate*_, upload\__, history*\*, profile*_, help\_\_) emits via Firebase Analytics, native + JVM crashes + ANRs report via Firebase Crashlytics, the backend emits structured CloudWatch logs with per-device-model + per-OS-version + per-locale cohorting, the Bull-Board dashboard surfaces queue depth + retry counts + DLQ for the hash-verify worker, and Sentry / Datadog / third-party RUM are explicitly absent at MVP
 2. The iOS app captures 1080p / 30 FPS / HEVC / 8 Mbps CBR / no-B-frames / no-HDR / no-OIS recordings via the `HumynCapture` AVCaptureSession + AVAssetWriter + CMMotionManager + AVAudioRecorder analogue (with `AVVideoAllowFrameReorderingKey: false`), runs the same `hand_landmarker.task` bundle through the `HumynHandDetector` MediaPipe iOS Tasks Vision pod 0.10.21 analogue, and uploads via the `HumynUpload` URLSession background config analogue with the documented post-completion handoff pattern
 3. The iOS app passes sign-in via the `HumynIntegrity` DeviceCheck / App Attest analogue, ships TTS via `AVSpeechSynthesisVoice(language: "en-IN")` filtered to female with the documented fallback chain, and targets iOS 15.1 deployment
 4. The Play Store rollout completes the staged sequence 1% → 5% → 25% → 100% with a k6 load-test gate at each stage and no thermal cut-out / hash-mismatch / liveness-score anomaly triggering rollback
@@ -134,7 +134,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase                                                      | Plans Complete | Status      | Completed |
 | ---------------------------------------------------------- | -------------- | ----------- | --------- |
-| 1. Foundation, Backend & Distribution Recon                | 2/13           | Executing   |           |
+| 1. Foundation, Backend & Distribution Recon                | 3/13           | In Progress |           |
 | 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 0/TBD          | Not started | -         |
 | 3. HumynCapture Native Module (Bytes-on-disk)              | 0/TBD          | Not started | -         |
 | 4. HandDetector, Recording UX & Practice Tutorial          | 0/TBD          | Not started | -         |
