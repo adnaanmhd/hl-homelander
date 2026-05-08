@@ -212,7 +212,7 @@
 - [x] **API-05**: `POST /task-requests` accepts a TaskRequest payload + optional sample video upload; `GET /task-requests` lists the user's requests (no client UI surfaces this list at MVP)
 - [x] **API-06**: `POST /recordings` accepts metadata, mints multipart presigned PUT URLs, returns `{recording_id, uploadUrls[], expiresAt}`
 - [x] **API-07**: `PATCH /recordings/{id}` updates upload status / progress with idempotency-key support
-- [ ] **API-08**: `GET /recordings?range=` returns the user's recordings (with filters)
+- [x] **API-08**: `GET /recordings?range=` returns the user's recordings (with filters)
 - [x] **API-09**: `GET /recordings/{id}` returns a single recording with a CloudFront-signed playback URL (5-minute TTL) when the recording is `uploaded` and the local copy is deleted
 - [x] **API-10**: `GET /contributions` returns `Contribution` aggregates; `GET /contributions/timeseries?bucket=day&range=` returns the time series for tile filters
 - [x] **API-11**: `POST /events` accepts telemetry batches (Firebase Analytics passthrough or backend ingest)
@@ -258,7 +258,7 @@
 - [x] **DIST-04**: Backend `/auth/google` validates that the supplied build-flavor field matches a known flavor and applies the matching install-source policy
 - [ ] **DIST-05**: Play Store rollout is staged: 1% → 5% → 25% → 100% with k6 load-test gate at each stage
 - [ ] **DIST-06**: iOS App Store ships ≤2 weeks after Play Store rollout (within the same MVP milestone)
-- [ ] **DIST-07**: Standalone compat-only APK (`compatRecon` flavor) ships to ~50 clan chiefs **before** APK rollout to harvest device-model coverage data; addressable-fleet go/no-go gate **[research]**
+- [x] **DIST-07**: Standalone compat-only APK (`compatRecon` flavor) ships to ~50 clan chiefs **before** APK rollout to harvest device-model coverage data; addressable-fleet go/no-go gate **[research]**
 
 ### iOS Parity
 
@@ -273,9 +273,9 @@
 ### Foundation / Legal
 
 - [x] **LEGAL-01**: Indian DPDP + Brazilian LGPD counsel review completes **before Play Store launch**
-- [ ] **LEGAL-02**: Consent text in `idea-brief.md` §5.2 is the canonical version; consent timestamps logged server-side with version
-- [ ] **LEGAL-03**: ANPD (Brazil) and DPB (India) takedown response procedure is documented operationally
-- [ ] **LEGAL-04**: Data-subject-rights API surface is defined (export, delete) — implementation may be operational at MVP
+- [x] **LEGAL-02**: Consent text in `idea-brief.md` §5.2 is the canonical version; consent timestamps logged server-side with version
+- [x] **LEGAL-03**: ANPD (Brazil) and DPB (India) takedown response procedure is documented operationally
+- [x] **LEGAL-04**: Data-subject-rights API surface is defined (export, delete) — implementation may be operational at MVP
 - [x] **LEGAL-05**: S3 bucket has a lifecycle policy from day 0 (Glacier IR at +7 days, Deep Archive at +90 days) **[research]** — _Plan 01-03: lifecycle defined as code in `infra/localstack/init/01-create-buckets.sh` and applied to `humyn-recordings-dev` (verified runtime: GLACIER_IR @ +7d, DEEP_ARCHIVE @ +90d, AbortIncompleteMultipartUpload @ +1d). Plan 01-10 Terraform will mirror this byte-identical JSON for prod._
 
 ## v2 Requirements
@@ -518,7 +518,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | API-05      | Phase 1 | Complete              |
 | API-06      | Phase 1 | Complete              |
 | API-07      | Phase 1 | Complete              |
-| API-08      | Phase 1 | Pending               |
+| API-08      | Phase 1 | Complete              |
 | API-09      | Phase 1 | Complete              |
 | API-10      | Phase 1 | Complete              |
 | API-11      | Phase 1 | Complete              |
@@ -552,7 +552,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DIST-04     | Phase 1 | Complete              |
 | DIST-05     | Phase 7 | Pending               |
 | DIST-06     | Phase 7 | Pending               |
-| DIST-07     | Phase 1 | Pending               |
+| DIST-07     | Phase 1 | Complete              |
 | IOS-01      | Phase 7 | Pending               |
 | IOS-02      | Phase 7 | Pending               |
 | IOS-03      | Phase 7 | Pending               |
@@ -561,9 +561,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | IOS-06      | Phase 7 | Pending               |
 | IOS-07      | Phase 7 | Pending               |
 | LEGAL-01    | Phase 1 | Complete              |
-| LEGAL-02    | Phase 1 | Pending               |
-| LEGAL-03    | Phase 1 | Pending               |
-| LEGAL-04    | Phase 1 | Pending               |
+| LEGAL-02    | Phase 1 | Complete              |
+| LEGAL-03    | Phase 1 | Complete              |
+| LEGAL-04    | Phase 1 | Complete              |
 | LEGAL-05    | Phase 1 | Complete (Plan 01-03) |
 
 **Coverage:**
