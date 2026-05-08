@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: 'Plan 01-10 PARTIAL — pending apply gate (Task 4 = autonomous: false). Tasks 1+2+3 (autonomous HCL authoring) complete + committed (430e17a, 9e52db8, ad93d17). 7 Terraform modules (network/rds/secrets/s3/cloudfront/iam/ecs) + 2 env compositions (staging+prod) + bootstrap-state-bucket.sh + .gitignore + README all in place. The first `terraform apply` against real AWS staging is the human-verify checkpoint — see 01-10-SUMMARY.md "Checkpoint Reached" for the prerequisite + apply + secret-seeding steps. STATE.md plan counter NOT advanced (still 9/13) — orchestrator will advance to 10/13 after the human types "approved" at the apply gate. terraform CLI is not installed locally; static fmt+validate runs at the apply gate. pnpm typecheck green across all 3 TS workspaces.'
-last_updated: '2026-05-07T16:25:00.000Z'
-last_activity: 2026-05-07
+stopped_at: 'Three open human-verify gates queued. 01-10 (terraform apply) — Tasks 1+2+3 committed, awaiting first `terraform apply` against real AWS staging. 01-11 (counsel engagement) — code-ready-counsel-deferred, attorney review queued. 01-13 (mobile sign-in scaffold) — code-ready-smoke-deferred, autonomous tasks 1/2/3/4/6 committed (d56abda, 25bca88, 9ed7da1, e42312d, 561314e), on-device smoke (Task 5, autonomous: false) gates AUTH-06 completion. Plan-counter NOT advanced (still 9/13) — orchestrator advances after each respective "approved" gate. pnpm typecheck green workspace-wide; apps/mobile vitest 3/3 green.'
+last_updated: '2026-05-08T03:55:06Z'
+last_activity: 2026-05-08
 progress:
   total_phases: 7
   completed_phases: 0
@@ -108,6 +108,11 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 1]: Plan 01-09: Custom Kotlin AppFlavor TurboModule overrides RESEARCH §4.7 react-native-config recommendation per prompt directive. BuildConfig.FLAVOR_NAME + BuildConfig.APPLICATION_ID surfaced via getConstants() so JS reads NativeModules.AppFlavor.flavor sync without another bundler dep (Pattern 37).
 - [Phase ?]: [Phase 1]: Plan 01-09: react-native types deferred to plan 01-13 via minimal NativeModules ambient shim at apps/mobile/src/types/react-native.d.ts. Real react-native@0.83.x install lands in plan 13 (deletes the shim); plan 09 keeps the dep tree small for a scaffold whose only TS surface is one NativeModules access.
 - [Phase ?]: [Phase 1]: Plan 01-09: Refined root .gitignore from blanket 'apps/mobile/android/keystores/' to 'apps/mobile/android/keystores/\*' + '!apps/mobile/android/keystores/.gitignore' so the directory marker is tracked while every keystore file remains ignored. Defense-in-depth alongside the in-dir .gitignore (Pattern 36).
+- [Phase 1]: Plan 01-13: RN testing under vitest+JSDOM via host-component shim (Pattern 39) — vitest.setup.ts mocks `react-native` so View/Text/Pressable map to plain DOM elements forwarding accessibilityLabel→aria-label and onPress→onClick. Auth service is fully mocked via vi.mock so MMKV/GoogleSignin/Keychain transitively never load. Phase 2+ tests can swap to jest + @testing-library/react-native if needed.
+- [Phase 1]: Plan 01-13: PlayIntegrity Kotlin module package separation (Pattern 40) — module lives under `io.humyn.app` while App resides under `ai.humynlabs.capture`. Two-package layout isolates third-party-SDK adapters from the app bundle namespace.
+- [Phase 1]: Plan 01-13: Belt-and-suspenders JWT post-flight validation (Pattern 41) — auth.ts decodes the JWT and asserts payload.flavor + applicationId match the build-time AppFlavor identity. Server-side allowlist (plan 05) is the authoritative gate; client-side check catches a misconfigured backend.
+- [Phase 1]: Plan 01-13: tsconfig override module=ESNext + moduleResolution=Bundler for apps/mobile (Pattern 42) — RN ecosystem (mmkv 4.x Nitro, google-signin v16) doesn't ship NodeNext-conformant exports maps; Bundler mirrors Metro runtime resolution.
+- [Phase 1]: Plan 01-13: react-native@0.83.0 + react@19.2.0 installed (deletes the apps/mobile/src/types/react-native.d.ts ambient shim from plan 09) — fulfills plan 09 SUMMARY's "Next Phase Readiness" promise.
 
 ### Pending Todos
 
@@ -133,6 +138,14 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-07T16:25:00.000Z
-Stopped at: Plan 01-10 PARTIAL — paused at Task 4 (autonomous: false; first `terraform apply` against real AWS). Tasks 1+2+3 complete + committed (430e17a, 9e52db8, ad93d17): 7 Terraform modules + 2 env compositions (staging+prod) + bootstrap script + .gitignore + README authored. terraform CLI not installed locally so the autonomous fmt+validate steps are deferred to the human at the apply gate. Plan-counter intentionally NOT advanced (still 9/13) — moves to 10/13 after the human types "approved" post-apply.
-Resume file: .planning/phases/01-foundation-backend-distribution-recon/01-10-SUMMARY.md (section "Checkpoint Reached" has the prerequisite + apply + secret-seeding instructions)
+Last session: 2026-05-08T03:55:06Z
+Stopped at: Plans 01-10 PARTIAL + 01-11 PARTIAL + 01-13 PARTIAL — three open human-verify gates queued.
+
+- 01-10 (terraform apply): Tasks 1+2+3 complete + committed (430e17a, 9e52db8, ad93d17). Operator runs `terraform fmt -check` + `terraform validate` + `terraform plan` + `terraform apply` against real AWS staging.
+- 01-11 (counsel engagement): code-ready-counsel-deferred. Three commits ship the canonical consent text + boot-time hash guard, takedown SOP runbook, dsr-export CLI, and counsel-engagement checklist. Real attorney review queued for legal-ops backlog.
+- 01-13 (mobile sign-in scaffold): code-ready-smoke-deferred. Five commits (d56abda, 25bca88, 9ed7da1, e42312d, 561314e) ship the RN scaffold + PlayIntegrity module + auth orchestration + SignIn screen + vitest tests + manual-smoke runbook. Operator runs the on-device smoke from `13-MANUAL-SMOKE.md` on a real Pixel 7a-class device with both flavors built and installed.
+  Plan-counter intentionally NOT advanced (still 9/13) — orchestrator will advance after each respective "approved" gate.
+  Resume files:
+- .planning/phases/01-foundation-backend-distribution-recon/01-10-SUMMARY.md (terraform apply gate)
+- .planning/phases/01-foundation-backend-distribution-recon/01-11-SUMMARY.md (counsel gate)
+- .planning/phases/01-foundation-backend-distribution-recon/01-13-SUMMARY.md + 13-MANUAL-SMOKE.md (on-device smoke gate)
