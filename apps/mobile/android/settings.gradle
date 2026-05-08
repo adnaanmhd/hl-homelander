@@ -1,4 +1,5 @@
 pluginManagement {
+    includeBuild("../../../node_modules/@react-native/gradle-plugin")
     repositories {
         gradlePluginPortal()
         google()
@@ -6,7 +7,11 @@ pluginManagement {
     }
 }
 
-plugins { id("com.facebook.react.settings") }
+plugins {
+    id("com.facebook.react.settings")
+}
+
+includeBuild("../../../node_modules/@react-native/gradle-plugin")
 
 extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
     ex.autolinkLibrariesFromCommand()

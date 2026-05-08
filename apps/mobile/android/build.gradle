@@ -10,11 +10,26 @@ buildscript {
         kotlinVersion = "2.0.21"
         agpVersion = "8.7.3"
     }
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
     dependencies {
         classpath("com.android.tools.build:gradle:${agpVersion}")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVersion}")
-        classpath("com.facebook.react:react-native-gradle-plugin")
+        classpath("com.google.gms:google-services:4.4.4")
     }
 }
 
-apply plugin: "com.facebook.react.rootproject"
+plugins {
+    id "com.facebook.react.rootproject"
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url("https://www.jitpack.io") }
+    }
+}

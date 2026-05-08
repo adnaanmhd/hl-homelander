@@ -6,6 +6,18 @@ dist/
 *.tsbuildinfo
 apps/api/dist/
 apps/mobile/android/app/build/
+apps/mobile/android/build/
+apps/mobile/android/.gradle/
+apps/mobile/android/app/.cxx/
+apps/mobile/android/local.properties
+apps/mobile/android/.idea/
+apps/mobile/.vscode/
+apps/mobile/android/.vscode/
+
+# Firebase config (per-developer; download via Firebase Console, do not commit)
+apps/mobile/android/app/google-services.json
+apps/mobile/android/app/src/*/google-services.json
+apps/mobile/android/app/src/main/google-services*.json
 
 # Environment
 .env

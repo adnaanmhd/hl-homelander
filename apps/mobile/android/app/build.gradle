@@ -1,6 +1,7 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
+apply plugin: "com.google.gms.google-services"
 
 android {
     namespace 'ai.humynlabs.capture'
@@ -96,4 +97,5 @@ dependencies {
     implementation 'com.google.android.play:integrity:1.4.0'
 }
 
-apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
+// Autolinking is handled by `com.facebook.react.settings`'s `autolinkLibrariesFromCommand()`
+// in settings.gradle (RN 0.71+ pattern). The legacy `native_modules.gradle` apply was removed.
