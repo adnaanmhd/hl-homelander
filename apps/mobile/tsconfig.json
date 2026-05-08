@@ -3,7 +3,10 @@
   "compilerOptions": {
     "jsx": "react-native",
     "lib": ["ES2023", "DOM"],
-    "types": []
+    "types": [],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowSyntheticDefaultImports": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "__tests__/**/*", "App.tsx"]
 }
