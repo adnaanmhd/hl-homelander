@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: paused
-stopped_at: 'Phase 1 paused per user decision 2026-05-08 to set up Android tooling (JDK 17, Android SDK, gradlew bootstrap, Firebase web client ID, dev backend exposure) before running 01-13 on-device smoke. 11/13 plans complete in ROADMAP (01-01..01-11; 01-10 marked HCL-ready-apply-deferred, 01-11 marked code-ready-counsel-deferred — both deferred-but-progressed per user decision). 01-13 autonomous code committed (d56abda, 25bca88, 9ed7da1, e42312d, 561314e, c790d9b) — code-ready-smoke-deferred — on-device smoke (Task 5) is the explicit gate before counter advances; smoke runbook at .planning/phases/01-foundation-backend-distribution-recon/13-MANUAL-SMOKE.md. 01-12 (Wave 4 E2E + GitHub Actions CI) NOT started — blocked behind 01-13 smoke approval. Test suite: pnpm typecheck green workspace-wide; apps/api vitest 115/115 green; apps/mobile vitest 3/3 green; LocalStack + Postgres containers still healthy.'
-last_updated: '2026-05-08T04:00:00Z'
+status: executing
+stopped_at: Plan 01-12 complete — Wave 4 e2e suite + GitHub Actions CI workflow shipped. Phase 1 now complete on the autonomous plan side; 01-10 (terraform apply) + 01-11 (counsel engagement) + 01-13 (on-device smoke) are the deferred-but-progressed gates that close out Phase 1 fully.
+last_updated: '2026-05-08T07:43:57.178Z'
 last_activity: 2026-05-08
 progress:
   total_phases: 7
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 13
-  completed_plans: 11
-  percent: 85
+  completed_plans: 13
+  percent: 100
 ---
 
 # Project State
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 1 (foundation-backend-distribution-recon) — PAUSED
-Plan: 11 of 13 complete (01-01..01-11; 01-10 + 01-11 deferred-but-progressed per user) + 01-13 PARTIAL (code-ready, smoke deferred)
-Status: PAUSED — user setting up Android tooling for 01-13 on-device smoke. Resume with `/gsd:execute-phase 1` after smoke checklist (.planning/phases/01-foundation-backend-distribution-recon/13-MANUAL-SMOKE.md) is filled in.
+Plan: 12 of 13 complete (01-01..01-11; 01-10 + 01-11 deferred-but-progressed per user) + 01-13 PARTIAL (code-ready, smoke deferred)
+Status: Ready to execute
 Last activity: 2026-05-08
 
 Progress: [████████░░] 85%
@@ -68,6 +68,7 @@ To resume Phase 1:
 _Updated after each plan completion_
 | Phase 01 P08 | 17 min | 3 tasks | 28 files |
 | Phase 1 P9 | 7min | 3 tasks | 19 files |
+| Phase 01 P12 | 28min | 3 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -127,6 +128,9 @@ Recent decisions affecting current work:
 - [Phase 1]: Plan 01-13: Belt-and-suspenders JWT post-flight validation (Pattern 41) — auth.ts decodes the JWT and asserts payload.flavor + applicationId match the build-time AppFlavor identity. Server-side allowlist (plan 05) is the authoritative gate; client-side check catches a misconfigured backend.
 - [Phase 1]: Plan 01-13: tsconfig override module=ESNext + moduleResolution=Bundler for apps/mobile (Pattern 42) — RN ecosystem (mmkv 4.x Nitro, google-signin v16) doesn't ship NodeNext-conformant exports maps; Bundler mirrors Metro runtime resolution.
 - [Phase 1]: Plan 01-13: react-native@0.83.0 + react@19.2.0 installed (deletes the apps/mobile/src/types/react-native.d.ts ambient shim from plan 09) — fulfills plan 09 SUMMARY's "Next Phase Readiness" promise.
+- [Phase ?]: [Phase 1]: Plan 01-12: Two-config vitest split (Pattern 43) — vitest.config.ts excludes test/e2e/** so unit suite runs in 17s; vitest.e2e.config.ts targets test/e2e/** with 120s timeouts for embedder cold-start + multipart upload.
+- [Phase ?]: [Phase 1]: Plan 01-12: globalSetup env loader (Pattern 44) — test/e2e/global-setup.ts loads apps/api/.env in the parent vitest process before any worker fork; workers inherit env via Node's standard fork() contract. CI workflows export env via the workflow env: block, making the loader a no-op there.
+- [Phase ?]: [Phase 1]: Plan 01-12: awslocal CLI shim for GitHub Actions (Pattern 46) — 1-line wrapper that maps 'awslocal' to 'aws --endpoint-url=http://localhost:4566' lets the same infra/localstack/init/\*.sh scripts that auto-run in dev docker-compose also bootstrap CI without forking the script.
 
 ### Pending Todos
 
@@ -152,14 +156,15 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-08T03:55:06Z
-Stopped at: Plans 01-10 PARTIAL + 01-11 PARTIAL + 01-13 PARTIAL — three open human-verify gates queued.
+Last session: 2026-05-08T07:43:47.633Z
+Stopped at: Plan 01-12 complete — Wave 4 e2e suite + GitHub Actions CI workflow shipped. Phase 1 now complete on the autonomous plan side; 01-10 (terraform apply) + 01-11 (counsel engagement) + 01-13 (on-device smoke) are the deferred-but-progressed gates that close out Phase 1 fully.
 
 - 01-10 (terraform apply): Tasks 1+2+3 complete + committed (430e17a, 9e52db8, ad93d17). Operator runs `terraform fmt -check` + `terraform validate` + `terraform plan` + `terraform apply` against real AWS staging.
 - 01-11 (counsel engagement): code-ready-counsel-deferred. Three commits ship the canonical consent text + boot-time hash guard, takedown SOP runbook, dsr-export CLI, and counsel-engagement checklist. Real attorney review queued for legal-ops backlog.
 - 01-13 (mobile sign-in scaffold): code-ready-smoke-deferred. Five commits (d56abda, 25bca88, 9ed7da1, e42312d, 561314e) ship the RN scaffold + PlayIntegrity module + auth orchestration + SignIn screen + vitest tests + manual-smoke runbook. Operator runs the on-device smoke from `13-MANUAL-SMOKE.md` on a real Pixel 7a-class device with both flavors built and installed.
   Plan-counter intentionally NOT advanced (still 9/13) — orchestrator will advance after each respective "approved" gate.
   Resume files:
+
 - .planning/phases/01-foundation-backend-distribution-recon/01-10-SUMMARY.md (terraform apply gate)
 - .planning/phases/01-foundation-backend-distribution-recon/01-11-SUMMARY.md (counsel gate)
 - .planning/phases/01-foundation-backend-distribution-recon/01-13-SUMMARY.md + 13-MANUAL-SMOKE.md (on-device smoke gate)

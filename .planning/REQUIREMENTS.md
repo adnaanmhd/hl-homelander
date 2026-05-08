@@ -210,10 +210,10 @@
 - [x] **API-03**: `DELETE /me` triggers 30-day soft delete; `POST /me/restore` restores within the window
 - [x] **API-04**: `GET /tasks?category=&setting=` returns the 65 tasks (paginated); `GET /tasks/{id}` returns a single task by slug; backend is seeded from `design-system/task-icons/mapping.json`
 - [x] **API-05**: `POST /task-requests` accepts a TaskRequest payload + optional sample video upload; `GET /task-requests` lists the user's requests (no client UI surfaces this list at MVP)
-- [ ] **API-06**: `POST /recordings` accepts metadata, mints multipart presigned PUT URLs, returns `{recording_id, uploadUrls[], expiresAt}`
-- [ ] **API-07**: `PATCH /recordings/{id}` updates upload status / progress with idempotency-key support
+- [x] **API-06**: `POST /recordings` accepts metadata, mints multipart presigned PUT URLs, returns `{recording_id, uploadUrls[], expiresAt}`
+- [x] **API-07**: `PATCH /recordings/{id}` updates upload status / progress with idempotency-key support
 - [ ] **API-08**: `GET /recordings?range=` returns the user's recordings (with filters)
-- [ ] **API-09**: `GET /recordings/{id}` returns a single recording with a CloudFront-signed playback URL (5-minute TTL) when the recording is `uploaded` and the local copy is deleted
+- [x] **API-09**: `GET /recordings/{id}` returns a single recording with a CloudFront-signed playback URL (5-minute TTL) when the recording is `uploaded` and the local copy is deleted
 - [x] **API-10**: `GET /contributions` returns `Contribution` aggregates; `GET /contributions/timeseries?bucket=day&range=` returns the time series for tile filters
 - [x] **API-11**: `POST /events` accepts telemetry batches (Firebase Analytics passthrough or backend ingest)
 - [x] **API-12**: `POST /feedback` accepts in-app feedback submissions with diagnostic snapshot **[research]**
@@ -272,7 +272,7 @@
 
 ### Foundation / Legal
 
-- [ ] **LEGAL-01**: Indian DPDP + Brazilian LGPD counsel review completes **before Play Store launch**
+- [x] **LEGAL-01**: Indian DPDP + Brazilian LGPD counsel review completes **before Play Store launch**
 - [ ] **LEGAL-02**: Consent text in `idea-brief.md` §5.2 is the canonical version; consent timestamps logged server-side with version
 - [ ] **LEGAL-03**: ANPD (Brazil) and DPB (India) takedown response procedure is documented operationally
 - [ ] **LEGAL-04**: Data-subject-rights API surface is defined (export, delete) — implementation may be operational at MVP
@@ -516,10 +516,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | API-03      | Phase 1 | Complete              |
 | API-04      | Phase 1 | Complete              |
 | API-05      | Phase 1 | Complete              |
-| API-06      | Phase 1 | Pending               |
-| API-07      | Phase 1 | Pending               |
+| API-06      | Phase 1 | Complete              |
+| API-07      | Phase 1 | Complete              |
 | API-08      | Phase 1 | Pending               |
-| API-09      | Phase 1 | Pending               |
+| API-09      | Phase 1 | Complete              |
 | API-10      | Phase 1 | Complete              |
 | API-11      | Phase 1 | Complete              |
 | API-12      | Phase 1 | Complete              |
@@ -560,7 +560,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | IOS-05      | Phase 7 | Pending               |
 | IOS-06      | Phase 7 | Pending               |
 | IOS-07      | Phase 7 | Pending               |
-| LEGAL-01    | Phase 1 | Pending               |
+| LEGAL-01    | Phase 1 | Complete              |
 | LEGAL-02    | Phase 1 | Pending               |
 | LEGAL-03    | Phase 1 | Pending               |
 | LEGAL-04    | Phase 1 | Pending               |

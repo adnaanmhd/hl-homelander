@@ -13,7 +13,7 @@ Homelander ships in seven phases organised as horizontal technical layers that c
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation, Backend & Distribution Recon** - Monorepo, Fastify + Postgres + S3 backend with all 17 endpoints, build flavors, compat-recon APK to chiefs, S3 lifecycle policy, legal-review track
+- [x] **Phase 1: Foundation, Backend & Distribution Recon** - Monorepo, Fastify + Postgres + S3 backend with all 17 endpoints, build flavors, compat-recon APK to chiefs, S3 lifecycle policy, legal-review track (completed 2026-05-08)
 - [ ] **Phase 2: Mobile Shell, Onboarding, Permissions, Compat & Profile** - RN app shell with Splash → Sign-up → Permissions → Compat → Tutorial chrome → Profile → Help Center → Forced Upgrade gate per locked designs
 - [ ] **Phase 3: HumynCapture Native Module (Bytes-on-disk)** - Custom Camera2 + MediaCodec native module producing the locked HEVC / IMU / audio / metadata-JSON spec with timestamp alignment, drift, hashing, and segmentation
 - [ ] **Phase 4: HandDetector, Recording UX & Practice Tutorial** - MediaPipe hand-gate + landscape recording surface state machine + thermal / battery / TTS / lifecycle edges + practice-recording integration
@@ -132,12 +132,12 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 (Per research SUMMARY.md, parallelization opportunities exist where indicated — Phase 2 with Phase 3, Phase 4 (HandDetector portion) with Phase 5 (Upload portion), iOS analogues in Phase 7 with Phase 6 if a second engineer is dedicated. Numeric order is the default execution order; parallelization is a planning-time choice.)
 
-| Phase                                                      | Plans Complete | Status      | Completed |
-| ---------------------------------------------------------- | -------------- | ----------- | --------- |
-| 1. Foundation, Backend & Distribution Recon                | 11/13          | In Progress |           |
-| 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 0/TBD          | Not started | -         |
-| 3. HumynCapture Native Module (Bytes-on-disk)              | 0/TBD          | Not started | -         |
-| 4. HandDetector, Recording UX & Practice Tutorial          | 0/TBD          | Not started | -         |
-| 5. Upload Pipeline, Hash-Verify Worker & Anti-fraud        | 0/TBD          | Not started | -         |
-| 6. Tasks, History, Home Tiles & Hybrid Search              | 0/TBD          | Not started | -         |
-| 7. Observability, iOS Parity & Staged Rollout              | 0/TBD          | Not started | -         |
+| Phase                                                      | Plans Complete | Status      | Completed  |
+| ---------------------------------------------------------- | -------------- | ----------- | ---------- |
+| 1. Foundation, Backend & Distribution Recon                | 13/13          | Complete    | 2026-05-08 |
+| 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 0/TBD          | Not started | -          |
+| 3. HumynCapture Native Module (Bytes-on-disk)              | 0/TBD          | Not started | -          |
+| 4. HandDetector, Recording UX & Practice Tutorial          | 0/TBD          | Not started | -          |
+| 5. Upload Pipeline, Hash-Verify Worker & Anti-fraud        | 0/TBD          | Not started | -          |
+| 6. Tasks, History, Home Tiles & Hybrid Search              | 0/TBD          | Not started | -          |
+| 7. Observability, iOS Parity & Staged Rollout              | 0/TBD          | Not started | -          |
