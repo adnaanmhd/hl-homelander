@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: 'Three open human-verify gates queued. 01-10 (terraform apply) — Tasks 1+2+3 committed, awaiting first `terraform apply` against real AWS staging. 01-11 (counsel engagement) — code-ready-counsel-deferred, attorney review queued. 01-13 (mobile sign-in scaffold) — code-ready-smoke-deferred, autonomous tasks 1/2/3/4/6 committed (d56abda, 25bca88, 9ed7da1, e42312d, 561314e), on-device smoke (Task 5, autonomous: false) gates AUTH-06 completion. Plan-counter NOT advanced (still 9/13) — orchestrator advances after each respective "approved" gate. pnpm typecheck green workspace-wide; apps/mobile vitest 3/3 green.'
-last_updated: '2026-05-08T03:55:06Z'
+status: paused
+stopped_at: 'Phase 1 paused per user decision 2026-05-08 to set up Android tooling (JDK 17, Android SDK, gradlew bootstrap, Firebase web client ID, dev backend exposure) before running 01-13 on-device smoke. 11/13 plans complete in ROADMAP (01-01..01-11; 01-10 marked HCL-ready-apply-deferred, 01-11 marked code-ready-counsel-deferred — both deferred-but-progressed per user decision). 01-13 autonomous code committed (d56abda, 25bca88, 9ed7da1, e42312d, 561314e, c790d9b) — code-ready-smoke-deferred — on-device smoke (Task 5) is the explicit gate before counter advances; smoke runbook at .planning/phases/01-foundation-backend-distribution-recon/13-MANUAL-SMOKE.md. 01-12 (Wave 4 E2E + GitHub Actions CI) NOT started — blocked behind 01-13 smoke approval. Test suite: pnpm typecheck green workspace-wide; apps/api vitest 115/115 green; apps/mobile vitest 3/3 green; LocalStack + Postgres containers still healthy.'
+last_updated: '2026-05-08T04:00:00Z'
 last_activity: 2026-05-08
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 13
-  completed_plans: 9
-  percent: 69
+  completed_plans: 11
+  percent: 85
 ---
 
 # Project State
@@ -25,12 +25,26 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 
 ## Current Position
 
-Phase: 1 (foundation-backend-distribution-recon) — EXECUTING
-Plan: 9 of 13 complete + 01-10 PARTIAL (autonomous HCL authoring committed; awaiting human-verify apply gate before counter advances to 10/13)
-Status: 01-10 paused at Task 4 (autonomous: false) — human runs `terraform fmt -check` + `terraform validate` + `terraform plan` + `terraform apply` against real AWS staging; see .planning/phases/01-foundation-backend-distribution-recon/01-10-SUMMARY.md "Checkpoint Reached" for full prerequisite + apply + secret-seeding instructions
-Last activity: 2026-05-07
+Phase: 1 (foundation-backend-distribution-recon) — PAUSED
+Plan: 11 of 13 complete (01-01..01-11; 01-10 + 01-11 deferred-but-progressed per user) + 01-13 PARTIAL (code-ready, smoke deferred)
+Status: PAUSED — user setting up Android tooling for 01-13 on-device smoke. Resume with `/gsd:execute-phase 1` after smoke checklist (.planning/phases/01-foundation-backend-distribution-recon/13-MANUAL-SMOKE.md) is filled in.
+Last activity: 2026-05-08
 
-Progress: [███████░░░] 69%
+Progress: [████████░░] 85%
+
+## Resume Path (set before pause)
+
+To resume Phase 1:
+
+1. Install JDK 17: `brew install --cask temurin17`
+2. Install Android SDK + adb: `brew install --cask android-platform-tools` (for adb) + Android Studio or `cmdline-tools` for `compileSdk=35` + `ANDROID_HOME` exported
+3. Bootstrap Gradle wrapper in `apps/mobile/android/`: open in Android Studio once, OR run `gradle wrapper --gradle-version 8.11.1` from that dir
+4. Firebase Console → create project → register apps `ai.humynlabs.capture.apk` (apkRollout) + `ai.humynlabs.capture` (playStore) → copy Web client ID into BOTH `apps/mobile/.env.apkRollout` and `apps/mobile/.env.playStore`
+5. Start the dev API: `pnpm --filter @humyn/api dev` (binds :8080)
+6. Expose backend to phone: either `API_BASE_URL=http://<your-mac-LAN-ip>:8080` (same WiFi) OR ngrok tunnel to :8080 — update both `.env.*` files
+7. Plug in Pixel-class device with USB debugging on, accept the RSA prompt; verify with `adb devices`
+8. Walk through `.planning/phases/01-foundation-backend-distribution-recon/13-MANUAL-SMOKE.md` step-by-step — fill checkboxes, commit when done
+9. `/gsd:execute-phase 1` — orchestrator picks up at 01-12 (Wave 4 E2E + GitHub Actions CI)
 
 ## Performance Metrics
 
