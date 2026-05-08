@@ -5,7 +5,20 @@
   "scripts": {
     "lint": "echo \"mobile lint deferred to plan 13\" && exit 0",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"mobile tests deferred\" && exit 0",
+    "test": "vitest run",
     "verify-manifests": "bash scripts/verify-merged-manifests.sh"
+  },
+  "dependencies": {
+    "@react-native-google-signin/google-signin": "16.1.2",
+    "@react-native-firebase/app": "24.0.0",
+    "@react-native-firebase/auth": "24.0.0",
+    "@react-native-firebase/remote-config": "24.0.0",
+    "react-native-mmkv": "4.3.1",
+    "react-native-keychain": "10.0.0",
+    "react-native-config": "1.6.1"
+  },
+  "devDependencies": {
+    "@testing-library/react-native": "12.7.2",
+    "react-test-renderer": "19.2.0"
   }
 }

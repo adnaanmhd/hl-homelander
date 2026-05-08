@@ -11,11 +11,13 @@ import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.react.soloader.OpenSourceMergedSoMapping
 import com.facebook.soloader.SoLoader
+import io.humyn.app.PlayIntegrityPackage
 
 /**
  * RN 0.83 / Hermes / New Architecture Application entry point.
  * Auto-linked packages come from PackageList(this); the custom AppFlavorPackage
- * is appended so NativeModules.AppFlavor is reachable from JS.
+ * (plan 09) and PlayIntegrityPackage (plan 13) are appended so
+ * NativeModules.AppFlavor and NativeModules.PlayIntegrity are reachable from JS.
  */
 class MainApplication : Application(), ReactApplication {
 
@@ -24,6 +26,7 @@ class MainApplication : Application(), ReactApplication {
             override fun getPackages(): List<ReactPackage> {
                 val packages = PackageList(this).packages.toMutableList()
                 packages.add(AppFlavorPackage())
+                packages.add(PlayIntegrityPackage())  // Plan 13 — Phase 1 mobile sign-in scaffold
                 return packages
             }
 

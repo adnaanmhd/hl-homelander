@@ -90,6 +90,10 @@ dependencies {
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
     }
+    // Plan 13 — Google Play Integrity SDK (com.google.android.play.core.integrity.IntegrityManager).
+    // Wrapped by io.humyn.app.PlayIntegrityModule (Kotlin TurboModule) and exposed to RN as
+    // NativeModules.PlayIntegrity.requestIntegrityToken(nonce). Server-side decode in plan 05.
+    implementation 'com.google.android.play:integrity:1.4.0'
 }
 
 apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
