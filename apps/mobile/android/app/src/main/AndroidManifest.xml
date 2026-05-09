@@ -4,9 +4,35 @@
       NEVER add the in-app install-source permission here — Play Store auto-rejects
       APKs that declare it. The apkRollout flavor adds that permission via its own
       manifest source set at android/app/src/apkRollout/AndroidManifest.xml.
+
+      EXPLICITLY DO NOT ADD (PROJECT.md hard rules):
+        - The in-app install-source permission (apkRollout-only; flavor-scoped)
+        - The post-notifications runtime permission (no notifications channel at MVP)
+        - The fine-location runtime permission (coarse-only; deferred to Phase 4)
+        - The coarse-location runtime permission (deferred to Phase 4 per CONTEXT.md)
+      The CI gate `apps/mobile/scripts/verify-merged-manifests.sh` enforces these
+      absences on the merged manifest output of every flavor.
     -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Phase 2 (PERM-04) — Camera + Mic capture, foreground service surfaces, wake lock. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <!--
+      Phase 2 hardware-feature filters — Play Store uses these to filter
+      incompatible devices before install. `required="true"` on each is
+      mandatory because the locked capture spec depends on all three.
+    -->
+    <uses-feature android:name="android.hardware.camera.any" android:required="true" />
+    <uses-feature android:name="android.hardware.sensor.gyroscope" android:required="true" />
+    <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="true" />
 
     <application
         android:label="Humyn Labs Capture"
