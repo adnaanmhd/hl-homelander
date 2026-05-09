@@ -49,8 +49,48 @@ Decimal phases appear between their surrounding integers in numeric order.
 3. The bottom navigation has exactly three tabs (Home / Tasks / History), is suppressed on splash / auth / permissions / compat / tutorial / recording / force-upgrade screens, and Profile is reachable only via the avatar in the top-right
 4. Profile shows Google avatar (read-only), editable name + nullable age + nullable gender, non-editable Joined date, lifetime contribution numeric (44 px mono) + "Across N tasks", "Coming soon" Payments card, app version + build identifier in the footer, Help Center entry, Logout (cancels in-flight upload, preserves queue), and Delete account flow with a `DELETE`-typing gate triggering 30-day soft-delete
 5. Help Center shows the three accordions (Instructions Guide / FAQs / Troubleshooting) sourced verbatim from `help-center-content.md`, a Contact Support mailto entry, and an in-app "Report a problem" form posting diagnostic snapshots to `POST /feedback`; the Forced Upgrade gate calls `GET /app/version` (6 h cache), blocks below `min_supported`, and shows a dismissible banner below `latest`
-   **Plans**: TBD
-   **UI hint**: yes
+
+**Plans:** 22 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 02-01-mobile-npm-migration-PLAN.md — apps/mobile pnpm → npm migration (D-PKG-07; lands first, blocks rest of phase)
+- [ ] 02-02-test-scaffolding-and-deps-PLAN.md — Vitest screen tests + Robolectric Kotlin tests + HEVC fixtures
+- [ ] 02-03-state-store-and-hydration-PLAN.md — Zustand appStore + MMKV-hydrate boot
+- [ ] 02-04-installation-id-and-telemetry-ring-PLAN.md — installation_id mint + telemetry ring buffer + AppFlavor extensions
+- [ ] 02-05-navigation-skeleton-PLAN.md — RootNativeStack + OnboardingStack + MainTabs scaffold + initial-route gate decision
+- [ ] 02-06-humyn-compat-kotlin-shells-PLAN.md — HumynCompat module + EncoderProbe / ImuProbe / DeviceCaps / NalParser scaffolds
+- [ ] 02-07-humyn-updater-kotlin-shell-PLAN.md — HumynUpdater module (APK download + SHA-256 + PackageInstaller)
+
+**Wave 2** _(blocked on Wave 1 completion)_
+
+- [ ] 02-08-splash-and-version-service-PLAN.md — Splash + versionService (GET /app/version + 6h cache + force-upgrade decision)
+- [ ] 02-09-signup-screen-and-terms-modal-PLAN.md — SignupScreen + TermsOfUseModal + auth orchestration
+- [ ] 02-10-permissions-screen-and-manifest-PLAN.md — Camera + Mic runtime prompts + manifest declarations
+- [ ] 02-11-rig-tutorial-screen-PLAN.md — Tutorial Rig screen + "Don't have a rig" off-ramp
+
+**Wave 3** _(blocked on Wave 2 completion)_
+
+- [ ] 02-12-compat-encoder-probe-PLAN.md — NAL B-frame parser + 5 s HEVC test clip + OIS / HDR readback
+- [ ] 02-13-compat-imu-probe-PLAN.md — IMU sustained 100 Hz over 30 s with 1080p preview + p99 inter-sample
+- [ ] 02-14-compat-device-caps-and-permissions-PLAN.md — DeviceCaps (resolution / fps / dfov / mic / realtime / root / storage) + locationPermission helper
+
+**Wave 4** _(blocked on Wave 3 completion)_
+
+- [ ] 02-15-compat-screens-and-service-PLAN.md — compatService + 4 compat screens (Running / Pass / Fail / Recovery)
+- [ ] 02-16-home-skeleton-and-tabs-PLAN.md — HomeSkeleton + TopBar + 3-tab MainTabs + structural HOME-07/08 lock
+- [ ] 02-17-profile-screen-PLAN.md — ProfileScreen (PROF-01..05) + inline-edit + durationFormatter
+- [ ] 02-18-help-center-and-feedback-PLAN.md — HelpCenter + AccordionItem + ReportProblemSheet + feedbackService + content build script
+- [ ] 02-19-logout-and-delete-account-PLAN.md — LogoutModal + DeleteAccountModal (DELETE-typing gate) + DELETE /me wiring
+- [ ] 02-20-force-upgrade-and-soft-banner-PLAN.md — ForceUpgradeScreen (per-flavor) + SoftUpgradeBanner + REQUEST_INSTALL_PACKAGES verify
+
+**Wave 5** _(blocked on Wave 4 completion)_
+
+- [ ] 02-21-manual-smoke-runbook-PLAN.md — 02-MANUAL-SMOKE.md runbook + Open Questions tracking + Crashlytics gate
+- [ ] 02-22-android-manifest-ci-finalize-PLAN.md — PERM-04 static + Gradle merged-manifest CI gate + RootStack route registry
+
+  **UI hint**: yes
 
 ### Phase 3: HumynCapture Native Module (Bytes-on-disk)
 
@@ -135,7 +175,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase                                                      | Plans Complete | Status      | Completed  |
 | ---------------------------------------------------------- | -------------- | ----------- | ---------- |
 | 1. Foundation, Backend & Distribution Recon                | 13/13          | Complete    | 2026-05-08 |
-| 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 0/TBD          | Not started | -          |
+| 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 0/22           | Planned     | -          |
 | 3. HumynCapture Native Module (Bytes-on-disk)              | 0/TBD          | Not started | -          |
 | 4. HandDetector, Recording UX & Practice Tutorial          | 0/TBD          | Not started | -          |
 | 5. Upload Pipeline, Hash-Verify Worker & Anti-fraud        | 0/TBD          | Not started | -          |

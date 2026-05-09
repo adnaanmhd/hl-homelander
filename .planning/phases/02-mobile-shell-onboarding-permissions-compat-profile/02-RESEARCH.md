@@ -996,48 +996,48 @@ export async function submitFeedback(
 | A10 | MediaPipe HandLandmarker is NOT needed in Phase 2 (Phase 4) — confirmed                                                                                                                              | Compat scope             | If the compat probe needs hand detection (it doesn't — MediaPipe is for the recording-time gate), HumynCompat would need MediaPipe. Confirmed not needed.                                                                                     |
 | A11 | `react-native-haptic-feedback` works on RN 0.83 new-arch; alternative is hand-rolled `Vibrator` Kotlin call                                                                                          | Standard Stack           | Library-discretion decision; risk: low                                                                                                                                                                                                        |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Final Help Center support email (`[EMAIL_ADDRESS]` placeholder).**
 
    - What we know: copy is verbatim per HELP-03; placeholder is `[EMAIL_ADDRESS]` per help-center-content.md and design-spec.md §17.
    - What's unclear: the actual address.
-   - Recommendation: planner ships with `[EMAIL_ADDRESS]` literal; STATE.md `.Blockers` already flags this as deferred. Phase 2 planner can either (a) ship the placeholder and let a doc/cleanup pass swap it later, or (b) request the address from the user as a 1-question check-in.
+   - **RESOLVED:** planner ships with `[EMAIL_ADDRESS]` literal; STATE.md `.Blockers` already flags this as deferred. Phase 2 planner can either (a) ship the placeholder and let a doc/cleanup pass swap it later, or (b) request the address from the user as a 1-question check-in.
 
 2. **Compat-fail "what now" recovery copy (COMPAT-08).**
 
    - What we know: needs to be a non-brick page; mentions "try a different qualifying device, contact support."
    - What's unclear: exact wording.
-   - Recommendation: lift verbatim from help-center-content.md §3 ("Compatibility check failed") so the in-app message matches Help. Planner picks the precise extraction.
+   - **RESOLVED:** lift verbatim from help-center-content.md §3 ("Compatibility check failed") so the in-app message matches Help. Planner picks the precise extraction.
 
 3. **`installation_id` minting source (`react-native-uuid` vs Kotlin native).**
 
    - What we know: D-COMPAT-03 mentions either; CONTEXT.md §specifics flags it.
    - What's unclear: which.
-   - Recommendation: extend `AppFlavor` Kotlin module with a `getOrMintInstallationId(): Promise<string>` method that uses `java.util.UUID.randomUUID()` and persists to MMKV. Avoids adding a JS UUID lib.
+   - **RESOLVED:** extend `AppFlavor` Kotlin module with a `getOrMintInstallationId(): Promise<string>` method that uses `java.util.UUID.randomUUID()` and persists to MMKV. Avoids adding a JS UUID lib.
 
 4. **Soft-banner copy (UPG-04).**
 
    - What we know: dismissible banner on Home; per-`latest` dismiss key in MMKV.
    - What's unclear: exact copy + CTA label per design-spec §9 (which is Phase-6-blank-tile-only at this writing).
-   - Recommendation: planner picks placeholder copy ("Update available — Tap to install") and notes it'll be replaced when Phase 6 finalizes Home design.
+   - **RESOLVED:** planner picks placeholder copy ("Update available — Tap to install") and notes it'll be replaced when Phase 6 finalizes Home design.
 
 5. **`HumynUpdater` module split — same package as `HumynCompat` or separate?**
 
    - What we know: D-COMPAT-01 says "two modules, focused; no shared library extraction."
    - What's unclear: whether `HumynUpdater` is a third module or folded into HumynCompat.
-   - Recommendation: separate module (`HumynUpdater`). Compat is sense-only; Updater writes filesystem + launches PackageInstaller. Different concern, different audit surface.
+   - **RESOLVED:** separate module (`HumynUpdater`). Compat is sense-only; Updater writes filesystem + launches PackageInstaller. Different concern, different audit surface.
 
 6. **Where in the navigator does the soft-upgrade banner live?**
 
    - What we know: D-UPG-05 says "top of Home only."
    - What's unclear: HomeSkeleton has very little in Phase 2 (Phase 6 fills it). Where exactly?
-   - Recommendation: HomeSkeleton in Phase 2 renders just `<TopBar.Logo /> + <SoftUpgradeBanner /> (when applicable) + <BottomNav>`. Phase 6 adds the dynamic hero + tiles between.
+   - **RESOLVED:** HomeSkeleton in Phase 2 renders just `<TopBar.Logo /> + <SoftUpgradeBanner /> (when applicable) + <BottomNav>`. Phase 6 adds the dynamic hero + tiles between.
 
 7. **Backend `/app/version` response field naming (camelCase vs snake_case).**
    - What we know: shared/types schema is camelCase (`minSupported`, `forceUpgrade`, `apkUrl`, `apkSha256`); UPG-02 in REQUIREMENTS.md uses snake_case (`min_supported`, `latest`, `force_upgrade`).
    - What's unclear: Are snake_case fields the wire form or just doc shorthand?
-   - Recommendation: VERIFIED from `apps/api/src/routes/app-version/get.ts` — wire shape is camelCase. REQUIREMENTS.md snake_case is doc shorthand. Phase 2 client uses camelCase; planner cross-references shared/types.
+   - **RESOLVED:** VERIFIED from `apps/api/src/routes/app-version/get.ts` — wire shape is camelCase. REQUIREMENTS.md snake_case is doc shorthand. Phase 2 client uses camelCase; planner cross-references shared/types.
 
 ## Environment Availability
 
