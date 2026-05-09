@@ -72,9 +72,9 @@ Plans:
 
 **Wave 3** _(blocked on Wave 2 completion)_
 
-- [ ] 02-12-compat-encoder-probe-PLAN.md — NAL B-frame parser + 5 s HEVC test clip + OIS / HDR readback
-- [ ] 02-13-compat-imu-probe-PLAN.md — IMU sustained 100 Hz over 30 s with 1080p preview + p99 inter-sample
-- [ ] 02-14-compat-device-caps-and-permissions-PLAN.md — DeviceCaps (resolution / fps / dfov / mic / realtime / root / storage) + locationPermission helper
+- [x] 02-12-compat-encoder-probe-PLAN.md — NAL B-frame parser + 5 s HEVC test clip + OIS / HDR readback
+- [x] 02-13-compat-imu-probe-PLAN.md — IMU sustained 100 Hz over 30 s with 1080p preview + p99 inter-sample
+- [x] 02-14-compat-device-caps-and-permissions-PLAN.md — DeviceCaps (resolution / fps / dfov / mic / realtime / root / storage) + locationPermission helper
 
 **Wave 4** _(blocked on Wave 3 completion)_
 
