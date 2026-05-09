@@ -19,8 +19,10 @@ set -euo pipefail
 #      (Play Console auto-rejects).
 #   2. Smuggling POST_NOTIFICATIONS into either flavor (PROJECT.md hard rule —
 #      no notifications channel at MVP).
-#   3. Smuggling ACCESS_FINE_LOCATION / ACCESS_COARSE_LOCATION into either
-#      flavor (PROJECT.md hard rule — coarse-only, deferred to Phase 4).
+#   3. Smuggling ACCESS_FINE_LOCATION into either flavor (PROJECT.md hard rule —
+#      coarse only). ACCESS_COARSE_LOCATION (PERM-03) is intentionally declared
+#      in the base manifest as of plan 02-14; the runtime prompt is gated to
+#      Phase 4's first-recording flow via apps/mobile/src/services/locationPermission.ts.
 #
 # T-1.9-01 + T-2.10-01 + T-2.10-02 + T-2.10-03 mitigation (also paired with
 # acceptance criteria that grep the BASE manifest at code-review time).
@@ -98,7 +100,9 @@ REQUIRED_BASE_PERMS=(
 FORBIDDEN_BASE_PERMS=(
   "android.permission.POST_NOTIFICATIONS"
   "android.permission.ACCESS_FINE_LOCATION"
-  "android.permission.ACCESS_COARSE_LOCATION"
+  # ACCESS_COARSE_LOCATION (PERM-03) is intentionally allowed as of plan 02-14;
+  # see apps/mobile/src/services/locationPermission.ts for the helper that
+  # Phase 4's first-recording flow will call.
 )
 
 # Match only on actual <uses-permission ...> lines (scope away from XML

@@ -8,10 +8,14 @@
       EXPLICITLY DO NOT ADD (PROJECT.md hard rules):
         - The in-app install-source permission (apkRollout-only; flavor-scoped)
         - The post-notifications runtime permission (no notifications channel at MVP)
-        - The fine-location runtime permission (coarse-only; deferred to Phase 4)
-        - The coarse-location runtime permission (deferred to Phase 4 per CONTEXT.md)
+        - The fine-location runtime permission (coarse-only; PROJECT.md hard rule)
       The CI gate `apps/mobile/scripts/verify-merged-manifests.sh` enforces these
       absences on the merged manifest output of every flavor.
+
+      ACCESS_COARSE_LOCATION (PERM-03) IS DECLARED below per plan 02-14. The
+      runtime PROMPT is still deferred to Phase 4 (first-recording flow), but
+      the manifest declaration must ship now so the helper at
+      apps/mobile/src/services/locationPermission.ts has a permission to query.
     -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -24,6 +28,14 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <!--
+      Phase 2 (PERM-03 — plan 02-14) — coarse location declaration ONLY.
+      Runtime prompt is deferred to Phase 4's first-recording flow via
+      apps/mobile/src/services/locationPermission.ts (requestCoarseLocation).
+      PROJECT.md hard rule: coarse only — never declare ACCESS_FINE_LOCATION.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <!--
       Phase 2 hardware-feature filters — Play Store uses these to filter
