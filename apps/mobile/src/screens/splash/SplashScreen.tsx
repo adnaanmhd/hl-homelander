@@ -14,28 +14,20 @@
  *      ForceUpgradeScreen is a RootNativeStack sibling (HOME-08 structural).
  *   4. Soft-banner verdict → setSoftUpgradeAvailable({ latest }) so the
  *      Home (plan 02-17) renders the dismissible banner.
- *   5. Otherwise dispatch the gate-decision tree result. From inside
- *      OnboardingStack/Splash:
- *        - OnboardingStack/{Signup|Permissions|Compat|RigTutorial} →
- *          navigation.replace(screen) (same-stack replace).
- *        - MainTabs → navigation.getParent()?.replace('MainTabs') (the
- *          parent RootNativeStack).
+ *   5. Otherwise dispatch the gate-decision tree result.
  *
- * The brand mark is rendered as a typographic wordmark stub today (plan
- * 02-15 will land the real SVG). Tagline is verbatim per design-spec §1
- * with the second half ("Real Intelligence.") accent-colored.
- *
- * Threat-model anchors:
- *   - T-2.8-03 (DoS via slow /app/version) mitigated by the
- *     versionService 5 s AbortController + Promise.all 2.4 s minimum.
- *   - T-2.8-02 (spoofed /app/version → malicious APK) is the
- *     versionService's wire-shape validation; second layer hashes the
- *     APK in HumynUpdater (plan 02-07).
+ * Visuals (design-spec §1 + prototype.html):
+ *   - Centered orange Humyn Labs wordmark — `scalePop` 700 ms cubic-bezier
+ *     (.2,.8,.2,1): scale 0.6/op 0 → scale 1.06 (60%) → scale 1/op 1.
+ *   - Tagline fades in 400 ms with a 600 ms delay; "Real Humyns." in
+ *     `--text` and "Real Intelligence." in `--accent`.
  */
 
-import React, { useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Easing, Image, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ORANGE_LOGO = require('../../assets/logos/orange_logo.png');
 
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
 import { Text } from '../../ui/primitives/Text';
@@ -48,13 +40,8 @@ import { getInstallationId } from '../../services/installationId';
 import { getFlavorContext } from '../../native/AppFlavor';
 import { logEvent } from '../../util/analytics';
 
-/**
- * Splash minimum visual presence per design-spec §1 (2400 ms with scalePop
- * logo at 700 ms + tagline fade at 400 ms — the animations are tracked
- * separately; this constant is the gate that ensures the brand is on
- * screen for at least this long).
- */
 export const SPLASH_MIN_MS = 2400;
+const BOOTSTRAP_HARD_TIMEOUT_MS = 8000;
 
 function delay(ms: number): Promise<void> {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -68,33 +55,71 @@ interface NavigationLike {
 export default function SplashScreen() {
   const navigation = useNavigation() as unknown as NavigationLike;
 
+  const logoScale = useRef(new Animated.Value(0.6)).current;
+  const logoOpacity = useRef(new Animated.Value(0)).current;
+  const taglineOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(logoScale, {
+        toValue: 1,
+        duration: 700,
+        easing: Easing.bezier(0.2, 0.8, 0.2, 1),
+        useNativeDriver: true,
+      }),
+      Animated.timing(logoOpacity, {
+        toValue: 1,
+        duration: 700,
+        easing: Easing.bezier(0.2, 0.8, 0.2, 1),
+        useNativeDriver: true,
+      }),
+      Animated.timing(taglineOpacity, {
+        toValue: 1,
+        duration: 400,
+        delay: 600,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [logoOpacity, logoScale, taglineOpacity]);
+
   useEffect(() => {
     let cancelled = false;
     logEvent('splash_shown');
+    console.log('[splash] bootstrap_start');
 
     async function bootstrap(): Promise<void> {
-      // Mint installation_id eagerly — the compat-signature builder (plan
-      // 02-16) will read it sync once we hit the Compat gate. Failing this
-      // call should NOT block splash; the signature call will retry there.
       try {
-        await getInstallationId();
-      } catch {
-        // Native module unavailable in degenerate environments. Splash
-        // continues; downstream services degrade gracefully.
+        await Promise.race([getInstallationId(), delay(BOOTSTRAP_HARD_TIMEOUT_MS)]);
+        console.log('[splash] installation_id_done');
+      } catch (e) {
+        console.warn('[splash] installation_id_failed', e);
       }
 
-      // Run splash-min-time and version-check in parallel. Promise.all
-      // resolves only after BOTH complete, so the splash is on screen for
-      // at least SPLASH_MIN_MS regardless of how fast the network is, AND
-      // the version-check has either resolved or hit its 5 s timeout.
-      const [versionResponse] = await Promise.all([
-        fetchAppVersion().catch(() => null),
-        delay(SPLASH_MIN_MS),
+      const versionResponse = await Promise.race([
+        Promise.all([
+          fetchAppVersion().catch((e) => {
+            console.warn('[splash] fetchAppVersion_failed', e);
+            return null;
+          }),
+          delay(SPLASH_MIN_MS),
+        ]).then(([v]) => v),
+        delay(BOOTSTRAP_HARD_TIMEOUT_MS).then(() => {
+          console.warn('[splash] bootstrap_hard_timeout');
+          return null;
+        }),
       ]);
       if (cancelled) return;
 
       const store = useAppStore.getState();
-      const flavorCtx = getFlavorContext();
+      let flavorCtx;
+      try {
+        flavorCtx = getFlavorContext();
+      } catch (e) {
+        console.warn('[splash] flavor_ctx_failed', e);
+        flavorCtx = { versionName: '0.1.0' };
+      }
+      console.log('[splash] versionResponse=', versionResponse, 'flavor=', flavorCtx);
 
       if (versionResponse) {
         const action = computeUpgradeAction(flavorCtx.versionName, versionResponse);
@@ -110,25 +135,18 @@ export default function SplashScreen() {
         }
       }
 
-      // Plan 02-16 wires the real currentCompatSignature; null today
-      // (offline-boot caveat in initialRoute.ts trusts the persisted
-      // compatPassed when null).
       const initial = computeInitialRoute(store, null);
+      console.log('[splash] initial_route=', initial);
 
       if (initial.stack === 'ForceUpgrade') {
-        // Should be unreachable on this code path (force-upgrade dispatches
-        // above), but kept for defensive completeness.
         navigation.replace('ForceUpgrade', initial.params);
         return;
       }
       if (initial.stack === 'OnboardingStack') {
-        // We're already inside OnboardingStack; replace within the stack
-        // to the right step.
         navigation.replace(initial.screen);
         return;
       }
       if (initial.stack === 'MainTabs') {
-        // MainTabs is a RootNativeStack sibling — bubble up to the parent.
         navigation.getParent?.()?.replace('MainTabs');
         return;
       }
@@ -147,20 +165,29 @@ export default function SplashScreen() {
       accessibilityLabel="Splash screen"
     >
       <View style={styles.center}>
-        <View accessibilityLabel="Humyn Labs logo">
-          {/* Wordmark stub per the same TopBar pattern — plan 02-15 swaps
-              in the real SVG mark from design-system/. */}
-          <Text variant="displayHero" tone="primary">
-            Humyn
-          </Text>
-        </View>
+        <Animated.View
+          accessibilityLabel="Humyn Labs logo"
+          style={{
+            opacity: logoOpacity,
+            transform: [{ scale: logoScale }],
+          }}
+        >
+          <Image
+            source={ORANGE_LOGO}
+            style={styles.logo}
+            resizeMode="contain"
+            accessibilityIgnoresInvertColors
+          />
+        </Animated.View>
         <View style={{ height: spacing.l }} />
-        <Text variant="caption" tone="primary" accessibilityLabel="splash tagline">
-          Real Humyns.{' '}
-          <Text variant="caption" style={{ color: colors.accent }}>
-            Real Intelligence.
+        <Animated.View style={{ opacity: taglineOpacity }}>
+          <Text variant="caption" tone="primary" accessibilityLabel="splash tagline">
+            Real Humyns.{' '}
+            <Text variant="caption" style={{ color: colors.accent }}>
+              Real Intelligence.
+            </Text>
           </Text>
-        </Text>
+        </Animated.View>
       </View>
     </ScreenContainer>
   );
@@ -168,4 +195,5 @@ export default function SplashScreen() {
 
 const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
+  logo: { width: 240, height: 96 },
 });
