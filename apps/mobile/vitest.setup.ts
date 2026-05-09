@@ -443,3 +443,38 @@ vi.mock('react-native-svg', () => ({
   Rect: (props: Record<string, unknown>) => React.createElement('rect', props),
   Line: (props: Record<string, unknown>) => React.createElement('line', props),
 }));
+
+// react-native-config — its index.js uses bare `export const X = require(...)`
+// against a native codegen module that vitest cannot transform. Stub with an
+// empty record; tests that need specific .env values can override with
+// `vi.mocked(Config).XYZ = '...'` per-suite.
+vi.mock('react-native-config', () => {
+  const Config: Record<string, string> = {};
+  return { default: Config, Config };
+});
+
+// @react-native-google-signin/google-signin — the package's lib/module/index.js
+// re-exports through subpath files vitest cannot resolve under jsdom. Stub the
+// surface auth.ts touches: GoogleSignin.{configure,signIn,signOut,getCurrentUser}.
+vi.mock('@react-native-google-signin/google-signin', () => ({
+  GoogleSignin: {
+    configure: vi.fn(),
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+    getCurrentUser: vi.fn(() => null),
+    hasPlayServices: vi.fn(() => Promise.resolve(true)),
+  },
+  statusCodes: {},
+}));
+
+// react-native-keychain — secure-credential storage; auth.ts uses get/set/reset.
+vi.mock('react-native-keychain', () => ({
+  setGenericPassword: vi.fn(() => Promise.resolve(false)),
+  getGenericPassword: vi.fn(() => Promise.resolve(false)),
+  resetGenericPassword: vi.fn(() => Promise.resolve(true)),
+  ACCESSIBLE: { WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'WhenUnlockedThisDeviceOnly' },
+  ACCESS_CONTROL: {},
+  AUTHENTICATION_TYPE: {},
+  STORAGE_TYPE: {},
+  SECURITY_LEVEL: {},
+}));
