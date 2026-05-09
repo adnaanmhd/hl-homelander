@@ -114,6 +114,10 @@ describe('RootNativeStack', () => {
     // §17 (matches the screen-test pattern). Earlier stub used "HelpCenter
     // screen"; updated alongside the implementation.
     expect(getAllByLabelText('help-center-screen').length).toBeGreaterThan(0);
-    expect(getAllByLabelText('ForceUpgrade screen').length).toBeGreaterThan(0);
+    // Plan 02-20 ships the real ForceUpgrade screen, which uses the
+    // hyphenated `force-upgrade-screen` accessibility label per the
+    // screen-test pattern. Earlier stub used "ForceUpgrade screen"; updated
+    // alongside the implementation.
+    expect(getAllByLabelText('force-upgrade-screen').length).toBeGreaterThan(0);
   });
 });

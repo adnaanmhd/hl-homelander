@@ -24,6 +24,7 @@ import { useNavigation } from '@react-navigation/native';
 import ScreenContainer from '../../ui/primitives/ScreenContainer';
 import Text from '../../ui/primitives/Text';
 import { TopBar } from '../../components/TopBar';
+import { SoftUpgradeBanner } from '../../components/SoftUpgradeBanner';
 import { useAppStore } from '../../state/appStore';
 import { spacing } from '../../ui/tokens';
 
@@ -39,9 +40,11 @@ export default function HomeSkeletonScreen() {
           accessibilityLabel="soft-upgrade-banner-slot"
           style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.md }}
         >
-          {/* Plan 02-20 mounts the SoftUpgradeBanner component here. The
-              slot reserves layout space + a stable test hook so 02-20 can
-              wire its banner without re-touching this file's structure. */}
+          {/* Plan 02-20 — UPG-04 / D-UPG-05. The banner self-protects
+              against null payloads / per-version dismissal; the outer
+              softUpgradeAvailable guard short-circuits the layout entirely
+              when versionService hasn't flagged a soft upgrade. */}
+          <SoftUpgradeBanner />
         </View>
       ) : null}
       <ScrollView
