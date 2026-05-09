@@ -2,7 +2,7 @@
 //
 // PROF-01: avatar (read-only Image with fallback to initial), editable name +
 //   nullable age + nullable gender, non-editable Joined date.
-// PROF-02: Payments & Earnings card — title + Coming-soon badge + verbatim
+// PROF-02: payments card — title + Coming-soon badge + verbatim
 //   body copy from idea-brief.md §5.11 / design-spec.md §15.
 // PROF-03: lifetime contribution numeric (44 px, 700 weight) + 'Across N
 //   tasks' caption. Number formatted via durationFormatter (HOME-06 spec).
@@ -34,7 +34,7 @@ import { getFlavorContext } from '../../native/AppFlavor';
 import { InlineEditField } from './InlineEditField';
 
 // ---------------------------------------------------------------------------
-// PROF-02 — Payments & Earnings card body. Verbatim from idea-brief.md §5.11
+// PROF-02 — payments card body. Verbatim from idea-brief.md §5.11
 // "Payments coming soon" copy. Drift detector: any change to this string
 // surfaces in code review (the constant is the only call site).
 // prettier-ignore
