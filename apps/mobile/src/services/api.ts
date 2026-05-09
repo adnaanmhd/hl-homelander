@@ -1,15 +1,20 @@
 // Minimal HTTP client used by the Phase 1 sign-in flow. Reads the API base URL
 // from react-native-config (apps/mobile/.env.{flavor} → API_BASE_URL). Phase 1
-// shipped POST {body} + POST {no body}; Phase 2 plan 02-08 adds GET via
-// `getJson<T>(path, { query?, timeoutMs? })` for the /app/version splash check
-// and the broader read-side surface that follows.
+// shipped POST {body} + POST {no body}; Phase 2 plan 02-08 added GET via
+// `getJson<T>(path, { query?, timeoutMs? })` for the /app/version splash check;
+// plan 02-17 adds PATCH (for /me) and a `get` alias so call sites that prefer
+// the bare verb-name don't have to remember `getJson`.
 //
-// `getJson` wraps fetch with:
+// `getJson` / `get` wraps fetch with:
 //   - URL-encoded `query` object → `?k1=v1&k2=v2`
 //   - AbortController-based timeout (default 30 s; splash uses 5 s)
 //   - non-2xx → throws with RFC 7807 problem-detail body when the response
 //     was JSON, or the raw text otherwise. The thrown Error's `.message`
 //     mirrors Phase 1's `POST {path} failed: {status} {text}` shape.
+//
+// `patch` mirrors `post` (JSON body, content-type: application/json) plus
+// header forwarding so callers can pass an Idempotency-Key per request
+// (Phase 1 API-15 — backend de-duplicates retries by this header).
 
 import Config from 'react-native-config';
 
@@ -26,10 +31,19 @@ export interface GetJsonOptions {
   timeoutMs?: number;
 }
 
+export interface PatchOptions {
+  /** Extra request headers (e.g. `Idempotency-Key`). */
+  headers?: Record<string, string>;
+  timeoutMs?: number;
+}
+
 export interface ApiClient {
   post<T>(path: string, body: object, opts?: { idempotencyKey?: string }): Promise<T>;
   postNoBody<T>(path: string): Promise<T>;
   getJson<T>(path: string, opts?: GetJsonOptions): Promise<T>;
+  /** Alias of `getJson` — preferred for call sites that read more naturally as `apiClient.get(...)`. */
+  get<T>(path: string, opts?: GetJsonOptions): Promise<T>;
+  patch<T>(path: string, body: object, opts?: PatchOptions): Promise<T>;
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -91,6 +105,44 @@ export const apiClient: ApiClient = {
           body = await res.text();
         }
         throw new Error(`GET ${path} failed: ${res.status} ${body}`);
+      }
+      return (await res.json()) as T;
+    } finally {
+      clearTimeout(timer);
+    }
+  },
+  async get<T>(path: string, opts?: GetJsonOptions): Promise<T> {
+    return this.getJson<T>(path, opts);
+  },
+  async patch<T>(path: string, body: object, opts?: PatchOptions): Promise<T> {
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    if (opts?.headers) {
+      for (const [k, v] of Object.entries(opts.headers)) {
+        // Lowercase the header name on the wire — Phase 1 backend reads
+        // `idempotency-key` case-insensitively but several Fastify plugins
+        // expect lowercase. Matches the existing post()'s convention.
+        headers[k.toLowerCase()] = v;
+      }
+    }
+    const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(`${BASE_URL()}${path}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        let bodyText: string;
+        try {
+          const parsed = (await res.json()) as Record<string, unknown>;
+          bodyText = JSON.stringify(parsed);
+        } catch {
+          bodyText = await res.text();
+        }
+        throw new Error(`PATCH ${path} failed: ${res.status} ${bodyText}`);
       }
       return (await res.json()) as T;
     } finally {
