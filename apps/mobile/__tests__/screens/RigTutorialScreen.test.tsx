@@ -30,26 +30,32 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // vi.hoisted spies — shared between the (hoisted) vi.mock factories and the
 // per-test assertions.
 // ---------------------------------------------------------------------------
-const { mockSetTutorialDone, mockReplace, mockGetParent, mockLogEvent, mockOpenURL } = vi.hoisted(
-  () => ({
-    mockSetTutorialDone: vi.fn(),
-    mockReplace: vi.fn(),
-    mockGetParent: vi.fn(),
-    mockLogEvent: vi.fn(),
-    mockOpenURL: vi.fn(),
-  }),
-);
-
-// Header-shim payload: an example JWT with sub="google-sub-12345" so the
-// screen's decoder returns that value. The header/signature halves are
-// inert (atob just needs a base64 payload).
-const FAKE_JWT_PAYLOAD_B64 = (() => {
-  const json = JSON.stringify({ sub: 'google-sub-12345', flavor: 'apkRollout' });
-  // base64url-encode without padding
-  // (JSDOM's btoa is fine here)
-  return btoa(json).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
-})();
-const FAKE_JWT = `header.${FAKE_JWT_PAYLOAD_B64}.signature`;
+const { mockSetTutorialDone, mockReplace, mockGetParent, mockLogEvent, mockOpenURL, FAKE_JWT } =
+  vi.hoisted(() => {
+    // Header-shim payload: example JWT with sub="google-sub-12345" so the
+    // screen's decoder returns that value. The header/signature halves are
+    // inert (atob just needs a base64 payload). Built inside vi.hoisted so it
+    // is available to the (also-hoisted) vi.mock factories below — top-level
+    // const declarations execute AFTER hoisted vi.mock factories run, which
+    // is why FAKE_JWT must live here instead of as a module-level const.
+    const json = JSON.stringify({ sub: 'google-sub-12345', flavor: 'apkRollout' });
+    const b64 = (
+      globalThis as { Buffer?: { from(d: string, e: string): { toString(e: string): string } } }
+    )
+      .Buffer!.from(json, 'utf8')
+      .toString('base64')
+      .replace(/=+$/, '')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_');
+    return {
+      mockSetTutorialDone: vi.fn(),
+      mockReplace: vi.fn(),
+      mockGetParent: vi.fn(),
+      mockLogEvent: vi.fn(),
+      mockOpenURL: vi.fn(),
+      FAKE_JWT: `header.${b64}.signature`,
+    };
+  });
 
 // ---------------------------------------------------------------------------
 // react-native shim extension — vitest.setup.ts already shims View/Text/etc.
