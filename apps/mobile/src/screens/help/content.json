@@ -1,0 +1,216 @@
+{
+  "accordions": [
+    {
+      "id": "instructions-guide",
+      "title": "Instructions Guide",
+      "items": [
+        {
+          "kind": "subsection",
+          "heading": "Before you record",
+          "body": "- Mount your phone on the head rig. It should sit firmly — if it shakes / shifts while you move, the recording isn't usable.\n- Keep the camera lens unobstructed.\n- Pick a well-lit space. Natural daylight or bright indoor lighting both work.\n- Close all other apps. Background apps can interrupt recording.\n- Pick a task from the **Tasks** tab that matches what you're about to do."
+        },
+        {
+          "kind": "subsection",
+          "heading": "Starting a recording",
+          "body": "1. Open the task and tap **Start Recording**. The screen rotates to landscape and locks.\n2. Bring both hands into the camera frame and hold them there. The progress ring fills as your hands are detected — once it completes, recording starts automatically and you'll hear _\"Recording started.\"_\n3. You can also tap **Skip** under the record button to start manually."
+        },
+        {
+          "kind": "subsection",
+          "heading": "While recording",
+          "body": "- Keep your hands in frame as much as possible.\n- Follow the per-task instructions on the task screen (gaze direction, pacing, what to focus on).\n- The screen dims to save battery and reduce heat. This is normal.\n- Minimum length per clip is **60 seconds**. Anything shorter is discarded."
+        },
+        {
+          "kind": "subsection",
+          "heading": "Stopping a recording",
+          "body": "- Tap the stop button. You'll hear _\"Recording stopped\"_ and see your contribution time added.\n- You stay on the recording screen — tap record again to start a new clip of the same task.\n- To switch tasks, exit the recording screen and pick a different task."
+        },
+        {
+          "kind": "subsection",
+          "heading": "Your first recording (Practice)",
+          "body": "Your first run-through is a 60-second practice. It doesn't upload, doesn't appear in History, and doesn't count toward your contribution. After that, every recording counts."
+        },
+        {
+          "kind": "subsection",
+          "heading": "Uploads",
+          "body": "- Recordings upload automatically once they finish.\n- Track progress from the **Pending uploads** tile on Home.\n- Uploads continue when the app is in the background."
+        },
+        {
+          "kind": "subsection",
+          "heading": "Payouts",
+          "body": "Payments are processed offline. Your earnings will start reflecting in the app soon. Keep recording — your data is safe and your payouts are guaranteed.\n\n---"
+        }
+      ]
+    },
+    {
+      "id": "faqs",
+      "title": "FAQs",
+      "items": [
+        {
+          "kind": "qa",
+          "question": "What kind of phone do I need?",
+          "answer": "A phone with a 1080p ultrawide rear camera (≥ 110° field of view), gyroscope and accelerometer sensors, and steady performance under load. We run a one-time compatibility check on first launch — if your phone passes, you're good."
+        },
+        {
+          "kind": "qa",
+          "question": "Why did my phone fail the compatibility check?",
+          "answer": "The check looks at camera resolution, ultrawide field of view, sensor availability and sustained sample rate, microphone, and whether your device is rooted. The screen lists exactly which checks failed."
+        },
+        {
+          "kind": "qa",
+          "question": "Why did the check re-run on my phone?",
+          "answer": "The compatibility check re-runs after every app update or OS update, and the first time you sign in on a new device. This catches changes that could affect capture quality."
+        },
+        {
+          "kind": "qa",
+          "question": "Can I use someone else's phone to record?",
+          "answer": "Yes. As long as the phone passes the compatibility check and you sign in with your own Google account, you can use it."
+        },
+        {
+          "kind": "qa",
+          "question": "Can I record children?",
+          "answer": "No. By signing up you confirm everyone you record is 18 or older. Recordings of minors are not permitted."
+        },
+        {
+          "kind": "qa",
+          "question": "Can I record indoors and outdoors?",
+          "answer": "Yes. Match your task to the setting — some tasks are naturally indoor (cooking, cleaning, laundry); others fit either."
+        },
+        {
+          "kind": "qa",
+          "question": "Why does the app need my location?",
+          "answer": "Approximate location helps us understand the diversity of recordings in our dataset. We use coarse location only — never precise GPS."
+        },
+        {
+          "kind": "qa",
+          "question": "How do I get paid?",
+          "answer": "Payouts run offline initially. Don't worry, your contributions are being tracked — we'll notify you when payouts start reflecting in the app."
+        },
+        {
+          "kind": "qa",
+          "question": "How long can a recording be?",
+          "answer": "Minimum 60 seconds. There's no maximum limit. We'd like you to record the relevant tasks for as long as you can."
+        },
+        {
+          "kind": "qa",
+          "question": "What is the practice recording for?",
+          "answer": "It's a one-time, 60-second run-through to get you familiar with the recording flow. It doesn't upload and doesn't count toward your contribution."
+        },
+        {
+          "kind": "qa",
+          "question": "Can I delete a recording?",
+          "answer": "No. Once recorded, clips stay in your History and upload automatically."
+        },
+        {
+          "kind": "qa",
+          "question": "Can I cancel an upload?",
+          "answer": "No. Uploads run automatically and resume after interruptions. You can see progress from the **Pending uploads** tile on Home."
+        },
+        {
+          "kind": "qa",
+          "question": "Can I watch my recordings?",
+          "answer": "Yes — tap a thumbnail in History to play it back. Once a clip has been securely uploaded and the local copy is cleared, the thumbnail stays but playback is no longer available."
+        },
+        {
+          "kind": "qa",
+          "question": "Does the app use mobile data?",
+          "answer": "Yes by default. Uploads work over both Wi-Fi and cellular."
+        },
+        {
+          "kind": "qa",
+          "question": "Why did my recording stop on its own?",
+          "answer": "A few things can stop a recording mid-flight:\n\n- The phone rotated out of landscape\n- An incoming call was answered, or an alarm went off\n- The phone got too warm\n- The battery dropped to 5% or below\n\nThe app tells you what happened with a toast or voice cue."
+        },
+        {
+          "kind": "qa",
+          "question": "Why can't I find a recording I just made?",
+          "answer": "If it stopped at less than 60 seconds, it was discarded. Otherwise check the **History** tab — clips appear there even while uploads are still in progress."
+        },
+        {
+          "kind": "qa",
+          "question": "How do I delete my account?",
+          "answer": "Profile → Delete account, then type **DELETE** to confirm. Your account is deactivated for **30 days** — log in within that window to restore it. After 30 days, deletion is permanent. Recordings already uploaded remain on our servers."
+        },
+        {
+          "kind": "qa",
+          "question": "What happens if I uninstall the app?",
+          "answer": "Local recordings that haven't uploaded yet are lost. Uploaded recordings stay on our servers and your account is unaffected."
+        },
+        {
+          "kind": "qa",
+          "question": "I requested a new task — when will it appear?",
+          "answer": "Task requests are reviewed by our team. We'll get back to you as soon as we can.\n\n---"
+        }
+      ]
+    },
+    {
+      "id": "troubleshooting",
+      "title": "Troubleshooting",
+      "items": [
+        {
+          "kind": "issue",
+          "heading": "Recording won't start",
+          "resolution": "- _\"Phone is too warm\"_ — let your phone cool for a few minutes. Remove tight cases that trap heat.\n- Battery is below 5% — plug in to charge. New recordings are allowed once you're back above 15%.\n- Hand-detection gate isn't passing — see below."
+        },
+        {
+          "kind": "issue",
+          "heading": "The hand-detection gate keeps resetting",
+          "resolution": "- Both hands must be visible at the same time for about 2 seconds.\n- Move toward a light source — low light makes hand detection unreliable.\n- Remove gloves or anything covering your hands.\n- Tap on **Skip** below the recording button to start recording manually."
+        },
+        {
+          "kind": "issue",
+          "heading": "Camera preview is black",
+          "resolution": "- Check that camera permission is granted. Settings → Apps → Humyn Labs → Permissions.\n- Close any other app using the camera (video calls, other camera apps).\n- Restart the app."
+        },
+        {
+          "kind": "issue",
+          "heading": "Recording stopped mid-session",
+          "resolution": "- Phone rotated out of landscape — keep it locked in landscape on the rig.\n- Incoming call was answered, or an alarm fired — these can't be suppressed.\n- Phone overheated — let it cool, then try again.\n- Battery dropped to 5% — charge before continuing."
+        },
+        {
+          "kind": "issue",
+          "heading": "\"Recording too short — discarded\"",
+          "resolution": "Clips under 60 seconds aren't saved. Aim for at least a minute per task."
+        },
+        {
+          "kind": "issue",
+          "heading": "Compatibility check failed",
+          "resolution": "The screen lists which checks failed. Most failures are hardware-related and can't be fixed in software. If you're using a borrowed phone, try a different qualifying device. Make sure the phone isn't rooted and was installed from the Play Store."
+        },
+        {
+          "kind": "issue",
+          "heading": "Sign-in failed",
+          "resolution": "- Check your internet connection.\n- The app blocks rooted phones, emulators, and sideloaded builds. If that's the cause, install from the Play Store on a non-rooted phone.\n- Try again — Google sign-in occasionally times out."
+        },
+        {
+          "kind": "issue",
+          "heading": "Uploads aren't progressing",
+          "resolution": "- Check your internet connection.\n- On Xiaomi, Oppo, Vivo, or Samsung phones, the OS sometimes pauses background uploads. Allow the battery-optimization exemption when prompted, or simply reopen the app to resume.\n- Uploads pause while you're recording. They resume after stop."
+        },
+        {
+          "kind": "issue",
+          "heading": "Storage warning at compatibility check",
+          "resolution": "Free up at least 5 GB before recording. A 10-minute clip is roughly 600 MB."
+        },
+        {
+          "kind": "issue",
+          "heading": "Phone heats up while recording",
+          "resolution": "- Some warming is normal, but persistent overheating ends recordings early.\n- Remove tight phone cases and avoid recording in direct sunlight.\n- Charging while recording can compound heat — record on battery when possible."
+        },
+        {
+          "kind": "issue",
+          "heading": "I switched to a new phone — what do I need to do?",
+          "resolution": "Sign in with the same Google account. The compatibility check will re-run on the new device. Recordings already uploaded from your old phone stay on our servers; local clips that hadn't uploaded yet are tied to the old install and won't appear on the new device."
+        },
+        {
+          "kind": "issue",
+          "heading": "I just deleted my account by mistake",
+          "resolution": "Log in with the same Google account within 30 days. Your account, profile, and History will be restored. After 30 days, deletion is permanent.\n\n---"
+        }
+      ]
+    }
+  ],
+  "contactSupport": {
+    "headline": "Need more help?",
+    "body": "Still stuck? Tap **Contact Support** below to email us at `[EMAIL_ADDRESS]`. Tell us your phone model, what you were trying to do, and roughly when it happened — that's usually enough for us to help."
+  }
+}
