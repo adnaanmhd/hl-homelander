@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: 'Phase 2 wave 4 — plan 02-18 complete'
-last_updated: '2026-05-09T19:30:00.000Z'
+stopped_at: 'Phase 2 wave 4 — plan 02-19 complete'
+last_updated: '2026-05-09T13:43:23Z'
 last_activity: 2026-05-09
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 35
-  completed_plans: 31
-  percent: 89
+  completed_plans: 32
+  percent: 91
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 02 (mobile-shell-onboarding-permissions-compat-profile) — EXECUTING
-Plan: 19 of 22 (02-18 complete; next: 02-19 logout + delete-account)
+Plan: 20 of 22 (02-19 complete; next: 02-20 force-upgrade + soft-banner)
 Status: Ready to execute
 Last activity: 2026-05-09
 
-Progress: [████████▉░] 89%
+Progress: [█████████░] 91%
 
 ## Resume Path (set before pause)
 
@@ -50,9 +50,9 @@ To resume Phase 1:
 
 **Velocity:**
 
-- Total plans completed: 23
-- Average duration: ~10.5 min
-- Total execution time: ~1.77 hours
+- Total plans completed: 24
+- Average duration: ~10.4 min
+- Total execution time: ~1.89 hours
 
 **By Phase:**
 
@@ -63,8 +63,8 @@ To resume Phase 1:
 
 **Recent Trend:**
 
-- Last 10 plans: 01-01 (7 min, 3 tasks, 22 files), 01-03 (5 min, 3 tasks, 7 files), 01-02 (6 min, 3 tasks + checkpoint, 11 files), 01-04 (9 min, 3 tasks, 18 files), 01-05 (13 min, 4 tasks, 25 files), 01-06 (18 min, 3 tasks, 17 files), 01-07 (12 min, 4 tasks, 17 files), 01-08 (17 min, 3 tasks, 28 files), 01-09 (7 min, 3 tasks, 19 files), 02-17 (12 min, 3 tasks, 8 files), 02-18 (12 min, 4 tasks, 14 files).
-- Trend: 02-18 lands at 12 min on 4 tasks — wave-4 cadence holds; 4 deviations auto-fixed (2 Rule 1 — bug fixes for stale test labels + bad importActual('react-native'); 2 Rule 3 — ulid→react-native-uuid swap, vitest.setup.ts lucide allow-list extension). All Help-Center surfaces ship including the build-time markdown→JSON parser; 23/23 plan-level vitest cases green; full mobile suite remains 183/183.
+- Last 10 plans: 01-01 (7 min, 3 tasks, 22 files), 01-03 (5 min, 3 tasks, 7 files), 01-02 (6 min, 3 tasks + checkpoint, 11 files), 01-04 (9 min, 3 tasks, 18 files), 01-05 (13 min, 4 tasks, 25 files), 01-06 (18 min, 3 tasks, 17 files), 01-07 (12 min, 4 tasks, 17 files), 01-08 (17 min, 3 tasks, 28 files), 01-09 (7 min, 3 tasks, 19 files), 02-17 (12 min, 3 tasks, 8 files), 02-18 (12 min, 4 tasks, 14 files), 02-19 (7 min, 3 tasks, 9 files).
+- Trend: 02-19 lands at 7 min on 3 tasks — fastest plan in wave 4 (smallest surface); 5 deviations auto-fixed (3 Rule 1 — plan-snippet API mismatches: mmkv.delete→remove, ulid→react-native-uuid, btnLabel→sheetTitle for modal titles; 2 Rule 3 — blocking deps: missing apiClient.delete + vi.mock hoist conflict). Both Logout/Delete modals ship as transparentModal siblings; 23/23 plan-level vitest cases green; full mobile suite now 203/203.
 
 _Updated after each plan completion_
 | Phase 01 P08 | 17 min | 3 tasks | 28 files |
@@ -73,6 +73,7 @@ _Updated after each plan completion_
 | Phase 02 P16 | 25min | - tasks | - files |
 | Phase 02 P17 | 12min | 3 tasks | 8 files |
 | Phase 02 P18 | 12min | 4 tasks | 14 files |
+| Phase 02 P19 | 7min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -148,6 +149,11 @@ Recent decisions affecting current work:
 - [Phase 2]: Plan 02-18: apiClient.postMultipart added — the multipart-form-data sibling of post/patch. Critical: does NOT set Content-Type. fetch derives the boundary from the FormData instance; manually setting content-type would strip the boundary parameter and @fastify/multipart would reject the body. Idempotency-Key forwarded per-request; future endpoints shipping file blobs (consent receipts, DSR exports, support attachments) reuse this wrapper.
 - [Phase 2]: Plan 02-18: HelpCenterScreen exports BOTH named and default — RootNativeStack imports the default. Replacing the stub with a named-only export would force a navigator edit that plan 02-19 also touches; dual-export keeps the merge surface clean. Pattern reusable when a screen swaps its body inside a phase that another plan in the same phase also touches the navigator.
 - [Phase 2]: Plan 02-18: Diagnostic-snapshot pattern (D-HELP-02) — buildDiagnosticSnapshot() composes `{ appVersion, buildIdentifier, osVersion, deviceModel, telemetryRing }` from AppFlavor native module + telemetryRing.snapshot(). Reusable for any future "report a problem" surface (Phase 5 upload-failure reports, Phase 7 iOS App Store crash dialogs). Per RESEARCH § Security pattern row 8: telemetryRing entries pre-filtered at append time (engineering-handoff §11) — no PII reaches the snapshot.
+- [Phase 2]: Plan 02-19: Device-bound vs user-bound MMKV-key contract (Pattern 48) — auth.signOut clears auth.jwt.v1 + onboarding.\* (consent / permsGranted / compatPassed / tutorialDone) but explicitly preserves compat.lastResult.v1 + installation_id.v1 + telemetry.ring.v1 + appVersion.cache.v1. Rationale: compat signature embeds installation_id (device-bound); same-device re-login should NOT have to re-run the 30-second compat probe. Future onboarding/auth keys must declare which side of this contract they fall on; the inline doc-comment in auth.ts is the canonical source.
+- [Phase 2]: Plan 02-19: vi.hoisted spy binding pattern (Pattern 47) — vi.mock factories are hoisted above all imports; closures over `const fn = vi.fn()` declarations race the hoist and crash with TDZ. Wrapping spies in `vi.hoisted({ ... })` puts them in the same hoist-scope as the factory body. Used by LogoutModal.test.tsx and DeleteAccountModal.test.tsx; reusable for any future component test that mocks @react-navigation/native + a service module + react-native at once. (Older tests in **tests**/components/ that did NOT need this pattern: Modal-less components whose factories don't reference test-file-scope spies.)
+- [Phase 2]: Plan 02-19: apiClient.delete added as third HTTP-verb wrapper alongside `patch` and `postMultipart` — same lower-cased-on-the-wire header forwarding, same AbortController timeout, same RFC 7807 error-message synthesis, same try-parse-then-undefined-fallback for empty responses. Reusable for any future client-issued DELETE (Phase 5 cancel-recording, Phase 6 dismiss-feedback, etc.).
+- [Phase 2]: Plan 02-19: presentation: 'transparentModal' (NOT 'modal') for both Logout/Delete modals so the underlying Profile screen stays visible behind the 50% scrim, matching design-spec §18 modal-card pattern. ForceUpgrade keeps presentation: 'modal' because it's a full-screen takeover; logout/delete are dismissible confirmations. New rule for Phase 2/5+ confirmations: use transparentModal when the user can dismiss + return to the underlying screen; use modal when the takeover blocks the underlying surface entirely.
+- [Phase 2]: Plan 02-19: AUTH-10 typing-gate uses defense-in-depth — Confirm button rendered `disabled` when typed !== 'DELETE' AND the onPress handler short-circuits via the same equality check + Alert. Backend Phase 1 plan 01-08's MeDeleteQuerySchema is the authoritative gate. Pattern: any client-side input gate that protects a destructive action MUST have both layers (UI rendering + handler short-circuit) AND the backend authoritative check; the client gate is UX, the backend is binding (per RESEARCH § Security threat row 5).
 
 ### Pending Todos
 
@@ -173,8 +179,8 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-09T19:30:00.000Z
-Stopped at: Phase 2 wave 4 — plan 02-18 complete
+Last session: 2026-05-09T13:43:23Z
+Stopped at: Phase 2 wave 4 — plan 02-19 complete
 
 - 01-10 (terraform apply): Tasks 1+2+3 complete + committed (430e17a, 9e52db8, ad93d17). Operator runs `terraform fmt -check` + `terraform validate` + `terraform plan` + `terraform apply` against real AWS staging.
 - 01-11 (counsel engagement): code-ready-counsel-deferred. Three commits ship the canonical consent text + boot-time hash guard, takedown SOP runbook, dsr-export CLI, and counsel-engagement checklist. Real attorney review queued for legal-ops backlog.
