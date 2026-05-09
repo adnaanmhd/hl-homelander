@@ -30,6 +30,7 @@ import ProfileScreen from '../screens/profile/ProfileScreen';
 import HelpCenterScreen from '../screens/help/HelpCenterScreen';
 import ForceUpgradeScreen from '../screens/force-upgrade/ForceUpgradeScreen';
 import { LogoutModal } from '../components/LogoutModal';
+import { DeleteAccountModal } from '../components/DeleteAccountModal';
 
 const Root = createNativeStackNavigator();
 
@@ -71,6 +72,11 @@ export default function RootNativeStack() {
       <Root.Screen
         name="LogoutModal"
         component={LogoutModal}
+        options={{ presentation: 'transparentModal', gestureEnabled: false, animation: 'fade' }}
+      />
+      <Root.Screen
+        name="DeleteAccountModal"
+        component={DeleteAccountModal}
         options={{ presentation: 'transparentModal', gestureEnabled: false, animation: 'fade' }}
       />
     </Root.Navigator>
