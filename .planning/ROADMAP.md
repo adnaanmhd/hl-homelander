@@ -78,8 +78,8 @@ Plans:
 
 **Wave 4** _(blocked on Wave 3 completion)_
 
-- [ ] 02-15-compat-screens-and-service-PLAN.md — compatService + 4 compat screens (Running / Pass / Fail / Recovery)
-- [ ] 02-16-home-skeleton-and-tabs-PLAN.md — HomeSkeleton + TopBar + 3-tab MainTabs + structural HOME-07/08 lock
+- [x] 02-15-compat-screens-and-service-PLAN.md — compatService + 4 compat screens (Running / Pass / Fail / Recovery)
+- [x] 02-16-home-skeleton-and-tabs-PLAN.md — HomeSkeleton + TopBar + 3-tab MainTabs + structural HOME-07/08 lock
 - [ ] 02-17-profile-screen-PLAN.md — ProfileScreen (PROF-01..05) + inline-edit + durationFormatter
 - [ ] 02-18-help-center-and-feedback-PLAN.md — HelpCenter + AccordionItem + ReportProblemSheet + feedbackService + content build script
 - [ ] 02-19-logout-and-delete-account-PLAN.md — LogoutModal + DeleteAccountModal (DELETE-typing gate) + DELETE /me wiring
