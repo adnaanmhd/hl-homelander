@@ -35,7 +35,7 @@
 
 The cold-start gate has four navigation paths depending on persisted MMKV state. Walk all four.
 
-- [ ] **Path A — fresh install, no JWT:** uninstall app, reinstall apkRollout debug APK, cold-start → Splash (~2.4 s) → Sign-up screen.
+- [x] **Path A — fresh install, no JWT:** uninstall app, reinstall apkRollout debug APK, cold-start → Splash (~2.4 s) → Sign-up screen. _(Pixel 10a, 2026-05-09. Functional pass. Cosmetic gaps deferred — see `.planning/phases/02-…/02-COSMETIC-GAPS.md`.)_
   - Inputs:
     ```
     adb uninstall ai.humynlabs.capture.apk
