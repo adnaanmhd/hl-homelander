@@ -189,11 +189,11 @@
 
 ### Help Center
 
-- [ ] **HELP-01**: Help Center has 3 accordions, collapsed by default, in this order: **Instructions Guide**, **FAQs**, **Troubleshooting** (per `idea-brief.md` §5.12)
-- [ ] **HELP-02**: Help Center copy is sourced **verbatim** from `help-center-content.md` — that file is the canonical content source
-- [ ] **HELP-03**: Help Center has a Contact Support entry below the third accordion that opens the mail app with a pre-filled email to `[EMAIL_ADDRESS]` (final TBD)
-- [ ] **HELP-04**: Help Center entry is reached only from Profile (no hamburger menu, no other entry point)
-- [ ] **HELP-05**: Help Center has an in-app "Report a problem" form that submits to `POST /feedback` with category, message, and attached diagnostic snapshot (app version / build / OS / device model / last 100 telemetry events) **[research]**
+- [x] **HELP-01**: Help Center has 3 accordions, collapsed by default, in this order: **Instructions Guide**, **FAQs**, **Troubleshooting** (per `idea-brief.md` §5.12)
+- [x] **HELP-02**: Help Center copy is sourced **verbatim** from `help-center-content.md` — that file is the canonical content source
+- [x] **HELP-03**: Help Center has a Contact Support entry below the third accordion that opens the mail app with a pre-filled email to `[EMAIL_ADDRESS]` (final TBD)
+- [x] **HELP-04**: Help Center entry is reached only from Profile (no hamburger menu, no other entry point)
+- [x] **HELP-05**: Help Center has an in-app "Report a problem" form that submits to `POST /feedback` with category, message, and attached diagnostic snapshot (app version / build / OS / device model / last 100 telemetry events) **[research]**
 
 ### Forced Upgrade
 
@@ -501,11 +501,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PROF-03     | Phase 2 | Plan 02-17 (complete) |
 | PROF-04     | Phase 2 | Plan 02-17 (complete) |
 | PROF-05     | Phase 2 | Plan 02-17 (complete) |
-| HELP-01     | Phase 2 | Pending               |
-| HELP-02     | Phase 2 | Pending               |
-| HELP-03     | Phase 2 | Pending               |
-| HELP-04     | Phase 2 | Pending               |
-| HELP-05     | Phase 2 | Pending               |
+| HELP-01     | Phase 2 | Complete (Plan 02-18) |
+| HELP-02     | Phase 2 | Complete (Plan 02-18) |
+| HELP-03     | Phase 2 | Complete (Plan 02-18) |
+| HELP-04     | Phase 2 | Complete (Plan 02-18) |
+| HELP-05     | Phase 2 | Complete (Plan 02-18) |
 | UPG-01      | Phase 2 | Pending               |
 | UPG-02      | Phase 2 | Pending               |
 | UPG-03      | Phase 2 | Pending               |

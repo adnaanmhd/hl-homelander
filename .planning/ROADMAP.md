@@ -81,7 +81,7 @@ Plans:
 - [x] 02-15-compat-screens-and-service-PLAN.md — compatService + 4 compat screens (Running / Pass / Fail / Recovery)
 - [x] 02-16-home-skeleton-and-tabs-PLAN.md — HomeSkeleton + TopBar + 3-tab MainTabs + structural HOME-07/08 lock
 - [x] 02-17-profile-screen-PLAN.md — ProfileScreen (PROF-01..05) + inline-edit + durationFormatter
-- [ ] 02-18-help-center-and-feedback-PLAN.md — HelpCenter + AccordionItem + ReportProblemSheet + feedbackService + content build script
+- [x] 02-18-help-center-and-feedback-PLAN.md — HelpCenter + AccordionItem + ReportProblemSheet + feedbackService + content build script
 - [ ] 02-19-logout-and-delete-account-PLAN.md — LogoutModal + DeleteAccountModal (DELETE-typing gate) + DELETE /me wiring
 - [ ] 02-20-force-upgrade-and-soft-banner-PLAN.md — ForceUpgradeScreen (per-flavor) + SoftUpgradeBanner + REQUEST_INSTALL_PACKAGES verify
 
@@ -175,7 +175,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase                                                      | Plans Complete | Status      | Completed  |
 | ---------------------------------------------------------- | -------------- | ----------- | ---------- |
 | 1. Foundation, Backend & Distribution Recon                | 13/13          | Complete    | 2026-05-08 |
-| 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 0/22           | Planned     | -          |
+| 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 18/22          | In Progress | -          |
 | 3. HumynCapture Native Module (Bytes-on-disk)              | 0/TBD          | Not started | -          |
 | 4. HandDetector, Recording UX & Practice Tutorial          | 0/TBD          | Not started | -          |
 | 5. Upload Pipeline, Hash-Verify Worker & Anti-fraud        | 0/TBD          | Not started | -          |
