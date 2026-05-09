@@ -47,11 +47,13 @@
     <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="true" />
 
     <application
+        android:name=".MainApplication"
         android:label="Humyn Labs Capture"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/AppTheme"
         android:allowBackup="false"
+        android:usesCleartextTraffic="true"
         android:supportsRtl="true">
         <activity
             android:name=".MainActivity"
