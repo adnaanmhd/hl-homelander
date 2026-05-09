@@ -56,6 +56,12 @@ export interface DeviceCapsResult {
   micSampleRateMax: number;
   /** SENSOR_INFO_TIMESTAMP_SOURCE == REALTIME on the back ultrawide. */
   realtimeTimestampSource: boolean;
+  /**
+   * Both gyroscope AND accelerometer present on the device.
+   * `<uses-feature required="true">` already filters out devices without these
+   * at install-time; this field is a redundant runtime-side check.
+   */
+  motionSensorsPresent: boolean;
   /** Best-effort root verdict; Play Integrity (Phase 1) is authoritative. */
   rooted: boolean;
   /** Free space on the internal data partition in gigabytes. */
