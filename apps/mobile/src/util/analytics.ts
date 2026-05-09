@@ -31,6 +31,7 @@ export const EVENT_NAMES = [
   'upg_force_upgrade_shown',
   'upg_force_upgrade_apk_downloaded',
   'upg_force_upgrade_apk_hash_mismatch',
+  'upg_force_upgrade_apk_download_failed',
   'upg_soft_banner_shown',
   'upg_soft_banner_dismissed',
   'upg_soft_banner_tapped',
