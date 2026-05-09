@@ -10,14 +10,17 @@
 
 /**
  * Parse an `M.m.p` version string into a 3-tuple of integers.
- * Missing patch (`0.1`) defaults to 0.
+ * Missing patch (`0.1`) defaults to 0. Any pre-release / build-metadata
+ * suffix after `-` or `+` is dropped per the canonical semver spec, so
+ * e.g. the apkRollout flavor's `versionName='0.1.0-apk'` parses as
+ * `[0,1,0]` and compares equal to backend's `0.1.0`.
  *
  * Throws on any string that doesn't match the constrained shape; the caller
- * is responsible for guarding non-version inputs (BuildConfig is always
- * well-formed, so the throw is a programmer-error guard, not a runtime one).
+ * is responsible for guarding non-version inputs.
  */
 export function parseSemver(s: string): [number, number, number] {
-  const m = s.match(/^(\d+)\.(\d+)(?:\.(\d+))?$/);
+  const core = s.split(/[-+]/, 1)[0]!;
+  const m = core.match(/^(\d+)\.(\d+)(?:\.(\d+))?$/);
   if (!m) throw new Error(`invalid semver: ${s}`);
   return [Number(m[1]), Number(m[2]), Number(m[3] ?? '0')];
 }
