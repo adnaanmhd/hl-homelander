@@ -175,7 +175,7 @@ export default function SplashScreen() {
           <Image
             source={ORANGE_LOGO}
             style={styles.logo}
-            resizeMode="contain"
+            resizeMode="cover"
             accessibilityIgnoresInvertColors
           />
         </Animated.View>
@@ -195,5 +195,6 @@ export default function SplashScreen() {
 
 const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
-  logo: { width: 240, height: 96 },
+  // Splash logo is the `xl` size from prototype.html (.logo-img.xl).
+  logo: { width: 360, height: 104 },
 });

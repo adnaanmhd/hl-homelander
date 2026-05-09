@@ -3,6 +3,22 @@ apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 apply plugin: "com.google.gms.google-services"
 
+// react-native-config flavor → env-file mapping. The plugin's `dotenv.gradle`
+// reads the chosen file and emits each KEY=VALUE pair as both a build-time
+// `resValue` string (so `Config.<KEY>` works at runtime) and a BuildConfig
+// field. The map MUST be set before the `apply from` call below; the plugin
+// looks at variant.flavorName.toLowerCase() to pick a key, so use lowercase
+// keys here that match the lowercased flavor name.
+project.ext.envConfigFiles = [
+    apkrolloutdebug: ".env.apkRollout",
+    apkrolloutrelease: ".env.apkRollout",
+    playstoredebug: ".env.playStore",
+    playstorerelease: ".env.playStore",
+    apkrollout: ".env.apkRollout",
+    playstore: ".env.playStore",
+]
+apply from: project(':react-native-config').projectDir.getPath() + "/dotenv.gradle"
+
 // React Native gradle plugin app-level autolinking. Settings-level
 // `autolinkLibrariesFromCommand()` generates PackageList.java + JNI codegen,
 // but `autolinkLibrariesWithApp()` is what translates the autolinked native
@@ -30,6 +46,12 @@ android {
                      ? project.humynVersionCode.toInteger() : 1)
         versionName (project.hasProperty('humynVersionName')
                      ? project.humynVersionName : '0.1.0')
+        // react-native-config's native module reflects into <pkg>.BuildConfig
+        // to expose .env values to JS via `import Config from 'react-native-config'`.
+        // The "build_config_package" resValue tells the module which package to
+        // probe; without it logcat says "ReactConfig: Could not find BuildConfig class"
+        // and every Config.<KEY> read returns undefined at runtime.
+        resValue "string", "build_config_package", "ai.humynlabs.capture"
     }
 
     flavorDimensions += 'distribution'

@@ -73,8 +73,8 @@ The cold-start gate has four navigation paths depending on persisted MMKV state.
 
 ## 2. Sign-up + Terms-of-Use modal (AUTH-01..05)
 
-- [ ] Tap 'Continue with Google' WITH consent UNCHECKED → alert 'Please accept the Terms of Use to continue.' fires → no nav.
-- [ ] Tap the 'Terms of Use' link → modal opens with the verbatim §5.2 / §18.1 copy. Search for the substring 'I consent and agree to upload videos of myself' — it MUST be visible. Tap 'Got it' → modal closes.
+- [x] Tap 'Continue with Google' WITH consent UNCHECKED → alert 'Please accept the Terms of Use to continue.' fires → no nav. _(Pixel 10a, 2026-05-10. Pass.)_
+- [x] Tap the 'Terms of Use' link → modal opens with the verbatim §5.2 / §18.1 copy. Search for the substring 'I consent and agree to upload videos of myself' — it MUST be visible. Tap 'Got it' → modal closes. _(Pixel 10a, 2026-05-10. Pass.)_
 - [ ] Re-check consent → tap 'Continue with Google' → Google Sign-In sheet renders → select test account → returns to app.
 - [ ] Watch logs in a separate terminal:
   ```
