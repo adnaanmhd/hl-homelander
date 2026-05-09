@@ -12,6 +12,7 @@ import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.react.soloader.OpenSourceMergedSoMapping
 import com.facebook.soloader.SoLoader
 import io.humyn.app.PlayIntegrityPackage
+import ai.humynlabs.capture.compat.HumynCompatPackage
 
 /**
  * RN 0.83 / Hermes / New Architecture Application entry point.
@@ -27,6 +28,7 @@ class MainApplication : Application(), ReactApplication {
                 val packages = PackageList(this).packages.toMutableList()
                 packages.add(AppFlavorPackage())
                 packages.add(PlayIntegrityPackage())  // Plan 13 — Phase 1 mobile sign-in scaffold
+                packages.add(HumynCompatPackage())    // Plan 02-06 — Phase 2 compat probe shell
                 return packages
             }
 
@@ -47,5 +49,10 @@ class MainApplication : Application(), ReactApplication {
         SoLoader.init(this, OpenSourceMergedSoMapping)
         // Initialise the new-architecture entry point.
         load()
+        // D-COMPAT-04 / T-2.6-02: sweep orphan compat-probe-*.mp4 files left in
+        // cacheDir if a previous EncoderProbe (plan 02-12) crashed before its
+        // finally-block deletion ran. Best-effort — listFiles can return null.
+        cacheDir.listFiles { f -> f.name.startsWith("compat-probe-") && f.name.endsWith(".mp4") }
+            ?.forEach { it.delete() }
     }
 }
