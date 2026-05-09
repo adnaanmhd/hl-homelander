@@ -87,7 +87,7 @@ Plans:
 
 **Wave 5** _(blocked on Wave 4 completion)_
 
-- [ ] 02-21-manual-smoke-runbook-PLAN.md — 02-MANUAL-SMOKE.md runbook + Open Questions tracking + Crashlytics gate
+- [x] 02-21-manual-smoke-runbook-PLAN.md — 02-MANUAL-SMOKE.md runbook + Open Questions tracking + Crashlytics gate (authoring complete; operator on-device walk-through pending — code-ready-smoke-deferred)
 - [x] 02-22-android-manifest-ci-finalize-PLAN.md — PERM-04 static + Gradle merged-manifest CI gate + RootStack route registry + phase-wide no-hex-literals gate
 
   **UI hint**: yes
@@ -172,12 +172,12 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 (Per research SUMMARY.md, parallelization opportunities exist where indicated — Phase 2 with Phase 3, Phase 4 (HandDetector portion) with Phase 5 (Upload portion), iOS analogues in Phase 7 with Phase 6 if a second engineer is dedicated. Numeric order is the default execution order; parallelization is a planning-time choice.)
 
-| Phase                                                      | Plans Complete | Status      | Completed  |
-| ---------------------------------------------------------- | -------------- | ----------- | ---------- |
-| 1. Foundation, Backend & Distribution Recon                | 13/13          | Complete    | 2026-05-08 |
-| 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 21/22          | In Progress | -          |
-| 3. HumynCapture Native Module (Bytes-on-disk)              | 0/TBD          | Not started | -          |
-| 4. HandDetector, Recording UX & Practice Tutorial          | 0/TBD          | Not started | -          |
-| 5. Upload Pipeline, Hash-Verify Worker & Anti-fraud        | 0/TBD          | Not started | -          |
-| 6. Tasks, History, Home Tiles & Hybrid Search              | 0/TBD          | Not started | -          |
-| 7. Observability, iOS Parity & Staged Rollout              | 0/TBD          | Not started | -          |
+| Phase                                                      | Plans Complete | Status                                           | Completed  |
+| ---------------------------------------------------------- | -------------- | ------------------------------------------------ | ---------- |
+| 1. Foundation, Backend & Distribution Recon                | 13/13          | Complete                                         | 2026-05-08 |
+| 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 22/22          | Authoring complete · operator-smoke gate pending | -          |
+| 3. HumynCapture Native Module (Bytes-on-disk)              | 0/TBD          | Not started                                      | -          |
+| 4. HandDetector, Recording UX & Practice Tutorial          | 0/TBD          | Not started                                      | -          |
+| 5. Upload Pipeline, Hash-Verify Worker & Anti-fraud        | 0/TBD          | Not started                                      | -          |
+| 6. Tasks, History, Home Tiles & Hybrid Search              | 0/TBD          | Not started                                      | -          |
+| 7. Observability, iOS Parity & Staged Rollout              | 0/TBD          | Not started                                      | -          |
