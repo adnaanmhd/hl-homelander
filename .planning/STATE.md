@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: 'Phase 2 wave 4 — plan 02-17 complete'
-last_updated: '2026-05-09T18:42:00.000Z'
+stopped_at: 'Phase 2 wave 4 — plan 02-18 complete'
+last_updated: '2026-05-09T19:30:00.000Z'
 last_activity: 2026-05-09
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 35
-  completed_plans: 30
-  percent: 86
+  completed_plans: 31
+  percent: 89
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 02 (mobile-shell-onboarding-permissions-compat-profile) — EXECUTING
-Plan: 18 of 22 (02-17 complete; next: 02-18 Help Center)
+Plan: 19 of 22 (02-18 complete; next: 02-19 logout + delete-account)
 Status: Ready to execute
 Last activity: 2026-05-09
 
-Progress: [████████▌░] 86%
+Progress: [████████▉░] 89%
 
 ## Resume Path (set before pause)
 
@@ -50,9 +50,9 @@ To resume Phase 1:
 
 **Velocity:**
 
-- Total plans completed: 22
-- Average duration: ~10.4 min
-- Total execution time: ~1.57 hours
+- Total plans completed: 23
+- Average duration: ~10.5 min
+- Total execution time: ~1.77 hours
 
 **By Phase:**
 
@@ -63,8 +63,8 @@ To resume Phase 1:
 
 **Recent Trend:**
 
-- Last 9 plans: 01-01 (7 min, 3 tasks, 22 files), 01-03 (5 min, 3 tasks, 7 files), 01-02 (6 min, 3 tasks + checkpoint, 11 files), 01-04 (9 min, 3 tasks, 18 files), 01-05 (13 min, 4 tasks, 25 files), 01-06 (18 min, 3 tasks, 17 files), 01-07 (12 min, 4 tasks, 17 files), 01-08 (17 min, 3 tasks, 28 files), 01-09 (7 min, 3 tasks, 19 files), 02-17 (12 min, 3 tasks, 8 files)
-- Trend: 02-17 lands clean at 12 min — wave-4 average territory; 6 deviations all auto-fixed (3 Rule 1 plan-body-vs-baseline drift, 3 Rule 3 missing-dep / missing-API-shape). Profile screen + service + utility ship without nav plumbing churn because 02-05 + 02-16 had already finalized RootNativeStack registration + TopBar avatar wiring.
+- Last 10 plans: 01-01 (7 min, 3 tasks, 22 files), 01-03 (5 min, 3 tasks, 7 files), 01-02 (6 min, 3 tasks + checkpoint, 11 files), 01-04 (9 min, 3 tasks, 18 files), 01-05 (13 min, 4 tasks, 25 files), 01-06 (18 min, 3 tasks, 17 files), 01-07 (12 min, 4 tasks, 17 files), 01-08 (17 min, 3 tasks, 28 files), 01-09 (7 min, 3 tasks, 19 files), 02-17 (12 min, 3 tasks, 8 files), 02-18 (12 min, 4 tasks, 14 files).
+- Trend: 02-18 lands at 12 min on 4 tasks — wave-4 cadence holds; 4 deviations auto-fixed (2 Rule 1 — bug fixes for stale test labels + bad importActual('react-native'); 2 Rule 3 — ulid→react-native-uuid swap, vitest.setup.ts lucide allow-list extension). All Help-Center surfaces ship including the build-time markdown→JSON parser; 23/23 plan-level vitest cases green; full mobile suite remains 183/183.
 
 _Updated after each plan completion_
 | Phase 01 P08 | 17 min | 3 tasks | 28 files |
@@ -72,6 +72,7 @@ _Updated after each plan completion_
 | Phase 01 P12 | 28min | 3 tasks | 14 files |
 | Phase 02 P16 | 25min | - tasks | - files |
 | Phase 02 P17 | 12min | 3 tasks | 8 files |
+| Phase 02 P18 | 12min | 4 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -142,6 +143,11 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 2]: Plan 02-17: apiClient extended with `patch<T>` mirroring `post()` (JSON body + AbortController timeout) plus a `get<T>` one-line alias of `getJson<T>` for natural verb-name call sites. Lower-cases extra header names on the wire (matches the existing post() convention).
 - [Phase ?]: [Phase 2]: Plan 02-17: When the plan body listed `RootNativeStack.tsx` in `files_modified`, the actual edit was a no-op — plan 02-05 already registered Profile as a RootNativeStack sibling, and the existing `import ProfileScreen` resolves to the new body's default export. Pattern: treat `files_modified` as a permission set, not a mandatory edit list, when the plan acceptance criteria already pass against the unchanged file.
 - [Phase ?]: [Phase 2]: Plan 02-17: Manual `cleanup()` in `afterEach` for testing-library/react under vitest `globals: false`. Auto-cleanup hook only fires under `globals: true`; without explicit cleanup, multi-render screen tests hit "Found multiple elements" because the previous render's DOM tree stays mounted. Pattern shared with SignupScreen.test.tsx + RootNativeStack.test.tsx.
+- [Phase 2]: Plan 02-18: Build-time markdown→JSON bake (D-HELP-01) — apps/mobile/scripts/build-help-content.mjs parses help-center-content.md into apps/mobile/src/screens/help/content.json with the HELP-01 ordering invariant asserted in main(). Wired via `npm run prebuild` so install/start re-emits the JSON deterministically. Pattern: any future content-as-code surface (e.g., legal copy, onboarding scripts) follows the same MD→JSON build-step shape — no runtime markdown dependency, JSON committed for PR review.
+- [Phase 2]: Plan 02-18: Same react-native-uuid (NOT ulid) idempotency pattern as 02-17 reused for POST /feedback Idempotency-Key. The mobile bundle stays single-key-library; Phase 1 plan 01-08 stores idempotency keys raw so the shape is opaque to the backend (UUIDv4 satisfies uniqueness identically). Reference impl at apps/mobile/src/services/feedbackService.ts; this is now the canonical pattern for any mobile-side idempotent POST/PATCH.
+- [Phase 2]: Plan 02-18: apiClient.postMultipart added — the multipart-form-data sibling of post/patch. Critical: does NOT set Content-Type. fetch derives the boundary from the FormData instance; manually setting content-type would strip the boundary parameter and @fastify/multipart would reject the body. Idempotency-Key forwarded per-request; future endpoints shipping file blobs (consent receipts, DSR exports, support attachments) reuse this wrapper.
+- [Phase 2]: Plan 02-18: HelpCenterScreen exports BOTH named and default — RootNativeStack imports the default. Replacing the stub with a named-only export would force a navigator edit that plan 02-19 also touches; dual-export keeps the merge surface clean. Pattern reusable when a screen swaps its body inside a phase that another plan in the same phase also touches the navigator.
+- [Phase 2]: Plan 02-18: Diagnostic-snapshot pattern (D-HELP-02) — buildDiagnosticSnapshot() composes `{ appVersion, buildIdentifier, osVersion, deviceModel, telemetryRing }` from AppFlavor native module + telemetryRing.snapshot(). Reusable for any future "report a problem" surface (Phase 5 upload-failure reports, Phase 7 iOS App Store crash dialogs). Per RESEARCH § Security pattern row 8: telemetryRing entries pre-filtered at append time (engineering-handoff §11) — no PII reaches the snapshot.
 
 ### Pending Todos
 
@@ -167,8 +173,8 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-09T18:42:00.000Z
-Stopped at: Phase 2 wave 4 — plan 02-17 complete
+Last session: 2026-05-09T19:30:00.000Z
+Stopped at: Phase 2 wave 4 — plan 02-18 complete
 
 - 01-10 (terraform apply): Tasks 1+2+3 complete + committed (430e17a, 9e52db8, ad93d17). Operator runs `terraform fmt -check` + `terraform validate` + `terraform plan` + `terraform apply` against real AWS staging.
 - 01-11 (counsel engagement): code-ready-counsel-deferred. Three commits ship the canonical consent text + boot-time hash guard, takedown SOP runbook, dsr-export CLI, and counsel-engagement checklist. Real attorney review queued for legal-ops backlog.
