@@ -1,0 +1,4 @@
+# RethinkSans family TTFs (Regular / Medium / SemiBold / Bold / ExtraBold) live
+# next to this file. They are extracted from design-system/fonts/Rethink_Sans.zip
+# (per 02-02 Task 2) and consumed by `npx react-native-asset` which copies them
+# into android/app/src/main/assets/fonts/ at build time.
