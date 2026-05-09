@@ -141,6 +141,34 @@ vi.mock('react-native', () => {
       OS: 'android',
       select: <T>(o: { android?: T; ios?: T; default?: T }) => o.android ?? o.default,
     },
+    // Animated — minimal stub so that CompatRing (plan 02-15 Task 2) can
+    // call `Animated.createAnimatedComponent(Circle)` and
+    // `Animated.timing(...).start()` at module-init time. JSDOM never
+    // executes the actual animation; the AnimatedCircle just renders the
+    // wrapped SVG primitive once.
+    Animated: {
+      Value: class {
+        _v: number;
+        constructor(v: number) {
+          this._v = v;
+        }
+        setValue(v: number) {
+          this._v = v;
+        }
+      },
+      timing: () => ({ start: () => undefined }),
+      spring: () => ({ start: () => undefined }),
+      sequence: () => ({ start: () => undefined }),
+      parallel: () => ({ start: () => undefined }),
+      createAnimatedComponent: <T>(c: T) => c,
+    },
+    Easing: {
+      bezier: () => () => 0,
+      linear: () => 0,
+      inOut: () => () => 0,
+      out: () => () => 0,
+      in: () => () => 0,
+    },
   };
 });
 
