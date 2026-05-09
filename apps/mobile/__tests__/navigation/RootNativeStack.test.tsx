@@ -109,7 +109,11 @@ describe('RootNativeStack', () => {
     mockGetState.mockReturnValue(allPassState());
     const { getAllByLabelText } = render(<RootNativeStack />);
     expect(getAllByLabelText('Profile screen').length).toBeGreaterThan(0);
-    expect(getAllByLabelText('HelpCenter screen').length).toBeGreaterThan(0);
+    // Plan 02-18 ships the real Help Center screen, which uses the
+    // hyphenated `help-center-screen` accessibility label per design-spec
+    // §17 (matches the screen-test pattern). Earlier stub used "HelpCenter
+    // screen"; updated alongside the implementation.
+    expect(getAllByLabelText('help-center-screen').length).toBeGreaterThan(0);
     expect(getAllByLabelText('ForceUpgrade screen').length).toBeGreaterThan(0);
   });
 });
