@@ -86,15 +86,18 @@ afterEach(() => {
 
 describe('PermissionsScreen', () => {
   it('Test 1: initial mount renders verbatim §3a copy + "Allow access" CTA', () => {
-    const { getByText, getByLabelText } = render(<PermissionsScreen />);
-    // §3a Title — newline-joined per design-spec
-    expect(getByText('Camera & Mic\nPermissions')).toBeTruthy();
-    // §3a Body — verbatim
-    expect(
-      getByText(
-        'Used only while you hit record. Nothing leaves your phone until you stop and we encrypt-upload.',
-      ),
-    ).toBeTruthy();
+    const { getByLabelText } = render(<PermissionsScreen />);
+    // §3a Title — newline-joined per design-spec. testing-library's text
+    // matcher normalizes whitespace, so query by aria-label and assert on
+    // raw textContent to preserve the embedded \n.
+    const titleNode = getByLabelText('permissions title');
+    expect(titleNode.textContent).toBe('Camera & Mic\nPermissions');
+
+    const bodyNode = getByLabelText('permissions body');
+    expect(bodyNode.textContent).toBe(
+      'Used only while you hit record. Nothing leaves your phone until you stop and we encrypt-upload.',
+    );
+
     // §3a CTA — verbatim, addressable by aria-label
     expect(getByLabelText('Allow access')).toBeTruthy();
   });
@@ -132,13 +135,15 @@ describe('PermissionsScreen', () => {
   it('Test 3: camera denied → §4.1.1 recovery copy + "Open Settings" CTA fires openSettings()', async () => {
     requestMock.mockResolvedValueOnce(RESULTS.DENIED).mockResolvedValueOnce(RESULTS.DENIED);
 
-    const { getByLabelText, findByText } = render(<PermissionsScreen />);
+    const { getByLabelText, findByLabelText } = render(<PermissionsScreen />);
     fireEvent.click(getByLabelText('Allow access'));
 
     // After both denied results, the screen transitions to denied recovery
-    // state — verify the body says Camera & Mic are required, CTA is "Open
-    // Settings", and navigation.replace was NOT called.
-    await findByText(/Camera & Mic are required/i);
+    // state — verify the body says Camera & Mic are required (verbatim from
+    // §4.1.1), CTA is "Open Settings", and navigation.replace was NOT called.
+    const bodyNode = await findByLabelText('permissions body');
+    expect(bodyNode.textContent).toBe('Camera & Mic are required. Open Settings to enable.');
+
     const settingsBtn = getByLabelText('Open Settings');
     expect(settingsBtn).toBeTruthy();
     expect(mockReplace).not.toHaveBeenCalled();
@@ -154,10 +159,14 @@ describe('PermissionsScreen', () => {
   it('Test 4: camera granted, mic denied → partial state names "Microphone" as the missing perm', async () => {
     requestMock.mockResolvedValueOnce(RESULTS.GRANTED).mockResolvedValueOnce(RESULTS.DENIED);
 
-    const { getByLabelText, findByText } = render(<PermissionsScreen />);
+    const { getByLabelText, findByLabelText } = render(<PermissionsScreen />);
     fireEvent.click(getByLabelText('Allow access'));
 
-    await findByText(/Microphone/);
+    const bodyNode = await findByLabelText('permissions body');
+    // Partial state copy MUST name the missing permission so the user knows
+    // which Settings toggle to flip. With camera granted + mic denied, the
+    // missing one is the Microphone.
+    expect(bodyNode.textContent).toContain('Microphone');
     expect(getByLabelText('Open Settings')).toBeTruthy();
     expect(mockReplace).not.toHaveBeenCalled();
     expect(mockSetPermsGranted).not.toHaveBeenCalled();
@@ -166,10 +175,12 @@ describe('PermissionsScreen', () => {
   it('Test 5: BLOCKED is treated as denied — Open Settings is the only recovery', async () => {
     requestMock.mockResolvedValueOnce(RESULTS.BLOCKED).mockResolvedValueOnce(RESULTS.BLOCKED);
 
-    const { getByLabelText, findByText } = render(<PermissionsScreen />);
+    const { getByLabelText, findByLabelText } = render(<PermissionsScreen />);
     fireEvent.click(getByLabelText('Allow access'));
 
-    await findByText(/Camera & Mic are required/i);
+    // BLOCKED on both should land on the same denied-recovery copy as DENIED.
+    const bodyNode = await findByLabelText('permissions body');
+    expect(bodyNode.textContent).toBe('Camera & Mic are required. Open Settings to enable.');
     expect(getByLabelText('Open Settings')).toBeTruthy();
     expect(mockReplace).not.toHaveBeenCalled();
   });

@@ -416,6 +416,9 @@ vi.mock('lucide-react-native', () => {
     'X',
     'AlertTriangle',
     'Info',
+    // Phase 2 plan 02-10 — PermissionsScreen denied/partial state uses `Ban`
+    // (Lucide equivalent of the design-spec §4.1.1 `block` icon).
+    'Ban',
   ] as const;
   const exports: Record<string, unknown> = {};
   for (const name of ICONS) {
