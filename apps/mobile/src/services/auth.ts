@@ -179,20 +179,47 @@ export function clearStoredJwt(): void {
 }
 
 /**
- * Logout helper — clears the local JWT and resets the in-memory auth slice.
+ * Logout helper — clears the local JWT plus user-bound onboarding flags and
+ * resets the in-memory auth slice. AUTH-08 client surface.
  *
- * Plan 02-09 (this plan) ships the helper; plan 02-18 (Profile Logout) will
- * import this directly from `services/auth.ts`. Phase 5 will extend this body
- * to additionally cancel any in-flight uploads — call sites do NOT need to
- * change. AUTH-08 client surface.
+ * Cleared (user-bound state):
+ *   - auth.jwt.v1                  (the JWT itself)
+ *   - onboarding.consent.v1        (per-user consent record)
+ *   - onboarding.permsGranted.v1   (per-user permission grant log)
+ *   - onboarding.compatPassed.v1   (compat-pass summary; the next user
+ *                                   re-enters the gate-decision tree)
+ *   - onboarding.tutorialDone.v1   (per-user tutorial completion flag)
  *
- * Defense-in-depth: clearStoredJwt() removes the persisted token; the store's
- * signOut() also wipes the in-memory `jwt` slice. Both write to the same
- * MMKV singleton (state/mmkv) so the redundancy is intentional — a future
- * refactor that decouples store-side persistence from auth.ts will still
- * leave the persisted token cleared.
+ * PRESERVED (device-bound state — survives logout/re-login on same device):
+ *   - compat.lastResult.v1   — the full CompatResult signature embeds the
+ *     device installation_id (per CONTEXT decisions); a same-device re-login
+ *     should NOT have to re-run the 30-second compat probe.
+ *   - installation_id.v1     — anchors compat.signature; rotating it would
+ *     invalidate every persisted compat result on the device.
+ *   - telemetry.ring.v1      — diagnostic ring buffer is device-scoped.
+ *   - appVersion.cache.v1    — soft-upgrade cache is device-scoped.
+ *
+ * Defense-in-depth: useAppStore.signOut() also wipes the in-memory `jwt`
+ * slice + writes through to MMKV via the same singleton; explicit deletes
+ * here keep auth.ts self-sufficient if the store-side persistence model
+ * changes later.
+ *
+ * NOTE: Phase 5 will extend signOut to cancel in-flight uploads and preserve
+ * the upload queue for resume-on-re-login (idea-brief.md §10 "Logout while
+ * uploads pending"). The seam below is documented so plan 02-21's phase gate
+ * doesn't re-litigate.
  */
 export function signOut(): void {
-  clearStoredJwt();
+  // User-bound: JWT.
+  mmkv.remove(KEYS.AUTH_JWT);
+  // User-bound: onboarding flags. Cleared so the next user goes through
+  // Signup → Permissions → Compat (gate-decision tree, plan 02-05/16).
+  mmkv.remove(KEYS.ONBOARDING_CONSENT);
+  mmkv.remove(KEYS.ONBOARDING_PERMS_GRANTED);
+  mmkv.remove(KEYS.ONBOARDING_COMPAT_PASSED);
+  mmkv.remove(KEYS.ONBOARDING_TUTORIAL_DONE);
+  // Device-bound state (compat.lastResult.v1, installation_id.v1,
+  // telemetry.ring.v1, appVersion.cache.v1) is intentionally preserved.
+  // TODO Phase 5: cancelInFlightUpload(); preserveQueueForResumeOnReLogin();
   useAppStore.getState().signOut();
 }

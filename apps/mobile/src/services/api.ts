@@ -51,6 +51,14 @@ export interface PostMultipartOptions {
   timeoutMs?: number;
 }
 
+export interface DeleteOptions {
+  /** Query params merged into the URL (`?k=v&...`). */
+  query?: Record<string, string>;
+  /** Extra request headers (e.g. `Idempotency-Key`). Lower-cased on the wire. */
+  headers?: Record<string, string>;
+  timeoutMs?: number;
+}
+
 export interface ApiClient {
   post<T>(path: string, body: object, opts?: { idempotencyKey?: string }): Promise<T>;
   postNoBody<T>(path: string): Promise<T>;
@@ -70,6 +78,14 @@ export interface ApiClient {
    * 201 with an empty body (HELP-05 today returns `{ id, diagnosticS3Key }`).
    */
   postMultipart<T>(path: string, body: FormData, opts?: PostMultipartOptions): Promise<T>;
+  /**
+   * DELETE {path}[?query] with optional Idempotency-Key. Phase 2 plan 02-19
+   * uses this for `DELETE /me?confirm=DELETE` (AUTH-09 soft-delete). Returns
+   * the parsed JSON body when present, or `undefined` for empty 200/204
+   * responses (DELETE /me returns 200 with empty body per Phase 1
+   * MeDeleteResponseSchema).
+   */
+  delete<T>(path: string, opts?: DeleteOptions): Promise<T>;
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -171,6 +187,48 @@ export const apiClient: ApiClient = {
         throw new Error(`PATCH ${path} failed: ${res.status} ${bodyText}`);
       }
       return (await res.json()) as T;
+    } finally {
+      clearTimeout(timer);
+    }
+  },
+  async delete<T>(path: string, opts?: DeleteOptions): Promise<T> {
+    // Mirror patch/post header forwarding semantics — lower-case names on the
+    // wire so Fastify plugins (e.g. @fastify/idempotency) read them
+    // case-uniformly. NO content-type set: DELETE has no body.
+    const headers: Record<string, string> = {};
+    if (opts?.headers) {
+      for (const [k, v] of Object.entries(opts.headers)) {
+        headers[k.toLowerCase()] = v;
+      }
+    }
+    const url = buildUrl(path, opts?.query);
+    const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, {
+        method: 'DELETE',
+        headers,
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        let bodyText: string;
+        try {
+          const parsed = (await res.json()) as Record<string, unknown>;
+          bodyText = JSON.stringify(parsed);
+        } catch {
+          bodyText = await res.text();
+        }
+        throw new Error(`DELETE ${path} failed: ${res.status} ${bodyText}`);
+      }
+      // 200 with empty body (DELETE /me) → undefined. Otherwise try-parse.
+      const text = await res.text();
+      if (!text) return undefined as T;
+      try {
+        return JSON.parse(text) as T;
+      } catch {
+        return undefined as T;
+      }
     } finally {
       clearTimeout(timer);
     }
