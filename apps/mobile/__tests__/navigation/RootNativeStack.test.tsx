@@ -24,8 +24,10 @@ import React from 'react';
 import { render, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// Mock the store — RootNativeStack uses useAppStore.getState().
-const mockGetState = vi.fn();
+// vi.mock() is hoisted; vi.hoisted() lets us share a spy across the hoisted
+// mock factory and the test bodies.
+const { mockGetState } = vi.hoisted(() => ({ mockGetState: vi.fn() }));
+
 vi.mock('../../src/state/appStore', () => ({
   useAppStore: { getState: mockGetState },
 }));
