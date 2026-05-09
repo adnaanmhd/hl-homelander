@@ -25,9 +25,9 @@
 - [ ] **AUTH-05**: System runs Play Integrity Standard verification at sign-in; rooted, emulator, and non-Play-Store devices are rejected
 - [x] **AUTH-06**: APK build flavor bypasses the Play-Store install-source check via Remote Config (Play Store flavor cannot opt into bypass)
 - [ ] **AUTH-07**: User session persists across app launches (token in Keychain / Keystore)
-- [ ] **AUTH-08**: User can log out from Profile (cancels in-flight upload, preserves local upload queue, returns to Sign-up)
-- [ ] **AUTH-09**: User can soft-delete account (30-day restore window via re-login; after 30 days, deletion is permanent; uploaded recordings stay on server)
-- [ ] **AUTH-10**: Account-delete flow requires typing **DELETE** in a confirmation modal before the API fires
+- [x] **AUTH-08**: User can log out from Profile (cancels in-flight upload, preserves local upload queue, returns to Sign-up)
+- [x] **AUTH-09**: User can soft-delete account (30-day restore window via re-login; after 30 days, deletion is permanent; uploaded recordings stay on server)
+- [x] **AUTH-10**: Account-delete flow requires typing **DELETE** in a confirmation modal before the API fires
 - [ ] **AUTH-11**: Same-Google-account on a new device re-runs the full compatibility check before sign-in completes
 
 ### Permissions
@@ -373,9 +373,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AUTH-05     | Phase 2 | Pending               |
 | AUTH-06     | Phase 1 | Complete              |
 | AUTH-07     | Phase 2 | Pending               |
-| AUTH-08     | Phase 2 | Pending               |
-| AUTH-09     | Phase 2 | Pending               |
-| AUTH-10     | Phase 2 | Pending               |
+| AUTH-08     | Phase 2 | Complete (Plan 02-19) |
+| AUTH-09     | Phase 2 | Complete (Plan 02-19) |
+| AUTH-10     | Phase 2 | Complete (Plan 02-19) |
 | AUTH-11     | Phase 2 | Pending               |
 | PERM-01     | Phase 2 | Pending               |
 | PERM-02     | Phase 2 | Pending               |
