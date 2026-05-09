@@ -3,6 +3,18 @@ apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 apply plugin: "com.google.gms.google-services"
 
+// React Native gradle plugin app-level autolinking. Settings-level
+// `autolinkLibrariesFromCommand()` generates PackageList.java + JNI codegen,
+// but `autolinkLibrariesWithApp()` is what translates the autolinked native
+// modules into `implementation project(":...")` dependencies on the app
+// classpath. Without this, javac fails to resolve RNPermissionsPackage,
+// ReanimatedPackage, SafeAreaContextPackage, RNScreensPackage, SvgPackage,
+// etc. (Issue surfaces at first APK bundle for Phase 2; Phase 1 was
+// backend-only.)
+react {
+    autolinkLibrariesWithApp()
+}
+
 android {
     namespace 'ai.humynlabs.capture'
     compileSdk rootProject.ext.compileSdkVersion
@@ -112,7 +124,9 @@ dependencies {
     // the host JVM with shadowed Camera2/SensorManager/StatFs frameworks.
     // Pinned per .planning/phases/02-…/02-PATTERNS.md (lines 793-798).
     testImplementation 'junit:junit:4.13.2'
-    testImplementation 'org.robolectric:robolectric:4.13'
+    // Robolectric 4.13 only ships SDK shadows up to API 34; bumped to 4.16.1
+    // to cover compileSdk/targetSdk 36 for RN 0.83 + screens 4.24+.
+    testImplementation 'org.robolectric:robolectric:4.16.1'
     testImplementation 'androidx.test:core:1.6.1'
     testImplementation 'androidx.test.ext:junit:1.2.1'
 }
