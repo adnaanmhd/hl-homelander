@@ -1,11 +1,13 @@
 // RootNativeStack — top-level native stack.
 //
-// Five sibling routes:
+// Sibling routes:
 //   - OnboardingStack   (the pre-MainTabs flow)
 //   - MainTabs          (the 3-tab post-onboarding shell)
 //   - Profile           (RootNativeStack sibling — HOME-08 structural)
 //   - HelpCenter        (sibling)
 //   - ForceUpgrade      (modal-presentation sibling)
+//   - LogoutModal       (transparent-modal sibling, plan 02-19 AUTH-08)
+//   - DeleteAccountModal (transparent-modal sibling, plan 02-19 AUTH-09/10)
 //
 // HOME-08 satisfaction: Profile/HelpCenter/ForceUpgrade are mounted at the
 // SAME LEVEL as MainTabs. The bottom tab bar lives ONLY inside MainTabs, so
@@ -27,6 +29,7 @@ import MainTabs from './MainTabs';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import HelpCenterScreen from '../screens/help/HelpCenterScreen';
 import ForceUpgradeScreen from '../screens/force-upgrade/ForceUpgradeScreen';
+import { LogoutModal } from '../components/LogoutModal';
 
 const Root = createNativeStackNavigator();
 
@@ -64,6 +67,11 @@ export default function RootNativeStack() {
         name="ForceUpgrade"
         component={ForceUpgradeScreen}
         options={{ presentation: 'modal', gestureEnabled: false }}
+      />
+      <Root.Screen
+        name="LogoutModal"
+        component={LogoutModal}
+        options={{ presentation: 'transparentModal', gestureEnabled: false, animation: 'fade' }}
       />
     </Root.Navigator>
   );
