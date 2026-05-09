@@ -65,10 +65,10 @@ Plans:
 
 **Wave 2** _(blocked on Wave 1 completion)_
 
-- [ ] 02-08-splash-and-version-service-PLAN.md — Splash + versionService (GET /app/version + 6h cache + force-upgrade decision)
-- [ ] 02-09-signup-screen-and-terms-modal-PLAN.md — SignupScreen + TermsOfUseModal + auth orchestration
-- [ ] 02-10-permissions-screen-and-manifest-PLAN.md — Camera + Mic runtime prompts + manifest declarations
-- [ ] 02-11-rig-tutorial-screen-PLAN.md — Tutorial Rig screen + "Don't have a rig" off-ramp
+- [x] 02-08-splash-and-version-service-PLAN.md — Splash + versionService (GET /app/version + 6h cache + force-upgrade decision)
+- [x] 02-09-signup-screen-and-terms-modal-PLAN.md — SignupScreen + TermsOfUseModal + auth orchestration
+- [x] 02-10-permissions-screen-and-manifest-PLAN.md — Camera + Mic runtime prompts + manifest declarations
+- [x] 02-11-rig-tutorial-screen-PLAN.md — Tutorial Rig screen + "Don't have a rig" off-ramp
 
 **Wave 3** _(blocked on Wave 2 completion)_
 
