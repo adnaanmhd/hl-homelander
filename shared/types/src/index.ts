@@ -7,4 +7,5 @@ export * from './contributions.js';
 export * from './app-version.js';
 export * from './events.js';
 export * from './feedback.js';
-export const SHARED_TYPES_VERSION = '0.5.0' as const;
+export * from './CompatResult.js';
+export const SHARED_TYPES_VERSION = '0.6.0' as const;
