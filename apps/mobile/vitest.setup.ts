@@ -141,6 +141,24 @@ vi.mock('react-native', () => {
       OS: 'android',
       select: <T>(o: { android?: T; ios?: T; default?: T }) => o.android ?? o.default,
     },
+    // Plan 02-20 — ForceUpgradeScreen depends on BackHandler (hardware-back
+    // override per D-NAV-04), Alert (integrity-check error copy per
+    // D-UPG-02), and Linking (playStore market:// fallback). Each is
+    // stubbed with a no-op implementation so screens can import them at
+    // module-eval without failing under JSDOM. Per-test files override
+    // these via `vi.mocked()` or per-test `vi.mock('react-native', ...)`.
+    BackHandler: {
+      addEventListener: () => ({ remove: () => undefined }),
+      removeEventListener: () => undefined,
+      exitApp: () => undefined,
+    },
+    Alert: {
+      alert: () => undefined,
+    },
+    Linking: {
+      openURL: () => Promise.resolve(),
+      canOpenURL: () => Promise.resolve(true),
+    },
     // Animated — minimal stub so that CompatRing (plan 02-15 Task 2) can
     // call `Animated.createAnimatedComponent(Circle)` and
     // `Animated.timing(...).start()` at module-init time. JSDOM never
