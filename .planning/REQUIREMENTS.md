@@ -199,8 +199,8 @@
 
 - [ ] **UPG-01**: System performs a lightweight `GET /app/version` on app open
 - [ ] **UPG-02**: Response shape is `{ "min_supported": "1.4.0", "latest": "1.6.2", "force_upgrade": false }`
-- [ ] **UPG-03**: Installed version `< min_supported` shows a non-dismissible block screen `Update to continue.` + Play Store deep-link
-- [ ] **UPG-04**: Installed version `< latest` and `force_upgrade = false` shows a dismissible soft banner on Home
+- [x] **UPG-03**: Installed version `< min_supported` shows a non-dismissible block screen `Update to continue.` + Play Store deep-link
+- [x] **UPG-04**: Installed version `< latest` and `force_upgrade = false` shows a dismissible soft banner on Home
 - [ ] **UPG-05**: Version response is cached for 6 hours
 
 ### Backend API (Fastify + Postgres + S3)
@@ -508,8 +508,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HELP-05     | Phase 2 | Complete (Plan 02-18) |
 | UPG-01      | Phase 2 | Pending               |
 | UPG-02      | Phase 2 | Pending               |
-| UPG-03      | Phase 2 | Pending               |
-| UPG-04      | Phase 2 | Pending               |
+| UPG-03      | Phase 2 | Complete (Plan 02-20) |
+| UPG-04      | Phase 2 | Complete (Plan 02-20) |
 | UPG-05      | Phase 2 | Pending               |
 | API-01      | Phase 1 | Complete              |
 | API-02      | Phase 1 | Complete              |

@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: 'Phase 2 wave 4 — plan 02-19 complete'
-last_updated: '2026-05-09T13:43:23Z'
+stopped_at: 'Phase 2 wave 4 — plan 02-20 complete'
+last_updated: '2026-05-09T13:58:40Z'
 last_activity: 2026-05-09
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 35
-  completed_plans: 32
-  percent: 91
+  completed_plans: 33
+  percent: 94
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 02 (mobile-shell-onboarding-permissions-compat-profile) — EXECUTING
-Plan: 20 of 22 (02-19 complete; next: 02-20 force-upgrade + soft-banner)
+Plan: 21 of 22 (02-20 complete; next: 02-21 manual-smoke runbook)
 Status: Ready to execute
 Last activity: 2026-05-09
 
-Progress: [█████████░] 91%
+Progress: [█████████░] 94%
 
 ## Resume Path (set before pause)
 
@@ -50,9 +50,9 @@ To resume Phase 1:
 
 **Velocity:**
 
-- Total plans completed: 24
-- Average duration: ~10.4 min
-- Total execution time: ~1.89 hours
+- Total plans completed: 25
+- Average duration: ~10.3 min
+- Total execution time: ~2.02 hours
 
 **By Phase:**
 
@@ -63,8 +63,8 @@ To resume Phase 1:
 
 **Recent Trend:**
 
-- Last 10 plans: 01-01 (7 min, 3 tasks, 22 files), 01-03 (5 min, 3 tasks, 7 files), 01-02 (6 min, 3 tasks + checkpoint, 11 files), 01-04 (9 min, 3 tasks, 18 files), 01-05 (13 min, 4 tasks, 25 files), 01-06 (18 min, 3 tasks, 17 files), 01-07 (12 min, 4 tasks, 17 files), 01-08 (17 min, 3 tasks, 28 files), 01-09 (7 min, 3 tasks, 19 files), 02-17 (12 min, 3 tasks, 8 files), 02-18 (12 min, 4 tasks, 14 files), 02-19 (7 min, 3 tasks, 9 files).
-- Trend: 02-19 lands at 7 min on 3 tasks — fastest plan in wave 4 (smallest surface); 5 deviations auto-fixed (3 Rule 1 — plan-snippet API mismatches: mmkv.delete→remove, ulid→react-native-uuid, btnLabel→sheetTitle for modal titles; 2 Rule 3 — blocking deps: missing apiClient.delete + vi.mock hoist conflict). Both Logout/Delete modals ship as transparentModal siblings; 23/23 plan-level vitest cases green; full mobile suite now 203/203.
+- Last 10 plans: 01-01 (7 min, 3 tasks, 22 files), 01-03 (5 min, 3 tasks, 7 files), 01-02 (6 min, 3 tasks + checkpoint, 11 files), 01-04 (9 min, 3 tasks, 18 files), 01-05 (13 min, 4 tasks, 25 files), 01-06 (18 min, 3 tasks, 17 files), 01-07 (12 min, 4 tasks, 17 files), 01-08 (17 min, 3 tasks, 28 files), 01-09 (7 min, 3 tasks, 19 files), 02-17 (12 min, 3 tasks, 8 files), 02-18 (12 min, 4 tasks, 14 files), 02-19 (7 min, 3 tasks, 9 files), 02-20 (8 min, 3 tasks, 12 files).
+- Trend: 02-20 lands at 8 min on 3 tasks — second-fastest plan in wave 4 after 02-19; 5 deviations auto-fixed (1 Rule 2 — analytics allowlist gap on `upg_force_upgrade_apk_download_failed`; 3 Rule 3 — blocking infra: vi.hoisted, missing RN exports in vitest.setup, vi.importActual on react-native Flow source; 1 Rule 1 — stale 'ForceUpgrade screen' label in RootNativeStack test). 28/28 plan-level vitest cases green (7 upgradeFlow + 8 ForceUpgradeScreen + 7 SoftUpgradeBanner + 6 manifests); full mobile suite now 231/231.
 
 _Updated after each plan completion_
 | Phase 01 P08 | 17 min | 3 tasks | 28 files |
@@ -74,6 +74,7 @@ _Updated after each plan completion_
 | Phase 02 P17 | 12min | 3 tasks | 8 files |
 | Phase 02 P18 | 12min | 4 tasks | 14 files |
 | Phase 02 P19 | 7min | 3 tasks | 9 files |
+| Phase 02 P20 | 8min | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -154,6 +155,11 @@ Recent decisions affecting current work:
 - [Phase 2]: Plan 02-19: apiClient.delete added as third HTTP-verb wrapper alongside `patch` and `postMultipart` — same lower-cased-on-the-wire header forwarding, same AbortController timeout, same RFC 7807 error-message synthesis, same try-parse-then-undefined-fallback for empty responses. Reusable for any future client-issued DELETE (Phase 5 cancel-recording, Phase 6 dismiss-feedback, etc.).
 - [Phase 2]: Plan 02-19: presentation: 'transparentModal' (NOT 'modal') for both Logout/Delete modals so the underlying Profile screen stays visible behind the 50% scrim, matching design-spec §18 modal-card pattern. ForceUpgrade keeps presentation: 'modal' because it's a full-screen takeover; logout/delete are dismissible confirmations. New rule for Phase 2/5+ confirmations: use transparentModal when the user can dismiss + return to the underlying screen; use modal when the takeover blocks the underlying surface entirely.
 - [Phase 2]: Plan 02-19: AUTH-10 typing-gate uses defense-in-depth — Confirm button rendered `disabled` when typed !== 'DELETE' AND the onPress handler short-circuits via the same equality check + Alert. Backend Phase 1 plan 01-08's MeDeleteQuerySchema is the authoritative gate. Pattern: any client-side input gate that protects a destructive action MUST have both layers (UI rendering + handler short-circuit) AND the backend authoritative check; the client gate is UX, the backend is binding (per RESEARCH § Security threat row 5).
+- [Phase 2]: Plan 02-20: Pattern 49 — discriminated-union dispatch in service-level upgrade flows. `upgradeFlow.startUpgrade(payload)` narrows on `payload.flavor` (apkRollout / playStore / iosAppStore) and routes to the matching install path inside ONE function, so both ForceUpgradeScreen AND SoftUpgradeBanner reuse identical per-flavor logic without duplicating the dispatch table. Future per-flavor service surfaces (Phase 7 iOS App Store opens, Phase 5 OEM-specific battery deep-links) follow the same shape.
+- [Phase 2]: Plan 02-20: Pattern 50 — catastrophic-event defense-in-depth via try/catch + structural gate. The Kotlin-side SHA-256 verification (plan 02-07) is authoritative; the JS upgradeFlow MUST never call launchInstaller after a hash-mismatch rejection. The structural gate is the function shape: try-block awaits downloadAndVerifyApk; on success captures `path`; calls launchInstaller(path) AFTER the try-block. There is no syntactic path through which a mismatched APK reaches PackageInstaller (T-2.20-01 mitigation). Catastrophic Analytics events emit DISTINCTLY from generic-failure events for triage granularity.
+- [Phase 2]: Plan 02-20: Pattern 51 — per-keying-field dismiss key auto-resets when the keying field advances. SoftUpgradeBanner's MMKV key `appVersion.softBannerDismissed.{latest}` (via `softBannerDismissKey()` helper from Phase 1 state/keys.ts) means dismissals at latest=0.2.0 stick across cold-starts on the same `latest` but evaporate when versionService observes a new `latest` (T-2.20-04 mitigation; SoftUpgradeBanner.test.tsx covers the latest-bump → re-render path explicitly). Reusable for any future per-release nag-banner.
+- [Phase 2]: Plan 02-20: Pattern 52 — vitest 'react-native' per-test mock that replicates host-component shapes inline. `vi.importActual('react-native')` trips on `import typeof * as ReactNativePublicAPI from "...flow"` in the real react-native index.js (Vite's esbuild transform can't parse Flow's `import typeof`). Per-test mocks that need host components AND module-level spies (Alert, BackHandler, etc.) must replicate the host-component shapes inline rather than spreading the actual module. Documented in ForceUpgradeScreen.test.tsx — copy-paste reusable for any future screen test that depends on RN system modules.
+- [Phase 2]: Plan 02-20: Plan body's `upgrade/` path swap rejected — kept the existing `apps/mobile/src/screens/force-upgrade/` path from the 02-08 stub because RootNativeStack already imports from there and changing the path would have forced a navigator edit unrelated to UPG-03/UPG-04 closure. accessibilityLabel updated from PascalCase 'ForceUpgrade screen' to kebab-case 'force-upgrade-screen' to match the screen-test naming pattern (HelpCenter / Compat / Permissions / Profile all use kebab-case). Pattern: when a plan body lists a path that doesn't match the existing scaffold, prefer the scaffold and treat the plan-body path as a soft suggestion — the navigator is the structural source of truth.
 
 ### Pending Todos
 
@@ -179,8 +185,8 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-09T13:43:23Z
-Stopped at: Phase 2 wave 4 — plan 02-19 complete
+Last session: 2026-05-09T13:58:40Z
+Stopped at: Phase 2 wave 4 — plan 02-20 complete
 
 - 01-10 (terraform apply): Tasks 1+2+3 complete + committed (430e17a, 9e52db8, ad93d17). Operator runs `terraform fmt -check` + `terraform validate` + `terraform plan` + `terraform apply` against real AWS staging.
 - 01-11 (counsel engagement): code-ready-counsel-deferred. Three commits ship the canonical consent text + boot-time hash guard, takedown SOP runbook, dsr-export CLI, and counsel-engagement checklist. Real attorney review queued for legal-ops backlog.
