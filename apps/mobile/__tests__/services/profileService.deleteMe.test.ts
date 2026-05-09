@@ -33,14 +33,14 @@ describe('profileService.deleteMe', () => {
   it('calls DELETE /me with confirm=DELETE query param', async () => {
     await deleteMe();
     expect(deleteMock).toHaveBeenCalledTimes(1);
-    const [path, opts] = deleteMock.mock.calls[0];
+    const [path, opts] = deleteMock.mock.calls[0]!;
     expect(path).toBe('/me');
     expect(opts.query).toEqual({ confirm: 'DELETE' });
   });
 
   it('forwards an Idempotency-Key header (Phase 1 API-15)', async () => {
     await deleteMe();
-    const [, opts] = deleteMock.mock.calls[0];
+    const [, opts] = deleteMock.mock.calls[0]!;
     expect(opts.headers).toEqual({ 'Idempotency-Key': 'fixed-uuid-del' });
   });
 

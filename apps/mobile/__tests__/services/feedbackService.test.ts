@@ -66,13 +66,13 @@ describe('feedbackService', () => {
     expect(snap.buildIdentifier).toBe('0.1.0-apkRollout (1)');
     expect(snap.osVersion).toBe('android 35');
     expect(snap.deviceModel).toBe('Pixel 7a');
-    expect(snap.telemetryRing[0].name).toBe('signup_success');
+    expect(snap.telemetryRing[0]?.name).toBe('signup_success');
   });
 
   it('submitFeedback POSTs multipart with category + message + diagnostic + idempotency-key', async () => {
     await submitFeedback({ category: 'upload-stuck', message: 'My upload is stuck' });
     expect(postMultipartMock).toHaveBeenCalledTimes(1);
-    const [path, form, opts] = postMultipartMock.mock.calls[0];
+    const [path, form, opts] = postMultipartMock.mock.calls[0]!;
     expect(path).toBe('/feedback');
     expect(form).toBeInstanceOf(FormData);
     // FormData.get returns a string for plain fields and a Blob/File for the
