@@ -56,7 +56,7 @@ Plans:
 **Wave 1**
 
 - [x] 02-01-mobile-npm-migration-PLAN.md — apps/mobile pnpm → npm migration (D-PKG-07; lands first, blocks rest of phase)
-- [ ] 02-02-test-scaffolding-and-deps-PLAN.md — Vitest screen tests + Robolectric Kotlin tests + HEVC fixtures
+- [x] 02-02-test-scaffolding-and-deps-PLAN.md — Vitest screen tests + Robolectric Kotlin tests + HEVC fixtures
 - [ ] 02-03-state-store-and-hydration-PLAN.md — Zustand appStore + MMKV-hydrate boot
 - [ ] 02-04-installation-id-and-telemetry-ring-PLAN.md — installation_id mint + telemetry ring buffer + AppFlavor extensions
 - [ ] 02-05-navigation-skeleton-PLAN.md — RootNativeStack + OnboardingStack + MainTabs scaffold + initial-route gate decision
