@@ -438,6 +438,11 @@ vi.mock('lucide-react-native', () => {
     'Settings',
     'ArrowLeft',
     'ChevronRight',
+    // Phase 2 plan 02-18 — AccordionItem header chevron flips between
+    // ChevronDown (collapsed) and ChevronUp (expanded). HelpCenterScreen
+    // renders a stack of AccordionItems so both icons must resolve.
+    'ChevronDown',
+    'ChevronUp',
     'Camera',
     'Mic',
     'Check',
