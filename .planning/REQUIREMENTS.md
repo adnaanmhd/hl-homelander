@@ -181,11 +181,11 @@
 
 ### Profile
 
-- [ ] **PROF-01**: Profile shows Google avatar (read-only), name (editable), age (editable, nullable), gender (editable, nullable), Joined date (non-editable)
-- [ ] **PROF-02**: Profile shows the Payments & Earnings card with the verbatim copy from `idea-brief.md` §5.11 + a "Coming soon" badge
-- [ ] **PROF-03**: Profile shows lifetime contribution numeric (44 px mono) + "Across N tasks" caption with the duration formatter from HOME-06
-- [ ] **PROF-04**: Profile has Help Center, Logout, and Delete account entries
-- [ ] **PROF-05**: Profile shows app version + build identifier in the footer for support diagnostics **[research]**
+- [x] **PROF-01**: Profile shows Google avatar (read-only), name (editable), age (editable, nullable), gender (editable, nullable), Joined date (non-editable)
+- [x] **PROF-02**: Profile shows the Payments & Earnings card with the verbatim copy from `idea-brief.md` §5.11 + a "Coming soon" badge
+- [x] **PROF-03**: Profile shows lifetime contribution numeric (44 px mono) + "Across N tasks" caption with the duration formatter from HOME-06
+- [x] **PROF-04**: Profile has Help Center, Logout, and Delete account entries
+- [x] **PROF-05**: Profile shows app version + build identifier in the footer for support diagnostics **[research]**
 
 ### Help Center
 
@@ -496,11 +496,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HIST-09     | Phase 6 | Pending               |
 | HIST-10     | Phase 6 | Pending               |
 | HIST-11     | Phase 6 | Pending               |
-| PROF-01     | Phase 2 | Pending               |
-| PROF-02     | Phase 2 | Pending               |
-| PROF-03     | Phase 2 | Pending               |
-| PROF-04     | Phase 2 | Pending               |
-| PROF-05     | Phase 2 | Pending               |
+| PROF-01     | Phase 2 | Plan 02-17 (complete) |
+| PROF-02     | Phase 2 | Plan 02-17 (complete) |
+| PROF-03     | Phase 2 | Plan 02-17 (complete) |
+| PROF-04     | Phase 2 | Plan 02-17 (complete) |
+| PROF-05     | Phase 2 | Plan 02-17 (complete) |
 | HELP-01     | Phase 2 | Pending               |
 | HELP-02     | Phase 2 | Pending               |
 | HELP-03     | Phase 2 | Pending               |

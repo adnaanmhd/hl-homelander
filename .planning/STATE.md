@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 2 context gathered
-last_updated: '2026-05-09T12:59:20.785Z'
+stopped_at: 'Phase 2 wave 4 — plan 02-17 complete'
+last_updated: '2026-05-09T18:42:00.000Z'
 last_activity: 2026-05-09
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 35
-  completed_plans: 29
-  percent: 83
+  completed_plans: 30
+  percent: 86
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 02 (mobile-shell-onboarding-permissions-compat-profile) — EXECUTING
-Plan: 2 of 22
+Plan: 18 of 22 (02-17 complete; next: 02-18 Help Center)
 Status: Ready to execute
 Last activity: 2026-05-09
 
-Progress: [████████░░] 83%
+Progress: [████████▌░] 86%
 
 ## Resume Path (set before pause)
 
@@ -63,14 +63,15 @@ To resume Phase 1:
 
 **Recent Trend:**
 
-- Last 9 plans: 01-01 (7 min, 3 tasks, 22 files), 01-03 (5 min, 3 tasks, 7 files), 01-02 (6 min, 3 tasks + checkpoint, 11 files), 01-04 (9 min, 3 tasks, 18 files), 01-05 (13 min, 4 tasks, 25 files), 01-06 (18 min, 3 tasks, 17 files), 01-07 (12 min, 4 tasks, 17 files), 01-08 (17 min, 3 tasks, 28 files), 01-09 (7 min, 3 tasks, 19 files)
-- Trend: 01-09 the lightest of the phase — pure mobile-side scaffolding (no backend wiring, no DB migrations, no live-server smoke), 5 deviations all auto-fixed in-task, lands cleanly under the 11-min phase average. Phase 1 mobile scaffold is now ready for plan 01-13's Sign-In screen.
+- Last 9 plans: 01-01 (7 min, 3 tasks, 22 files), 01-03 (5 min, 3 tasks, 7 files), 01-02 (6 min, 3 tasks + checkpoint, 11 files), 01-04 (9 min, 3 tasks, 18 files), 01-05 (13 min, 4 tasks, 25 files), 01-06 (18 min, 3 tasks, 17 files), 01-07 (12 min, 4 tasks, 17 files), 01-08 (17 min, 3 tasks, 28 files), 01-09 (7 min, 3 tasks, 19 files), 02-17 (12 min, 3 tasks, 8 files)
+- Trend: 02-17 lands clean at 12 min — wave-4 average territory; 6 deviations all auto-fixed (3 Rule 1 plan-body-vs-baseline drift, 3 Rule 3 missing-dep / missing-API-shape). Profile screen + service + utility ship without nav plumbing churn because 02-05 + 02-16 had already finalized RootNativeStack registration + TopBar avatar wiring.
 
 _Updated after each plan completion_
 | Phase 01 P08 | 17 min | 3 tasks | 28 files |
 | Phase 1 P9 | 7min | 3 tasks | 19 files |
 | Phase 01 P12 | 28min | 3 tasks | 14 files |
 | Phase 02 P16 | 25min | - tasks | - files |
+| Phase 02 P17 | 12min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -136,6 +137,11 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 2]: Plan 02-16: Vite ?raw import + ambient \*?raw .d.ts pattern for source-grep tests under mobile tsconfig (types:[] + moduleResolution:Bundler) — avoids @types/node bloat just for one structural test. Idiomatic Vitest 4 mechanism.
 - [Phase ?]: [Phase 2]: Plan 02-16: TopBar stays prop-driven (onAvatarPress callback) instead of consuming useAppStore.user — appStore has no user field at Phase 2 (lands with /me hookup in plan 02-19); call sites pass () => navigation.navigate('Profile') explicitly so HOME-07 entry path is grep-able at every tab body.
 - [Phase ?]: [Phase 2]: Plan 02-16: HOME-07/08 satisfaction is two-tiered — structural (02-05 navigator graph) + gated (02-16 source-grep test reading MainTabs.tsx via Vite ?raw and asserting EXACTLY 3 Tab.Screen elements). T-2.16-01 mitigation: a future fourth-tab violation cannot land silently.
+- [Phase ?]: [Phase 2]: Plan 02-17: Idempotency-Key on PATCH /me minted via `react-native-uuid` v4 (NOT `ulid` — the plan body's import is unavailable in the dep tree; UUIDv4 satisfies Phase 1 plan 04's opaque-key contract identically). Reference impl at apps/mobile/src/services/profileService.ts; future PATCH endpoints (Phase 5 /recordings status, etc.) follow the same `uuid.v4() as string` template.
+- [Phase ?]: [Phase 2]: Plan 02-17: profileService converts wire-side `durationMs` → consumer-side `totalSeconds` at the service boundary so HOME-06 `formatDuration(seconds)` is the single canonical formatter across Profile + Phase 6 Home tiles. Pattern reusable for any wire ↔ render unit mismatch.
+- [Phase ?]: [Phase 2]: Plan 02-17: apiClient extended with `patch<T>` mirroring `post()` (JSON body + AbortController timeout) plus a `get<T>` one-line alias of `getJson<T>` for natural verb-name call sites. Lower-cases extra header names on the wire (matches the existing post() convention).
+- [Phase ?]: [Phase 2]: Plan 02-17: When the plan body listed `RootNativeStack.tsx` in `files_modified`, the actual edit was a no-op — plan 02-05 already registered Profile as a RootNativeStack sibling, and the existing `import ProfileScreen` resolves to the new body's default export. Pattern: treat `files_modified` as a permission set, not a mandatory edit list, when the plan acceptance criteria already pass against the unchanged file.
+- [Phase ?]: [Phase 2]: Plan 02-17: Manual `cleanup()` in `afterEach` for testing-library/react under vitest `globals: false`. Auto-cleanup hook only fires under `globals: true`; without explicit cleanup, multi-render screen tests hit "Found multiple elements" because the previous render's DOM tree stays mounted. Pattern shared with SignupScreen.test.tsx + RootNativeStack.test.tsx.
 
 ### Pending Todos
 
@@ -161,8 +167,8 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-09T12:58:50.168Z
-Stopped at: Phase 2 context gathered
+Last session: 2026-05-09T18:42:00.000Z
+Stopped at: Phase 2 wave 4 — plan 02-17 complete
 
 - 01-10 (terraform apply): Tasks 1+2+3 complete + committed (430e17a, 9e52db8, ad93d17). Operator runs `terraform fmt -check` + `terraform validate` + `terraform plan` + `terraform apply` against real AWS staging.
 - 01-11 (counsel engagement): code-ready-counsel-deferred. Three commits ship the canonical consent text + boot-time hash guard, takedown SOP runbook, dsr-export CLI, and counsel-engagement checklist. Real attorney review queued for legal-ops backlog.
