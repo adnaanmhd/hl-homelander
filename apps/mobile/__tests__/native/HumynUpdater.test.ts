@@ -26,8 +26,12 @@ describe('HumynUpdater (flavor guard)', () => {
   });
 
   afterEach(() => {
+    // Only unmock the per-test AppFlavor stub. We do NOT unmock 'react-native'
+    // here — vitest.setup.ts's `vi.mock('react-native', ...)` is the global
+    // shim every test in this file relies on; unmocking it would force vitest
+    // to load the real react-native/index.js (which uses Flow `import typeof`
+    // syntax that Rollup cannot parse).
     vi.doUnmock('../../src/native/AppFlavor');
-    vi.doUnmock('react-native');
   });
 
   it('downloadAndVerifyApk rejects on playStore flavor (defensive guard)', async () => {
@@ -53,8 +57,9 @@ describe('HumynUpdater (apkRollout, native module not registered)', () => {
   });
 
   afterEach(() => {
+    // Same rationale as the previous describe — only the per-test AppFlavor
+    // stub is unmocked. The setup file's react-native shim must persist.
     vi.doUnmock('../../src/native/AppFlavor');
-    vi.doUnmock('react-native');
   });
 
   it('downloadAndVerifyApk rejects when native module missing', async () => {
