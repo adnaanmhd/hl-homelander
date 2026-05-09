@@ -17,6 +17,7 @@ import { getFlavorContext } from '../native/AppFlavor';
 import { requestIntegrityToken } from '../native/PlayIntegrity';
 import { secureMmkv as mmkv } from '../state/mmkv';
 import { KEYS } from '../state/keys';
+import { useAppStore } from '../state/appStore';
 import { apiClient } from './api';
 
 // MMKV instance + JWT key are now the canonical singletons declared in
@@ -175,4 +176,23 @@ export function getStoredJwt(): string | undefined {
 
 export function clearStoredJwt(): void {
   mmkv.remove(KEYS.AUTH_JWT);
+}
+
+/**
+ * Logout helper — clears the local JWT and resets the in-memory auth slice.
+ *
+ * Plan 02-09 (this plan) ships the helper; plan 02-18 (Profile Logout) will
+ * import this directly from `services/auth.ts`. Phase 5 will extend this body
+ * to additionally cancel any in-flight uploads — call sites do NOT need to
+ * change. AUTH-08 client surface.
+ *
+ * Defense-in-depth: clearStoredJwt() removes the persisted token; the store's
+ * signOut() also wipes the in-memory `jwt` slice. Both write to the same
+ * MMKV singleton (state/mmkv) so the redundancy is intentional — a future
+ * refactor that decouples store-side persistence from auth.ts will still
+ * leave the persisted token cleared.
+ */
+export function signOut(): void {
+  clearStoredJwt();
+  useAppStore.getState().signOut();
 }

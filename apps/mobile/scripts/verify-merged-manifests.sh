@@ -7,12 +7,23 @@ set -euo pipefail
 #   - apkRollout merged manifest CONTAINS REQUEST_INSTALL_PACKAGES
 #   - playStore  merged manifest does NOT contain REQUEST_INSTALL_PACKAGES
 #
-# This is the canonical guard against accidentally leaking the in-app
-# install-source permission into the Play Store APK — Play Console will
-# auto-reject any APK that declares it without an approved declaration.
+# Additionally (Phase 2 — PERM-04):
+#   - BOTH merged manifests CONTAIN every entry in REQUIRED_BASE_PERMS
+#     (Camera + Mic + foreground-service surfaces + wake lock + INTERNET / NETWORK_STATE).
+#   - BOTH merged manifests do NOT contain any entry in FORBIDDEN_BASE_PERMS
+#     EXCEPT REQUEST_INSTALL_PACKAGES on the apkRollout flavor where it is
+#     intentionally flavor-scoped.
 #
-# T-1.9-01 mitigation (also paired with the Task 1 acceptance criterion that
-# greps the BASE manifest at code-review time).
+# This is the canonical guard against accidentally:
+#   1. Leaking the in-app install-source permission into the Play Store APK
+#      (Play Console auto-rejects).
+#   2. Smuggling POST_NOTIFICATIONS into either flavor (PROJECT.md hard rule —
+#      no notifications channel at MVP).
+#   3. Smuggling ACCESS_FINE_LOCATION / ACCESS_COARSE_LOCATION into either
+#      flavor (PROJECT.md hard rule — coarse-only, deferred to Phase 4).
+#
+# T-1.9-01 + T-2.10-01 + T-2.10-02 + T-2.10-03 mitigation (also paired with
+# acceptance criteria that grep the BASE manifest at code-review time).
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ANDROID_DIR="$ROOT/android"
@@ -62,4 +73,64 @@ if (( ps_count != 0 )); then
   echo "[verify-manifests] FAIL: playStore merged manifest leaked REQUEST_INSTALL_PACKAGES — Play Store will reject this APK" >&2
   exit 1
 fi
+
+# ---------------------------------------------------------------------------
+# Phase 2 (PERM-04) — required-base + forbidden-base permission assertions.
+# ---------------------------------------------------------------------------
+# REQUIRED_BASE_PERMS must appear in BOTH merged manifests (declared in the
+# base manifest, inherited by every flavor at merge time).
+REQUIRED_BASE_PERMS=(
+  "android.permission.CAMERA"
+  "android.permission.RECORD_AUDIO"
+  "android.permission.WAKE_LOCK"
+  "android.permission.FOREGROUND_SERVICE"
+  "android.permission.FOREGROUND_SERVICE_CAMERA"
+  "android.permission.FOREGROUND_SERVICE_MICROPHONE"
+  "android.permission.FOREGROUND_SERVICE_DATA_SYNC"
+  "android.permission.INTERNET"
+  "android.permission.ACCESS_NETWORK_STATE"
+)
+
+# FORBIDDEN_BASE_PERMS must NOT appear in either merged manifest. Note:
+# REQUEST_INSTALL_PACKAGES is permitted ONLY on the apkRollout flavor via
+# its dedicated source-set; the per-flavor REQUEST_INSTALL_PACKAGES checks
+# above already cover that case, so this list deliberately excludes it.
+FORBIDDEN_BASE_PERMS=(
+  "android.permission.POST_NOTIFICATIONS"
+  "android.permission.ACCESS_FINE_LOCATION"
+  "android.permission.ACCESS_COARSE_LOCATION"
+)
+
+# Match only on actual <uses-permission ...> lines (scope away from XML
+# comments and other prose text that may legitimately mention the permission
+# string for documentation purposes).
+assert_required_perms() {
+  local label="$1"
+  local manifest="$2"
+  for perm in "${REQUIRED_BASE_PERMS[@]}"; do
+    if ! grep -q "<uses-permission[^>]*${perm}[^>]*/>" "$manifest"; then
+      echo "[verify-manifests] FAIL: ${label} merged manifest is missing required permission ${perm}" >&2
+      exit 1
+    fi
+  done
+  echo "[verify-manifests] ${label} required-perms check: OK (${#REQUIRED_BASE_PERMS[@]} entries)"
+}
+
+assert_forbidden_perms() {
+  local label="$1"
+  local manifest="$2"
+  for perm in "${FORBIDDEN_BASE_PERMS[@]}"; do
+    if grep -q "<uses-permission[^>]*${perm}[^>]*/>" "$manifest"; then
+      echo "[verify-manifests] FAIL: ${label} merged manifest declares forbidden permission ${perm} — PROJECT.md hard rule violation" >&2
+      exit 1
+    fi
+  done
+  echo "[verify-manifests] ${label} forbidden-perms check: OK (${#FORBIDDEN_BASE_PERMS[@]} entries asserted absent)"
+}
+
+assert_required_perms "apkRollout" "$apk_manifest"
+assert_required_perms "playStore"  "$ps_manifest"
+assert_forbidden_perms "apkRollout" "$apk_manifest"
+assert_forbidden_perms "playStore"  "$ps_manifest"
+
 echo "[verify-manifests] PASS"
