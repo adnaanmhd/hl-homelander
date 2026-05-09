@@ -28,9 +28,17 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // mock factory and the test bodies.
 const { mockGetState } = vi.hoisted(() => ({ mockGetState: vi.fn() }));
 
-vi.mock('../../src/state/appStore', () => ({
-  useAppStore: { getState: mockGetState },
-}));
+// useAppStore is accessed two ways: RootNativeStack reads `.getState()`
+// synchronously to compute initialRouteName; transitively-rendered screens
+// (SignupScreen, etc.) call it as a selector hook `useAppStore((s) => s.x)`.
+// The mock must therefore be callable AND expose getState.
+vi.mock('../../src/state/appStore', () => {
+  function useAppStore<T>(selector: (s: ReturnType<typeof mockGetState>) => T): T {
+    return selector(mockGetState());
+  }
+  (useAppStore as unknown as { getState: typeof mockGetState }).getState = mockGetState;
+  return { useAppStore };
+});
 
 // Mock the installation-id sync read so the compat-signature path doesn't
 // touch native modules.
