@@ -88,7 +88,7 @@ Plans:
 **Wave 5** _(blocked on Wave 4 completion)_
 
 - [ ] 02-21-manual-smoke-runbook-PLAN.md — 02-MANUAL-SMOKE.md runbook + Open Questions tracking + Crashlytics gate
-- [ ] 02-22-android-manifest-ci-finalize-PLAN.md — PERM-04 static + Gradle merged-manifest CI gate + RootStack route registry
+- [x] 02-22-android-manifest-ci-finalize-PLAN.md — PERM-04 static + Gradle merged-manifest CI gate + RootStack route registry + phase-wide no-hex-literals gate
 
   **UI hint**: yes
 
@@ -175,7 +175,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase                                                      | Plans Complete | Status      | Completed  |
 | ---------------------------------------------------------- | -------------- | ----------- | ---------- |
 | 1. Foundation, Backend & Distribution Recon                | 13/13          | Complete    | 2026-05-08 |
-| 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 20/22          | In Progress | -          |
+| 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 21/22          | In Progress | -          |
 | 3. HumynCapture Native Module (Bytes-on-disk)              | 0/TBD          | Not started | -          |
 | 4. HandDetector, Recording UX & Practice Tutorial          | 0/TBD          | Not started | -          |
 | 5. Upload Pipeline, Hash-Verify Worker & Anti-fraud        | 0/TBD          | Not started | -          |

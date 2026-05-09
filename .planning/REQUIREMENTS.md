@@ -35,7 +35,7 @@
 - [ ] **PERM-01**: System prompts for Camera permission before the compatibility check; denied state shows the recovery copy and links to OS Settings
 - [ ] **PERM-02**: System prompts for Microphone permission before the compatibility check
 - [ ] **PERM-03**: System prompts for coarse Location permission before the first recording
-- [ ] **PERM-04**: System declares manifest-only permissions for Sensors (gyro/accel), Foreground Service (camera + microphone + dataSync), Wake Lock, and Network State
+- [x] **PERM-04**: System declares manifest-only permissions for Sensors (gyro/accel), Foreground Service (camera + microphone + dataSync), Wake Lock, and Network State
 
 ### Device Compatibility Check
 
@@ -380,7 +380,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PERM-01     | Phase 2 | Pending               |
 | PERM-02     | Phase 2 | Pending               |
 | PERM-03     | Phase 2 | Pending               |
-| PERM-04     | Phase 2 | Pending               |
+| PERM-04     | Phase 2 | Complete (Plan 02-22) |
 | COMPAT-01   | Phase 2 | Pending               |
 | COMPAT-02   | Phase 2 | Pending               |
 | COMPAT-03   | Phase 2 | Pending               |
