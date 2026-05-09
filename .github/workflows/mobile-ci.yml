@@ -1,0 +1,55 @@
+name: mobile-ci
+
+# Runs lint + typecheck + unit tests + Android Gradle assembleApkRolloutDebug
+# on every PR that touches apps/mobile or its shared types contract, plus on
+# every push to main. Mobile is npm-only post Phase 2 plan 02-01: this
+# workflow uses only npm + actions/setup-node@v4 + actions/setup-java@v4
+# (D-PKG-04).
+
+on:
+  pull_request:
+    paths:
+      - 'apps/mobile/**'
+      - 'shared/types/**'
+      - '.github/workflows/mobile-ci.yml'
+  push:
+    branches: [main]
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  lint-typecheck-test:
+    name: Lint + Typecheck + Unit
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: apps/mobile/package-lock.json
+      - run: cd apps/mobile && npm ci
+      - run: cd apps/mobile && npm run typecheck
+      - run: cd apps/mobile && npm run lint
+      - run: cd apps/mobile && npm run test
+
+  android-build:
+    name: Android Build (apkRolloutDebug)
+    runs-on: ubuntu-24.04
+    needs: lint-typecheck-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: apps/mobile/package-lock.json
+      - run: cd apps/mobile && npm ci
+      - run: cd apps/mobile/android && ./gradlew :app:testApkRolloutDebugUnitTest
+      - run: cd apps/mobile/android && ./gradlew assembleApkRolloutDebug
+      - run: cd apps/mobile && bash scripts/verify-merged-manifests.sh
