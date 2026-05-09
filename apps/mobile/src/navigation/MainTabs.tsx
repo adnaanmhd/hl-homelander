@@ -11,8 +11,8 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import HomeSkeletonScreen from '../screens/home/HomeSkeletonScreen';
-import TasksPlaceholder from '../screens/tasks/TasksPlaceholder';
-import HistoryPlaceholder from '../screens/history/HistoryPlaceholder';
+import TasksPlaceholderScreen from '../screens/tasks/TasksPlaceholderScreen';
+import HistoryPlaceholderScreen from '../screens/history/HistoryPlaceholderScreen';
 import BottomNav from '../components/BottomNav';
 
 const Tab = createBottomTabNavigator();
@@ -24,8 +24,8 @@ export default function MainTabs() {
       tabBar={(props) => <BottomNav {...props} />}
     >
       <Tab.Screen name="Home" component={HomeSkeletonScreen} />
-      <Tab.Screen name="Tasks" component={TasksPlaceholder} />
-      <Tab.Screen name="History" component={HistoryPlaceholder} />
+      <Tab.Screen name="Tasks" component={TasksPlaceholderScreen} />
+      <Tab.Screen name="History" component={HistoryPlaceholderScreen} />
     </Tab.Navigator>
   );
 }
