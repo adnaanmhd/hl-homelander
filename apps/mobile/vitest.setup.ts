@@ -181,11 +181,42 @@ vi.mock('@react-navigation/native-stack', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// @react-navigation/bottom-tabs — same passthrough shape.
+// @react-navigation/bottom-tabs — passthrough that ALSO invokes the `tabBar`
+// callback prop with a synthetic state. Phase 2 plan 02-05's MainTabs test
+// asserts that the tabBar (BottomNav) renders three Pressables with
+// accessibilityLabel="{Name} tab"; without invoking the callback the labels
+// never reach the DOM. State.routes is derived from the children's `name`
+// prop so the mock is generic.
 // ---------------------------------------------------------------------------
 vi.mock('@react-navigation/bottom-tabs', () => ({
   createBottomTabNavigator: () => ({
-    Navigator: ({ children }: { children: React.ReactNode }) => children as React.ReactElement,
+    Navigator: (props: {
+      children?: React.ReactNode;
+      tabBar?: (
+        p: Record<string, unknown> & {
+          state: { index: number; routes: Array<{ name: string; key: string }> };
+          navigation: { emit: () => { defaultPrevented: boolean }; navigate: () => void };
+        },
+      ) => React.ReactElement;
+    }) => {
+      // Build state.routes from the Screen children's `name` props.
+      const childArray = React.Children.toArray(props.children) as Array<{
+        props?: { name?: string };
+      }>;
+      const routes = childArray
+        .filter((c) => typeof c.props?.name === 'string')
+        .map((c) => ({ name: c.props!.name as string, key: c.props!.name as string }));
+      const tabBarEl = props.tabBar
+        ? props.tabBar({
+            state: { index: 0, routes },
+            navigation: {
+              emit: () => ({ defaultPrevented: false }),
+              navigate: () => undefined,
+            },
+          })
+        : null;
+      return React.createElement(React.Fragment, null, props.children as React.ReactNode, tabBarEl);
+    },
     Screen: ({ component: Component }: { component?: React.ComponentType }) =>
       Component ? React.createElement(Component) : null,
   }),
@@ -352,24 +383,46 @@ vi.mock('react-native-permissions', () => ({
 // lucide-react-native — every icon lookup returns a stub component that
 // renders <span data-icon={name} />. Lets primitive tests assert the right
 // icon was rendered without importing every icon explicitly.
+//
+// Vitest 4 ES-module namespace strictness: `import * as X` only sees the
+// keys returned from the factory at call time. A bare Proxy with a `get`
+// trap doesn't expose any named exports, so a consumer doing
+// `LucideIcons[name]` after `import * as LucideIcons` gets `undefined`
+// (the Proxy's `get` is never invoked through the namespace wrapper).
+// We keep the Proxy as a fallback for unknown names but pre-populate every
+// icon Phase 2 components reference so the namespace lookup resolves.
 // ---------------------------------------------------------------------------
-vi.mock(
-  'lucide-react-native',
-  () =>
-    new Proxy(
-      {},
-      {
-        get: (_t, prop) => {
-          if (typeof prop !== 'string') return undefined;
-          const name = String(prop);
-          const Component = (props: Record<string, unknown>) =>
-            React.createElement('span', { 'data-icon': name, ...props });
-          (Component as unknown as { displayName: string }).displayName = name;
-          return Component;
-        },
-      },
-    ),
-);
+vi.mock('lucide-react-native', () => {
+  function makeIcon(name: string) {
+    const Component = (props: Record<string, unknown>) =>
+      React.createElement('span', { 'data-icon': name, ...props });
+    (Component as unknown as { displayName: string }).displayName = name;
+    return Component;
+  }
+  // Pre-populated allow-list for Phase 2: BottomNav uses Home/ListTodo/History;
+  // primitives.test.tsx may exercise others. Add to this list as plans land.
+  const ICONS = [
+    'Home',
+    'ListTodo',
+    'History',
+    'User',
+    'HelpCircle',
+    'Settings',
+    'ArrowLeft',
+    'ChevronRight',
+    'Camera',
+    'Mic',
+    'Check',
+    'X',
+    'AlertTriangle',
+    'Info',
+  ] as const;
+  const exports: Record<string, unknown> = {};
+  for (const name of ICONS) {
+    exports[name] = makeIcon(name);
+  }
+  return exports;
+});
 
 // ---------------------------------------------------------------------------
 // react-native-svg — primitives map to plain SVG DOM elements. testing-library
