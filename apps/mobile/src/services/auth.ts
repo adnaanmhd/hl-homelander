@@ -11,18 +11,18 @@
 // 5+ will populate it without changing this surface).
 
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { createMMKV } from 'react-native-mmkv';
 import * as Keychain from 'react-native-keychain';
 import Config from 'react-native-config';
 import { getFlavorContext } from '../native/AppFlavor';
 import { requestIntegrityToken } from '../native/PlayIntegrity';
+import { secureMmkv as mmkv } from '../state/mmkv';
+import { KEYS } from '../state/keys';
 import { apiClient } from './api';
 
-// MMKV instance with encryption flag — at-rest AES-128 (T-1.13-01 mitigation).
-// react-native-mmkv v4 uses Nitro modules; instances are constructed via
-// `createMMKV` rather than `new MMKV(...)`.
-const mmkv = createMMKV({ id: 'humyn.secure', encryptionKey: 'humyn-mmkv-v1' });
-const JWT_KEY = 'auth.jwt.v1';
+// MMKV instance + JWT key are now the canonical singletons declared in
+// `../state/mmkv` and `../state/keys` (D-STATE-01). The encryption flag
+// (T-1.13-01 mitigation) lives on the singleton; this module just imports
+// the handle.
 
 // Configure GoogleSignin at module load — webClientId comes from the per-flavor
 // .env file via react-native-config. Empty string is acceptable at typecheck
@@ -145,8 +145,8 @@ export async function signInWithGoogle(): Promise<AuthSuccess> {
   }
 
   // 6. Store JWT — MMKV with encryption flag (instance-level encryptionKey
-  //    above). Key prefix `auth.jwt.v1` is versioned for kill-switch.
-  mmkv.set(JWT_KEY, authRes.jwt);
+  //    on the singleton). Key prefix `auth.jwt.v1` is versioned for kill-switch.
+  mmkv.set(KEYS.AUTH_JWT, authRes.jwt);
 
   // 7. Reserve the Keychain refresh-token slot. Empty at MVP per D-AUTH-03;
   //    Phase 5+ can populate without changing this surface. If Keychain
@@ -170,9 +170,9 @@ export async function signInWithGoogle(): Promise<AuthSuccess> {
 }
 
 export function getStoredJwt(): string | undefined {
-  return mmkv.getString(JWT_KEY);
+  return mmkv.getString(KEYS.AUTH_JWT);
 }
 
 export function clearStoredJwt(): void {
-  mmkv.remove(JWT_KEY);
+  mmkv.remove(KEYS.AUTH_JWT);
 }
