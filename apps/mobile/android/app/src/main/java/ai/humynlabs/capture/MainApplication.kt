@@ -13,6 +13,7 @@ import com.facebook.react.soloader.OpenSourceMergedSoMapping
 import com.facebook.soloader.SoLoader
 import io.humyn.app.PlayIntegrityPackage
 import ai.humynlabs.capture.compat.HumynCompatPackage
+import ai.humynlabs.capture.updater.HumynUpdaterPackage
 
 /**
  * RN 0.83 / Hermes / New Architecture Application entry point.
@@ -29,6 +30,7 @@ class MainApplication : Application(), ReactApplication {
                 packages.add(AppFlavorPackage())
                 packages.add(PlayIntegrityPackage())  // Plan 13 — Phase 1 mobile sign-in scaffold
                 packages.add(HumynCompatPackage())    // Plan 02-06 — Phase 2 compat probe shell
+                packages.add(HumynUpdaterPackage())   // Plan 02-07 — Phase 2 force-upgrade APK installer (apkRollout flavor)
                 return packages
             }
 
