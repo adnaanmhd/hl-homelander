@@ -58,7 +58,7 @@ Plans:
 - [x] 02-01-mobile-npm-migration-PLAN.md — apps/mobile pnpm → npm migration (D-PKG-07; lands first, blocks rest of phase)
 - [x] 02-02-test-scaffolding-and-deps-PLAN.md — Vitest screen tests + Robolectric Kotlin tests + HEVC fixtures
 - [x] 02-03-state-store-and-hydration-PLAN.md — Zustand appStore + MMKV-hydrate boot
-- [ ] 02-04-installation-id-and-telemetry-ring-PLAN.md — installation_id mint + telemetry ring buffer + AppFlavor extensions
+- [x] 02-04-installation-id-and-telemetry-ring-PLAN.md — installation_id mint + telemetry ring buffer + AppFlavor extensions
 - [ ] 02-05-navigation-skeleton-PLAN.md — RootNativeStack + OnboardingStack + MainTabs scaffold + initial-route gate decision
 - [ ] 02-06-humyn-compat-kotlin-shells-PLAN.md — HumynCompat module + EncoderProbe / ImuProbe / DeviceCaps / NalParser scaffolds
 - [ ] 02-07-humyn-updater-kotlin-shell-PLAN.md — HumynUpdater module (APK download + SHA-256 + PackageInstaller)
