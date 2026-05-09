@@ -1,0 +1,24 @@
+# package-lock.json is COMMITTED for npm reproducibility (D-PKG-02)
+# DO NOT add `package-lock.json` to this file.
+
+# Local-only: npm install output, build artifacts.
+node_modules/
+
+# RN / Metro
+.metro-cache/
+.metro-health-check*
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/app/release/
+android/local.properties
+
+# iOS (Phase 7)
+ios/build/
+ios/Pods/
+
+# Misc
+.DS_Store
+*.log
