@@ -84,20 +84,9 @@ class HumynCompatModule(reactContext: ReactApplicationContext) :
     fun readDeviceCaps(promise: Promise) {
         bgExecutor.execute {
             try {
-                val result = DeviceCaps(reactApplicationContext).read()
-                val resolutionMap: WritableMap = Arguments.createMap().apply {
-                    putInt("w", result.resolutionMax.first)
-                    putInt("h", result.resolutionMax.second)
-                }
-                val map: WritableMap = Arguments.createMap().apply {
-                    putMap("resolutionMax", resolutionMap)
-                    putInt("fpsMax", result.fpsMax)
-                    putDouble("ultrawideDfovDeg", result.ultrawideDfovDeg.toDouble())
-                    putInt("micSampleRateMax", result.micSampleRateMax)
-                    putBoolean("realtimeTimestampSource", result.realtimeTimestampSource)
-                    putBoolean("rooted", result.rooted)
-                    putDouble("freeStorageGB", result.freeStorageGB.toDouble())
-                }
+                // DeviceCaps.readAll() returns a JS-bridge-ready WritableMap
+                // matching DeviceCapsResult in apps/mobile/src/native/HumynCompat.ts.
+                val map: WritableMap = DeviceCaps(reactApplicationContext).readAll()
                 promise.resolve(map)
             } catch (t: Throwable) {
                 promise.reject("DEVICE_CAPS_ERROR", "${t::class.simpleName}: ${t.message}", t)
