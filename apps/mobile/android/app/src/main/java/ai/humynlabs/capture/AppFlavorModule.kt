@@ -7,6 +7,7 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.module.annotations.ReactModule
+import java.security.MessageDigest
 
 /**
  * Exposes the compile-time flavor identity (BuildConfig.FLAVOR_NAME +
@@ -85,5 +86,29 @@ class AppFlavorModule(reactContext: ReactApplicationContext) :
         } catch (t: Throwable) {
             promise.reject("INSTALL_ID_ERROR", "${t::class.simpleName}: ${t.message}", t)
         }
+    }
+
+    /**
+     * Synchronous SHA-256 of `input`, returning the first 16 hex characters
+     * (8 bytes / 64 bits) lowercase. Backs `compatService.computeSignature`
+     * (D-COMPAT-03) — the compat signature is sha256(versionCode | deviceModel
+     * | installationId)[:16] and must be computable synchronously inside the
+     * gate-decision tree at boot, so it cannot go through a Promise.
+     *
+     * Uses `isBlockingSynchronousMethod = true` so the JS side reads the
+     * value as a plain function call (`NativeModules.AppFlavor.sha256First16Hex(s)`)
+     * with no bridge round-trip. The hash itself is on a hot path (boot →
+     * computeInitialRoute) but bounded to a small input string (~64 chars),
+     * so the synchronous block is negligible.
+     */
+    @ReactMethod(isBlockingSynchronousMethod = true)
+    fun sha256First16Hex(input: String): String {
+        val md = MessageDigest.getInstance("SHA-256")
+        val digest = md.digest(input.toByteArray(Charsets.UTF_8))
+        val sb = StringBuilder(16)
+        for (i in 0 until 8) {
+            sb.append(String.format("%02x", digest[i]))
+        }
+        return sb.toString()
     }
 }

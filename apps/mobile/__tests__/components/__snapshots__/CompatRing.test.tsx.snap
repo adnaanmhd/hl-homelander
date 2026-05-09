@@ -1,0 +1,142 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`CompatRing (design-spec §4 visual + §0.4 motion) > Test 2: snapshot at percent=0 1`] = `
+<div
+  accessibilityvalue="[object Object]"
+  aria-label="compat-ring"
+  data-testid="View"
+  style="width: 130px; height: 130px; align-items: center; justify-content: center;"
+>
+  <svg
+    height="130"
+    viewBox="0 0 130 130"
+    width="130"
+  >
+    <circle
+      cx="65"
+      cy="65"
+      fill="none"
+      r="61"
+      stroke="#E8E5E0"
+      stroke-width="8"
+    />
+    <circle
+      cx="65"
+      cy="65"
+      fill="none"
+      r="61"
+      stroke="#FF6A2D"
+      stroke-dasharray="383.27430373795477 383.27430373795477"
+      stroke-dashoffset="[object Object]"
+      stroke-linecap="round"
+      stroke-width="8"
+      transform="rotate(-90 65 65)"
+    />
+  </svg>
+  <div
+    data-testid="View"
+    pointer-events="none"
+    style="position: absolute; align-items: center; justify-content: center;"
+  >
+    <div
+      data-testid="Text"
+    >
+      0%
+    </div>
+  </div>
+</div>
+`;
+
+exports[`CompatRing (design-spec §4 visual + §0.4 motion) > Test 3: snapshot at percent=42 1`] = `
+<div
+  accessibilityvalue="[object Object]"
+  aria-label="compat-ring"
+  data-testid="View"
+  style="width: 130px; height: 130px; align-items: center; justify-content: center;"
+>
+  <svg
+    height="130"
+    viewBox="0 0 130 130"
+    width="130"
+  >
+    <circle
+      cx="65"
+      cy="65"
+      fill="none"
+      r="61"
+      stroke="#E8E5E0"
+      stroke-width="8"
+    />
+    <circle
+      cx="65"
+      cy="65"
+      fill="none"
+      r="61"
+      stroke="#FF6A2D"
+      stroke-dasharray="383.27430373795477 383.27430373795477"
+      stroke-dashoffset="[object Object]"
+      stroke-linecap="round"
+      stroke-width="8"
+      transform="rotate(-90 65 65)"
+    />
+  </svg>
+  <div
+    data-testid="View"
+    pointer-events="none"
+    style="position: absolute; align-items: center; justify-content: center;"
+  >
+    <div
+      data-testid="Text"
+    >
+      42%
+    </div>
+  </div>
+</div>
+`;
+
+exports[`CompatRing (design-spec §4 visual + §0.4 motion) > Test 4: snapshot at percent=100 1`] = `
+<div
+  accessibilityvalue="[object Object]"
+  aria-label="compat-ring"
+  data-testid="View"
+  style="width: 130px; height: 130px; align-items: center; justify-content: center;"
+>
+  <svg
+    height="130"
+    viewBox="0 0 130 130"
+    width="130"
+  >
+    <circle
+      cx="65"
+      cy="65"
+      fill="none"
+      r="61"
+      stroke="#E8E5E0"
+      stroke-width="8"
+    />
+    <circle
+      cx="65"
+      cy="65"
+      fill="none"
+      r="61"
+      stroke="#FF6A2D"
+      stroke-dasharray="383.27430373795477 383.27430373795477"
+      stroke-dashoffset="[object Object]"
+      stroke-linecap="round"
+      stroke-width="8"
+      transform="rotate(-90 65 65)"
+    />
+  </svg>
+  <div
+    data-testid="View"
+    pointer-events="none"
+    style="position: absolute; align-items: center; justify-content: center;"
+  >
+    <div
+      data-testid="Text"
+    >
+      100%
+    </div>
+  </div>
+</div>
+`;
