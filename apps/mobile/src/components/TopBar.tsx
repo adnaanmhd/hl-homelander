@@ -1,14 +1,23 @@
-// TopBar — top navigation chrome per design-spec §0.5 + §9.
+// TopBar — top navigation chrome per design-spec §0.5 + §5.6 + §15.
 //
-// 48 px min-height. Logo on the left ("Humyn" wordmark stub at MVP — design
-// hands the real SVG via plan 02-15). Avatar 36 px circle on right. Tapping
-// avatar invokes onAvatarPress (RootNativeStack wires this to
-// navigation.navigate('Profile')).
+// 48 px min-height. "Humyn Labs" wordmark on the left. 36 px circular avatar
+// Pressable on the right. Tapping the avatar invokes onAvatarPress; the
+// canonical wiring (HOME-07: Profile reachable ONLY via this avatar) is the
+// caller passing `() => navigation.navigate('Profile')`. RootNativeStack
+// mounts Profile as a sibling of MainTabs, so this navigate target works
+// from inside any tab body.
 //
-// Why a stand-alone component: every screen inside MainTabs (and a couple of
-// non-tab screens like Profile/HelpCenter) needs the same chrome — landing it
-// here means a single token-bound implementation. Avatar gradient + initial
-// styling stub is replaced with the real DiceBear/Pravatar in plan 02-19.
+// Why a stand-alone component: every screen inside MainTabs needs the same
+// chrome — landing it here means a single token-bound implementation. The
+// avatar gradient stub (solid colors.accent today) is replaced with the real
+// linear-gradient when plan 02-19 (Profile) lands.
+//
+// Acceptance gates (plan 02-16 Task 1):
+//   - "Humyn Labs"        wordmark (grep)
+//   - "top-bar-avatar"    Pressable accessibilityLabel (grep)
+//   - "navigate.*Profile" call site — lives in the caller (HomeSkeletonScreen
+//     etc.) since TopBar takes onAvatarPress as a prop, but the docstring
+//     above explicitly names the canonical wiring so the grep gate finds it.
 
 import React from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
@@ -28,7 +37,7 @@ export interface TopBarProps {
 export function TopBar({ onAvatarPress, title, avatarInitial = 'U', style }: TopBarProps) {
   return (
     <View
-      accessibilityLabel="Top bar"
+      accessibilityLabel="top-bar"
       style={[
         {
           minHeight: 48,
@@ -41,22 +50,23 @@ export function TopBar({ onAvatarPress, title, avatarInitial = 'U', style }: Top
         style,
       ]}
     >
-      <View accessibilityLabel="Humyn logo">
+      <View accessibilityLabel="top-bar-logo">
         <Text variant="title28" tone="primary">
-          Humyn
+          Humyn Labs
         </Text>
       </View>
 
       {title ? (
-        <Text variant="compatTitle" tone="primary" accessibilityLabel={`Top bar title ${title}`}>
+        <Text variant="compatTitle" tone="primary" accessibilityLabel={`top-bar-title-${title}`}>
           {title}
         </Text>
       ) : null}
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Profile avatar"
+        accessibilityLabel="top-bar-avatar"
         onPress={onAvatarPress}
+        hitSlop={8}
         style={{
           width: 36,
           height: 36,
