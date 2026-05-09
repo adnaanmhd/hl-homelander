@@ -4,7 +4,7 @@
 //
 // Decision order, top to bottom (RESEARCH § "Initial route gate-decision tree"):
 //   1. forceUpgradeBlocked        → ForceUpgrade (hardBlock)
-//   2. JWT missing                → OnboardingStack/Splash
+//   2. JWT missing                → OnboardingStack/Signup
 //   3. perms missing or partial   → OnboardingStack/Permissions
 //   4. compatPassed missing OR
 //      stale (signature mismatch  → OnboardingStack/Compat   (AUTH-11)
@@ -29,7 +29,7 @@ import type { AppState } from './appStore';
 
 export type InitialRoute =
   | { stack: 'ForceUpgrade'; params: { hardBlock: true } }
-  | { stack: 'OnboardingStack'; screen: 'Splash' }
+  | { stack: 'OnboardingStack'; screen: 'Signup' }
   | { stack: 'OnboardingStack'; screen: 'Permissions' }
   | { stack: 'OnboardingStack'; screen: 'Compat' }
   | { stack: 'OnboardingStack'; screen: 'RigTutorial' }
@@ -44,9 +44,11 @@ export function computeInitialRoute(
     return { stack: 'ForceUpgrade', params: { hardBlock: true } };
   }
 
-  // 2. Sign-up gate.
+  // 2. Sign-up gate. Splash is the launch screen but never a destination —
+  //    when JWT is missing we route to Signup so Splash → replace('Signup')
+  //    actually leaves the splash screen instead of looping back to itself.
   if (!s.jwt) {
-    return { stack: 'OnboardingStack', screen: 'Splash' };
+    return { stack: 'OnboardingStack', screen: 'Signup' };
   }
 
   // 3. Permissions gate — both grants must be true.

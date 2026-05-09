@@ -46,9 +46,9 @@ describe('computeInitialRoute', () => {
     expect(route).toEqual({ stack: 'ForceUpgrade', params: { hardBlock: true } });
   });
 
-  it('Test 7: no JWT → OnboardingStack/Splash', () => {
+  it('Test 7: no JWT → OnboardingStack/Signup', () => {
     const route = computeInitialRoute(baseState({ jwt: null }), 'sig-fresh');
-    expect(route).toEqual({ stack: 'OnboardingStack', screen: 'Splash' });
+    expect(route).toEqual({ stack: 'OnboardingStack', screen: 'Signup' });
   });
 
   it('Test 8: JWT present, perms missing → OnboardingStack/Permissions', () => {
