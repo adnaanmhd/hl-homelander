@@ -1,3 +1,9 @@
+# The mobile package is intentionally excluded from this pnpm workspace
+# and runs on npm with a committed package-lock.json (Phase 2 plan 02-01,
+# decision D-PKG-01..07). Flat npm node_modules satisfies RN 0.83 + Hermes
+# new-arch autolinking + Gradle relative-path assumptions. Backend and
+# shared types stay on pnpm at the root.
+
 packages:
-  - 'apps/*'
+  - 'apps/api'
   - 'shared/*'
