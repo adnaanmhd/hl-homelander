@@ -141,11 +141,41 @@ assert_forbidden_perms "apkRollout" "$apk_manifest"
 assert_forbidden_perms "playStore"  "$ps_manifest"
 
 # ---------------------------------------------------------------------------
-# Plan 02-22 — wave 5 will further extend this script with route-invariant
-# checks (e.g., asserting that the JS-side RootNativeStack name maps to a
-# corresponding intent-filter for deep-link handling). The contract that
-# 02-22 inherits from this revision: this script returns 0 on success and
-# exits non-zero on any single violation, so the CI gate composes cleanly.
+# Phase 2 plan 02-22 — Crashlytics auto-collection gate.
+#
+# Per the must_haves clause: `firebaseCrashlyticsCollectionEnabled` meta-data
+# defaults to TRUE when absent. The static check is therefore "if the
+# meta-data is declared, its value MUST NOT be false". An explicit `true`
+# value is also acceptable (and is the recommended documentary form when
+# anyone wants to make the default visible).
+#
+# Rationale: the apkRollout build flavor SHIPS to clan chiefs with
+# Crashlytics enabled (T-2.22-03 disposition: accept; build-flavor + signing
+# key gate Crashlytics opt-out). The static check guards against an
+# accidental commit of `android:value="false"` on the meta-data tag, which
+# would silently disable Crashlytics across both flavors.
+# ---------------------------------------------------------------------------
+assert_crashlytics_not_disabled() {
+  local label="$1"
+  local manifest="$2"
+  # Look for meta-data with name=firebase_crashlytics_collection_enabled (the
+  # canonical Firebase SDK key) AND value=false. Both name and value can
+  # appear in either attribute order, so check the line is meta-data first.
+  if grep -E '<meta-data[^>]*firebase_crashlytics_collection_enabled[^>]*android:value="false"' "$manifest" > /dev/null 2>&1 \
+     || grep -E '<meta-data[^>]*android:value="false"[^>]*firebase_crashlytics_collection_enabled' "$manifest" > /dev/null 2>&1; then
+    echo "[verify-manifests] FAIL: ${label} merged manifest disables Crashlytics auto-collection (firebase_crashlytics_collection_enabled=false). Crashlytics is required for catastrophic-event triage on apkRollout (PROJECT.md)." >&2
+    exit 1
+  fi
+  echo "[verify-manifests] ${label} crashlytics-enabled check: OK (default-true OR explicitly true)"
+}
+
+assert_crashlytics_not_disabled "apkRollout" "$apk_manifest"
+assert_crashlytics_not_disabled "playStore"  "$ps_manifest"
+
+# ---------------------------------------------------------------------------
+# End of Phase 2 invariants. Future phases extend the assertion suite below
+# this line; do NOT rewrite the existing assertions — they are PR-protected
+# (T-1.9-01 + T-2.10-01..03 + T-2.20-03 + T-2.22-01).
 # ---------------------------------------------------------------------------
 
 echo "[verify-manifests] PASS"

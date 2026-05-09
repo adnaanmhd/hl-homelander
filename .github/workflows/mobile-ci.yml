@@ -52,4 +52,11 @@ jobs:
       - run: cd apps/mobile && npm ci
       - run: cd apps/mobile/android && ./gradlew :app:testApkRolloutDebugUnitTest
       - run: cd apps/mobile/android && ./gradlew assembleApkRolloutDebug
-      - run: cd apps/mobile && bash scripts/verify-merged-manifests.sh
+      # The verify-merged-manifests.sh script runs Gradle's manifest-merger
+      # for BOTH flavors internally — equivalent to invoking
+      # ./gradlew :app:processApkRolloutDebugManifest :app:processPlayStoreDebugManifest
+      # at this step. We keep the merge invocation inside the script so
+      # local dev (`npm run verify-manifests`) gets the same guarantee.
+      # PERM-04 / PERM-03 / D-UPG-03 / T-2.22-01 closure (plan 02-22).
+      - name: Verify merged manifests
+        run: cd apps/mobile && bash scripts/verify-merged-manifests.sh
