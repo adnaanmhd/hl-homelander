@@ -41,8 +41,18 @@ import content from './content.json';
 // help-center-content.md so PRs that change it surface in the diff.
 const SUPPORT_EMAIL_PLACEHOLDER = '[EMAIL_ADDRESS]';
 
-type AccordionContent = (typeof content)['accordions'][number];
-type AccordionItemPayload = AccordionContent['items'][number];
+type AccordionItemPayload =
+  | { kind: 'subsection'; heading: string; body: string }
+  | { kind: 'qa'; question: string; answer: string }
+  | { kind: 'issue'; heading: string; resolution: string };
+
+type AccordionContent = {
+  id: string;
+  title: string;
+  items: AccordionItemPayload[];
+};
+
+const ACCORDIONS: AccordionContent[] = (content as { accordions: AccordionContent[] }).accordions;
 
 export function HelpCenterScreen(): React.JSX.Element {
   const [reportOpen, setReportOpen] = useState(false);
@@ -50,7 +60,7 @@ export function HelpCenterScreen(): React.JSX.Element {
   return (
     <ScreenContainer accessibilityLabel="help-center-screen" padding={0}>
       <ScrollView contentContainerStyle={styles.body}>
-        {content.accordions.map((acc) => (
+        {ACCORDIONS.map((acc) => (
           <AccordionItem key={acc.id} title={acc.title} testID={`accordion-${acc.id}`}>
             {renderAccordion(acc)}
           </AccordionItem>

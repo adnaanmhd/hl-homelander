@@ -61,7 +61,7 @@ describe('build-help-content', () => {
     const parsed = parseHelpCenter(md) as Parsed;
     const faqs = parsed.accordions.find((a) => a.id === 'faqs')!;
     expect(faqs.items.length).toBeGreaterThanOrEqual(10);
-    expect(faqs.items[0].kind).toBe('qa');
+    expect(faqs.items[0]?.kind).toBe('qa');
     const first = faqs.items[0] as { kind: 'qa'; question: string; answer: string };
     expect(first.question).toMatch(/.+/);
     expect(first.answer).toMatch(/.+/);
@@ -71,7 +71,7 @@ describe('build-help-content', () => {
     const parsed = parseHelpCenter(md) as Parsed;
     const ts = parsed.accordions.find((a) => a.id === 'troubleshooting')!;
     expect(ts.items.length).toBeGreaterThanOrEqual(5);
-    expect(ts.items[0].kind).toBe('issue');
+    expect(ts.items[0]?.kind).toBe('issue');
     const first = ts.items[0] as { kind: 'issue'; heading: string; resolution: string };
     expect(first.heading).toMatch(/.+/);
     expect(first.resolution).toMatch(/.+/);
