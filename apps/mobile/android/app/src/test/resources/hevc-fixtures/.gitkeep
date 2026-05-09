@@ -1,0 +1,3 @@
+# Reserved for plan 02-12 NAL parser fixtures (.h265 byte-streams used by
+# Robolectric tests). Empty at 02-02; binary fixtures are generated /
+# checked in by 02-12.

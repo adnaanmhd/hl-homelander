@@ -84,6 +84,17 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = '17' }
+
+    // Plan 02-02 Task 2 — Robolectric harness for Kotlin native-module tests.
+    // Plans 02-06+ drop Robolectric tests under android/app/src/test/.
+    // includeAndroidResources lets Robolectric resolve our resources / assets
+    // (notably the bundled hand_landmarker.task in plan 4 work and the HEVC
+    // NAL fixtures in 02-12).
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+        }
+    }
 }
 
 dependencies {
@@ -95,6 +106,15 @@ dependencies {
     // Wrapped by io.humyn.app.PlayIntegrityModule (Kotlin TurboModule) and exposed to RN as
     // NativeModules.PlayIntegrity.requestIntegrityToken(nonce). Server-side decode in plan 05.
     implementation 'com.google.android.play:integrity:1.4.0'
+
+    // Plan 02-02 Task 2 — Robolectric harness. JVM unit tests for our Kotlin
+    // native modules (HumynCompat, HumynCapture, HandDetector, ...) run on
+    // the host JVM with shadowed Camera2/SensorManager/StatFs frameworks.
+    // Pinned per .planning/phases/02-…/02-PATTERNS.md (lines 793-798).
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.13'
+    testImplementation 'androidx.test:core:1.6.1'
+    testImplementation 'androidx.test.ext:junit:1.2.1'
 }
 
 // Autolinking is handled by `com.facebook.react.settings`'s `autolinkLibrariesFromCommand()`
