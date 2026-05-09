@@ -91,6 +91,9 @@ REQUIRED_BASE_PERMS=(
   "android.permission.FOREGROUND_SERVICE_DATA_SYNC"
   "android.permission.INTERNET"
   "android.permission.ACCESS_NETWORK_STATE"
+  # PERM-03 (plan 02-14) — coarse-only location declaration. Runtime prompt
+  # is gated to Phase 4's first-recording flow via locationPermission.ts.
+  "android.permission.ACCESS_COARSE_LOCATION"
 )
 
 # FORBIDDEN_BASE_PERMS must NOT appear in either merged manifest. Note:
@@ -136,5 +139,13 @@ assert_required_perms "apkRollout" "$apk_manifest"
 assert_required_perms "playStore"  "$ps_manifest"
 assert_forbidden_perms "apkRollout" "$apk_manifest"
 assert_forbidden_perms "playStore"  "$ps_manifest"
+
+# ---------------------------------------------------------------------------
+# Plan 02-22 — wave 5 will further extend this script with route-invariant
+# checks (e.g., asserting that the JS-side RootNativeStack name maps to a
+# corresponding intent-filter for deep-link handling). The contract that
+# 02-22 inherits from this revision: this script returns 0 on success and
+# exits non-zero on any single violation, so the CI gate composes cleanly.
+# ---------------------------------------------------------------------------
 
 echo "[verify-manifests] PASS"
