@@ -20,17 +20,43 @@ import * as React from 'react';
 // Phase 1's SignIn.test.tsx; those queries depend on the data-testid + role +
 // aria-label mapping below)
 // ---------------------------------------------------------------------------
+// Resolve an RN-style prop into a plain DOM-friendly style object.
+// RN accepts: object, array of objects/falsy, or (Pressable only) a function
+// (state) => array. JSDOM/React-DOM accepts only an object. This helper
+// collapses every RN shape into a flat object so the shim's <div>/<input>
+// receives a valid `style`. Falsy entries (null/undefined/false) are skipped.
+function resolveStyle(value: unknown): Record<string, unknown> | undefined {
+  if (value == null || value === false) return undefined;
+  if (typeof value === 'function') {
+    return resolveStyle((value as (s: { pressed: boolean }) => unknown)({ pressed: false }));
+  }
+  if (Array.isArray(value)) {
+    const merged: Record<string, unknown> = {};
+    for (const entry of value) {
+      const r = resolveStyle(entry);
+      if (r) Object.assign(merged, r);
+    }
+    return Object.keys(merged).length ? merged : undefined;
+  }
+  if (typeof value === 'object') {
+    return value as Record<string, unknown>;
+  }
+  return undefined;
+}
+
 vi.mock('react-native', () => {
   // Build a tiny set of host-style components: each renders its children
   // through a passthrough <div>. Props are forwarded so testing-library's
   // queries (accessibilityLabel, accessibilityRole) keep working — react
-  // attributes on a JSDOM <div> are visible via getAttribute.
+  // attributes on a JSDOM <div> are visible via getAttribute. `style` is
+  // resolved through `resolveStyle` so RN's array-of-objects / function
+  // (Pressable) shapes don't choke React-DOM.
   function makeComponent(name: string) {
     return React.forwardRef<
       HTMLDivElement,
       Record<string, unknown> & { children?: React.ReactNode }
     >(function HostComponent(props, ref) {
-      const { children, accessibilityLabel, accessibilityRole, onPress, ...rest } = props;
+      const { children, accessibilityLabel, accessibilityRole, onPress, style, ...rest } = props;
       const dom: Record<string, unknown> = { ref, 'data-testid': name, ...rest };
       if (typeof accessibilityLabel === 'string') {
         dom['aria-label'] = accessibilityLabel;
@@ -40,6 +66,10 @@ vi.mock('react-native', () => {
       }
       if (typeof onPress === 'function') {
         dom['onClick'] = onPress;
+      }
+      const resolved = resolveStyle(style);
+      if (resolved) {
+        dom['style'] = resolved;
       }
       return React.createElement('div', dom, children as React.ReactNode);
     });
@@ -56,7 +86,19 @@ vi.mock('react-native', () => {
         placeholder?: string;
       }
     >(function TextInputShim(props, ref) {
-      const { value, onChangeText, accessibilityLabel, accessibilityRole, ...rest } = props;
+      const {
+        value,
+        onChangeText,
+        accessibilityLabel,
+        accessibilityRole,
+        style,
+        // RN-only props that don't map to <input> — drop them so React-DOM
+        // doesn't warn about unknown attributes.
+        placeholderTextColor: _ptc,
+        secureTextEntry: _ste,
+        keyboardType: _kt,
+        ...rest
+      } = props;
       const dom: Record<string, unknown> = {
         ref,
         'data-testid': 'TextInput',
@@ -71,6 +113,10 @@ vi.mock('react-native', () => {
       }
       if (typeof onChangeText === 'function') {
         dom['onChange'] = (e: { target: { value: string } }) => onChangeText(e.target.value);
+      }
+      const resolved = resolveStyle(style);
+      if (resolved) {
+        dom['style'] = resolved;
       }
       return React.createElement('input', dom);
     });
