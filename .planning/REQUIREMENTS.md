@@ -67,8 +67,8 @@
 - [ ] **HOME-04**: Tasks-recorded tile supports the same time-range toggles
 - [ ] **HOME-05**: Pending-uploads tile is visible only when count > 0; tapping opens a full upload-queue screen with per-file progress
 - [ ] **HOME-06**: Duration formatter outputs `< 1 min → Xs`, `< 1 hr → Xm`, `≥ 1 hr → Xh Ym` floored to the previous minute (`2h 4m 59s` → `2h 4m`)
-- [ ] **HOME-07**: Bottom navigation has exactly three tabs (Home / Tasks / History); Profile is reached only via the avatar in the top-right
-- [ ] **HOME-08**: Bottom navigation is suppressed on splash, sign-up, permissions, compat-check, tutorial, recording, and force-upgrade screens
+- [x] **HOME-07**: Bottom navigation has exactly three tabs (Home / Tasks / History); Profile is reached only via the avatar in the top-right
+- [x] **HOME-08**: Bottom navigation is suppressed on splash, sign-up, permissions, compat-check, tutorial, recording, and force-upgrade screens
 - [ ] **HOME-09**: User can pull-to-refresh on Home tiles to fetch the latest contribution numbers from `/contributions` **[research]**
 - [ ] **HOME-10**: Home shows a non-blocking offline banner in the Pending Uploads tile when network is unreachable **[research]**
 
@@ -403,8 +403,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HOME-04     | Phase 6 | Pending               |
 | HOME-05     | Phase 6 | Pending               |
 | HOME-06     | Phase 6 | Pending               |
-| HOME-07     | Phase 2 | Pending               |
-| HOME-08     | Phase 2 | Pending               |
+| HOME-07     | Phase 2 | Complete              |
+| HOME-08     | Phase 2 | Complete              |
 | HOME-09     | Phase 6 | Pending               |
 | HOME-10     | Phase 6 | Pending               |
 | TASK-01     | Phase 6 | Pending               |

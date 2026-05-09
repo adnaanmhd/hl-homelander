@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 2 context gathered
-last_updated: '2026-05-09T11:46:02.885Z'
-last_activity: 2026-05-09 -- Phase 02 execution started
+last_updated: '2026-05-09T12:59:20.785Z'
+last_activity: 2026-05-09
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 35
-  completed_plans: 24
-  percent: 69
+  completed_plans: 29
+  percent: 83
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 02 (mobile-shell-onboarding-permissions-compat-profile) — EXECUTING
-Plan: 1 of 22
-Status: Executing Phase 02
-Last activity: 2026-05-09 -- Phase 02 execution started
+Plan: 2 of 22
+Status: Ready to execute
+Last activity: 2026-05-09
 
-Progress: [█████████░] 91%
+Progress: [████████░░] 83%
 
 ## Resume Path (set before pause)
 
@@ -70,6 +70,7 @@ _Updated after each plan completion_
 | Phase 01 P08 | 17 min | 3 tasks | 28 files |
 | Phase 1 P9 | 7min | 3 tasks | 19 files |
 | Phase 01 P12 | 28min | 3 tasks | 14 files |
+| Phase 02 P16 | 25min | - tasks | - files |
 
 ## Accumulated Context
 
@@ -132,6 +133,9 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 1]: Plan 01-12: Two-config vitest split (Pattern 43) — vitest.config.ts excludes test/e2e/** so unit suite runs in 17s; vitest.e2e.config.ts targets test/e2e/** with 120s timeouts for embedder cold-start + multipart upload.
 - [Phase ?]: [Phase 1]: Plan 01-12: globalSetup env loader (Pattern 44) — test/e2e/global-setup.ts loads apps/api/.env in the parent vitest process before any worker fork; workers inherit env via Node's standard fork() contract. CI workflows export env via the workflow env: block, making the loader a no-op there.
 - [Phase ?]: [Phase 1]: Plan 01-12: awslocal CLI shim for GitHub Actions (Pattern 46) — 1-line wrapper that maps 'awslocal' to 'aws --endpoint-url=http://localhost:4566' lets the same infra/localstack/init/\*.sh scripts that auto-run in dev docker-compose also bootstrap CI without forking the script.
+- [Phase ?]: [Phase 2]: Plan 02-16: Vite ?raw import + ambient \*?raw .d.ts pattern for source-grep tests under mobile tsconfig (types:[] + moduleResolution:Bundler) — avoids @types/node bloat just for one structural test. Idiomatic Vitest 4 mechanism.
+- [Phase ?]: [Phase 2]: Plan 02-16: TopBar stays prop-driven (onAvatarPress callback) instead of consuming useAppStore.user — appStore has no user field at Phase 2 (lands with /me hookup in plan 02-19); call sites pass () => navigation.navigate('Profile') explicitly so HOME-07 entry path is grep-able at every tab body.
+- [Phase ?]: [Phase 2]: Plan 02-16: HOME-07/08 satisfaction is two-tiered — structural (02-05 navigator graph) + gated (02-16 source-grep test reading MainTabs.tsx via Vite ?raw and asserting EXACTLY 3 Tab.Screen elements). T-2.16-01 mitigation: a future fourth-tab violation cannot land silently.
 
 ### Pending Todos
 
@@ -157,7 +161,7 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-08T10:49:04.583Z
+Last session: 2026-05-09T12:58:50.168Z
 Stopped at: Phase 2 context gathered
 
 - 01-10 (terraform apply): Tasks 1+2+3 complete + committed (430e17a, 9e52db8, ad93d17). Operator runs `terraform fmt -check` + `terraform validate` + `terraform plan` + `terraform apply` against real AWS staging.
