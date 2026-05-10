@@ -23,6 +23,11 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 // surface here makes future regressions cheaper to catch in PR review).
 import { Home as HomeIcon, ListTodo, History as HistoryIcon } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
+// Plan 03-11 (A3) — useSafeAreaInsets() lifts the BottomNav above the
+// device gesture indicator (Instagram-style float) instead of touching
+// the bottom edge. Inset handling is per-device — Pixel-class shows
+// ~24 dp gesture-bar inset, so the row floats with insets.bottom + 12 dp.
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Pressable } from '../ui/primitives/Pressable';
 import { Text } from '../ui/primitives/Text';
 import { colors, spacing, typography } from '../ui/tokens';
@@ -41,12 +46,17 @@ const TABS: ReadonlyArray<TabSpec> = [
 ];
 
 export function BottomNav({ state, navigation }: BottomTabBarProps) {
+  const insets = useSafeAreaInsets();
   return (
     <View
       accessibilityLabel="Bottom navigation"
+      // Plan 03-11 (A3) — height + paddingBottom inflate by insets.bottom so
+      // the nav row floats above the gesture indicator while preserving the
+      // 68 dp content height. The +12 lift sits at the upper end of the A3
+      // 8–12 dp recommendation (most legible separation against the bar).
       style={{
-        height: 68,
-        paddingBottom: 10,
+        height: 68 + insets.bottom,
+        paddingBottom: insets.bottom + 12,
         paddingTop: spacing.m,
         flexDirection: 'row',
         alignItems: 'center',

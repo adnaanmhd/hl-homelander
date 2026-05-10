@@ -172,17 +172,17 @@ export default function SplashScreen() {
             transform: [{ scale: logoScale }],
           }}
         >
-          {/* Plan 03-02 — drop the cover-crop + magic-number sizing.
-              Plan 03-01 pre-cropped the source PNG to a tight wordmark
-              bounding box and exported @1x/@2x/@3x density buckets
-              (320×73 / 640×146 / 960×220). RN Metro auto-picks the
-              right bucket per device density; the asset's intrinsic
-              dimensions are the rendered dimensions, so no `style`
-              width/height is needed. */}
+          {/* Plan 03-11 (A6) — explicit 256×58 dp render, ~20% smaller than
+              the Plan 03-02 intrinsic-only render. The @Nx PNG buckets still
+              let Metro pick the right resolution per device DPI; the
+              explicit width/height + resizeMode 'contain' bound the visual
+              size deterministically. Aspect-preserving: 256/58 ≈ 4.41:1 vs
+              source 320/73 ≈ 4.38:1 (within ±1%). */}
           <Image
             source={ORANGE_LOGO}
             accessibilityLabel="Humyn Labs Capture wordmark"
             accessibilityIgnoresInvertColors
+            style={{ width: 256, height: 58, resizeMode: 'contain' }}
           />
         </Animated.View>
         <View style={{ height: spacing.l }} />
