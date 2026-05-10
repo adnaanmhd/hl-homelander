@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: 'Phase 2 wave 5 — plan 02-21 (manual smoke runbook + Open Questions tracker) authoring complete; Task 3 = operator-driven on-device walk pending'
-last_updated: '2026-05-09T16:05:00Z'
-last_activity: 2026-05-09
+stopped_at: 'Phase 2 manual smoke walk paused mid-§4 (compat happy path) — auth surface fully cleared (4 fix-forward commits today: setCloudProjectNumber, nonce padding Pattern 58, env docs, HIGH_SAMPLING_RATE_SENSORS). Compat ran end-to-end on Pixel 10a after IMU permission fix; remaining blocker = DeviceCaps.kt camera-selection bug returning 83° dFOV instead of ultrawide spec ≥110°. See .planning/phases/02-mobile-shell-onboarding-permissions-compat-profile/.continue-here.md for resume protocol.'
+last_updated: '2026-05-10T04:00:00Z'
+last_activity: 2026-05-10
 progress:
   total_phases: 7
   completed_phases: 1
@@ -25,12 +25,18 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 
 ## Current Position
 
-Phase: 02 (mobile-shell-onboarding-permissions-compat-profile) — EXECUTING (operator-smoke gate pending)
-Plan: 22 of 22 complete; 21 (manual-smoke runbook + Open Questions tracker) authored — `code-ready-smoke-deferred` pattern (same shape as Phase 1 plan 01-13).
-Status: Awaiting operator-driven on-device walk-through of `apps/mobile/02-MANUAL-SMOKE.md` on a Pixel 7a/8a/10a class device with Crashlytics ≥ 1 h soak gate (T-2.21-01 mitigation).
-Last activity: 2026-05-09
+Phase: 02 (mobile-shell-onboarding-permissions-compat-profile) — EXECUTING (operator-smoke walk in progress, paused mid-§4)
+Plan: 22 of 22 complete (authoring); 5 fix-forward quick-task commits applied today (2026-05-10) to clear smoke-walk blockers.
+Status: Phase 2 manual smoke walk on Pixel 10a (5C161JEA304304):
 
-Progress: [██████████] 100% (authoring) · operator-gate pending
+- §1 Cold-start gate decision tree — PASSED (Path A, fresh install)
+- §2 Sign-up + Terms-of-Use modal — PASSED (after 4 auth-stack provisioning fixes, see commits below)
+- §3 Permissions — PASSED (Camera + Mic granted, Continue advanced)
+- §4 Compat happy path — IN PROGRESS, BLOCKED at the IMU/encoder/deviceCaps last leg by DeviceCaps.kt ultrawide camera-selection bug (Pixel 10a measured dFOV = 83° vs spec ≥110°; real spec for Pixel 10a back ultrawide is ~120°, so the code is selecting the main wide-angle camera instead of the ultrawide).
+- §5–§13 PENDING (blocked behind §4)
+  Last activity: 2026-05-10
+
+Progress: [██████████] 100% (authoring) · §4 of 13 smoke sections (auth + perms cleared; compat 1 leg from passing)
 
 ## Resume Path (set before pause)
 
@@ -168,6 +174,31 @@ Recent decisions affecting current work:
 - [Phase 2]: Plan 02-22: Crashlytics gate framing — `assert_crashlytics_not_disabled()` checks for explicit `android:value="false"` on firebase_crashlytics_collection_enabled meta-data; default-true and explicit-true both pass. Firebase SDK defaults the meta-data to true when absent, so the check only fails on an accidental opt-out commit. T-2.22-03 (build-flavor + signing-key gated; accept-disposition) is partially mitigated by the static check.
 - [Phase 2]: Plan 02-21: Pattern 56 — phase-end manual smoke runbook shape (apps/mobile/02-MANUAL-SMOKE.md). Numbered checkbox sections + per-step Inputs / Assertions blocks + adb / curl / psql commands inline + Pre-flight + Sign-off bookends. Cold-start gate decision tree (4 paths) at Section 1 covers UPG-01/02/05 + AUTH-07 + COMPAT-04/05/06 in one section. Crashlytics ≥ 1 h soak gate at Section 13 with explicit operator sign-off line is the threat-register-mandated ship gate (T-2.21-01). UPG-03 hash-mismatch path documented in Section 10 (force_upgrade_apk_hash_mismatch Analytics event + Pattern 50 reference re-verifies T-2.20-01 mitigation on-device). Reusable for Phase 3/4/5/7 phase-end runbooks under apps/mobile/0X-MANUAL-SMOKE.md.
 - [Phase 2]: Plan 02-21: Pattern 57 — Open Questions file shape (.planning/phases/0X-name/0X-OPEN-QUESTIONS.md). Per-OQ enumeration of placeholder occurrences with file + line numbers (atomic search-and-replace), explicit resolution path, why-deferred justification, owner, Phase-N target. Carries forward into the next phase entry checklist. Phase 2's 02-OPEN-QUESTIONS.md tracks OQ-1 [EMAIL_ADDRESS] (5 occurrences, not 3 as the plan body listed — Rule 2 augmentation found a fourth runtime occurrence in RigTutorialScreen.tsx via grep), OQ-2 compat-fail wording (writer pass deferred), OQ-3 APK SHA-256 disclosure UX (Phase 1 carry-forward; planner-pick).
+- [Phase 2 quick-260510-001]: Pattern 58 — Play Integrity nonce padding round-trip normalization. Backend mints `randomBytes(32).toString('base64url')` (43 chars, no padding) but Play Integrity Classic API re-pads URL-safe-base64 nonces to standard-base64 length (44 chars, one trailing `=`) before embedding in `tokenPayloadExternal.requestDetails.nonce`. Without `s.replace(/=+$/, '')` normalization in `consumeNonce` before SHA-256, every legitimate sign-in 401s with `Nonce check: mismatch`. Fix landed in apps/api/src/auth/nonce-store.ts (commit 8b13d23). Empirically diagnosed via temp logs that captured both nonce values side-by-side (43 vs 44 chars, single `=` diff). See .planning/debug/resolved/auth-nonce-mismatch.md for the full debug record.
+
+### Quick Tasks Completed
+
+| #          | Description                                                    | Date       | Commit  | Directory                                                                                 |
+| ---------- | -------------------------------------------------------------- | ---------- | ------- | ----------------------------------------------------------------------------------------- |
+| 260510-001 | Declare HIGH_SAMPLING_RATE_SENSORS for IMU probe (Android 12+) | 2026-05-10 | cc867b7 | [260510-001-imu-high-sampling-rate-perm](./quick/260510-001-imu-high-sampling-rate-perm/) |
+
+### Phase 2 Smoke-Walk Fix-Forward Commits (2026-05-10)
+
+All five commits unblock the Phase 2 manual smoke walk. Auth surface fully cleared; compat probe IMU leg fixed; remaining blocker is DeviceCaps.kt ultrawide camera-selection bug (next session).
+
+| Commit  | Subject                                                                                          | Layer cleared                                                                |
+| ------- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| 77e981f | fix(02-21): wire setCloudProjectNumber for Play Integrity Classic + strip duplicate API_BASE_URL | Mobile-side Play Integrity (-16 CLOUD_PROJECT_NUMBER_IS_INVALID)             |
+| 8b13d23 | fix(02-21): normalize Play Integrity nonce padding before SHA-256 compare                        | Backend-side nonce mismatch (Pattern 58, 401)                                |
+| 8f4dc57 | docs(02-21): document REMOTE_CONFIG_JSON + PLAY_INTEGRITY_SA_KEY_JSON setup recipe               | .env.example onboarding docs                                                 |
+| cc867b7 | fix(quick-260510-001): declare HIGH_SAMPLING_RATE_SENSORS for IMU probe (Android 12+)            | Compat IMU probe SecurityException (silent fail with empty CompatFailScreen) |
+
+Operator-side provisioning landed (NOT in repo, kept on dev machine):
+
+- Google Cloud Console — Android OAuth client `Humyn Labs Capture (apkRollout debug)` + package `ai.humynlabs.capture.apk` + debug-keystore SHA-1 `F8:16:58:1D:44:79:5E:77:A3:DF:A4:B9:62:F2:03:37:42:58:42:7A` (project number 130483521533).
+- GCP service account `humyn-play-integrity-decode@homelander-24045.iam.gserviceaccount.com` (Service Usage Consumer role) — JSON key inlined into `apps/api/.env` PLAY_INTEGRITY_SA_KEY_JSON. JSON file at `/Users/adnaan/Documents/hl-homelander/homelander-24045-1184f935e587.json` is gitignored.
+- Play Integrity API enabled on GCP project 130483521533.
+- `apps/api/.env` REMOTE_CONFIG_JSON set to `{"auth.apk_install_source_bypass.ai.humynlabs.capture.apk": true}` (Pattern 17 install-source bypass).
 
 ### Pending Todos
 
@@ -193,8 +224,8 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-09T16:05:00Z
-Stopped at: Phase 2 wave 5 — plan 02-21 (manual smoke runbook + Open Questions tracker) authored; Task 3 = operator-driven on-device walk-through pending
+Last session: 2026-05-10T04:00:00Z (UTC; ~09:30 IST wall-clock)
+Stopped at: Phase 2 manual smoke walk paused mid-§4 (compat happy path) on Pixel 10a 5C161JEA304304. Auth surface fully cleared (4 fix-forward commits today: 77e981f, 8b13d23, 8f4dc57, cc867b7). §1+§2+§3 PASSED; §4 blocked at DeviceCaps.kt ultrawide camera-selection bug (Pixel 10a measured dFOV = 83° vs spec ≥110°; real Pixel 10a back ultrawide spec is ~120°, so the code is selecting the main wide-angle camera). Investigation start point for next session: `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/compat/DeviceCaps.kt` + `apps/mobile/android/app/src/test/java/ai/humynlabs/capture/compat/DeviceCapsTest.kt`. See `.planning/phases/02-mobile-shell-onboarding-permissions-compat-profile/.continue-here.md` for full resume protocol.
 
 - 01-10 (terraform apply): Tasks 1+2+3 complete + committed (430e17a, 9e52db8, ad93d17). Operator runs `terraform fmt -check` + `terraform validate` + `terraform plan` + `terraform apply` against real AWS staging.
 - 01-11 (counsel engagement): code-ready-counsel-deferred. Three commits ship the canonical consent text + boot-time hash guard, takedown SOP runbook, dsr-export CLI, and counsel-engagement checklist. Real attorney review queued for legal-ops backlog.
