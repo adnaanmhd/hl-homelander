@@ -33,6 +33,7 @@ import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
 import { spacing } from '../../ui/tokens';
 import { AccordionItem } from '../../components/AccordionItem';
 import { ReportProblemSheet } from '../../components/ReportProblemSheet';
+import { Markdown } from './markdown';
 import content from './content.json';
 
 // Final email is an OPEN QUESTION (see CONTEXT.md §HELP and STATE.md
@@ -108,9 +109,9 @@ function renderAccordion(acc: AccordionContent): React.ReactNode {
           <Text variant="body" style={styles.subsectionHeading}>
             {it.heading}
           </Text>
-          <Text variant="body" tone="secondary" style={styles.subsectionBody}>
-            {it.body}
-          </Text>
+          <View style={styles.subsectionBody}>
+            <Markdown source={it.body} />
+          </View>
         </View>
       );
     }
@@ -120,9 +121,9 @@ function renderAccordion(acc: AccordionContent): React.ReactNode {
           <Text variant="body" style={styles.qaQuestion}>
             {it.question}
           </Text>
-          <Text variant="body" tone="secondary" style={styles.qaAnswer}>
-            {it.answer}
-          </Text>
+          <View style={styles.qaAnswer}>
+            <Markdown source={it.answer} />
+          </View>
         </View>
       );
     }
@@ -132,9 +133,9 @@ function renderAccordion(acc: AccordionContent): React.ReactNode {
         <Text variant="body" style={styles.qaQuestion}>
           {it.heading}
         </Text>
-        <Text variant="body" tone="secondary" style={styles.qaAnswer}>
-          {it.resolution}
-        </Text>
+        <View style={styles.qaAnswer}>
+          <Markdown source={it.resolution} />
+        </View>
       </View>
     );
   });
