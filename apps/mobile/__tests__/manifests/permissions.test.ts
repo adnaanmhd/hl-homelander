@@ -44,6 +44,7 @@ const REQUIRED_BASE_PERMISSIONS = [
   'android.permission.FOREGROUND_SERVICE_DATA_SYNC', // PERM-04 (Phase 5 upload FGS)
   'android.permission.WAKE_LOCK', // PERM-04
   'android.permission.ACCESS_NETWORK_STATE', // PERM-04
+  'android.permission.HIGH_SAMPLING_RATE_SENSORS', // COMPAT-02 (Phase 2) — IMU probe needs >200 Hz sampling on Android 12+ (API 31+)
 ];
 
 describe('PERM-04 — main AndroidManifest.xml declarations', () => {

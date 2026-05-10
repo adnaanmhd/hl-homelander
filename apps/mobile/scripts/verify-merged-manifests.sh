@@ -94,6 +94,11 @@ REQUIRED_BASE_PERMS=(
   # PERM-03 (plan 02-14) — coarse-only location declaration. Runtime prompt
   # is gated to Phase 4's first-recording flow via locationPermission.ts.
   "android.permission.ACCESS_COARSE_LOCATION"
+  # COMPAT-02 (Phase 2 quick-260510-001) — IMU compat probe samples sensors at
+  # the fastest available rate. Android 12+ (API 31+) requires this normal
+  # permission to be declared in the manifest. Without it, registerListener
+  # throws SecurityException → empty CompatFailScreen on every Android 12+ device.
+  "android.permission.HIGH_SAMPLING_RATE_SENSORS"
 )
 
 # FORBIDDEN_BASE_PERMS must NOT appear in either merged manifest. Note:
