@@ -25,6 +25,7 @@ function baseState(overrides: Partial<AppState> = {}): AppState {
     appVersionCache: null,
     softUpgradeAvailable: null,
     forceUpgradeBlocked: false,
+    user: null,
     setJwt: () => {},
     signOut: () => {},
     setConsent: () => {},
@@ -36,6 +37,7 @@ function baseState(overrides: Partial<AppState> = {}): AppState {
     setAppVersionCache: () => {},
     setSoftUpgradeAvailable: () => {},
     setForceUpgradeBlocked: () => {},
+    setUser: () => {},
     ...overrides,
   };
 }

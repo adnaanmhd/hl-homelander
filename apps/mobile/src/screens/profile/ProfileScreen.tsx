@@ -31,6 +31,7 @@ import {
 } from '../../services/profileService';
 import { formatDuration } from '../../services/durationFormatter';
 import { getFlavorContext } from '../../native/AppFlavor';
+import { useAppStore } from '../../state/appStore';
 import { InlineEditField } from './InlineEditField';
 
 // ---------------------------------------------------------------------------
@@ -57,6 +58,7 @@ interface ProfileLocal {
 
 export function ProfileScreen(): React.JSX.Element {
   const nav = useNavigation<{ navigate: (route: string) => void }>();
+  const setUser = useAppStore((s) => s.setUser);
   const [me, setMe] = useState<ProfileLocal | null>(null);
   const [lifetime, setLifetime] = useState<{ totalSeconds: number; taskCount: number } | null>(
     null,
@@ -95,6 +97,17 @@ export function ProfileScreen(): React.JSX.Element {
           createdAt: meRes.createdAt,
           avatarUrl: meRes.avatarUrl,
         });
+        // Write-through to the shared user slice so TopBar (Home) can read
+        // the Google avatar without re-fetching /me. This also self-heals
+        // existing sessions that pre-date the user-slice introduction —
+        // visiting Profile once populates the store for subsequent Home
+        // mounts.
+        setUser({
+          id: meRes.id,
+          email: meRes.email,
+          name: meRes.name,
+          avatarUrl: meRes.avatarUrl,
+        });
         setLifetime({ totalSeconds: contribRes.totalSeconds, taskCount: contribRes.taskCount });
       })
       .catch((e: unknown) => {
@@ -103,7 +116,7 @@ export function ProfileScreen(): React.JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [setUser]);
 
   const saveField = useCallback(
     async (key: 'name' | 'age' | 'gender', next: string | null) => {

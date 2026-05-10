@@ -20,7 +20,7 @@
 //     above explicitly names the canonical wiring so the grep gate finds it.
 
 import React from 'react';
-import { View, type StyleProp, type ViewStyle } from 'react-native';
+import { Image, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Pressable } from '../ui/primitives/Pressable';
 import { Text } from '../ui/primitives/Text';
 import { colors, spacing, radii } from '../ui/tokens';
@@ -31,10 +31,22 @@ export interface TopBarProps {
   title?: string;
   /** Pre-resolved initial for the avatar fallback. Defaults to "U". */
   avatarInitial?: string;
+  /**
+   * Google profile photo URL (or any remote URL). When present, the avatar
+   * Pressable renders an Image instead of the initial fallback. Sourced from
+   * `appStore.user.avatarUrl` populated by Sign-up + ProfileScreen `/me`.
+   */
+  avatarUrl?: string;
   style?: StyleProp<ViewStyle>;
 }
 
-export function TopBar({ onAvatarPress, title, avatarInitial = 'U', style }: TopBarProps) {
+export function TopBar({
+  onAvatarPress,
+  title,
+  avatarInitial = 'U',
+  avatarUrl,
+  style,
+}: TopBarProps) {
   return (
     <View
       accessibilityLabel="top-bar"
@@ -71,14 +83,23 @@ export function TopBar({ onAvatarPress, title, avatarInitial = 'U', style }: Top
           width: 36,
           height: 36,
           borderRadius: radii.pill,
-          backgroundColor: colors.accent, // Stub gradient — real linear gradient lands in plan 02-19.
+          backgroundColor: avatarUrl ? colors.line : colors.accent,
           alignItems: 'center',
           justifyContent: 'center',
+          overflow: 'hidden',
         }}
       >
-        <Text variant="btnLabel" style={{ color: colors.surface, fontWeight: '700' }}>
-          {avatarInitial}
-        </Text>
+        {avatarUrl ? (
+          <Image
+            source={{ uri: avatarUrl }}
+            style={{ width: 36, height: 36 }}
+            accessibilityLabel="top-bar-avatar-image"
+          />
+        ) : (
+          <Text variant="btnLabel" style={{ color: colors.surface, fontWeight: '700' }}>
+            {avatarInitial}
+          </Text>
+        )}
       </Pressable>
     </View>
   );

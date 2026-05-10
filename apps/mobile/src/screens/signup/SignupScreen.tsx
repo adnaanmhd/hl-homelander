@@ -61,6 +61,7 @@ export default function SignupScreen() {
   const navigation = useNavigation<NavigationLike>();
   const setJwt = useAppStore((s) => s.setJwt);
   const setConsent = useAppStore((s) => s.setConsent);
+  const setUser = useAppStore((s) => s.setUser);
 
   const [consent, setConsentChecked] = useState(true);
   const [termsOpen, setTermsOpen] = useState(false);
@@ -78,6 +79,12 @@ export default function SignupScreen() {
     try {
       const result = await signInWithGoogle();
       setJwt(result.jwt);
+      setUser({
+        id: result.user.id,
+        email: result.user.email,
+        name: result.user.name,
+        avatarUrl: result.user.avatarUrl,
+      });
       setConsent({
         acceptedAt: new Date().toISOString(),
         consentVersion: CONSENT_VERSION,
@@ -91,7 +98,7 @@ export default function SignupScreen() {
     } finally {
       setLoading(false);
     }
-  }, [consent, navigation, setConsent, setJwt]);
+  }, [consent, navigation, setConsent, setJwt, setUser]);
 
   const toggleConsent = useCallback(() => {
     setConsentChecked((prev) => {
