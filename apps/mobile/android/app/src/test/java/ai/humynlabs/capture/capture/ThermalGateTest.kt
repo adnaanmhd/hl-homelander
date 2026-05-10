@@ -19,13 +19,18 @@ import org.robolectric.annotation.Config
 /**
  * Plan 03-07 — flips the Plan 03-04 Wave 0 stub for CAP-11 + CAP-12 to GREEN.
  *
+ * **Threshold mapping** (see `ThermalGate.kt` KDoc — Plan 03-07 Rule 1 deviation):
+ * AOSP has no `THERMAL_STATUS_THROTTLING` constant; the plan's project
+ * semantics map to:
+ *   - `THROTTLING` (pre-flight refuse) → `THERMAL_STATUS_MODERATE`
+ *   - `THROTTLING_SEVERE` (mid-record graceful stop) → `THERMAL_STATUS_SEVERE`
+ *
  * **Coverage:**
- *   - `preFlight()` (CAP-11) — succeeds while status is below `THROTTLING`
- *     (NONE / LIGHT / MODERATE), fails with `ThermalRefuseException` at
- *     `THROTTLING` and above (SEVERE / CRITICAL / EMERGENCY / SHUTDOWN).
+ *   - `preFlight()` (CAP-11) — succeeds at NONE / LIGHT, fails with
+ *     `ThermalRefuseException` at MODERATE and above.
  *   - `subscribeMidRecord(onSevere)` (CAP-12) — fires the callback only
  *     when the OS-driven status reaches `SEVERE` or above; ignored on
- *     LIGHT / MODERATE / THROTTLING.
+ *     LIGHT / MODERATE.
  *   - `AutoCloseable` — `close()` unregisters the listener so subsequent
  *     status changes don't fire the callback.
  *
@@ -38,7 +43,7 @@ import org.robolectric.annotation.Config
  * the same baseline as the rest of the Phase 3 capture/ stubs.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [33], application = Application::class)
+@Config(sdk = [34], application = Application::class)
 class ThermalGateTest {
 
     private val ctx get() = RuntimeEnvironment.getApplication()
@@ -55,10 +60,15 @@ class ThermalGateTest {
         shadowOf(pm).setCurrentThermalStatus(status)
     }
 
-    /** Drain main looper + give the gate's single-thread executor a moment to dispatch. */
+    /**
+     * Drain main looper. The gate uses the single-arg
+     * `addThermalStatusListener(listener)` overload — `ShadowPowerManager`
+     * synchronously invokes registered listeners from `setCurrentThermalStatus`
+     * (verified by disassembling shadows-framework-4.16.1.jar), so no executor
+     * settle-time is needed.
+     */
     private fun drain() {
         shadowOf(Looper.getMainLooper()).idle()
-        Thread.sleep(150)
     }
 
     // ── preFlight() — CAP-11 ───────────────────────────────────────────────
@@ -70,25 +80,26 @@ class ThermalGateTest {
     }
 
     @Test
-    fun `preFlight succeeds when thermal status MODERATE`() {
-        setStatus(PowerManager.THERMAL_STATUS_MODERATE)
+    fun `preFlight succeeds when thermal status LIGHT`() {
+        setStatus(PowerManager.THERMAL_STATUS_LIGHT)
         assertTrue(gate.preFlight().isSuccess)
     }
 
     @Test
-    fun `preFlight fails with ThermalRefuseException at THROTTLING (CAP-11)`() {
-        setStatus(PowerManager.THERMAL_STATUS_SEVERE)
-        // ShadowPowerManager doesn't expose THERMAL_STATUS_THROTTLING as a separate
-        // constant in API 33 — it routes status callbacks via the same int. The
-        // contract is "≥ THROTTLING" (which the AOSP source defines as the same
-        // value that fires throttling callbacks). Using SEVERE here exercises the
-        // ≥ THROTTLING branch and SEVERE is also documented to refuse pre-flight.
+    fun `preFlight fails with ThermalRefuseException at MODERATE (CAP-11)`() {
+        setStatus(PowerManager.THERMAL_STATUS_MODERATE)
         val r = gate.preFlight()
-        assertTrue("preFlight must fail at SEVERE (≥ THROTTLING)", r.isFailure)
+        assertTrue("preFlight must fail at MODERATE (≥ project-semantic THROTTLING)", r.isFailure)
         val e = r.exceptionOrNull()
         assertTrue("expected ThermalRefuseException", e is ThermalRefuseException)
-        assertEquals(PowerManager.THERMAL_STATUS_SEVERE, (e as ThermalRefuseException).currentStatus)
+        assertEquals(PowerManager.THERMAL_STATUS_MODERATE, (e as ThermalRefuseException).currentStatus)
         assertEquals("thermal_throttling", e.message)
+    }
+
+    @Test
+    fun `preFlight fails when status is SEVERE`() {
+        setStatus(PowerManager.THERMAL_STATUS_SEVERE)
+        assertTrue(gate.preFlight().isFailure)
     }
 
     @Test
@@ -101,33 +112,33 @@ class ThermalGateTest {
 
     @Test
     fun `subscribeMidRecord fires onSevere when status reaches SEVERE`() {
-        @Volatile var fired: Int? = null
-        val sub = gate.subscribeMidRecord { status -> fired = status }
+        val fired = java.util.concurrent.atomic.AtomicReference<Int?>(null)
+        val sub = gate.subscribeMidRecord { status -> fired.set(status) }
         setStatus(PowerManager.THERMAL_STATUS_SEVERE)
         drain()
-        assertNotNull("onSevere should have fired", fired)
-        assertEquals(PowerManager.THERMAL_STATUS_SEVERE, fired)
+        assertNotNull("onSevere should have fired", fired.get())
+        assertEquals(PowerManager.THERMAL_STATUS_SEVERE, fired.get())
         sub.close()
     }
 
     @Test
     fun `subscribeMidRecord does NOT fire on MODERATE`() {
-        @Volatile var fired: Int? = null
-        val sub = gate.subscribeMidRecord { status -> fired = status }
+        val fired = java.util.concurrent.atomic.AtomicReference<Int?>(null)
+        val sub = gate.subscribeMidRecord { status -> fired.set(status) }
         setStatus(PowerManager.THERMAL_STATUS_MODERATE)
         drain()
-        assertNull("onSevere must NOT fire below SEVERE", fired)
+        assertNull("onSevere must NOT fire below SEVERE", fired.get())
         sub.close()
     }
 
     @Test
     fun `close unregisters the listener (no leak)`() {
-        @Volatile var fired: Int? = null
-        val sub = gate.subscribeMidRecord { status -> fired = status }
+        val fired = java.util.concurrent.atomic.AtomicReference<Int?>(null)
+        val sub = gate.subscribeMidRecord { status -> fired.set(status) }
         sub.close()
         // After close, even a SEVERE event must NOT fire the callback.
         setStatus(PowerManager.THERMAL_STATUS_SEVERE)
         drain()
-        assertNull("listener removed before SEVERE; callback must not fire", fired)
+        assertNull("listener removed before SEVERE; callback must not fire", fired.get())
     }
 }
