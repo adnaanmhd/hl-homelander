@@ -135,7 +135,7 @@ Plans:
 
 **Wave 6** _(orchestrator part 2 — segment lifecycle + final stub flips; depends on 03-09)_
 
-- [ ] 03-10-capture-session-finalize-PLAN.md — CaptureSession.kt orchestrator + FinalizeWorker.kt + replace HumynCaptureModule.start()/stop() bodies — flips final 5 stubs (StartGateCarryover, EventEmission, ClockAlignment, RealtimeGate, FileFidelity). Pump loop appends `bufferInfo.presentationTimeUs * 1_000L` to seg.videoFrameTimestamps for CAP-08 (per checker issue #2). Both files use SystemClock.elapsedRealtimeNanos exclusively (per checker issue #10).
+- [x] 03-10-capture-session-finalize-PLAN.md — CaptureSession.kt orchestrator + FinalizeWorker.kt + replace HumynCaptureModule.start()/stop() bodies — flips final 5 stubs (StartGateCarryover, EventEmission, ClockAlignment, RealtimeGate, FileFidelity). Pump loop appends `bufferInfo.presentationTimeUs * 1_000L` to seg.videoFrameTimestamps for CAP-08 (per checker issue #2). Both files use SystemClock.elapsedRealtimeNanos exclusively (per checker issue #10).
 
 ### Phase 4: HandDetector, Recording UX & Practice Tutorial
 
