@@ -187,7 +187,7 @@ describe('DeleteAccountModal (design-spec §18.4 / AUTH-09 / AUTH-10)', () => {
     fireEvent.click(getByLabelText('delete-confirm'));
     await waitFor(() => expect(mockDeleteMe).toHaveBeenCalledTimes(1));
     expect(mockSignOut).toHaveBeenCalledTimes(1);
-    expect(mockReset).toHaveBeenCalledWith({ index: 0, routes: [{ name: 'Signup' }] });
+    expect(mockReset).toHaveBeenCalledWith({ index: 0, routes: [{ name: 'OnboardingStack' }] });
   });
 
   it('Cancel on Step 1 calls nav.goBack and does NOT call deleteMe', () => {
@@ -206,5 +206,74 @@ describe('DeleteAccountModal (design-spec §18.4 / AUTH-09 / AUTH-10)', () => {
     await waitFor(() => expect(mockAlert).toHaveBeenCalled());
     expect(mockSignOut).not.toHaveBeenCalled();
     expect(mockReset).not.toHaveBeenCalled();
+  });
+
+  // Pattern 66 — synchronous re-entrancy guard. Regression test for
+  // quick-260510-006: a fast double-tap of Confirm (before React re-renders
+  // the disabled state) MUST NOT result in two DELETE /me requests. See
+  // file header in DeleteAccountModal.tsx for the full rationale.
+  it('Pattern 66 — guard holds across a tap arriving AFTER the first deleteMe + signOut + nav.reset success path (the actual bug we are fixing — releasing the ref in finally is WRONG)', async () => {
+    mockDeleteMe.mockResolvedValue(undefined);
+    const { getByLabelText } = render(<DeleteAccountModal />);
+    fireEvent.click(getByLabelText('delete-continue'));
+    fireEvent.change(getByLabelText('delete-typing-input'), { target: { value: 'DELETE' } });
+    // First tap: success path — deleteMe + signOut + nav.reset all run.
+    fireEvent.click(getByLabelText('delete-confirm'));
+    await waitFor(() => expect(mockReset).toHaveBeenCalledTimes(1));
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(mockDeleteMe).toHaveBeenCalledTimes(1);
+    // Second tap arriving AFTER the success path completed but before the
+    // component unmounts (simulated here by the still-mounted test render).
+    // If the ref was released in `finally`, this would pass through and
+    // fire a second DELETE — that's the 08:50:13.503 401 bug. Guard MUST
+    // hold across the success boundary.
+    fireEvent.click(getByLabelText('delete-confirm'));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mockDeleteMe).toHaveBeenCalledTimes(1);
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('Pattern 66 — guard releases on error so the user can retry (network failure / 429 rate-limit)', async () => {
+    mockDeleteMe
+      .mockRejectedValueOnce(new Error('DELETE /me failed: 503 transient'))
+      .mockResolvedValueOnce(undefined);
+    const { getByLabelText } = render(<DeleteAccountModal />);
+    fireEvent.click(getByLabelText('delete-continue'));
+    fireEvent.change(getByLabelText('delete-typing-input'), { target: { value: 'DELETE' } });
+    fireEvent.click(getByLabelText('delete-confirm'));
+    await waitFor(() => expect(mockAlert).toHaveBeenCalled());
+    // Retry tap after the error path released the guard.
+    fireEvent.click(getByLabelText('delete-confirm'));
+    await waitFor(() => expect(mockDeleteMe).toHaveBeenCalledTimes(2));
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(mockReset).toHaveBeenCalledTimes(1);
+  });
+
+  it('Pattern 66 — fires deleteMe ONCE even when Confirm is tapped twice synchronously while the first deleteMe is still in flight (the original repro)', async () => {
+    // Holder pattern (NOT `let resolve = null`) so TS keeps the function-typed
+    // narrow after the Promise-executor capture; otherwise control-flow
+    // analysis collapses to `never` at the optional-chain call site.
+    const resolveHolder: { fn: (() => void) | null } = { fn: null };
+    mockDeleteMe.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveHolder.fn = () => resolve();
+        }),
+    );
+    const { getByLabelText } = render(<DeleteAccountModal />);
+    fireEvent.click(getByLabelText('delete-continue'));
+    fireEvent.change(getByLabelText('delete-typing-input'), { target: { value: 'DELETE' } });
+    // Two synchronous taps before the awaited deleteMe settles — pre-fix,
+    // both would have entered confirmDelete and fired separate DELETEs.
+    fireEvent.click(getByLabelText('delete-confirm'));
+    fireEvent.click(getByLabelText('delete-confirm'));
+    expect(mockDeleteMe).toHaveBeenCalledTimes(1);
+    // Resolve to drain the awaited path so signOut + nav.reset assertions
+    // hold post-success too.
+    resolveHolder.fn?.();
+    await waitFor(() => expect(mockSignOut).toHaveBeenCalledTimes(1));
+    expect(mockReset).toHaveBeenCalledTimes(1);
+    // Even after success, deleteMe is STILL only called once.
+    expect(mockDeleteMe).toHaveBeenCalledTimes(1);
   });
 });
