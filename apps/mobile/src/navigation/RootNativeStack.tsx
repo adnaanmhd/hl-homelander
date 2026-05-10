@@ -31,6 +31,7 @@ import HelpCenterScreen from '../screens/help/HelpCenterScreen';
 import ForceUpgradeScreen from '../screens/force-upgrade/ForceUpgradeScreen';
 import { LogoutModal } from '../components/LogoutModal';
 import { DeleteAccountModal } from '../components/DeleteAccountModal';
+import { useForegroundUserRehydrate } from '../hooks/useForegroundUserRehydrate';
 
 const Root = createNativeStackNavigator();
 
@@ -49,6 +50,13 @@ function rootInitialRouteName(): string {
 }
 
 export default function RootNativeStack() {
+  // Pattern 72 — fires fetchMe() when JS context rehydrates on Android process
+  // kill (jwt restored via MMKV, user slice null). Lives at the navigator root
+  // so every surface that mounts via this stack — including the three MainTabs
+  // tab bodies that never fire /me on their own — observes a populated user
+  // slice within 1-2 s of foreground. Closes the regression captured during
+  // Phase 2 §13 soak (02-COSMETIC-GAPS.md § Profile screen item 2).
+  useForegroundUserRehydrate();
   const initial = rootInitialRouteName();
   return (
     <Root.Navigator initialRouteName={initial} screenOptions={{ headerShown: false }}>
