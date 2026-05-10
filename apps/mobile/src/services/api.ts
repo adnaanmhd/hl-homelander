@@ -25,6 +25,8 @@
 // forwarding stays so callers can attach an Idempotency-Key per request.
 
 import Config from 'react-native-config';
+import { secureMmkv } from '../state/mmkv';
+import { KEYS } from '../state/keys';
 
 const BASE_URL = (): string => {
   const u = Config.API_BASE_URL;
@@ -33,6 +35,19 @@ const BASE_URL = (): string => {
   }
   return u;
 };
+
+/**
+ * Returns `{ authorization: 'Bearer <jwt>' }` if a JWT is present in MMKV,
+ * else `{}`. Spread into every request's headers so authenticated endpoints
+ * see a valid Bearer; pre-sign-in calls (no JWT) emit no Authorization
+ * header. Reads MMKV directly (NOT via services/auth.ts) to avoid a
+ * circular dependency — auth.ts already imports apiClient.post for the
+ * /auth/google bootstrap call.
+ */
+function bearerHeader(): Record<string, string> {
+  const jwt = secureMmkv.getString(KEYS.AUTH_JWT);
+  return jwt ? { authorization: `Bearer ${jwt}` } : {};
+}
 
 export interface GetJsonOptions {
   query?: Record<string, string>;
@@ -101,7 +116,10 @@ function buildUrl(path: string, query?: Record<string, string>): string {
 
 export const apiClient: ApiClient = {
   async post<T>(path: string, body: object, opts?: { idempotencyKey?: string }): Promise<T> {
-    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    const headers: Record<string, string> = {
+      'content-type': 'application/json',
+      ...bearerHeader(),
+    };
     if (opts?.idempotencyKey) {
       headers['idempotency-key'] = opts.idempotencyKey;
     }
@@ -117,7 +135,8 @@ export const apiClient: ApiClient = {
     return (await res.json()) as T;
   },
   async postNoBody<T>(path: string): Promise<T> {
-    const res = await fetch(`${BASE_URL()}${path}`, { method: 'POST' });
+    const headers: Record<string, string> = { ...bearerHeader() };
+    const res = await fetch(`${BASE_URL()}${path}`, { method: 'POST', headers });
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`POST ${path} failed: ${res.status} ${text}`);
@@ -130,9 +149,13 @@ export const apiClient: ApiClient = {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
+      const headers: Record<string, string> = {
+        accept: 'application/json',
+        ...bearerHeader(),
+      };
       const res = await fetch(url, {
         method: 'GET',
-        headers: { accept: 'application/json' },
+        headers,
         signal: controller.signal,
       });
       if (!res.ok) {
@@ -157,7 +180,10 @@ export const apiClient: ApiClient = {
     return this.getJson<T>(path, opts);
   },
   async patch<T>(path: string, body: object, opts?: PatchOptions): Promise<T> {
-    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    const headers: Record<string, string> = {
+      'content-type': 'application/json',
+      ...bearerHeader(),
+    };
     if (opts?.headers) {
       for (const [k, v] of Object.entries(opts.headers)) {
         // Lowercase the header name on the wire — Phase 1 backend reads
@@ -195,7 +221,7 @@ export const apiClient: ApiClient = {
     // Mirror patch/post header forwarding semantics — lower-case names on the
     // wire so Fastify plugins (e.g. @fastify/idempotency) read them
     // case-uniformly. NO content-type set: DELETE has no body.
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { ...bearerHeader() };
     if (opts?.headers) {
       for (const [k, v] of Object.entries(opts.headers)) {
         headers[k.toLowerCase()] = v;
@@ -238,7 +264,9 @@ export const apiClient: ApiClient = {
     // FormData instance (`multipart/form-data; boundary=----...`); a manual
     // header would strip the boundary parameter and the backend's
     // @fastify/multipart parser would reject the body as unparseable.
-    const headers: Record<string, string> = {};
+    // The Authorization Bearer header is safe to attach — it does not affect
+    // the multipart body framing.
+    const headers: Record<string, string> = { ...bearerHeader() };
     if (opts?.headers) {
       for (const [k, v] of Object.entries(opts.headers)) {
         headers[k.toLowerCase()] = v;
