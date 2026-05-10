@@ -1,31 +1,65 @@
 package ai.humynlabs.capture.capture
 
 import android.app.Application
-import org.junit.Assert.fail
+import android.hardware.camera2.CameraCharacteristics
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.shadow.api.Shadow
+import org.robolectric.shadows.ShadowCameraCharacteristics
 
 /**
- * Plan 03-04 Task 2a — Wave 0 stub for CAP-07.
+ * Plan 03-10 Task 1 — CAP-07: REALTIME-source pre-flight gate.
  *
- * Tests `RealtimeGate` — `start()` reads
- * `CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE` and refuses
- * non-`REALTIME` devices (idea-brief.md §2.1; `±1 ms` cross-stream
- * alignment is impossible without REALTIME). Phase 2's compat probe
- * already enforces this at install time; this is the runtime
- * defense-in-depth. Implementation lands in plan 03-10.
+ * `RealtimeGate.verify(chars)` reads
+ * `CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE`. When the device
+ * advertises `REALTIME` (the only source that aligns with
+ * `SystemClock.elapsedRealtimeNanos`), the gate passes (no-throw). Any
+ * other value (`UNKNOWN`) throws `RealtimeClockUnavailableException` —
+ * `HumynCaptureModule.start()` maps this to the Promise reject
+ * `{code: 'realtime_clock_unavailable'}` so the JS layer surfaces a
+ * "device unsupported" toast and bails the user out of the recording
+ * screen. Phase 2's compat probe already gates installable devices on
+ * REALTIME; this is the runtime defense-in-depth.
  *
- * `application = Application::class` matches Plan 03-04 Task 1's
- * `FragmentedMuxerWrapperTest` pattern — bypasses
- * `MainApplication.onCreate`'s SoLoader.init NPE under Robolectric.
+ * Uses Robolectric's `ShadowCameraCharacteristics.newCameraCharacteristics()`
+ * + `set()` seam to populate `SENSOR_INFO_TIMESTAMP_SOURCE` without
+ * pulling Mockito onto the test classpath (the project does not depend
+ * on mockito-core or mockito-kotlin — verified against
+ * `apps/mobile/android/app/build.gradle`).
+ *
+ * `application = Application::class` bypasses `MainApplication.onCreate`'s
+ * SoLoader.init NPE — same pattern Plan 03-04 / 03-05 / etc. inherit.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33], application = Application::class)
 class RealtimeGateTest {
+
+    private fun charsWithTimestampSource(source: Int): CameraCharacteristics {
+        val chars = ShadowCameraCharacteristics.newCameraCharacteristics()
+        val shadow = Shadow.extract<ShadowCameraCharacteristics>(chars)
+        shadow.set(CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE, source)
+        return chars
+    }
+
     @Test
-    fun `CAP-07 stub fails until RealtimeGate ships`() {
-        fail("MISSING — Wave 0 stub. Implementation lands in plan 03-10.")
+    fun `REALTIME source passes`() {
+        val chars = charsWithTimestampSource(
+            CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE_REALTIME,
+        )
+        // No-throw on REALTIME source.
+        RealtimeGate.verify(chars)
+    }
+
+    @Test
+    fun `UNKNOWN source throws RealtimeClockUnavailableException`() {
+        val chars = charsWithTimestampSource(
+            CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE_UNKNOWN,
+        )
+        assertThrows(RealtimeClockUnavailableException::class.java) {
+            RealtimeGate.verify(chars)
+        }
     }
 }
