@@ -23,7 +23,7 @@
 
 ## Pre-flight
 
-- [ ] All Plan 03-01 + 03-02 + 03-03 commits landed; `git log --oneline | grep "03-0[123]" | wc -l` ≥ 7 (3 plans × ≥2 commits each).
+- [ ] All Plan 03-01 + 03-02 + 03-03 + 03-11 commits landed; `git log --oneline | grep -E "03-(0[123]|11)" | wc -l` ≥ 13 (4 plans × ≥2 commits each; Plan 03-11 contributes 6 feat/docs commits + 1 merge + 2 stamp commits).
 - [ ] Backend dev server is running: `tsx watch src/index.ts` (binds `:8080`). `curl http://localhost:8080/healthz` returns `{"status":"ok"}`.
 - [ ] `apps/mobile/.env.apkRollout` populated with `API_BASE_URL=http://localhost:8080` and `GOOGLE_WEB_CLIENT_ID=130483521533-...`.
 - [ ] `cd apps/mobile/android && ./gradlew :app:assembleApkRolloutDebug` succeeded locally; APK installed on device.
@@ -97,7 +97,7 @@
 
 ## §6 Rig Tutorial (design-spec §5 + ONB-01..02)
 
-- [ ] RigTutorialScreen renders the head-rig illustration (transparent PNG from `apps/mobile/src/assets/illustrations/rig.png` — Plan 03-01 + 03-02 wired the asset).
+- [ ] RigTutorialScreen renders the head-rig illustration — orange head silhouette + camera rig + headstrap dashes + face dots, rasterized from `prototype.html:1224-1235` SVG via `sharp` into `apps/mobile/src/assets/illustrations/rig{,@1x,@2x,@3x}.png` (Plan 03-11 A2 closure). Real PNG, not a transparent placeholder; visible at the top of the screen above the heading.
 - [ ] "Don't have a rig yet" off-ramp link fires `mailto:support@humynlabs.ai` (NOT `[EMAIL_ADDRESS]` placeholder).
 - [ ] Tap "Next" → MainTabs Home directly.
 
@@ -110,7 +110,7 @@
 - [ ] MainTabs Home tab TopBar shows the Google avatar (NOT 'U' fallback) when `appStore.user.avatarUrl` is set — flows from Plan 03-03 Task 1's `useTabTopBarProps()` hook.
 - [ ] Bottom-nav renders 24 dp Lucide icons (`Home`, `ListTodo`, `History`) above each tab label — direct `import` from `lucide-react-native`, not the `Icon` primitive.
 - [ ] Touch targets feel comfortable (≥48 dp via `minHeight` + `minWidth` + `hitSlop` per Plan 03-02 Task 2C).
-- [ ] Wordmark visible in the TopBar — typographic stub still renders "Humyn Labs" (the wordmark Image upgrade in TopBar is deferred to a future plan that takes ownership of TopBar refactoring per Plan 03-02 Known Stubs).
+- [ ] TopBar renders the orange wordmark Image (`require('../assets/logos/orange_logo.png')`) — NOT a "Humyn Labs" Text node. Plan 03-11 A4 swapped the typographic stub for the brand asset; verify by visual inspection at the top-left of Home, then confirm the same Image renders on Tasks (§8) and History (§9) via the shared TopBar (Pattern 71).
 
 **Acceptance:** Google avatar renders, Lucide icons render, ≥48 dp touch targets.
 
