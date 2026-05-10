@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: 'Phase 3 Wave 1 COMPLETE (authoring) — Plans 03-01 + 03-02 + 03-03 all landed on 2026-05-10. Plan 03-03 (cosmetic-functional-regressions) closes Wave 1: Pattern 71 useTabTopBarProps hook wires Tasks/History TopBar avatars identically to Home; Pattern 72 useForegroundUserRehydrate hook fires /me at navigator root on AppState active when user==null && jwt!=null (closes Phase 2 §13-soak Android-process-kill avatar regression); CompatFail + CompatRecovery merged into one centered scrollable surface (CompatRecoveryScreen.tsx + test deleted; route-registry test gains REMOVED_PHASE_2_ROUTES list asserting CompatRecovery re-introduction fails CI); CompatPass auto-routes to RigTutorial after 1.5s with no manual tap (40ms haptic preserved; clearTimeout on unmount per T-3.2-05); 5th and final [EMAIL_ADDRESS] placeholder swapped for support@humynlabs.ai inside the merged CompatFailScreen mailto (OQ-1 fully resolved end-to-end across all 5 occurrences; OQ-2 marked superseded-by-03-02-merge); 4 new visual baselines lifting Wave 1 total to 10; 03-WAVE1-SMOKE.md operator re-walk runbook authored (12 sections, Pre-flight, Sign-off, D-WAVE-09 amendment protocol). 344/344 tests pass across 61 test files. Wave 2 plan-phase (Plan 03-04 capture-foundation-muxer-bridge) is unblocked from authoring standpoint; conditions (3)+(4) of D-WAVE-08 (operator re-walk on Pixel 10a + re-walked-on: stamp) remain operator-driven before Wave 2 plan-phase starts.'
-last_updated: '2026-05-10T14:32:51.000Z'
+stopped_at: 'Phase 3 Wave 1 polish COMPLETE — Plan 03-11 landed 2026-05-10 (5/6 amendments closed in source: A1 Permissions copy tightened to "Used only while you hit record"; A3 BottomNav lifts above gesture bar via useSafeAreaInsets paddingBottom: insets.bottom + 12; A4 TopBar wordmark Image replaces "Humyn Labs" Text node, propagates to Home/Tasks/History via Pattern 71; A5 CompatFail "What Now" 3-bullet recovery block deleted; A6 Splash + Sign-up logos shrunk ~20% to 256×58 dp). A2 (RigTutorial real artwork) ESCALATED to user — no source artwork in design-system/illustrations/; CLAUDE.md "Designs LOCKED" rule blocks AI/line-art substitutes. 4 visual baselines refreshed (Home, Tasks, History, CompatFail); Splash/Signup/Permissions baselines intentionally unchanged (encoder is shape-only — A1/A6 are text/style-only; source-level grep gate verifies). 345/345 tests pass across 61 test files; TS clean. Wave 2 plan-phase (Plan 03-04 capture-foundation-muxer-bridge) gated on (a) operator re-walk Pixel 10a per 03-WAVE1-SMOKE.md to verify A1/A3/A4/A5/A6 closures + stamp re-walked-on, (b) operator drops real rig PNG at design-system/illustrations/rig.png to fully close A2, (c) runbook line 113 misalignment fix ("typographic stub still renders Humyn Labs").'
+last_updated: '2026-05-10T16:27:39.000Z'
 last_activity: 2026-05-10
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 47
-  completed_plans: 38
-  percent: 81
+  completed_plans: 39
+  percent: 83
 ---
 
 # Project State
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 03 (humyn-capture-native-module) — EXECUTING
-Plan: 4 of 10 (Plans 03-01 + 03-02 + 03-03 COMPLETE on 2026-05-10 — Wave 1 authoring closed)
-Status: Executing Phase 03 — Wave 1 authoring complete; Wave 2 awaits operator re-walk on Pixel 10a per 03-WAVE1-SMOKE.md (D-WAVE-08 step 3 + 4)
+Plan: 4 of 11 (Plans 03-01 + 03-02 + 03-03 + 03-11 COMPLETE on 2026-05-10 — Wave 1 polish closed; A2 escalated)
+Status: Executing Phase 03 — Wave 1 source closed (5 amendments landed; A2 awaiting real rig artwork from operator); Wave 2 (Plan 03-04 capture-foundation-muxer-bridge) gated on Pixel 10a re-walk + A2 artwork drop + runbook line 113 fix
 
 - §1 Cold-start gate decision tree — PASSED (Path A, fresh install)
 - §2 Sign-up + Terms-of-Use modal — PASSED (after 4 auth-stack provisioning fixes, see commits below)
