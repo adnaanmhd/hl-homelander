@@ -1,8 +1,9 @@
 ---
-status: deferred-to-phase-3-wave-1
+status: frozen-2026-05-10
 phase: 02-mobile-shell-onboarding-permissions-compat-profile
 created: 2026-05-09
 updated: 2026-05-10 (smoke-walk findings: §2 sign-up layout/CTA, §3 permissions CTA, §4 compat-fail merge + center, §4 compat-pass auto-advance, §5 rig illustration + support email decided, §6 home logo + bottom-nav icons, §7 profile avatar from Google [partial — Tasks/History tabs missed + foreground-rehydrate regression captured during §13 soak])
+frozen: 2026-05-10 (post-Phase-2-smoke; per Phase 3 CONTEXT D-WAVE-04. New gaps surfaced during the Wave 1 on-device re-walk go to `.planning/phases/03-humyn-capture-native-module/03-W1-AMENDMENTS.md` per D-WAVE-09 — do NOT re-edit this file.)
 ---
 
 # Phase 2 — Cosmetic gaps (deferred to Phase 3 Wave 1)

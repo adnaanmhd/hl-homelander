@@ -1,7 +1,8 @@
 # Phase 3: HumynCapture Native Module (Bytes-on-disk) - Context
 
 **Gathered:** 2026-05-10
-**Status:** Ready for planning (Wave 1 detailed scope deferred to post-Phase-2-soak)
+**Updated:** 2026-05-10 (post-Phase-2-soak: Wave 1 scope frozen + plan layout + Wave 2 gate locked — D-WAVE-04..09)
+**Status:** Ready for planning — Wave 1 scope frozen 2026-05-10; planner can write Wave 1 plans immediately against `02-COSMETIC-GAPS.md` as it stands today.
 
 <domain>
 ## Phase Boundary
@@ -105,17 +106,19 @@ recordings/`).
   Wave 2+ = HumynCapture native module + tests + JS surface. Wave 2 is
   blocked on Wave 1 landing first (per memory
   `project_phase3_wave1_cosmetic_fixup.md`).
-- **D-WAVE-02:** Wave 1's detailed scope (one plan vs split,
-  snapshot-test infra placement, navigator-impacting items) is
-  **deferred to a post-soak scoping pass.** Sequence:
-  1. Phase 2 manual smoke walk completes §10–§13 on Pixel 10a; the
-     operator stamps `02-COSMETIC-GAPS.md` with
-     `status: frozen-YYYY-MM-DD`.
-  2. `/gsd:plan-phase 3` runs and produces Wave 1 plan(s) directly
-     against the frozen gap list. (Re-running `/gsd:discuss-phase 3
---update` is unnecessary — the gap list itself is detailed
-     enough for the planner.)
-  3. Wave 1 plan(s) commit; Wave 2+ HumynCapture plans land on top.
+- **D-WAVE-02:** Wave 1's post-soak scoping pass **happened on
+  2026-05-10**; the deferral is now resolved. Phase 2 manual smoke
+  walk completed (commits `c2aa6dd` smoke complete, `5d038e2` UAT
+  8/0, `94dfce6` security 61/61). `02-COSMETIC-GAPS.md` is stamped
+  `status: frozen-2026-05-10` (D-WAVE-04). Wave 1 plan layout and
+  snapshot infra are now locked in D-WAVE-05 / D-WAVE-06 instead of
+  being deferred. Sequence today:
+  1. ✅ Phase 2 manual smoke complete on Pixel 10a (2026-05-10).
+  2. ✅ `02-COSMETIC-GAPS.md` frozen 2026-05-10 (D-WAVE-04).
+  3. ⏭ `/gsd:plan-phase 3` runs and produces the two Wave 1 plans
+     per D-WAVE-05 against the frozen gap list.
+  4. ⏭ Both Wave 1 plans execute + on-device re-walk passes
+     (D-WAVE-08), then Wave 2+ HumynCapture plans land on top.
 - **D-WAVE-03:** Wave 1 in scope explicitly INCLUDES the functional
   regressions surfaced during smoke that ride alongside the
   cosmetic fixes — Tasks/History TopBar avatar wiring, foreground-
@@ -125,6 +128,135 @@ recordings/`).
   Compat-fail + Compat-recovery merge into one screen (deletes the
   `CompatRecovery` route and updates the route-registry invariant
   test), Compat-pass auto-advance.
+
+- **D-WAVE-04:** **`02-COSMETIC-GAPS.md` is frozen 2026-05-10.**
+  The frontmatter carries `status: frozen-2026-05-10` and a
+  `frozen:` line pointing at this decision. Phase 3 Wave 1 plans
+  are written against the gap list **as it stands today**; new
+  gaps surfaced during the Wave 1 on-device re-walk go to a
+  separate `03-W1-AMENDMENTS.md` (D-WAVE-09), NOT back into
+  `02-COSMETIC-GAPS.md`. This honors the freeze and keeps the
+  Phase 2 doc as the historical record of what the smoke
+  uncovered.
+
+- **D-WAVE-05:** **Wave 1 plan layout = SPLIT: visual-only +
+  nav-impact.** Two plans, executed in order:
+
+  1. **`03-01-cosmetic-visual-fixup-PLAN.md`** — pure visual
+     fixes that don't touch the navigator: logo asset re-export
+     (D-WAVE-07, Task 1), font-not-RethinkSans diagnosis +
+     resolution, CTA position + adaptive-width pass across
+     Sign-up / Permissions / Compat-fail (post-merge), tighten
+     value-prop spacing on Sign-up, rig illustration asset, bottom-
+     nav Lucide icon wiring + touch-target sizing, support email
+     substitution (5 `[EMAIL_ADDRESS]` occurrences), Splash
+     animation re-verification, consent checkbox glyph upgrade,
+     `react-native-asset` re-run if needed.
+  2. **`03-02-cosmetic-functional-regressions-PLAN.md`** —
+     navigation-graph-touching changes (depends on plan 1
+     landing): Compat-fail + CompatRecovery merge into one screen
+     (deletes the `CompatRecovery` route, updates Pattern 54
+     route-registry invariant test, supersedes OQ-2 wording
+     against the merged screen), Compat-pass auto-advance
+     (replaces the existing CompatPass→next CTA test with
+     `auto-routes after N ms`), `useTabTopBarProps()` hook
+     extraction + Tasks/History TopBar avatar wiring,
+     `RootNativeStack`/`MainTabs` foreground rehydrate hook
+     firing `/me` when `appStore.user == null && jwt != null`.
+     Reasoning: keeps navigator changes in their own atomic commit
+     boundary so reviewer cognitive load stays manageable; visual
+     baselines (D-WAVE-06) capture against a stable nav graph in
+     plan 1, then plan 2 adds the merged Compat-fail screen as a
+     new baseline. Plan 1 is independently shippable if plan 2
+     deviates.
+
+- **D-WAVE-06:** **Visual-snapshot infra = `jest-image-snapshot`
+  driven through Vitest.** Phase 2 already has Vitest + jsdom
+  wired (`apps/mobile/vitest.config.ts` + `vitest.setup.ts`).
+  Plan 1 of Wave 1 adds:
+
+  - `jest-image-snapshot` dev dep (peer with `expect.extend`
+    adapter for Vitest).
+  - `apps/mobile/__tests__/visual/` directory with one test per
+    Phase 2 surface (Splash, Sign-up, Permissions, Compat-fail
+    [merged], Compat-pass, RigTutorial, Home, Tasks, History,
+    Profile).
+  - Baselines committed to
+    `apps/mobile/__tests__/visual/__image_snapshots__/`
+    (in-repo, not gitignored). Default jest-image-snapshot path;
+    versions with the source so PR reviewers see PNG churn when
+    intentional design tweaks ship. Scale is small enough
+    (~10 PNGs × ~30–100 KB) that Git LFS is not required.
+  - CI `mobile-build` job runs the visual suite on every commit;
+    a pixel-diff failure surfaces the diff PNG as a CI artifact.
+    Why not hand-rolled DOM-tree snapshots: this gap list is
+    CSS/layout-level (font choice, CTA position, logo crop) — the
+    React tree shape stays identical across all the regressions we
+    care about. Tree snapshots would catch zero of them.
+
+- **D-WAVE-07:** **Logo asset re-export is Task 1 of
+  `03-01-cosmetic-visual-fixup-PLAN.md`.** Subsequent visual
+  tasks (CTA position, font diagnosis, rig illustration, etc.)
+  build on top of the new asset baselines. Concretely Task 1:
+  pre-crop the source 800×800 transparent-padded PNG in
+  `design-system/logos/` to a tight wordmark bounding box,
+  export at `@1x.png` / `@2x.png` / `@3x.png` density buckets,
+  place under `apps/mobile/src/assets/logos/`, re-run
+  `npx react-native-asset` if Metro doesn't pick the new buckets
+  through the existing `require()` path, then swap usages on
+  Splash + Sign-up + Home + (any other surface that took the
+  cover-cropped 800×800). Drops the `<Image resizeMode="cover"
+style={{width:N, height:M}}/>` magic-number dance everywhere.
+  After Task 1 lands, jest-image-snapshot baselines (D-WAVE-06)
+  are captured against the new asset, so subsequent tasks have
+  clean baselines.
+
+- **D-WAVE-08:** **Wave 2 acceptance gate = both Wave 1 plans
+  land + on-device re-walk on Pixel 10a passes.** Concretely,
+  Wave 2 (HumynCapture native module) plan-phase MUST NOT
+  start until ALL of:
+
+  1. `03-01-cosmetic-visual-fixup-PLAN.md` executor `done`
+     commit landed (verify-work passed).
+  2. `03-02-cosmetic-functional-regressions-PLAN.md` executor
+     `done` commit landed (verify-work passed).
+  3. Operator re-walks Splash → Sign-up → Permissions →
+     Compat-fail (merged) → Compat-pass (auto-advance) →
+     RigTutorial → Home (with logo + bottom-nav icons) →
+     Tasks tab (avatar) → History tab (avatar) → Profile on
+     **Pixel 10a only** (same device as Phase 2 smoke;
+     broadening to 7a + non-Pixel happens in Phase 4 thermal
+     walk per memory `feedback_functionality_first_during_smoke.md`).
+  4. Operator signs off in `.planning/phases/03-humyn-capture-native-module/03-WAVE1-SMOKE.md`
+     (created by plan 2's last task; Phase 2's `02-MANUAL-SMOKE.md`
+     pattern). The sign-off includes a `re-walked-on: 2026-MM-DD`
+     stamp.
+     Visual-snapshot baselines (D-WAVE-06) gate CI but are NOT a
+     substitute for the operator re-walk — pixel-perfect doesn't
+     catch perceptual regressions like "the logo still looks
+     small in person."
+
+- **D-WAVE-09:** **New gap protocol during Wave 1 re-walk =
+  `03-W1-AMENDMENTS.md` + fold into in-flight plan.** If the
+  operator surfaces a NEW cosmetic or functional gap during the
+  Wave 1 re-walk (D-WAVE-08 step 3) that wasn't in the frozen
+  `02-COSMETIC-GAPS.md`:
+  1. Append to `.planning/phases/03-humyn-capture-native-module/03-W1-AMENDMENTS.md`
+     (operator OR Claude during smoke; same shape as
+     `02-COSMETIC-GAPS.md` — screen heading + bullet description).
+  2. If discovered while plan 2 (functional regressions) is
+     still in-flight: fold into plan 2 as a deviation entry
+     (Rule 2 — completeness).
+  3. If discovered after plan 2 ships: a third plan
+     `03-03-cosmetic-amendments-PLAN.md` executes against the
+     amendments doc BEFORE Wave 2 plan-phase starts (Wave 2
+     gate D-WAVE-08 slips by exactly one plan execution).
+  4. NEVER edit `02-COSMETIC-GAPS.md` post-freeze — that doc
+     stays the historical record of Phase-2-smoke discovery.
+     Why not "defer all amendments to a post-Wave-2 cleanup": the
+     Phase 2 anti-pattern of cosmetic items getting punted forward
+     indefinitely is exactly what the freeze stamp is meant to
+     prevent. Amendments stay close to the surface they apply to.
 
 ### HumynCapture JS API surface
 
@@ -430,13 +562,6 @@ Areas where the user did not specify and the planner has flexibility:
 - **`HumynCapture.ts` JS surface file location** — likely
   `apps/mobile/src/native/HumynCapture.ts` matching Phase 2's
   pattern. Confirmed; planner ships at this path.
-- **Wave 1 plan layout** — one bundled `03-01-cosmetic-fixup-PLAN.md`
-  vs split (visual-only + functional-regression as separate plans).
-  Planner picks at plan-phase time once `02-COSMETIC-GAPS.md`
-  freezes.
-- **Visual-snapshot test infra** — react-native-pixelmatch vs
-  jest-image-snapshot vs hand-rolled. Phase 2 has Vitest, no
-  snapshot infra yet. Planner picks during Wave 1 plan.
 - **Re-finalize policy for edge cases** — partial CSV with no
   matching gyro/accel pair on the trailing edge; missing audio
   buffer at the cut. Planner picks the discard-vs-truncate-vs-
@@ -507,10 +632,23 @@ Areas where the user did not specify and the planner has flexibility:
   unmodified. **D-COMPAT-05** (`CompatResult` Zod schema) is the
   source for `dfovDegrees` that JS passes via `start(opts)`.
 - `.planning/phases/02-mobile-shell-onboarding-permissions-compat-profile/02-COSMETIC-GAPS.md`
-  — **Wave 1 input.** Treat as a live document until the operator
-  stamps it `status: frozen-YYYY-MM-DD`. Planner reads at plan-time;
-  Wave 1 plan(s) resolve every entry plus any new items the
-  operator surfaces during the §10–§13 smoke completion.
+  — **Wave 1 input. Frozen 2026-05-10** (D-WAVE-04). Planner
+  reads at plan-time; both Wave 1 plans (D-WAVE-05) resolve every
+  entry. Do NOT edit post-freeze; new gaps go to
+  `03-W1-AMENDMENTS.md` per D-WAVE-09.
+- `.planning/phases/03-humyn-capture-native-module/03-W1-AMENDMENTS.md`
+  — **created during Wave 1 re-walk if needed.** Per-screen list
+  of new gaps the operator surfaces during the on-device re-walk
+  (D-WAVE-08 step 3) that weren't in the frozen
+  `02-COSMETIC-GAPS.md`. Folded into in-flight plan or a
+  third Wave 1 plan per D-WAVE-09.
+- `.planning/phases/03-humyn-capture-native-module/03-WAVE1-SMOKE.md`
+  — **created by `03-02-cosmetic-functional-regressions-PLAN.md`'s
+  last task.** The operator-driven re-walk runbook for the Wave 2
+  acceptance gate (D-WAVE-08); pattern-match against Phase 2's
+  `02-MANUAL-SMOKE.md`. Sign-off includes a `re-walked-on:
+2026-MM-DD` stamp; that stamp is the gate that unblocks Wave 2
+  HumynCapture plan-phase.
 - `.planning/phases/02-mobile-shell-onboarding-permissions-compat-profile/.continue-here.md`
   — three blocking anti-patterns that carry into Phase 3 (surgical-
   stage protocol for protected files; no cosmetic chasing during
@@ -811,10 +949,12 @@ Areas where the user did not specify and the planner has flexibility:
   - `DYNAMIC_RANGE_PROFILE = STANDARD` on every capture request.
     Trust the readback path; compat already verified the device honors
     the override.
-- **Wave 1 visual-snapshot tests location** — likely
+- **Wave 1 visual-snapshot tests location** — locked at
   `apps/mobile/__tests__/visual/` per `02-COSMETIC-GAPS.md` §"How
-  Phase 3 Wave 1 should pick this up" §4. Planner picks the
-  framework during plan-phase.
+  Phase 3 Wave 1 should pick this up" §4 + D-WAVE-06. Framework
+  locked at `jest-image-snapshot` driven through Vitest;
+  baselines committed in
+  `apps/mobile/__tests__/visual/__image_snapshots__/`.
 
 </specifics>
 
@@ -872,3 +1012,4 @@ None — no `gsd-tools list-todos` available; no todos enumerated.
 
 _Phase: 3-HumynCapture Native Module (Bytes-on-disk)_
 _Context gathered: 2026-05-10_
+_Updated: 2026-05-10 (post-Phase-2-soak — D-WAVE-04..09 added)_

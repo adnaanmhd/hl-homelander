@@ -206,3 +206,140 @@ Three blocking anti-patterns demonstrated and acknowledged at the top of this di
 1. **Pattern 65 — blanket `git add` on backlog files** — surgical-stage protocol applies to protected files (`SignupScreen.tsx`, `Text.tsx`, `CLAUDE.md`). For this `/gsd:discuss-phase 3` invocation, only the new `.planning/phases/03-humyn-capture-native-module/` files are added.
 2. **Cosmetic chasing during smoke walk** — visual fixes go into `02-COSMETIC-GAPS.md` (parking lot); Wave 1 of Phase 3 is the dedicated cleanup pass.
 3. **Lowering capture-spec thresholds to "unblock" smoke walk** — explicitly carried into CONTEXT.md `<decisions>` "Locked from upstream" block.
+
+---
+
+# Update session — 2026-05-10 (post-Phase-2-soak)
+
+**Trigger:** `/gsd:discuss-phase 3 --update`. Phase 2 closed today
+(commits `94dfce6` security 61/61 verified, `5d038e2` UAT 8/0,
+`c2aa6dd` smoke complete on Pixel 10a). The "Wave 1 deferred to a
+post-soak scoping pass" gate from D-WAVE-02 collapsed into a real
+choice we could make now.
+
+**Areas discussed:** Wave 1 scope freeze + plan layout; Wave 1 → Wave 2 acceptance gate.
+**Areas offered but not selected:** Lock planner-discretion items
+(IMU `maxReportLatency`, `imu_min_rate_hz_observed_p1` window, Camera2
+lens-selection reuse, audio source mode, filename counter, FGS
+notification UX); Other / new info from today's smoke.
+
+---
+
+## Wave 1 scope freeze + plan layout
+
+### Q1 — Stamp `02-COSMETIC-GAPS.md` `frozen-2026-05-10`?
+
+| Option                      | Description                                                                                                                                  | Selected |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| Freeze now                  | Stamp frontmatter `status: frozen-2026-05-10`. Wave 1 plan written against this list exactly; new findings during re-walk become amendments. | ✓        |
+| Freeze after Wave 1 re-walk | Keep `deferred-to-phase-3-wave-1` until the Pixel re-walk surfaces any final additions.                                                      |          |
+| Don't freeze; leave living  | Treat as live; planner pulls latest at each plan-cut.                                                                                        |          |
+
+**User's choice:** Freeze now. → D-WAVE-04 in CONTEXT.md.
+**Notes:** Freeze stamp also added a `frozen:` line in the frontmatter pointing to D-WAVE-04 + D-WAVE-09 (amendment protocol).
+
+### Q2 — Wave 1 plan layout
+
+| Option                          | Description                                                                                        | Selected |
+| ------------------------------- | -------------------------------------------------------------------------------------------------- | -------- |
+| Split: visual-only + nav-impact | Two plans: visual-fixup + functional-regressions. Navigator changes get their own commit boundary. | ✓        |
+| One bundled plan                | Single `03-01-cosmetic-fixup-PLAN.md` covers everything.                                           |          |
+| Three-way split                 | Visual-only / Navigator-impact / TopBar-avatar-cluster as three plans.                             |          |
+
+**User's choice:** Split (visual + nav). → D-WAVE-05 with concrete plan filenames + scopes.
+**Notes:** Plan 1 = `03-01-cosmetic-visual-fixup-PLAN.md`, Plan 2 = `03-02-cosmetic-functional-regressions-PLAN.md`, ordered (plan 2 depends on plan 1's logo asset baseline).
+
+### Q3 — Visual-snapshot test infra
+
+| Option                          | Description                                                                                             | Selected |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------- | -------- |
+| jest-image-snapshot via Vitest  | Pixel-diff PNG baselines via `expect.extend` adapter. Catches CSS/layout regressions.                   | ✓        |
+| Hand-rolled DOM-tree snapshot   | `toMatchSnapshot` against React tree. Fast; doesn't catch font/CTA/layout drift (tree shape unchanged). |          |
+| Defer snapshot infra to Phase 4 | Wave 1 ships visual fixes + on-device re-walk only; Phase 4 sets up snapshot infra.                     |          |
+
+**User's choice:** jest-image-snapshot via Vitest. → D-WAVE-06.
+**Notes:** Baselines committed under `apps/mobile/__tests__/visual/__image_snapshots__/` (in-repo, not gitignored — see Q4 below for storage decision).
+
+### Q4 — Logo asset re-export placement
+
+| Option                                  | Description                                                                               | Selected |
+| --------------------------------------- | ----------------------------------------------------------------------------------------- | -------- |
+| Inside Wave 1 visual plan, as Task 1    | First task of `03-01-cosmetic-visual-fixup-PLAN.md`. Subsequent tasks build on new asset. | ✓        |
+| Separate quick-task before Wave 1 plans | `/gsd:quick` lands the asset re-export standalone.                                        |          |
+| Inline in each screen task              | Each screen-fix task does its own asset work.                                             |          |
+
+**User's choice:** Inside Wave 1 visual plan, as Task 1. → D-WAVE-07.
+**Notes:** Pre-crop 800×800 source, export `@1x/@2x/@3x` to `apps/mobile/src/assets/logos/`, re-run `npx react-native-asset` if needed, swap usages on Splash + Sign-up + Home. After Task 1 lands, snapshot baselines (D-WAVE-06) capture against the new asset.
+
+---
+
+## Wave 1 → Wave 2 acceptance gate
+
+### Q1 — What unblocks Wave 2 plan-phase?
+
+| Option                                            | Description                                                                  | Selected |
+| ------------------------------------------------- | ---------------------------------------------------------------------------- | -------- |
+| Both Wave 1 plans land + on-device re-walk passes | Both plans `done` + operator re-walks Pixel 10a + signs `03-WAVE1-SMOKE.md`. | ✓        |
+| Wave 1 plans land + verify-work passes            | Both plans + `/gsd:verify-work` only — no operator re-walk.                  |          |
+| Visual plan only, then parallelize                | Wave 2 plan-phase kicks off in parallel with plan 2 execution.               |          |
+
+**User's choice:** Both Wave 1 plans land + on-device re-walk passes. → D-WAVE-08.
+**Notes:** Operator-driven re-walk is required because pixel-perfect snapshots don't catch perceptual regressions ("the logo still looks small in person").
+
+### Q2 — Re-walk device pool
+
+| Option                                   | Description                                                                        | Selected |
+| ---------------------------------------- | ---------------------------------------------------------------------------------- | -------- |
+| Pixel 10a only                           | Same device as Phase 2 smoke. Phase 4 broadens to 7a + non-Pixel for thermal walk. | ✓        |
+| Pixel 10a + Pixel 7a                     | Adds @2x vs @3x bucket validation + earlier OEM thermal surface.                   |          |
+| Pixel 10a + 7a + non-Pixel (Samsung A55) | Three-device re-walk hits OEM-skin font-rendering.                                 |          |
+
+**User's choice:** Pixel 10a only. → D-WAVE-08 step 3.
+**Notes:** Scope-discipline call — Wave 1 is cosmetic-on-the-surface-Phase-2-already-validated; broader fleet belongs in Phase 4 (25-min thermal + 10-min E2E).
+
+### Q3 — Protocol when re-walk surfaces a new gap
+
+| Option                                                       | Description                                                                                                                            | Selected |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| Append to `03-W1-AMENDMENTS.md` and fold into in-flight plan | New gaps to amendments doc; folded into current plan or `03-03` plan if both shipped. Wave 2 gate slips by exactly one plan execution. | ✓        |
+| Defer all new gaps to a post-Wave-2 cleanup                  | Wave 1 ships exactly the frozen list; new findings to `03-99` post-HumynCapture plan.                                                  |          |
+| Block Wave 2 on amendments                                   | Same as option 1 but Wave 2 hard-gated on amendments plan executing first.                                                             |          |
+
+**User's choice:** Append + fold into in-flight plan. → D-WAVE-09.
+**Notes:** Avoids the Phase-2 anti-pattern of cosmetic items being punted forward indefinitely. NEVER edit `02-COSMETIC-GAPS.md` post-freeze (D-WAVE-04 + D-WAVE-09).
+
+### Q4 — Snapshot baseline storage
+
+| Option                                                             | Description                                                                                            | Selected |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | -------- |
+| In repo, under `apps/mobile/__tests__/visual/__image_snapshots__/` | Default jest-image-snapshot path; baselines version with source. ~10 PNGs × ~30–100 KB. No LFS needed. | ✓        |
+| In repo, gitignored — generated by 'baseline' CI job               | Baselines built once, stored as CI artifact. Avoids PR PNG churn. Higher infra.                        |          |
+| Defer storage decision to plan-phase                               | Lock framework only; planner picks shape.                                                              |          |
+
+**User's choice:** In repo at default path. → D-WAVE-06.
+**Notes:** Accepts PNG churn in PRs as the trade-off for transparent baseline review.
+
+---
+
+## New decisions added to CONTEXT.md by this update
+
+- D-WAVE-04 — Freeze `02-COSMETIC-GAPS.md` 2026-05-10
+- D-WAVE-05 — Wave 1 plan layout = SPLIT (visual + nav-impact); concrete plan filenames + scopes locked
+- D-WAVE-06 — Visual-snapshot infra = jest-image-snapshot via Vitest; baselines in `apps/mobile/__tests__/visual/__image_snapshots__/`
+- D-WAVE-07 — Logo asset re-export = Task 1 of `03-01-cosmetic-visual-fixup-PLAN.md`
+- D-WAVE-08 — Wave 2 acceptance gate = both plans land + on-device re-walk on Pixel 10a + operator sign-off in `03-WAVE1-SMOKE.md`
+- D-WAVE-09 — New-gap protocol during re-walk = `03-W1-AMENDMENTS.md` + fold into in-flight plan
+
+## Removed from "Claude's Discretion" (now locked)
+
+- Wave 1 plan layout (now D-WAVE-05)
+- Visual-snapshot test infra (now D-WAVE-06)
+
+## Edits to upstream artefacts
+
+- `02-COSMETIC-GAPS.md` frontmatter: `status: deferred-to-phase-3-wave-1` → `status: frozen-2026-05-10` + new `frozen:` line pointing to D-WAVE-04 / D-WAVE-09.
+
+## Side-effect files referenced (created later by Wave 1 plans)
+
+- `03-W1-AMENDMENTS.md` — created during re-walk if needed (D-WAVE-09)
+- `03-WAVE1-SMOKE.md` — created by `03-02-cosmetic-functional-regressions-PLAN.md`'s last task; pattern-matches Phase 2's `02-MANUAL-SMOKE.md`
