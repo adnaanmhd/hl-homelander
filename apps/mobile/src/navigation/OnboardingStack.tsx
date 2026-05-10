@@ -1,13 +1,15 @@
 // OnboardingStack — native stack for the pre-MainTabs flow.
 //
 // `gestureEnabled: false` enforces D-NAV-04 / engineering-handoff §3.3:
-// Permissions, Compat (Running/Pass/Fail/Recovery), and RigTutorial expose
-// NO back gesture. The Splash and Signup screens also opt out of swipe-back
-// to keep the flow linear.
+// Permissions, Compat (Running/Pass/Fail), and RigTutorial expose NO back
+// gesture. The Splash and Signup screens also opt out of swipe-back to keep
+// the flow linear.
 //
 // Splash → Signup → Permissions → Compat (Running → Pass → RigTutorial OR
-// Running → Fail → Recovery → Running) → MainTabs (handled by RootNativeStack
-// via navigation.replace).
+// Running → Fail [merged Fail+Recovery — Plan 03-03]) → MainTabs (handled by
+// RootNativeStack via navigation.replace). CompatRecoveryScreen + its route
+// were merged into CompatFailScreen in Plan 03-03 (02-COSMETIC-GAPS.md
+// § Compat-fail screen).
 
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -17,7 +19,6 @@ import PermissionsScreen from '../screens/permissions/PermissionsScreen';
 import CompatRunningScreen from '../screens/compat/CompatRunningScreen';
 import CompatPassScreen from '../screens/compat/CompatPassScreen';
 import CompatFailScreen from '../screens/compat/CompatFailScreen';
-import CompatRecoveryScreen from '../screens/compat/CompatRecoveryScreen';
 import RigTutorialScreen from '../screens/tutorial/RigTutorialScreen';
 
 const Stack = createNativeStackNavigator();
@@ -31,7 +32,6 @@ export default function OnboardingStack() {
       <Stack.Screen name="Compat" component={CompatRunningScreen} />
       <Stack.Screen name="CompatPass" component={CompatPassScreen} />
       <Stack.Screen name="CompatFail" component={CompatFailScreen} />
-      <Stack.Screen name="CompatRecovery" component={CompatRecoveryScreen} />
       <Stack.Screen name="RigTutorial" component={RigTutorialScreen} />
     </Stack.Navigator>
   );

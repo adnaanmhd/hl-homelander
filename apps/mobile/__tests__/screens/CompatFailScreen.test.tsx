@@ -1,18 +1,24 @@
-// CompatFailScreen unit tests — Phase 2 plan 02-15 Task 4 (design-spec §4d).
+// CompatFailScreen unit tests — design-spec §4d (post Plan 03-03 merge).
 //
-// Coverage:
+// Coverage (post-merge):
 //   - renders "This phone can't record yet" verbatim
 //   - failed-key copy renders the design-spec §4d copy with measured value:
 //     "Stable motion sensors at 100 Hz+ required (yours: 44 Hz)"
-//   - "What now" CTA navigates to CompatRecovery
+//   - inline recovery body + 3 recovery bullets render directly under the
+//     failure list (no separate CompatRecovery navigation hop)
+//   - Contact Support button opens mailto with `support@humynlabs.ai`
+//     (Plan 03-03 swap of OQ-1's 5th and final placeholder occurrence)
 //   - multiple failed keys render multiple rows
+//   - NO Next / Continue / Proceed CTA (COMPAT-06 enforcement carried
+//     forward from the old standalone CompatRecoveryScreen)
 
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 
-const { mockNavigate, compatHolder } = vi.hoisted(() => ({
+const { mockNavigate, mockOpenURL, compatHolder } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
+  mockOpenURL: vi.fn(),
   compatHolder: { value: null as unknown },
 }));
 
@@ -35,6 +41,52 @@ vi.mock('../../src/state/appStore', () => {
     compatLastResult: compatHolder.value,
   });
   return { useAppStore };
+});
+
+// Replace the canonical react-native shim's Linking with a spy so the
+// Contact Support mailto fire is observable. View/Text/Pressable still
+// resolve to the host-component shim primitives via inline shapes (per
+// Pattern 69 — vi.importActual would trip Flow `import typeof`).
+vi.mock('react-native', async () => {
+  const ReactModule = await import('react');
+  function makeComponent(name: string) {
+    return ReactModule.forwardRef<HTMLDivElement, Record<string, unknown>>(
+      function HostComponent(props, ref) {
+        const { children, accessibilityLabel, accessibilityRole, onPress, style, ...rest } =
+          props as {
+            children?: React.ReactNode;
+            accessibilityLabel?: string;
+            accessibilityRole?: string;
+            onPress?: () => void;
+            style?: unknown;
+          } & Record<string, unknown>;
+        const dom: Record<string, unknown> = { ref, 'data-testid': name, ...rest };
+        if (typeof accessibilityLabel === 'string') dom['aria-label'] = accessibilityLabel;
+        if (typeof accessibilityRole === 'string') dom['role'] = accessibilityRole;
+        if (typeof onPress === 'function') dom['onClick'] = onPress;
+        if (style && typeof style === 'object' && !Array.isArray(style)) dom['style'] = style;
+        return ReactModule.createElement('div', dom, children as React.ReactNode);
+      },
+    );
+  }
+  return {
+    View: makeComponent('View'),
+    Text: makeComponent('Text'),
+    Pressable: makeComponent('Pressable'),
+    SafeAreaView: makeComponent('SafeAreaView'),
+    ScrollView: makeComponent('ScrollView'),
+    StyleSheet: {
+      create: (s: Record<string, unknown>) => s,
+      flatten: (s: unknown) => s,
+      absoluteFillObject: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+    },
+    NativeModules: {},
+    Platform: {
+      OS: 'android',
+      select: <T,>(o: { android?: T; default?: T }) => o.android ?? o.default,
+    },
+    Linking: { openURL: mockOpenURL },
+  };
 });
 
 import CompatFailScreen from '../../src/screens/compat/CompatFailScreen';
@@ -69,7 +121,7 @@ afterEach(() => {
   cleanup();
 });
 
-describe('CompatFailScreen (design-spec §4d)', () => {
+describe('CompatFailScreen (design-spec §4d, post Plan 03-03 merge)', () => {
   it('Test 1: renders "This phone can\'t record yet" verbatim', () => {
     render(<CompatFailScreen />);
     expect(screen.getByText("This phone can't record yet")).toBeTruthy();
@@ -82,13 +134,7 @@ describe('CompatFailScreen (design-spec §4d)', () => {
     ).toBeTruthy();
   });
 
-  it('Test 3: What now button navigates to CompatRecovery', () => {
-    render(<CompatFailScreen />);
-    fireEvent.click(screen.getByLabelText('compat-fail-what-now'));
-    expect(mockNavigate).toHaveBeenCalledWith('CompatRecovery');
-  });
-
-  it('Test 4: ultrawideDfov fail renders measured-value copy', () => {
+  it('Test 3: ultrawideDfov fail renders measured-value copy', () => {
     compatHolder.value = {
       ...BASE,
       checks: {
@@ -101,7 +147,7 @@ describe('CompatFailScreen (design-spec §4d)', () => {
     expect(screen.getByText('Ultrawide camera 110°+ required (yours: 92°)')).toBeTruthy();
   });
 
-  it('Test 5: multiple failed keys render multiple rows', () => {
+  it('Test 4: multiple failed keys render multiple rows', () => {
     compatHolder.value = {
       ...BASE,
       checks: {
@@ -117,11 +163,52 @@ describe('CompatFailScreen (design-spec §4d)', () => {
     expect(screen.getByLabelText('compat-fail-row-encoderNoBFrames')).toBeTruthy();
   });
 
-  it('Test 6: empty result renders no failure rows (defensive null check)', () => {
+  it('Test 5: empty result renders no failure rows (defensive null check)', () => {
     compatHolder.value = null;
     render(<CompatFailScreen />);
     // The screen still mounts with the title; just no rows.
     expect(screen.getByText("This phone can't record yet")).toBeTruthy();
     expect(screen.queryByLabelText('compat-fail-row-imuSustained100Hz')).toBeNull();
+  });
+
+  it('Test 6 (post-merge): inline recovery body + 3 bullets render under the failure list', () => {
+    render(<CompatFailScreen />);
+    // Recovery body — matches the verbatim COMPAT-08 copy carried over from
+    // the deleted CompatRecoveryScreen.
+    expect(
+      screen.getByText(/Try a different qualifying device, or reach out to support/),
+    ).toBeTruthy();
+    expect(screen.getByLabelText('recovery-bullet-different-device')).toBeTruthy();
+    expect(screen.getByLabelText('recovery-bullet-not-rooted')).toBeTruthy();
+    expect(screen.getByLabelText('recovery-bullet-rerun')).toBeTruthy();
+  });
+
+  it('Test 7 (post-merge): Contact Support mailto contains support@humynlabs.ai (OQ-1 5th occurrence resolved)', () => {
+    render(<CompatFailScreen />);
+    fireEvent.click(screen.getByLabelText('compat-fail-contact-support'));
+    expect(mockOpenURL).toHaveBeenCalledTimes(1);
+    const url = mockOpenURL.mock.calls[0]?.[0] as string;
+    expect(url).toContain('mailto:support@humynlabs.ai');
+    expect(url).not.toContain('[EMAIL_ADDRESS]');
+    expect(url).toContain('Compatibility%20check');
+    expect(decodeURIComponent(url)).toContain('Phone model:');
+    expect(decodeURIComponent(url)).toContain('What I was trying to do:');
+    expect(decodeURIComponent(url)).toContain('When it happened:');
+  });
+
+  it('Test 8 (post-merge): NO navigation to CompatRecovery (route deleted)', () => {
+    render(<CompatFailScreen />);
+    // Pre-merge had a "What now" CTA that fired navigate('CompatRecovery');
+    // post-merge that CTA is gone — recovery is inline.
+    expect(screen.queryByLabelText('compat-fail-what-now')).toBeNull();
+    fireEvent.click(screen.getByLabelText('compat-fail-contact-support'));
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('Test 9 (post-merge): NO Next / Continue / Proceed CTA (COMPAT-06 enforcement)', () => {
+    render(<CompatFailScreen />);
+    expect(screen.queryByText('Next')).toBeNull();
+    expect(screen.queryByText('Continue')).toBeNull();
+    expect(screen.queryByText('Proceed')).toBeNull();
   });
 });

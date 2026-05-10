@@ -7,7 +7,12 @@
 //     LogoutModal, DeleteAccountModal)
 //   - apps/mobile/src/navigation/OnboardingStack.tsx (pre-MainTabs flow:
 //     Splash, Signup, Permissions, Compat, CompatPass, CompatFail,
-//     CompatRecovery, RigTutorial)
+//     RigTutorial)
+//
+// Plan 03-03 update: CompatRecovery removed. CompatRecoveryScreen.tsx +
+// its test file deleted; the recovery body merged into CompatFailScreen
+// (02-COSMETIC-GAPS.md § Compat-fail screen). Pre-merge the registry
+// listed CompatRecovery; post-merge it does NOT.
 //
 // Why scan BOTH files: the plan body's task description listed every Phase 2
 // route under RootNativeStack, but Splash/Signup/Permissions/Compat-* /
@@ -53,15 +58,20 @@ const ALL_NAVIGATOR_SOURCE = `${ROOT_STACK}\n${ONBOARDING_STACK}`;
 /**
  * Phase 2 — every route registered across RootNativeStack + OnboardingStack
  * after plans 02-05 / 02-08 / 02-09 / 02-10 / 02-11 / 02-15 / 02-16 / 02-17 /
- * 02-18 / 02-19 / 02-20.
+ * 02-18 / 02-19 / 02-20, with the Plan 03-03 CompatRecovery removal applied.
  *
  * NB: the registered name is "Compat" (not "CompatRunning") — see file
  * header for rationale. The screen MODULE is CompatRunningScreen; the
  * navigator route NAME is Compat.
  *
  * "OnboardingStack" itself is an entry inside RootNativeStack (it's the
- * parent of Splash/Signup/Permissions/Compat-{Pass,Fail,Recovery}/RigTutorial).
- * Both the parent registration AND each child registration must be present.
+ * parent of Splash/Signup/Permissions/Compat-{Pass,Fail}/RigTutorial). Both
+ * the parent registration AND each child registration must be present.
+ *
+ * Plan 03-03: CompatRecovery removed from the locked-routes list. The
+ * recovery body merged into CompatFailScreen; the standalone screen + its
+ * test file are deleted. A post-merge regression that re-introduces the
+ * route should fail this gate.
  */
 const REQUIRED_PHASE_2_ROUTES = [
   // RootNativeStack siblings
@@ -72,15 +82,25 @@ const REQUIRED_PHASE_2_ROUTES = [
   'ForceUpgrade',
   'LogoutModal',
   'DeleteAccountModal',
-  // OnboardingStack children
+  // OnboardingStack children (post Plan 03-03 CompatRecovery merge)
   'Splash',
   'Signup',
   'Permissions',
   'Compat',
   'CompatPass',
   'CompatFail',
-  'CompatRecovery',
   'RigTutorial',
+];
+
+/**
+ * Phase 2 routes that were REMOVED by later plans. The invariant test asserts
+ * each removed name is NOT registered anywhere in the navigator pair so an
+ * accidental re-introduction surfaces in PR review.
+ */
+const REMOVED_PHASE_2_ROUTES = [
+  // Plan 03-03 — CompatRecovery merged into CompatFail (02-COSMETIC-GAPS.md
+  // § Compat-fail screen). Standalone screen + test file deleted.
+  'CompatRecovery',
 ];
 
 describe('Navigator route registry — Phase 2 screens (D-NAV-02)', () => {
@@ -88,6 +108,12 @@ describe('Navigator route registry — Phase 2 screens (D-NAV-02)', () => {
     it(`registers screen name="${name}"`, () => {
       // Look for either name="X" or name='X' in either navigator file.
       expect(ALL_NAVIGATOR_SOURCE).toMatch(new RegExp(`name=["']${name}["']`));
+    });
+  }
+
+  for (const name of REMOVED_PHASE_2_ROUTES) {
+    it(`does NOT re-register removed route name="${name}" (Plan 03-03 CompatRecovery merge)`, () => {
+      expect(ALL_NAVIGATOR_SOURCE).not.toMatch(new RegExp(`name=["']${name}["']`));
     });
   }
 

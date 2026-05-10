@@ -38,9 +38,9 @@ const RIG_ILLUSTRATION = require('../../assets/illustrations/rig.png');
 
 // Plan 03-02 — OQ-1 resolved: support email is `support@humynlabs.ai`
 // (02-COSMETIC-GAPS.md "Rig Tutorial screen" + 02-OPEN-QUESTIONS.md OQ-1
-// resolution). Replaced the placeholder constant. The 5th occurrence
-// (apps/mobile/src/screens/compat/CompatRecoveryScreen.tsx) lands inside
-// Plan 03-03's Compat-fail merge, not here.
+// resolution). Replaced the placeholder constant. The 5th and final
+// placeholder occurrence landed inside Plan 03-03's merged CompatFailScreen
+// (the standalone CompatRecoveryScreen was merged + deleted in 03-03).
 const SUPPORT_EMAIL = 'support@humynlabs.ai';
 
 /**
