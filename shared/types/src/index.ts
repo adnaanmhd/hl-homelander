@@ -8,4 +8,5 @@ export * from './app-version.js';
 export * from './events.js';
 export * from './feedback.js';
 export * from './CompatResult.js';
-export const SHARED_TYPES_VERSION = '0.6.0' as const;
+export * from './CaptureSessionOpts.js';
+export const SHARED_TYPES_VERSION = '0.7.0' as const;
