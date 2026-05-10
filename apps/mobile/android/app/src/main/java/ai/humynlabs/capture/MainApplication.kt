@@ -12,6 +12,7 @@ import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.react.soloader.OpenSourceMergedSoMapping
 import com.facebook.soloader.SoLoader
 import io.humyn.app.PlayIntegrityPackage
+import ai.humynlabs.capture.capture.CaptureLaunchSweep
 import ai.humynlabs.capture.capture.HumynCapturePackage
 import ai.humynlabs.capture.capture.SegmentDurationConfig
 import ai.humynlabs.capture.compat.HumynCompatPackage
@@ -60,6 +61,10 @@ class MainApplication : Application(), ReactApplication {
         // finally-block deletion ran. Best-effort — listFiles can return null.
         cacheDir.listFiles { f -> f.name.startsWith("compat-probe-") && f.name.endsWith(".mp4") }
             ?.forEach { it.delete() }
+
+        // Phase 3 D-FS-04 — orphan recordings + practice cleanup. Best-effort;
+        // missing dirs are skipped. See CaptureLaunchSweep.kt for sweep semantics.
+        CaptureLaunchSweep(filesDir).run()
 
         // Phase 3 — set capture.segment_minutes default (read by SegmentDurationConfig.load()).
         // Defaults are best-effort: if Firebase init hasn't completed (test/no-network), the
