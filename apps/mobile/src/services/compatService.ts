@@ -24,11 +24,50 @@
 
 import { NativeModules } from 'react-native';
 import { CompatResultSchema, type CompatResult } from '@humyn/shared-types';
-import { runEncoderProbe, runImuProbe, readDeviceCaps } from '../native/HumynCompat';
+import {
+  runEncoderProbe,
+  runImuProbe,
+  readDeviceCaps,
+  type EncoderProbeResult,
+  type ImuProbeResult,
+  type DeviceCapsResult,
+} from '../native/HumynCompat';
 import { secureMmkv } from '../state/mmkv';
 import { KEYS } from '../state/keys';
 import { getInstallationId, getInstallationIdSync } from './installationId';
 import { getFlavorContext } from '../native/AppFlavor';
+
+/**
+ * Lifecycle event emitted around each native probe so callers (CompatRunningScreen)
+ * can transition row states + the percent ring in lock-step with reality, instead
+ * of running an independent cosmetic timer that drifts from the real probes.
+ *
+ * Order is fixed: encoder → imu → deviceCaps. Each phase emits exactly one
+ * `started` followed by one `completed` (or none, if a prior probe rejected).
+ */
+export type CompatProgressEvent =
+  | { phase: 'encoder'; status: 'started' }
+  | { phase: 'encoder'; status: 'completed'; result: EncoderProbeResult }
+  | { phase: 'imu'; status: 'started' }
+  | { phase: 'imu'; status: 'completed'; result: ImuProbeResult }
+  | { phase: 'deviceCaps'; status: 'started' }
+  | { phase: 'deviceCaps'; status: 'completed'; result: DeviceCapsResult };
+
+export type CompatProgressListener = (event: CompatProgressEvent) => void;
+
+/**
+ * Invoke a progress listener defensively — a misbehaving listener must never
+ * reject runCompatCheck or surface its error to the user. Swallow silently;
+ * production must not log probe payloads or stack traces.
+ */
+function notify(listener: CompatProgressListener | undefined, event: CompatProgressEvent): void {
+  if (!listener) return;
+  try {
+    listener(event);
+  } catch {
+    // Listener is purely advisory for UI state; do not propagate.
+  }
+}
 
 interface AppFlavorSyncSurface {
   sha256First16Hex?: (input: string) => string;
@@ -72,14 +111,28 @@ function computeSignatureSync(): string {
  * pushing the result into Zustand (CompatRunningScreen does this via
  * useAppStore.setCompatResult so the FailScreen and gate-decision tree see
  * the new state immediately).
+ *
+ * Optional `onProgress` listener fires `started` / `completed` for each
+ * native probe in order (encoder → imu → deviceCaps). Used by
+ * CompatRunningScreen to drive its row state machine + percent ring from
+ * real probe lifecycle instead of a fixed cosmetic timer. Listener errors
+ * are swallowed.
  */
-export async function runCompatCheck(): Promise<CompatResult> {
+export async function runCompatCheck(onProgress?: CompatProgressListener): Promise<CompatResult> {
   // Hydrate installation_id first so computeSignatureSync() can read it.
   await getInstallationId();
 
+  notify(onProgress, { phase: 'encoder', status: 'started' });
   const enc = await runEncoderProbe();
+  notify(onProgress, { phase: 'encoder', status: 'completed', result: enc });
+
+  notify(onProgress, { phase: 'imu', status: 'started' });
   const imu = await runImuProbe(30_000, true);
+  notify(onProgress, { phase: 'imu', status: 'completed', result: imu });
+
+  notify(onProgress, { phase: 'deviceCaps', status: 'started' });
   const caps = await readDeviceCaps();
+  notify(onProgress, { phase: 'deviceCaps', status: 'completed', result: caps });
 
   // resolutionMax is {w, h}; long-edge >= 1920 means 1080p+.
   const longEdge = Math.max(caps.resolutionMax.w, caps.resolutionMax.h);

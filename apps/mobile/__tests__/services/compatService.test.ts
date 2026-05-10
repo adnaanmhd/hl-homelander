@@ -173,6 +173,34 @@ describe('compatService.runCompatCheck', () => {
     expect(result.failedKeys).toContain('encoderNoBFrames');
     expect(result.checks.encoderNoBFrames).toBe(false);
   });
+
+  it('Test 9: onProgress fires started+completed for each phase in order', async () => {
+    const { runCompatCheck } = await import('../../src/services/compatService');
+    const events: unknown[] = [];
+
+    await runCompatCheck((e) => events.push(e));
+
+    // Six events: encoder.started, encoder.completed, imu.started, imu.completed,
+    // deviceCaps.started, deviceCaps.completed.
+    expect(events).toEqual([
+      { phase: 'encoder', status: 'started' },
+      { phase: 'encoder', status: 'completed', result: HAPPY_ENCODER },
+      { phase: 'imu', status: 'started' },
+      { phase: 'imu', status: 'completed', result: HAPPY_IMU },
+      { phase: 'deviceCaps', status: 'started' },
+      { phase: 'deviceCaps', status: 'completed', result: HAPPY_CAPS },
+    ]);
+  });
+
+  it('Test 10: a throwing onProgress listener does NOT reject runCompatCheck', async () => {
+    const { runCompatCheck } = await import('../../src/services/compatService');
+
+    const result = await runCompatCheck(() => {
+      throw new Error('listener exploded');
+    });
+
+    expect(result.passed).toBe(true);
+  });
 });
 
 describe('compatService.needsRerun', () => {

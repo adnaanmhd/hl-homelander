@@ -5,20 +5,29 @@
  * 7-row checklist with 22 px circular indicators.
  *
  * Lifecycle:
- *   1. On mount, kick off `runCompatCheck()` (compatService) and a cosmetic
- *      row-walk timer that advances the 7-row checklist incrementally so the
- *      user sees motion while the ~33 s probe sequence is in flight.
- *   2. On result resolve, freeze the cosmetic walk, mark each row according
- *      to the real CompatResult via `rowsFromResult`, push the result into
- *      Zustand via `setCompatResult`, and after a 400 ms hold for the ring
- *      transition, navigation.replace to CompatPass / CompatFail.
+ *   1. On mount, kick off `runCompatCheck(onProgress)` (compatService) with a
+ *      progress listener that drives row state and the percent ring from
+ *      real probe lifecycle events instead of a fixed cosmetic timer.
+ *      Probe order is encoder → imu → deviceCaps; each emits a `started` and
+ *      a `completed` event. Rows transition from 'pending' → 'running' →
+ *      'pass'/'fail' as their determining probe's data lands.
+ *   2. On result resolve, `rowsFromResult` performs the authoritative final
+ *      sweep, freezes the ring at 100 %, holds 400 ms for the ring transition,
+ *      then navigation.replace to CompatPass / CompatFail.
  *   3. On probe rejection, route to CompatFail (the error path is rare; the
  *      detailed user-facing copy lives in 02-21 manual smoke runbook).
+ *
+ * Why per-probe events (not a fixed timer): the IMU probe runs for a LOCKED
+ * 30 s sustained-sampling window per capture spec D-COMPAT-05. A fixed-cadence
+ * cosmetic walk completes its sweep at ~5 s and parks on the integrity row,
+ * misleading users into thinking "device integrity" is the long-pole. The
+ * real long-pole is the IMU window; the row state and ring fill must reflect
+ * that.
  *
  * NO hex literals — all colors come from `colors.*` tokens (design-spec
  * §0.1 / §0.2).
  *
- * Phase 2 plan 02-15 Task 3.
+ * Phase 2 plan 02-15 Task 3 (original); refactored in quick task 260510-002.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
@@ -26,16 +35,35 @@ import { useNavigation } from '@react-navigation/native';
 import { Text } from '../../ui/primitives/Text';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
 import { colors, spacing } from '../../ui/tokens';
-import { runCompatCheck } from '../../services/compatService';
+import { runCompatCheck, type CompatProgressEvent } from '../../services/compatService';
 import { DISPLAY_ROWS, rowsFromResult, type DisplayRowKey } from './checks';
 import { useAppStore } from '../../state/appStore';
 import { CompatRing } from '../../components/CompatRing';
+import type {
+  EncoderProbeResult,
+  ImuProbeResult,
+  DeviceCapsResult,
+} from '../../native/HumynCompat';
 
 interface NavigationLike {
   replace(route: string): void;
 }
 
 type RowState = 'pending' | 'running' | 'pass' | 'fail';
+
+// Percent-ring milestones tied to probe lifecycle.
+const PERCENT_INITIAL = 0;
+const PERCENT_ENCODER_STARTED = 5;
+const PERCENT_ENCODER_COMPLETED = 15;
+const PERCENT_IMU_COMPLETED = 90;
+const PERCENT_DEVICE_CAPS_STARTED = 95;
+const PERCENT_RESULT = 100;
+
+// Animate 15 → 85 over the LOCKED 30 s IMU sustained-sampling window.
+const IMU_DURATION_MS = 30_000;
+const IMU_TICK_MS = 250;
+const IMU_PERCENT_FLOOR = PERCENT_ENCODER_COMPLETED;
+const IMU_PERCENT_CEILING = 85;
 
 function initialRowStates(): Record<DisplayRowKey, RowState> {
   const out = {} as Record<DisplayRowKey, RowState>;
@@ -71,46 +99,138 @@ function indicatorStyle(s: RowState) {
   }
 }
 
+interface AccumResults {
+  encoder?: EncoderProbeResult;
+  imu?: ImuProbeResult;
+  caps?: DeviceCapsResult;
+}
+
+/**
+ * Recompute row states from the probes that have completed so far. Mirrors
+ * the row-collapse rules in `rowsFromResult` but tolerates partial state —
+ * rows whose determining probes haven't completed stay 'running' (or
+ * 'pending' until their probe started). The final result resolution still
+ * runs `rowsFromResult` for the authoritative pass/fail snapshot.
+ */
+function deriveRowStates(
+  prev: Record<DisplayRowKey, RowState>,
+  accum: AccumResults,
+): Record<DisplayRowKey, RowState> {
+  const next = { ...prev };
+
+  if (accum.imu) {
+    const i = accum.imu;
+    next.motionSensors = i.sustainedHz >= 100 || i.p99IntervalMs <= 12 ? 'pass' : 'fail';
+    next.imu = i.sustainedHz >= 100 && i.p99IntervalMs <= 12 ? 'pass' : 'fail';
+  }
+
+  if (accum.caps) {
+    const c = accum.caps;
+    next.ultrawide = c.ultrawideDfovDeg >= 110 ? 'pass' : 'fail';
+    const longEdge = Math.max(c.resolutionMax.w, c.resolutionMax.h);
+    next.resolutionFps = longEdge >= 1920 && c.fpsMax >= 30 ? 'pass' : 'fail';
+    next.mic = c.micSampleRateMax >= 48_000 ? 'pass' : 'fail';
+    next.realtime = c.realtimeTimestampSource ? 'pass' : 'fail';
+  }
+
+  // Integrity needs BOTH encoder (b-frames + OIS + HDR) AND deviceCaps (root).
+  if (accum.encoder && accum.caps) {
+    const e = accum.encoder;
+    const c = accum.caps;
+    next.integrity = !c.rooted && !e.bFramePresent && e.oisOff && e.hdrSdrForced ? 'pass' : 'fail';
+  }
+
+  return next;
+}
+
 export default function CompatRunningScreen() {
   const navigation = useNavigation<NavigationLike>();
   const setCompatResult = useAppStore((s) => s.setCompatResult);
 
-  const [percent, setPercent] = useState(0);
+  const [percent, setPercent] = useState(PERCENT_INITIAL);
   const [rowStates, setRowStates] = useState<Record<DisplayRowKey, RowState>>(initialRowStates);
   const cancelled = useRef(false);
+  const accumResultsRef = useRef<AccumResults>({});
+  const imuTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     cancelled.current = false;
+    accumResultsRef.current = {};
 
-    // Cosmetic row-walk timer — gives the user motion while the real probes
-    // are in flight. Each tick advances one row to "running"; previous rows
-    // flip to "pass" speculatively, and they're overwritten with the real
-    // result on resolution below.
-    const intervalMs = 700;
-    const total = DISPLAY_ROWS.length * intervalMs;
-    let elapsed = 0;
-    const tick = setInterval(() => {
+    const stopImuTick = () => {
+      if (imuTickRef.current !== null) {
+        clearInterval(imuTickRef.current);
+        imuTickRef.current = null;
+      }
+    };
+
+    const handleProgress = (event: CompatProgressEvent) => {
       if (cancelled.current) return;
-      elapsed += intervalMs;
-      setPercent(Math.min(100, Math.round((elapsed / total) * 100)));
-      const idx = Math.min(DISPLAY_ROWS.length - 1, Math.floor(elapsed / intervalMs));
-      setRowStates((s) => {
-        const next = { ...s };
-        for (let i = 0; i < idx; i++) {
-          next[DISPLAY_ROWS[i]!.key] = 'pass';
-        }
-        next[DISPLAY_ROWS[idx]!.key] = 'running';
-        return next;
-      });
-    }, intervalMs);
 
-    runCompatCheck()
+      switch (event.phase) {
+        case 'encoder': {
+          if (event.status === 'started') {
+            setPercent((p) => Math.max(p, PERCENT_ENCODER_STARTED));
+            // Encoder is the first probe affecting integrity; show it as running.
+            setRowStates((s) => ({ ...s, integrity: 'running' }));
+          } else {
+            accumResultsRef.current.encoder = event.result;
+            setPercent((p) => Math.max(p, PERCENT_ENCODER_COMPLETED));
+            // Integrity stays 'running' — still needs deviceCaps for root.
+          }
+          return;
+        }
+        case 'imu': {
+          if (event.status === 'started') {
+            setRowStates((s) => ({ ...s, motionSensors: 'running', imu: 'running' }));
+            // Drive the ring smoothly across the 30 s IMU window.
+            const start = Date.now();
+            stopImuTick();
+            imuTickRef.current = setInterval(() => {
+              if (cancelled.current) {
+                stopImuTick();
+                return;
+              }
+              const elapsed = Date.now() - start;
+              const fraction = Math.min(1, elapsed / IMU_DURATION_MS);
+              const next = IMU_PERCENT_FLOOR + (IMU_PERCENT_CEILING - IMU_PERCENT_FLOOR) * fraction;
+              setPercent((p) => Math.max(p, Math.round(next)));
+              if (fraction >= 1) stopImuTick();
+            }, IMU_TICK_MS);
+          } else {
+            stopImuTick();
+            accumResultsRef.current.imu = event.result;
+            setPercent((p) => Math.max(p, PERCENT_IMU_COMPLETED));
+            setRowStates((s) => deriveRowStates(s, accumResultsRef.current));
+          }
+          return;
+        }
+        case 'deviceCaps': {
+          if (event.status === 'started') {
+            setPercent((p) => Math.max(p, PERCENT_DEVICE_CAPS_STARTED));
+            setRowStates((s) => ({
+              ...s,
+              ultrawide: s.ultrawide === 'pending' ? 'running' : s.ultrawide,
+              resolutionFps: s.resolutionFps === 'pending' ? 'running' : s.resolutionFps,
+              mic: s.mic === 'pending' ? 'running' : s.mic,
+              realtime: s.realtime === 'pending' ? 'running' : s.realtime,
+            }));
+          } else {
+            accumResultsRef.current.caps = event.result;
+            setRowStates((s) => deriveRowStates(s, accumResultsRef.current));
+          }
+          return;
+        }
+      }
+    };
+
+    runCompatCheck(handleProgress)
       .then((result) => {
         if (cancelled.current) return;
-        clearInterval(tick);
-        setPercent(100);
+        stopImuTick();
+        setPercent(PERCENT_RESULT);
         setCompatResult(result);
-        // Mark rows from the real result.
+        // Final authoritative sweep — same logic that drives CompatPass/Fail.
         const display = rowsFromResult(result);
         const next = {} as Record<DisplayRowKey, RowState>;
         for (const r of display) {
@@ -129,7 +249,7 @@ export default function CompatRunningScreen() {
       })
       .catch(() => {
         if (cancelled.current) return;
-        clearInterval(tick);
+        stopImuTick();
         // Defensive: route to Fail on probe error so the user sees the
         // recovery flow rather than a stalled screen.
         navigation.replace('CompatFail');
@@ -137,7 +257,7 @@ export default function CompatRunningScreen() {
 
     return () => {
       cancelled.current = true;
-      clearInterval(tick);
+      stopImuTick();
     };
   }, [navigation, setCompatResult]);
 
