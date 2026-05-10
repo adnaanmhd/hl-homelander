@@ -25,13 +25,14 @@
  * iOS analogue lives in Phase 7: PERMISSIONS.IOS.CAMERA / .MICROPHONE swap
  * in conditionally on Platform.OS.
  */
-import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { View, StyleSheet, Platform, AppState } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import {
   PERMISSIONS,
   RESULTS,
   request,
+  check,
   openSettings,
   type Permission,
 } from 'react-native-permissions';
@@ -67,10 +68,80 @@ export default function PermissionsScreen() {
     mic: false,
   });
 
+  // quick-260510-007 — Settings round-trip re-check.
+  //
+  // Original bug: handlePress called `openSettings()` and returned. Once the
+  // user came back from Android Settings (where they granted the permission
+  // they had previously denied), the screen stayed locked in 'denied' /
+  // 'partial' state with the "Open Settings" button — they could never
+  // advance to Compat. The original comment claimed "re-checking happens at
+  // compat-screen entry" but there is no automatic transition off this
+  // screen, so the user was structurally stuck.
+  //
+  // Fix: subscribe to `AppState` 'change' events. On 'active' transitions
+  // (which fire when the user comes back from Settings), re-check both
+  // permissions via react-native-permissions' `check()`. If both granted,
+  // mirror the happy-path: persist `setPermsGranted` to MMKV and
+  // `navigation.replace('Compat')`. Otherwise update the recovery state to
+  // reflect current truth (camera-only granted → 'partial' with Mic flag,
+  // etc.) so the body copy stays accurate.
+  //
+  // The initial check on mount also covers Path B/C cold-start gates: if a
+  // user lands here with perms already granted (e.g. after killing the app
+  // mid-recovery), useEffect re-checks and auto-advances rather than
+  // requiring another button tap.
+  //
+  // `stateRef` mirrors `state` so the AppState callback (which closes over
+  // the first-render `state` value) reads the current value without
+  // re-subscribing on every state change.
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  useEffect(() => {
+    let cancelled = false;
+    const checkAndAdvance = async () => {
+      const [camResult, micResult] = await Promise.all([
+        check(CAMERA_PERMISSION),
+        check(MIC_PERMISSION),
+      ]);
+      if (cancelled) return;
+      const camGranted = camResult === RESULTS.GRANTED;
+      const micGranted = micResult === RESULTS.GRANTED;
+      if (camGranted && micGranted) {
+        setPermsGranted({
+          camera: true,
+          mic: true,
+          grantedAt: new Date().toISOString(),
+        });
+        navigation.replace('Compat');
+        return;
+      }
+      // Only flip recovery-state UI if we're already in the recovery branch;
+      // 'idle' stays 'idle' (the user hasn't tapped Allow yet, so flipping
+      // to 'denied' would prematurely surface §4.1.1 copy).
+      if (stateRef.current === 'denied' || stateRef.current === 'partial') {
+        const newMissing = { camera: !camGranted, mic: !micGranted };
+        setMissing(newMissing);
+        setState(newMissing.camera && newMissing.mic ? 'denied' : 'partial');
+      }
+    };
+    checkAndAdvance();
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') checkAndAdvance();
+    });
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, [navigation, setPermsGranted]);
+
   const handlePress = useCallback(async () => {
     // Recovery state: the only action is to deep-link into Settings. Tests
     // assert openSettings is called; the user returns via the OS back stack
-    // and re-checking happens at compat-screen entry (plan 02-11).
+    // and the AppState foreground listener (see useEffect above —
+    // quick-260510-007) re-checks both permissions and auto-advances to
+    // Compat if both are now granted, or refreshes the recovery copy if
+    // only one was granted.
     if (state === 'denied' || state === 'partial') {
       await openSettings();
       return;
