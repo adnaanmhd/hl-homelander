@@ -3,7 +3,9 @@
 // Tests:
 //   1. Verbatim §18.3 title + body copy renders.
 //   2. Cancel calls navigation.goBack and does NOT call signOut.
-//   3. Log out calls signOut() AND navigation.reset to Signup.
+//   3. Log out calls signOut() AND navigation.reset to OnboardingStack
+//      (NOT 'Signup' directly — Signup is nested inside OnboardingStack and
+//      is not addressable from the root navigator).
 //   4. accessibilityLabel="logout-modal" is present (lets ProfileScreen
 //      smoke-tests assert the modal has rendered).
 //
@@ -67,10 +69,10 @@ describe('LogoutModal (design-spec §18.3 / AUTH-08)', () => {
     expect(resetFn).not.toHaveBeenCalled();
   });
 
-  it('Log out calls signOut() + navigation.reset to Signup', () => {
+  it('Log out calls signOut() + navigation.reset to OnboardingStack', () => {
     render(<LogoutModal />);
     fireEvent.click(screen.getByLabelText('logout-confirm'));
     expect(signOutFn).toHaveBeenCalledTimes(1);
-    expect(resetFn).toHaveBeenCalledWith({ index: 0, routes: [{ name: 'Signup' }] });
+    expect(resetFn).toHaveBeenCalledWith({ index: 0, routes: [{ name: 'OnboardingStack' }] });
   });
 });

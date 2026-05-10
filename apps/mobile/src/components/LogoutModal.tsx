@@ -30,7 +30,11 @@ export function LogoutModal(): React.JSX.Element {
 
   const confirm = () => {
     signOut();
-    nav.reset({ index: 0, routes: [{ name: 'Signup' }] });
+    // Reset to the OnboardingStack sibling (NOT 'Signup', which is nested
+    // inside OnboardingStack and is not reachable as a root-level route).
+    // OnboardingStack registers Signup as its initial screen, so this lands
+    // the user on Signup with a fresh stack.
+    nav.reset({ index: 0, routes: [{ name: 'OnboardingStack' }] });
   };
 
   return (
