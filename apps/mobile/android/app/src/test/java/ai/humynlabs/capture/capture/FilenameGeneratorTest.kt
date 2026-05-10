@@ -1,18 +1,33 @@
 package ai.humynlabs.capture.capture
 
 import android.app.Application
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.io.File
+import java.time.LocalDateTime
 
 /**
- * Plan 03-04 Task 2a — Wave 0 stub for CAP-17.
+ * Plan 03-05 Task 2 — `FilenameGenerator.nextBase(now, dirs)` for
+ * `YYYYMMDD_HHMMSS_NNN` per `idea-brief.md §8.1` + CAP-17.
  *
- * Tests `FilenameGenerator` (`YYYYMMDD_HHMMSS_NNN.<ext>` per
- * `idea-brief.md §8.1`; per-day NNN counter persists across restarts;
- * recovery via `ls recordings/`). Implementation lands in plan 03-05.
+ * Recovery strategy = ls-derived (Open Question 2 / D-FS-03 self-healing):
+ * counter is recomputed each call from the existing files in `recordings/`
+ * + `practice/`, so MMKV-wipe / app-reinstall doesn't collide.
+ *
+ * Behavior contract (PLAN.md `<behavior>`):
+ *  - Empty dirs → NNN=001.
+ *  - Existing 005 → NNN=006 (max+1).
+ *  - practice/ contributes to today's counter.
+ *  - Yesterday's files don't pollute today's counter.
+ *  - Nonexistent dirs (listFiles → null) → NNN=001.
+ *  - NNN=999 → throws IllegalStateException("filename_seq_exhausted_for_day_…").
  *
  * `application = Application::class` matches Plan 03-04 Task 1's
  * `FragmentedMuxerWrapperTest` pattern — bypasses
@@ -21,8 +36,63 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33], application = Application::class)
 class FilenameGeneratorTest {
+    private val ctx = RuntimeEnvironment.getApplication()
+    private val rec by lazy { File(ctx.filesDir, "recordings").apply { mkdirs() } }
+    private val pra by lazy { File(ctx.filesDir, "practice").apply { mkdirs() } }
+
+    @Before
+    fun cleanDirs() {
+        rec.listFiles()?.forEach { it.delete() }
+        pra.listFiles()?.forEach { it.delete() }
+    }
+
     @Test
-    fun `CAP-17 stub fails until FilenameGenerator ships`() {
-        fail("MISSING — Wave 0 stub. Implementation lands in plan 03-05.")
+    fun `empty dirs returns NNN 001`() {
+        val now = LocalDateTime.of(2026, 5, 5, 0, 30, 20)
+        assertEquals("20260505_003020_001", FilenameGenerator.nextBase(now, listOf(rec, pra)))
+    }
+
+    @Test
+    fun `existing 005 returns NNN 006`() {
+        File(rec, "20260505_001234_005.mp4").writeBytes(byteArrayOf(0))
+        File(rec, "20260505_001234_001.mp4").writeBytes(byteArrayOf(0))
+        val now = LocalDateTime.of(2026, 5, 5, 0, 30, 20)
+        assertEquals("20260505_003020_006", FilenameGenerator.nextBase(now, listOf(rec, pra)))
+    }
+
+    @Test
+    fun `practice dir contributes to todays counter`() {
+        File(pra, "20260505_001234_007.mp4").writeBytes(byteArrayOf(0))
+        val now = LocalDateTime.of(2026, 5, 5, 0, 30, 20)
+        assertEquals("20260505_003020_008", FilenameGenerator.nextBase(now, listOf(rec, pra)))
+    }
+
+    @Test
+    fun `yesterdays files dont pollute todays counter`() {
+        File(rec, "20260504_120000_999.mp4").writeBytes(byteArrayOf(0))
+        val now = LocalDateTime.of(2026, 5, 5, 0, 30, 20)
+        assertEquals("20260505_003020_001", FilenameGenerator.nextBase(now, listOf(rec, pra)))
+    }
+
+    @Test
+    fun `nonexistent dirs return NNN 001`() {
+        val ghost = File(ctx.filesDir, "nonexistent")
+        val now = LocalDateTime.of(2026, 5, 5, 0, 30, 20)
+        assertEquals("20260505_003020_001", FilenameGenerator.nextBase(now, listOf(ghost)))
+    }
+
+    @Test
+    fun `NNN 999 plus one throws IllegalStateException`() {
+        File(rec, "20260505_001234_999.mp4").writeBytes(byteArrayOf(0))
+        val now = LocalDateTime.of(2026, 5, 5, 0, 30, 20)
+        try {
+            FilenameGenerator.nextBase(now, listOf(rec, pra))
+            fail("should have thrown")
+        } catch (e: IllegalStateException) {
+            assertTrue(
+                "message should contain filename_seq_exhausted; was ${e.message}",
+                e.message?.contains("filename_seq_exhausted") == true
+            )
+        }
     }
 }
