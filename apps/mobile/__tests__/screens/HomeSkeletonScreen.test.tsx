@@ -59,8 +59,11 @@ describe('HomeSkeletonScreen', () => {
   });
 
   it('renders the TopBar (Humyn Labs wordmark) and an avatar Pressable', () => {
-    const { getByText, getByLabelText } = render(<HomeSkeletonScreen />);
-    expect(getByText('Humyn Labs')).toBeTruthy();
+    const { getByLabelText } = render(<HomeSkeletonScreen />);
+    // Plan 03-11 (A4) — wordmark is now an Image (orange logo); assert the
+    // accessibility label of the Image rather than the legacy 'Humyn Labs'
+    // Text node which has been removed.
+    expect(getByLabelText('Humyn Labs Capture wordmark')).toBeTruthy();
     expect(getByLabelText('top-bar-avatar')).toBeTruthy();
   });
 
@@ -83,12 +86,12 @@ describe('HomeSkeletonScreen', () => {
       name: 'Alice',
       avatarUrl: 'https://x/a.jpg',
     };
-    const { getByText, getByLabelText } = render(<HomeSkeletonScreen />);
+    const { getByLabelText } = render(<HomeSkeletonScreen />);
     // avatarUrl is set → an Image renders inside the Pressable instead of an
     // initial fallback. Assert the Image's accessibility label is present.
     expect(getByLabelText('top-bar-avatar-image')).toBeTruthy();
-    // Hostmark + avatar Pressable still present.
-    expect(getByText('Humyn Labs')).toBeTruthy();
+    // Plan 03-11 (A4) — wordmark Image still present alongside the avatar.
+    expect(getByLabelText('Humyn Labs Capture wordmark')).toBeTruthy();
   });
 
   it('falls back to "U" initial when appStore.user is null', () => {

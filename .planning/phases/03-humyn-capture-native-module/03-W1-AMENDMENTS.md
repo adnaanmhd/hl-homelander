@@ -1,12 +1,14 @@
 ---
-status: open
+status: partial-closed-by-03-11-2026-05-10-a2-escalated
 phase: 03-humyn-capture-native-module
 wave: 1
 source: 03-WAVE1-SMOKE.md (D-WAVE-09 amendment protocol)
 device: Pixel 10a (5C161JEA304304, Android 16 / API 36)
 operator: Adnaan Mohammed
 started: 2026-05-10T20:25:00+05:30
-updated: 2026-05-10T20:25:00+05:30
+updated: 2026-05-10T16:03:00Z
+closed-by: Plan 03-11 (Tasks 1–5 — A1+A3 / A4 / A5 / A6 / A2)
+a2_status: open-escalated # Plan 03-11 Task 5 — no source artwork found
 ---
 
 ## Context
@@ -26,6 +28,8 @@ Each amendment is bounded enough to land in a focused follow-up plan (likely a W
 - **Severity:** Low (cosmetic).
 - **Logcat ref:** —
 
+**Closure:** Plan 03-11 Task 1 — body string tightened to 'Used only while you hit record' verbatim. PermissionsScreen idle-state body Text now renders the single-line tooltip; recovery (denied / partial) copy unchanged. PermissionsScreen.test.tsx Test 1 assertion updated in lockstep. Visual baseline unchanged (text-only diff, structural-render-tree-PNG encoder is shape-only).
+
 ### A2 — RigTutorial illustration is invisible
 
 - **Section:** §6 Rig Tutorial
@@ -36,6 +40,41 @@ Each amendment is bounded enough to land in a focused follow-up plan (likely a W
 - **Severity:** Medium (functional regression — page intent is unclear without the illustration, even with the title text).
 - **Logcat ref:** screenshot path captured during walk.
 
+**Closure:** ESCALATED — see "A2 closure attempt" subsection. No source artwork found; user must provide real rig PNG before this closes.
+
+### A2 — closure attempt (Plan 03-11 Task 5)
+
+**Disposition:** escalate-to-user.
+
+**Reason:** No source rig artwork found in `design-system/illustrations/`
+(directory does not exist) or anywhere under
+`/Users/adnaan/Documents/hl-homelander/` outside the four transparent
+placeholders shipped by Plan 03-01. The probe ran:
+
+```bash
+ls -la design-system/illustrations/rig.png \
+       design-system/illustrations/rig.svg \
+       design-system/illustrations/rig*.png 2>&1 | grep -v "No such"
+find design-system -iname "rig*" -type f
+find . -maxdepth 2 -iname "rig*" -type f | grep -v ".planning" | grep -v "apps/mobile/src/assets"
+```
+
+All three queries returned empty. The `design-system/` directory contains
+`fonts/`, `logos/`, `task-icons/`, and a brand-book PDF — no `illustrations/`
+sub-tree. Per CLAUDE.md "Designs LOCKED" rule, the planner does not
+generate substitute artwork (line-art SVG, AI-generated PNG, or otherwise)
+without design sign-off.
+
+**Required from user:** drop a real rig PNG (≥ 4096 bytes, transparent
+background, ~280 dp wide intrinsic) at
+`/Users/adnaan/Documents/hl-homelander/design-system/illustrations/rig.png`
+and re-run a follow-up plan that uses the Plan 03-01 / Pattern 65
+density-bucket re-export (sharp(source).trim() → 280/560/840 dp). The
+RigTutorialScreen.tsx require path is unchanged so the asset replacement
+needs no code change.
+
+**Status:** A2 remains OPEN; A1, A3, A4, A5, A6 closed by Plan 03-11.
+
 ### A3 — Bottom nav sits too low; lift it like Instagram
 
 - **Section:** §7 Home tab
@@ -44,6 +83,8 @@ Each amendment is bounded enough to land in a focused follow-up plan (likely a W
 - **Owner file:** `apps/mobile/src/components/BottomNav.tsx` (style block — likely `paddingBottom` and/or `bottom` adjustment using `useSafeAreaInsets()`).
 - **Severity:** Low (cosmetic).
 - **Logcat ref:** screenshot captured during walk (Home tab, image #2).
+
+**Closure:** Plan 03-11 Task 1 — useSafeAreaInsets()-driven `paddingBottom: insets.bottom + 12` and `height: 68 + insets.bottom` lift the nav above the gesture indicator. Vitest mock for react-native-safe-area-context returns zero insets, so test layout matches pre-edit (paddingBottom 12, height 68); on-device the row floats by insets.bottom + 12 dp.
 
 ### A4 — TopBar wordmark is a text stub on Home/Tasks/History; should be the orange logo
 
@@ -54,6 +95,8 @@ Each amendment is bounded enough to land in a focused follow-up plan (likely a W
 - **Owner file:** `apps/mobile/src/components/TopBar.tsx` (or wherever `useTabTopBarProps` plumbs the wordmark into the bar).
 - **Severity:** Medium (the design-spec specifies the orange wordmark as the brand surface; the text stub is a noticeable downgrade).
 - **Logcat ref:** screenshot captured during walk (image #2).
+
+**Closure:** Plan 03-11 Task 2 — TopBar wordmark Image (28 dp tall × aspectRatio 320/73 ≈ 122.7 dp wide) replaces the literal "Humyn Labs" Text node. Single component edit propagates to Home/Tasks/History via Pattern 71. 4 test files updated to query by accessibilityLabel 'Humyn Labs Capture wordmark'. 3 visual baselines refreshed (Home, Tasks, History).
 
 ### A5 — CompatFail: drop the "What Now" section entirely
 
@@ -67,6 +110,8 @@ Each amendment is bounded enough to land in a focused follow-up plan (likely a W
 - **Severity:** Medium (UX — the screen feels denser than it needs to; user explicitly called this out as filler).
 - **Logcat ref:** —
 
+**Closure:** Plan 03-11 Task 3 — `<View style={styles.bullets}>` block + 3 recovery-bullet-\* Text nodes deleted; recoveryBody tightened to single sentence "This phone doesn't meet the recording requirements." Orphaned `bullets` and `bullet` style entries removed. CompatFail visual baseline refreshed; CompatFailScreen.test.tsx Test 6 rewritten + Test 6b added as regression guard.
+
 ### A6 — Splash + Sign-up logos are too large; shrink ~20%
 
 - **Section:** §1 Splash + §2 Sign-up
@@ -77,6 +122,8 @@ Each amendment is bounded enough to land in a focused follow-up plan (likely a W
   - `apps/mobile/src/screens/signup/SignupScreen.tsx` — sign-up `styles.logo` (currently `{ width: 310, height: 90 }` after Plan 03-02 commit `d42c513`; reduce to ~248×72 or aspect-equivalent)
 - **Severity:** Low (cosmetic — bounded scale change).
 - **Logcat ref:** —
+
+**Closure:** Plan 03-11 Task 4 — explicit `style={{ width: 256, height: 58, resizeMode: 'contain' }}` on Splash + Sign-up Image. ~20% smaller than the Plan 03-02 intrinsic render; aspect within ±1% of source 320:73 (256/58 ≈ 4.41:1). Visual baselines unchanged because the structural-render-tree-PNG encoder is shape-only (style diffs do not shift the wireframe); source-level grep gate verifies the change.
 
 ## Compat-fail walk apparatus (separate from amendments)
 
@@ -92,3 +139,9 @@ Amendments above DO NOT block §1–§3, §5–§12 walk completion. They are ea
 
 - **Option 1 (recommended):** ship Wave 1 polish plan (`03-1.1-wave1-polish` or similar) covering A1–A4 BEFORE Wave 2 capture-foundation work begins. Keeps Wave 2 focused on Kotlin native modules without UI-polish noise mixing in.
 - **Option 2:** continue to Wave 2 with these documented amendments; address them in a later cleanup wave alongside the deferred test-mock cleanup (Permissions store mock noise from `1b4b06d`).
+
+## Plan 03-11 closure (2026-05-10)
+
+Plan 03-11 landed Option 1: Wave 1 polish plan covering A1, A3, A4, A5, A6. A2 escalated to user (no source rig artwork available — see "A2 closure attempt" subsection above). Per-amendment closure stamps recorded inline above (search for `**Closure:**`).
+
+**Next operator action — D-WAVE-08 acceptance gate:** re-walk Pixel 10a per `03-WAVE1-SMOKE.md` to verify A1, A3, A4, A5, A6 closures on-device, then stamp `re-walked-on: 2026-MM-DD` in `03-WAVE1-SMOKE.md`. Wave 2 plan-phase (Plan 03-04 capture-foundation-muxer-bridge) is gated on that stamp. If the operator chooses to ship Wave 2 with the rig page still showing transparent placeholder (A2 escalated), that's an explicit operator call.

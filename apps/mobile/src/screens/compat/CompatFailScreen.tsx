@@ -1,9 +1,16 @@
 /**
  * CompatFailScreen — design-spec §4d + COMPAT-08 (post Plan 03-03 merge).
  *
- * Single screen. Failure list + recovery body + Contact Support CTA all
- * inline; the standalone CompatRecoveryScreen and its CompatRecovery route
- * are deleted in this same plan (02-COSMETIC-GAPS.md § Compat-fail screen).
+ * Single screen. Failure list + 1-line recovery body + Contact Support
+ * CTA all inline; the standalone CompatRecoveryScreen and its
+ * CompatRecovery route are deleted (02-COSMETIC-GAPS.md § Compat-fail
+ * screen).
+ *
+ * Plan 03-11 (A5) — "What Now" recovery bullets dropped per Pixel 10a
+ * re-walk amendment. Screen now renders: failure list + 1-sentence
+ * contextual line + Contact Support CTA. The 3 recovery bullets felt
+ * like filler between the failure reason and the action; the failure
+ * list itself already itemizes WHAT failed.
  *
  * Layout (per 02-COSMETIC-GAPS.md): center-aligned both horizontally and
  * vertically; no flex spacer pushing the CTA to the bottom; the entire
@@ -57,35 +64,12 @@ export default function CompatFailScreen() {
           ))}
         </View>
 
-        {/* Recovery body — inlined from the deleted CompatRecoveryScreen.
-            Keeps the COMPAT-08 "what now" guidance one scroll away from
-            the failure rows. */}
+        {/* Plan 03-11 (A5) — recoveryBody tightened to 1 sentence; the
+            failure list above already itemizes WHAT failed, so the bullets
+            were filler between the failure reason and the action. */}
         <Text variant="body" tone="secondary" style={styles.recoveryBody}>
-          This phone doesn&apos;t meet the recording requirements. Try a different qualifying
-          device, or reach out to support — share your phone model and roughly when this happened.
+          This phone doesn&apos;t meet the recording requirements.
         </Text>
-
-        <View style={styles.bullets}>
-          <Text
-            variant="body"
-            style={styles.bullet}
-            accessibilityLabel="recovery-bullet-different-device"
-          >
-            {'• '}Try a different phone with a 1080p ultrawide rear camera (≥110° dFOV) and a
-            gyroscope + accelerometer.
-          </Text>
-          <Text
-            variant="body"
-            style={styles.bullet}
-            accessibilityLabel="recovery-bullet-not-rooted"
-          >
-            {'• '}Make sure the device is not rooted and was installed from a trusted source.
-          </Text>
-          <Text variant="body" style={styles.bullet} accessibilityLabel="recovery-bullet-rerun">
-            {'• '}If you&apos;ve changed phones recently, the check will re-run automatically the
-            next time you sign in.
-          </Text>
-        </View>
 
         <View style={styles.ctaWrap}>
           <Button
@@ -174,9 +158,10 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: spacing.m },
   cross: { color: colors.coral, marginRight: spacing.ms },
   lineText: { flex: 1 },
-  recoveryBody: { marginBottom: spacing.ll, textAlign: 'center' },
-  bullets: { width: '100%', marginBottom: spacing.xxxl },
-  bullet: { marginBottom: spacing.ms },
+  // Plan 03-11 (A5) — recoveryBody now sits directly above the CTA; bumped
+  // marginBottom from `ll` to `xxxl` so the 1-sentence body has the breathing
+  // room the bullets used to provide before the Contact Support button.
+  recoveryBody: { marginBottom: spacing.xxxl, textAlign: 'center' },
   // Contact Support CTA — content-driven width (alignSelf: 'center'), same
   // rule as Plan 03-02 Sign-up + Permissions ctaWrap.
   ctaWrap: { alignSelf: 'center' },
