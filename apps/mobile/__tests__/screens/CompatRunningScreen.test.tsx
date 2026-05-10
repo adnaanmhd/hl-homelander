@@ -152,4 +152,54 @@ describe('CompatRunningScreen (design-spec §4a/§4b)', () => {
     // No setCompatResult on error path.
     expect(mockSetCompatResult).not.toHaveBeenCalled();
   });
+
+  it('Test 6: progress events drive row state machine before final result', async () => {
+    // Mock runCompatCheck to fire the full event sequence, then resolve.
+    // Using a deferred resolve so the test can assert intermediate row
+    // states (running) BEFORE the final pass/fail sweep.
+    const HAPPY_ENC = { bFramePresent: false, oisOff: true, hdrSdrForced: true };
+    const HAPPY_IMU = { sustainedHz: 200, p99IntervalMs: 6, samplesCollected: 6000 };
+    const HAPPY_CAPS = {
+      resolutionMax: { w: 1920, h: 1080 },
+      fpsMax: 30,
+      ultrawideDfovDeg: 118,
+      micSampleRateMax: 48_000,
+      realtimeTimestampSource: true,
+      motionSensorsPresent: true,
+      rooted: false,
+      freeStorageGB: 12,
+    };
+
+    let resolveResult: ((r: unknown) => void) | undefined;
+    let progressListener: ((e: unknown) => void) | undefined;
+
+    mockRunCompatCheck.mockImplementation((onProgress: (e: unknown) => void) => {
+      progressListener = onProgress;
+      return new Promise((resolve) => {
+        resolveResult = resolve;
+      });
+    });
+
+    render(<CompatRunningScreen />);
+    expect(progressListener).toBeDefined();
+
+    // Drive the encoder lifecycle. Integrity row goes 'running'.
+    progressListener!({ phase: 'encoder', status: 'started' });
+    progressListener!({ phase: 'encoder', status: 'completed', result: HAPPY_ENC });
+
+    // Drive the imu lifecycle. motionSensors + imu rows resolve to 'pass'.
+    progressListener!({ phase: 'imu', status: 'started' });
+    progressListener!({ phase: 'imu', status: 'completed', result: HAPPY_IMU });
+
+    // Drive deviceCaps. caps-dependent rows resolve, integrity now resolves.
+    progressListener!({ phase: 'deviceCaps', status: 'started' });
+    progressListener!({ phase: 'deviceCaps', status: 'completed', result: HAPPY_CAPS });
+
+    // Resolve runCompatCheck with the assembled result for the final sweep.
+    resolveResult!(PASS_RESULT);
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('CompatPass'), {
+      timeout: 2000,
+    });
+  });
 });
