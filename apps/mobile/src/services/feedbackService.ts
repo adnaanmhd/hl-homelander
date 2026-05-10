@@ -119,21 +119,33 @@ export async function submitFeedback(input: SubmitFeedbackInput): Promise<void> 
   const form = new FormData();
   form.append('category', input.category);
   form.append('message', input.message);
-  // RN's FormData polyfill accepts a `{ name, type, string }` blob-shape
-  // (react-native/Libraries/Network/FormData.js → falls through to a
-  // text/* part with the supplied content-type). On JSDOM (vitest) FormData
-  // requires a real Blob, so we hand it a Blob in either runtime. The
-  // multipart Content-Type carries `application/json` so @fastify/multipart's
-  // mimetype allowlist accepts the part.
+  // quick-260510-008 — branch on `Platform.OS` instead of `typeof Blob` for
+  // the diagnostic part shape.
+  //
+  // Original code: `if (typeof Blob !== 'undefined') { Blob path } else { legacy }`.
+  // Hermes (RN 0.83 new architecture) provides a Blob polyfill, so the Blob
+  // path was always taken on-device. But RN's networking layer
+  // (RCTNetworking + okhttp on Android) silently emits "Network request
+  // failed" on the response-read side AFTER the server has returned 201
+  // when the multipart body contains a Blob part. The server log shows
+  // 201 + a written DB row (we observed this twice on Pixel 10a during the
+  // Phase 2 §9 smoke walk on 2026-05-10) but the client's `await
+  // res.text()` rejects with that fetch-level error string. Misleading UX:
+  // the user sees "Failed" even though their feedback row landed cleanly.
+  //
+  // Fix: use the legacy `{ name, type, string }` blob-shape on real RN (the
+  // multipart path that ships through the native FormData implementation
+  // directly, no Blob wrapper). Tests under JSDOM still need a real Blob
+  // because the spec-compliant FormData ctor refuses arbitrary objects, so
+  // the JSDOM branch keeps the Blob path.
+  //
+  // The multipart Content-Type carries `application/json` either way so
+  // @fastify/multipart's mimetype allowlist accepts the part.
   const diagnosticJson = JSON.stringify(diagnostic);
-  let diagnosticPart: Blob;
-  if (typeof Blob !== 'undefined') {
-    diagnosticPart = new Blob([diagnosticJson], { type: 'application/json' });
-    form.append('diagnostic', diagnosticPart, 'diagnostic.json');
-  } else {
-    // RN < 0.76 fallback path: cast the polyfill blob-shape to Blob to satisfy
-    // FormData.append's TS signature. The native FormData class reads
-    // { name, type, string } and emits the multipart part correctly.
+  if (Platform.OS === 'android' || Platform.OS === 'ios') {
+    // RN native FormData implementation reads { name, type, string } and emits
+    // the multipart part correctly without going through the Blob/RCTBlobManager
+    // path that triggers the response-read failure on RN 0.83 new arch.
     form.append(
       'diagnostic',
       {
@@ -141,6 +153,13 @@ export async function submitFeedback(input: SubmitFeedbackInput): Promise<void> 
         type: 'application/json',
         string: diagnosticJson,
       } as unknown as Blob,
+      'diagnostic.json',
+    );
+  } else {
+    // JSDOM (vitest) path — spec-compliant FormData requires a real Blob.
+    form.append(
+      'diagnostic',
+      new Blob([diagnosticJson], { type: 'application/json' }),
       'diagnostic.json',
     );
   }
