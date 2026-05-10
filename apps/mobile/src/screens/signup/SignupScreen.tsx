@@ -124,13 +124,15 @@ export default function SignupScreen() {
     <ScreenContainer accessibilityLabel="Signup screen" style={styles.container}>
       <View style={styles.top}>
         <View accessibilityLabel="Humyn Labs logo" style={styles.logoWell}>
-          {/* Plan 03-02 — drop the cover-crop + magic-number sizing. The
-              @1x/@2x/@3x density-bucketed PNG (Plan 03-01) carries its
-              intrinsic dimensions and Metro auto-picks per device. */}
+          {/* Plan 03-11 (A6) — explicit shrunk 256×58 dp dimensions per
+              Pixel 10a re-walk amendment. Sign-up logo no longer dominates
+              the top of the screen; aspect preserved (256/58 ≈ 4.41:1 vs
+              source 320/73 ≈ 4.38:1, within ±1%). */}
           <Image
             source={ORANGE_LOGO}
             accessibilityLabel="Humyn Labs Capture wordmark"
             accessibilityIgnoresInvertColors
+            style={{ width: 256, height: 58, resizeMode: 'contain' }}
           />
         </View>
         <Text
