@@ -9,7 +9,8 @@
     "test": "vitest run",
     "verify-manifests": "bash scripts/verify-merged-manifests.sh",
     "build:help": "node scripts/build-help-content.mjs",
-    "prebuild": "npm run build:help"
+    "build:assets": "react-native-asset",
+    "prebuild": "npm run build:help && npm run build:assets"
   },
   "dependencies": {
     "@babel/runtime": "^7.29.2",
