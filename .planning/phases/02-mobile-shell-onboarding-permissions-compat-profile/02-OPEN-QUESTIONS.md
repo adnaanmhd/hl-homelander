@@ -10,6 +10,8 @@
 
 ## OQ-1: Help Center / Contact Support — final email address
 
+**Status (2026-05-10):** **RESOLVED** — email is `support@humynlabs.ai`. Code substitution is queued in the Phase 3 Wave 1 cosmetic-cleanup commit (see `02-COSMETIC-GAPS.md` § Rig Tutorial screen). NOT applied out-of-band during the Phase 2 smoke walk per `feedback_functionality_first_during_smoke.md`.
+
 **Description:** The `[EMAIL_ADDRESS]` placeholder is the user-visible support email. It surfaces at every Contact Support exit in the Phase 2 surface — three on-device touchpoints derived from one source-of-truth file. All five occurrences must flip to the real address atomically (one commit) so we never ship a build where some surfaces have the real email and some don't.
 
 | File                                                      | Where                                                                                                                                                   | Phase                           |
@@ -40,6 +42,8 @@
 ---
 
 ## OQ-2: Compat-fail "what now" recovery page — final wording
+
+**Status (2026-05-10):** **SUPERSEDED** by Phase 3 Wave 1 scope change — `CompatRecoveryScreen` will be merged into `CompatFailScreen` (single screen, no second navigation hop). See `02-COSMETIC-GAPS.md` § Compat-fail screen. The writer pass now happens against the merged screen, not the standalone recovery screen. The original wording-quality concern still stands — re-target it at the merged screen during the cleanup. The text below stays as a record of the pre-merge state.
 
 **Description:** `apps/mobile/src/screens/compat/CompatRecoveryScreen.tsx` ships first-pass recovery copy that's technically accurate but has not had a writer pass. The prototype.html `#compat-fail` recovery state is currently a TBD per design-spec §4 ("Edge states (production)"). Final wording is owed before the screen is seen by paying users.
 
