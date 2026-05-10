@@ -159,17 +159,21 @@ space-between` (or equivalent flex layout instruction in design-spec
   reverts the avatar to the 'U' fallback.** Surfaced during Phase 2
   §13 Crashlytics soak (2026-05-10).
 - **Avatar regresses to 'U' on app foreground after Android process
-  kill.** Pattern 64's `appStore.user` slice is _transient_ (not
-  MMKV-persisted by design — staleness-vs-backend trade-off). When
-  Android reaps the JS context during background, MMKV restores the
-  JWT but the user slice rehydrates as `null`. All three tab TopBars
-  then show 'U' until the user navigates to Profile, which triggers
-  `/me` and repopulates the slice. Phase 3 W1 fix should either
-  (a) add a foreground hook in `RootNativeStack`/`MainTabs` that
-  fires `/me` when `appStore.user == null && jwt != null`, or
-  (b) reverse Pattern 64 and persist a minimally-stale snapshot
-  (last-known avatar URL only) — option (a) is preferred to keep the
-  staleness window short and avoid persisting display state.
+  kill** _(reconfirmed during 2026-05-10 UAT — user explicitly
+  re-flagged "profile avatar becomes 'U' again after closing app and
+  reopening" and accepted Phase 3 W1 deferral)._ Pattern 64's
+  `appStore.user` slice is _transient_ (not MMKV-persisted by design
+  — staleness-vs-backend trade-off). When Android reaps the JS
+  context during background, MMKV restores the JWT but the user slice
+  rehydrates as `null`. The Profile screen + all three tab TopBars
+  then show 'U' until `/me` completes (Profile fires it on mount; the
+  TopBars in Home / Tasks / History do not). Phase 3 W1 fix should
+  either (a) add a foreground hook in `RootNativeStack`/`MainTabs`
+  that fires `/me` when `appStore.user == null && jwt != null` (so
+  the slice repopulates BEFORE the user reaches any avatar-rendering
+  surface), or (b) reverse Pattern 64 and persist a minimally-stale
+  snapshot (last-known avatar URL only) — option (a) is preferred to
+  keep the staleness window short and avoid persisting display state.
 - **Refactor candidate (Phase 3 W1).** Extract a small
   `useTabTopBarProps()` hook that returns
   `{ avatarInitial, avatarUrl, onAvatarPress }` so all three tab
