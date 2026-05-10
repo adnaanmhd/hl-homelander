@@ -1,0 +1,175 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-05-10T04:34:24Z",
+  "phase": "02",
+  "phase_name": "mobile-shell-onboarding-permissions-compat-profile",
+  "phase_dir": ".planning/phases/02-mobile-shell-onboarding-permissions-compat-profile",
+  "plan": "02-21",
+  "task": "operator-smoke-walk",
+  "total_tasks": 13,
+  "status": "paused",
+  "completed_tasks": [
+    {
+      "id": "smoke-section-1",
+      "name": "§1 Cold-start gate decision tree (Path A — fresh install)",
+      "status": "done",
+      "commit": "(operator-walked, in apps/mobile/02-MANUAL-SMOKE.md uncommitted edits — DO NOT include cosmetic edits in any commit)"
+    },
+    {
+      "id": "smoke-section-2",
+      "name": "§2 Sign-up + Terms-of-Use modal — full sign-in round-trip green",
+      "status": "done",
+      "commit": "8b13d23 (Pattern 58 nonce padding fix landed via this section)",
+      "context": "4 fix-forward commits cleared the auth wall (77e981f, 8b13d23, 8f4dc57) + operator-side provisioning (OAuth client, SA key, REMOTE_CONFIG_JSON, Play Integrity API enablement)"
+    },
+    {
+      "id": "smoke-section-3",
+      "name": "§3 Permissions — Camera + Mic granted, Continue advanced",
+      "status": "done"
+    },
+    {
+      "id": "smoke-section-4",
+      "name": "§4 Compat happy path — IMU probe leg cleared (HIGH_SAMPLING_RATE_SENSORS)",
+      "status": "in_progress",
+      "progress": "Encoder probe + IMU probe + DeviceCaps reads all execute end-to-end. Compat result assembled. Single failed check: ultrawideDfov.pass=false (measured 83°, requires ≥110°). Real Pixel 10a back ultrawide spec is ~120°, so DeviceCaps.kt is selecting the wrong camera (likely the main wide-angle ~78° dFOV) rather than the back ultrawide. Auth surface fully unblocked; this is the LAST blocker for §4."
+    }
+  ],
+  "remaining_tasks": [
+    {
+      "id": "smoke-section-5",
+      "name": "§5 Compat fail UI (COMPAT-06/08) — fail UI on a downgrade fixture",
+      "status": "not_started"
+    },
+    {
+      "id": "smoke-section-6",
+      "name": "§6 Tutorial Rig screen (ONB-01/02)",
+      "status": "not_started"
+    },
+    { "id": "smoke-section-7", "name": "§7 Bottom-nav tabs (HOME-07/08)", "status": "not_started" },
+    {
+      "id": "smoke-section-8",
+      "name": "§8 Profile (PROF-01..05 + AUTH-08..10)",
+      "status": "not_started"
+    },
+    { "id": "smoke-section-9", "name": "§9 Help Center (HELP-01..05)", "status": "not_started" },
+    {
+      "id": "smoke-section-10",
+      "name": "§10 ForceUpgrade APK install (UPG-03 + Pattern 50)",
+      "status": "not_started"
+    },
+    {
+      "id": "smoke-section-11",
+      "name": "§11 ForceUpgrade Play Store hand-off (UPG-03)",
+      "status": "not_started"
+    },
+    {
+      "id": "smoke-section-12",
+      "name": "§12 Soft-upgrade banner (UPG-04)",
+      "status": "not_started"
+    },
+    {
+      "id": "smoke-section-13",
+      "name": "§13 Crashlytics ≥ 1h soak gate (PHASE-2 SHIP GATE, T-2.21-01)",
+      "status": "not_started"
+    },
+    {
+      "id": "commit-walked-runbook",
+      "name": "Commit walked apps/mobile/02-MANUAL-SMOKE.md + clear .continue-here.md",
+      "status": "not_started"
+    }
+  ],
+  "blockers": [
+    {
+      "description": "DeviceCaps.kt selects the wrong camera for ultrawide dFOV measurement. Pixel 10a measured 83° vs spec ≥110° (real spec ~120°). This is the same bug the morning .continue-here.md flagged via DeviceCapsTest Robolectric failure (\"dfov for Pixel 7a back ultrawide: expected ~118-122°, got 134.7°\") — both symptoms point to wrong cameraId selection logic.",
+      "type": "technical",
+      "workaround": "None acceptable in scope — capture quality is the LOCKED core value of the project (PROJECT.md). Real fix in DeviceCaps.kt camera-selection logic is required."
+    }
+  ],
+  "human_actions_pending": [
+    {
+      "action": "Re-establish dev backend if it died (commands in .continue-here.md)",
+      "context": "tsx watch was running at pause time. /gsd-resume-work may need to confirm /tmp/humyn-api.log is fresh and `:8080/healthz` responds.",
+      "blocking": false
+    },
+    {
+      "action": "Re-confirm adb reverse + device connection",
+      "context": "`adb devices` should show `5C161JEA304304 device`; `adb reverse --list` should show `UsbFfs tcp:8080 tcp:8080`. Re-establish if dropped (USB / reboot).",
+      "blocking": false
+    },
+    {
+      "action": "Walk smoke sections §5–§13 on the device (operator-driven)",
+      "context": "After DeviceCaps fix lands and §4 passes, the operator drives the remaining 9 sections plus the §13 ≥1h Crashlytics soak gate. Total wall-clock ~1.5h including the soak.",
+      "blocking": false
+    }
+  ],
+  "decisions": [
+    {
+      "decision": "Pattern 58 — strip trailing `=` from candidateNonce in consumeNonce before SHA-256",
+      "rationale": "Play Integrity Classic API re-pads URL-safe-base64 nonces to standard-base64 length (43 → 44 chars + `=`). Without normalization, every sign-in 401s with `Nonce check: mismatch`. Empirically diagnosed via temp logs that captured both nonce values side-by-side.",
+      "phase": "02-21"
+    },
+    {
+      "decision": "Per-flavor BuildConfig long for GOOGLE_CLOUD_PROJECT_NUMBER (NOT via react-native-config dotenv)",
+      "rationale": "react-native-config's dotenv.gradle emits a String BuildConfig field for every .env key in defaultConfig, which would collide with the explicit `long` per-flavor declaration (AGP merge type-mismatch). No JS caller reads Config.GOOGLE_CLOUD_PROJECT_NUMBER. Native modules read BuildConfig directly. Documented in commit 77e981f.",
+      "phase": "02-21"
+    },
+    {
+      "decision": "HIGH_SAMPLING_RATE_SENSORS in BASE manifest (universal across both flavors)",
+      "rationale": "Compat probe runs identically on apkRollout + playStore. Permission is a normal-level permission (manifest-only, no runtime prompt). Required by Android 12+ when sensor sampling > 200 Hz. Mirrors Pattern 53 defense-in-depth (vitest source-grep + Gradle merged-manifest shell guard both extended).",
+      "phase": "quick-260510-001"
+    },
+    {
+      "decision": "Diagnostic [COMPAT_DEBUG] + [DEBUG_REVERT_BEFORE_COMMIT] log lines must be reverted before commit",
+      "rationale": "Production must NEVER log nonce material or probe error stacks at warn level. Used during debug to surface the SecurityException from the silent-catch in CompatRunningScreen + the nonce mismatch from the Play Integrity round-trip. Both fully reverted before the fix commits landed (verified via `git diff` shows clean before commit).",
+      "phase": "02-21 / quick-260510-001"
+    }
+  ],
+  "uncommitted_files": [
+    {
+      "path": ".planning/STATE.md",
+      "kind": "intentional — STATE.md updated at pause to reflect today's progress; will be picked up by the WIP commit below"
+    },
+    {
+      "path": "CLAUDE.md",
+      "kind": "pre-existing — predates this session; unrelated to smoke walk; DO NOT include in the WIP commit"
+    },
+    {
+      "path": "apps/mobile/src/screens/signup/SignupScreen.tsx",
+      "kind": "Phase 3 Wave 1 cosmetic backlog — DO NOT touch or commit (memory feedback_functionality_first_during_smoke.md)"
+    },
+    {
+      "path": "apps/mobile/src/ui/primitives/Text.tsx",
+      "kind": "Phase 3 Wave 1 cosmetic backlog — DO NOT touch or commit (memory feedback_functionality_first_during_smoke.md)"
+    }
+  ],
+  "next_action": "Read apps/mobile/android/app/src/main/java/ai/humynlabs/capture/compat/DeviceCaps.kt — focus on the camera-selection logic. Cross-reference with apps/mobile/android/app/src/test/java/ai/humynlabs/capture/compat/DeviceCapsTest.kt (Robolectric, has 3 failing cases including 'dfov for Pixel 7a back ultrawide: expected ~118-122°, got 134.7°' that the morning handoff flagged). Hypothesis: the cameraId picker is choosing the main wide (LENS_FACING=BACK, focal length ~5mm, ~78° dFOV) instead of enumerating ALL back cameras and picking the largest dFOV (the ultrawide). Pixel 10a Camera2 enumeration: ID 0 (main wide), ID 1 (front), ID 2 (back ultrawide). After fix: rebuild apkRollout APK, adb install -r, force-stop + relaunch (no pm clear — app data preserved). Compat should pass → CompatPassScreen → continue smoke walk §5–§13.",
+  "context_notes": "Today (2026-05-10) was a productive iteration session that cleared 5 distinct layers of the auth + compat stack: (1) OAuth Android client provisioning [operator-side, GCP Console], (2) Mobile setCloudProjectNumber [code, commit 77e981f], (3) Backend SA key inlined [config, apps/api/.env], (4) Server-side nonce padding [code, Pattern 58, commit 8b13d23], (5) IMU probe permission [code, commit cc867b7]. Each layer was a real, distinct bug — not a regression. The pattern: Phase 1 plan 01-13 + Phase 2 plan 02-15 were both `code-ready-smoke-deferred`, meaning no engineer ran a sign-in or compat probe end-to-end on real hardware before declaring done. Today paid that bill. The remaining DeviceCaps.kt bug is the LAST of the deferred-smoke gaps for §4. After it lands, smoke walk should proceed unblocked through §5–§13. User signaled context-window pressure and frustration about iteration count — the bug-per-cycle ratio was 1:1 today (no wasted iterations on dead-end hypotheses), but the cycle count was high because the deferred-smoke gaps had stacked.",
+  "live_environment": {
+    "backend": {
+      "process": "tsx watch src/index.ts",
+      "binding": "http://localhost:8080",
+      "log_path": "/tmp/humyn-api.log",
+      "restart_recipe": "pgrep -f 'tsx watch src/index.ts' | xargs kill 2>/dev/null; cd apps/api && nohup bash -c 'set -a && source .env && set +a && pnpm dev' > /tmp/humyn-api.log 2>&1 &",
+      "health_check": "curl -s http://localhost:8080/healthz → {\"status\":\"ok\"}"
+    },
+    "device": {
+      "model": "Pixel 10a (Android 16, API 36)",
+      "serial": "5C161JEA304304",
+      "installed_apk": "apkRollout debug build from commit cc867b7 (latest)",
+      "data_state": "Signed in (JWT + Keychain), permissions granted (Camera + Mic), compatLastResult shows ultrawide fail (83°). Gate-decision tree should drop to CompatRunningScreen on next launch."
+    },
+    "adb_reverse": "tcp:8080 tcp:8080",
+    "google_cloud_project": {
+      "number": "130483521533",
+      "id": "homelander-24045",
+      "android_oauth_client": "Humyn Labs Capture (apkRollout debug) — package ai.humynlabs.capture.apk + SHA-1 F8:16:58:1D:44:79:5E:77:A3:DF:A4:B9:62:F2:03:37:42:58:42:7A",
+      "service_account": "humyn-play-integrity-decode@homelander-24045.iam.gserviceaccount.com (Service Usage Consumer)",
+      "play_integrity_api": "enabled"
+    },
+    "env_files": {
+      "apps/api/.env": "Has PLAY_INTEGRITY_SA_KEY_JSON (single-line JSON for service account) and REMOTE_CONFIG_JSON ('{\"auth.apk_install_source_bypass.ai.humynlabs.capture.apk\": true}'). Both gitignored. SA-key JSON file at /Users/adnaan/Documents/hl-homelander/homelander-24045-1184f935e587.json (gitignored via .gitignore patterns added in commit 8b13d23).",
+      "apps/mobile/.env.apkRollout": "API_BASE_URL=http://localhost:8080 (over adb reverse) + GOOGLE_WEB_CLIENT_ID=130483521533-rgtkna3144hod4hdvnkn32r8f6b0i414.apps.googleusercontent.com",
+      "apps/mobile/.env.playStore": "API_BASE_URL=https://api.humyn.ai (prod) + GOOGLE_WEB_CLIENT_ID=same as apkRollout"
+    }
+  }
+}
