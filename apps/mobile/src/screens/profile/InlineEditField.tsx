@@ -9,10 +9,10 @@
 // hairline border between rows. Uses tokens — NO hex literal in this file.
 
 import React, { useState, useCallback } from 'react';
-import { View, TextInput, StyleSheet } from 'react-native';
+import { View, TextInput, StyleSheet, Modal } from 'react-native';
 import { Text } from '../../ui/primitives/Text';
 import { Pressable } from '../../ui/primitives/Pressable';
-import { colors, spacing } from '../../ui/tokens';
+import { colors, radii, spacing } from '../../ui/tokens';
 
 export interface InlineEditFieldProps {
   /** Label text (also used as the accessibilityLabel base). */
@@ -29,6 +29,14 @@ export interface InlineEditFieldProps {
    * called and the row reverts to the original value.
    */
   nullable?: boolean;
+  /**
+   * When provided, the field switches from free-text edit to a constrained
+   * choice picker. Tap → modal with one Pressable per option; selection saves
+   * via onSave and closes the modal. Used for Gender (Male / Female / Don't
+   * want to disclose) so the value space is enforced client-side without
+   * requiring a backend enum.
+   */
+  options?: string[];
   /** Called with the new value (or null) when the user commits the edit. */
   onSave: (next: string | null) => Promise<void>;
 }
@@ -40,6 +48,7 @@ export function InlineEditField(props: InlineEditFieldProps): React.JSX.Element 
     placeholder = '— Add',
     keyboardType = 'default',
     nullable = false,
+    options,
     onSave,
   } = props;
   const [editing, setEditing] = useState(false);
@@ -61,6 +70,75 @@ export function InlineEditField(props: InlineEditFieldProps): React.JSX.Element 
       setEditing(false);
     }
   }, [draft, nullable, onSave, value]);
+
+  const pickOption = useCallback(
+    async (option: string) => {
+      setEditing(false);
+      if (option === value) return;
+      try {
+        setBusy(true);
+        await onSave(option);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [onSave, value],
+  );
+
+  // Choice picker mode — modal with a Pressable per option.
+  if (options && options.length > 0) {
+    return (
+      <>
+        <Pressable
+          style={styles.row}
+          onPress={() => setEditing(true)}
+          accessibilityLabel={`field-${label}`}
+        >
+          <Text variant="body" style={styles.label}>
+            {label}
+          </Text>
+          <Text variant="body" tone={value == null ? 'tertiary' : 'primary'} style={styles.value}>
+            {value == null ? placeholder : value}
+          </Text>
+        </Pressable>
+        <Modal
+          transparent
+          visible={editing}
+          animationType="fade"
+          onRequestClose={() => setEditing(false)}
+        >
+          <Pressable
+            style={styles.scrim}
+            onPress={() => setEditing(false)}
+            accessibilityLabel={`field-${label}-modal-scrim`}
+          >
+            <Pressable
+              style={styles.card}
+              onPress={() => undefined}
+              accessibilityLabel={`field-${label}-modal`}
+            >
+              <Text variant="body" style={styles.modalTitle}>
+                {label}
+              </Text>
+              {options.map((opt) => (
+                <Pressable
+                  key={opt}
+                  onPress={() => void pickOption(opt)}
+                  style={[styles.optionRow, opt === value && styles.optionRowSelected]}
+                  accessibilityLabel={`field-${label}-option-${opt}`}
+                  disabled={busy}
+                >
+                  <Text variant="body" style={styles.optionText}>
+                    {opt}
+                  </Text>
+                </Pressable>
+              ))}
+            </Pressable>
+          </Pressable>
+        </Modal>
+      </>
+    );
+  }
 
   if (editing) {
     return (
@@ -118,6 +196,33 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     borderBottomWidth: 1,
     borderBottomColor: colors.text,
+    color: colors.text,
+  },
+  scrim: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: spacing.xxxl,
+  },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.modal,
+    padding: spacing.xl,
+  },
+  modalTitle: {
+    marginBottom: spacing.l,
+    color: colors.text,
+  },
+  optionRow: {
+    paddingVertical: spacing.mdl,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    marginBottom: spacing.s,
+  },
+  optionRowSelected: {
+    backgroundColor: colors.accentSoft,
+  },
+  optionText: {
     color: colors.text,
   },
 });
