@@ -1052,30 +1052,30 @@ object SegmentDurationConfig {
 | A6  | `io.azam.ulidj:ulidj:2.0.0` is a viable Java/Kotlin ULID library for the device side.                                                                                                 | Don't Hand-Roll table             | Verified release date Feb 25, 2026; lightweight (single-class jar). Alternative is hand-rolling 50 LOC. [VERIFIED via Maven Central + GitHub README]                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | A7  | `imu_video_drift_*_ms` are integers in `RecordingsInitRequestSchema` — but `idea-brief.md §6.5` and the example `video_metadata.json` carry decimal values like `0.7`, `0.18`, `0.5`. | Pitfall 7                         | The shared-types `recording.ts` line 30–32 says `z.number().int().nullable().optional()`. The metadata JSON on disk carries decimals. **Conflict:** the device-side metadata JSON shape DIFFERS from the wire schema. Planner must reconcile. **Recommendation:** keep the device-side metadata JSON as decimals (verbatim per `video_metadata.json` schema), and update the API wire schema to `z.number()` (drop `.int()`) when Phase 5 wires the upload — OR multiply by 1000 to nanoseconds-as-int on the wire. Flag for Phase 5's planner. [ASSUMED — needs reconciliation] |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `bframe_anomaly` be added to metadata schema as a per-segment field?**
 
    - What we know: Phase 2 PITFALLS.md Pitfall 1 documents intermittent B-frame leakage on certain MediaTek/Exynos devices.
    - What's unclear: whether Phase 3 should add a per-segment first-GOP NAL parse or trust Phase 2's compat-time gate.
-   - Recommendation: SKIP. Compat already gates the device. Adding it bloats the segment-cut critical path. If the QA pipeline starts seeing B-frame anomalies in production, revisit in v2.
+   - RESOLVED: SKIP. Compat already gates the device. Adding it bloats the segment-cut critical path. If the QA pipeline starts seeing B-frame anomalies in production, revisit in v2.
 
 2. **MMKV-backed counter vs `ls`-derived for per-day NNN sequence?**
 
    - What we know: D-FS-03 says counter persists across restarts, recovered from `ls` if MMKV is wiped.
    - What's unclear: which is the primary, which the fallback.
-   - Recommendation: `ls`-derived is the authoritative source (self-healing); MMKV is a non-load-bearing optimization for "skip the dir scan if cache is valid." Code Example 9 implements ls-derived only. Planner can add the cache later.
+   - RESOLVED: `ls`-derived is the authoritative source (self-healing); MMKV is a non-load-bearing optimization for "skip the dir scan if cache is valid." Code Example 9 implements ls-derived only. Planner can add the cache later.
 
 3. **Should the per-segment SHA computation include the `.session.json` sidecar?**
 
    - What we know: CAP-15 says SHA of MP4 + SHA of CSV. The sidecar is internal.
    - What's unclear: whether sidecar bytes belong in the metadata JSON.
-   - Recommendation: NO. Sidecar is a private device-side recovery primitive. It's deleted at finalize before the metadata JSON publishes the SHAs. Schema does not include it.
+   - RESOLVED: NO. Sidecar is a private device-side recovery primitive. It's deleted at finalize before the metadata JSON publishes the SHAs. Schema does not include it.
 
 4. **Does `RecordingsInitRequestSchema.imuVideoDriftMaxMs` `.int()` constraint conflict with decimal-valued drift in the metadata JSON?**
    - What we know: shared-types/recording.ts uses `z.number().int().nullable().optional()`; idea-brief.md §6.5 example values are `0.7`, `0.18`, `0.5`.
    - What's unclear: whether this is a schema bug (should be `z.number()`) or whether drift figures are intended to be int-millis.
-   - Recommendation: Flag for Phase 5's planner to fix when the upload pipeline wires the multipart init request. Phase 3's metadata JSON on disk is decimal per the canonical schema in `video_metadata.json` — do not break that for the wire-shape mismatch.
+   - RESOLVED: Phase 3's metadata JSON on disk stays decimal per the canonical schema in `video_metadata.json` (idea-brief.md §6.5 example values `0.7`, `0.18`, `0.5`). The wire-shape mismatch with `shared-types/recording.ts` line 30–32 (`z.number().int()`) is recorded as Phase 5 follow-up D-FLAG-04 in CONTEXT.md ## Deferred Ideas — Phase 5's planner reconciles by either dropping the `.int()` constraint OR multiplying by 1000 to nanoseconds-as-int on the wire.
 
 ## Environment Availability
 

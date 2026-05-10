@@ -104,7 +104,37 @@ Plans:
 3. A 25-minute continuous capture session auto-segments every 10 minutes (remote-config-driven default) with a 0.5 s gap, each segment owning its own MP4 / CSV / JSON / ULID `recording_id` with no `parent_recording_id` linkage and filenames following `YYYYMMDD_HHMMSS_NNN.<ext>`
 4. Pre-record thermal check refuses to start when `getCurrentThermalStatus() ≥ THROTTLING` with the documented toast, mid-record `≥ THROTTLING_SEVERE` ends the segment cleanly within ~2.5 s, the foreground service runs as `camera | microphone | dataSync` with `KEEP_SCREEN_ON`, and in-flight uploads pause on record start and resume on stop
 5. SHA-256 of the MP4 and SHA-256 of the IMU CSV are computed at finalize and stamped into the metadata JSON as `file_sha256` / `imu_sha256`, and the resulting MP4 / CSV / JSON files are NEVER decoded, re-encoded, transcoded, or stripped between device and S3
-   **Plans**: TBD
+
+**Plans:** 10 plans
+
+Plans:
+**Wave 1** _(Phase 2 cosmetic fix-up — D-WAVE-04..05; lands first per memory `project_phase3_wave1_cosmetic_fixup.md`; parallel-OK among the three since file ownership doesn't overlap)_
+
+- [ ] 03-01-cosmetic-asset-prep-PLAN.md — Wave 1a — pre-cropped @1x/@2x/@3x logo + rig asset PNGs + jest-image-snapshot dev dep + Vitest expect.extend adapter (no screen edits)
+- [ ] 03-02-cosmetic-screen-fixup-PLAN.md — Wave 1b — RethinkSans diagnosis + value-prop spacing + CTA position/width across Sign-up/Permissions + BottomNav Lucide icons + 4-of-5 EMAIL_ADDRESS substitution + 6 visual snapshot baselines (depends on Plan 03-01 assets + infra)
+- [ ] 03-03-cosmetic-functional-regressions-PLAN.md — Wave 1 — navigator-touching changes (useTabTopBarProps hook, useForegroundUserRehydrate hook, CompatFail+CompatRecovery merge, CompatPass auto-advance, route-registry update, 5th [EMAIL_ADDRESS] substitution, 03-WAVE1-SMOKE.md operator runbook)
+
+**Wave 2 entry** _(Wave 2 entry — blocked on Wave 1 commits + operator re-walk per D-WAVE-08)_
+
+- [ ] 03-04-capture-foundation-muxer-bridge-PLAN.md — `androidx.media3:media3-muxer:1.10.0` Gradle dep + FragmentedMuxerWrapper.kt + 17 capture/ Wave 0 Kotlin test stubs (Task 2a) + 1 fgs/ Wave 0 stub (Task 2b) + HumynCapture.ts JS bridge stubs + CaptureSessionOpts Zod schema; includes Task 0 pre-flight that requires `re-walked-on:` stamp in 03-WAVE1-SMOKE.md before any encoder work
+
+**Wave 3** _(parallel — pure-fn primitives + metadata + FGS; depend only on Plan 03-04)_
+
+- [ ] 03-05-pure-fn-primitives-PLAN.md — DriftCalculator (CAP-08), ImuRateObserver (CAP-19), FilenameGenerator (CAP-17 with filename_seq_exhausted guard at NNN=999), UlidGenerator (io.azam.ulidj wrapper per checker issue #15), HashStreamer (CAP-15), SidecarManager (D-FS-05) — flips 6 Wave 0 stubs to GREEN
+- [ ] 03-06-metadata-composer-PLAN.md — MetadataComposer (CAP-16, schema_version → 1.1.0 with imu_min_rate_hz_observed_p1) — flips 1 stub
+- [ ] 03-07-foreground-service-thermal-PLAN.md — HumynForegroundService + Notification + AndroidManifest entry + ThermalGate (CAP-11/12/14) — flips 2 stubs
+
+**Wave 4** _(encoder/audio/IMU wrappers + segment timer; depend on 03-04 + 03-05)_
+
+- [ ] 03-08-encoder-imu-segment-timer-PLAN.md — HevcEncoder (CAP-01), AacEncoder (CAP-03), ImuWriter (CAP-04/05/06), SegmentTimer (CAP-09), BackUltrawidePicker shared util — flips 4 stubs
+
+**Wave 5** _(orchestrator part 1 — bridge surface; depends on 03-04..08)_
+
+- [ ] 03-09-orchestrator-bridge-wireup-PLAN.md — HumynCaptureModule + Package + SegmentDurationConfig + CaptureSessionOptsBridge (dedicated file per checker issue #14) + CaptureLaunchSweep + MainApplication wire-up + JS bridge integration test (5th describe block) + 03-MANUAL-SMOKE.md runbook (start()/stop() ship as `not_implemented_in_03_09` stubs; Plan 03-10 replaces)
+
+**Wave 6** _(orchestrator part 2 — segment lifecycle + final stub flips; depends on 03-09)_
+
+- [ ] 03-10-capture-session-finalize-PLAN.md — CaptureSession.kt orchestrator + FinalizeWorker.kt + replace HumynCaptureModule.start()/stop() bodies — flips final 5 stubs (StartGateCarryover, EventEmission, ClockAlignment, RealtimeGate, FileFidelity). Pump loop appends `bufferInfo.presentationTimeUs * 1_000L` to seg.videoFrameTimestamps for CAP-08 (per checker issue #2). Both files use SystemClock.elapsedRealtimeNanos exclusively (per checker issue #10).
 
 ### Phase 4: HandDetector, Recording UX & Practice Tutorial
 
@@ -176,7 +206,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | ---------------------------------------------------------- | -------------- | ------------------------------------------------ | ---------- |
 | 1. Foundation, Backend & Distribution Recon                | 13/13          | Complete                                         | 2026-05-08 |
 | 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 22/22          | Authoring complete · operator-smoke gate pending | -          |
-| 3. HumynCapture Native Module (Bytes-on-disk)              | 0/TBD          | Not started                                      | -          |
+| 3. HumynCapture Native Module (Bytes-on-disk)              | 0/8            | Plans authored · Wave 1 ready                    | -          |
 | 4. HandDetector, Recording UX & Practice Tutorial          | 0/TBD          | Not started                                      | -          |
 | 5. Upload Pipeline, Hash-Verify Worker & Anti-fraud        | 0/TBD          | Not started                                      | -          |
 | 6. Tasks, History, Home Tiles & Hybrid Search              | 0/TBD          | Not started                                      | -          |
