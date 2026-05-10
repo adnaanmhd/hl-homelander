@@ -110,8 +110,8 @@ Plans:
 Plans:
 **Wave 1** _(Phase 2 cosmetic fix-up — D-WAVE-04..05; lands first per memory `project_phase3_wave1_cosmetic_fixup.md`; parallel-OK among the three since file ownership doesn't overlap)_
 
-- [ ] 03-01-cosmetic-asset-prep-PLAN.md — Wave 1a — pre-cropped @1x/@2x/@3x logo + rig asset PNGs + jest-image-snapshot dev dep + Vitest expect.extend adapter (no screen edits)
-- [ ] 03-02-cosmetic-screen-fixup-PLAN.md — Wave 1b — RethinkSans diagnosis + value-prop spacing + CTA position/width across Sign-up/Permissions + BottomNav Lucide icons + 4-of-5 EMAIL_ADDRESS substitution + 6 visual snapshot baselines (depends on Plan 03-01 assets + infra)
+- [x] 03-01-cosmetic-asset-prep-PLAN.md — Wave 1a — pre-cropped @1x/@2x/@3x logo + rig asset PNGs + jest-image-snapshot dev dep + Vitest expect.extend adapter (no screen edits)
+- [x] 03-02-cosmetic-screen-fixup-PLAN.md — Wave 1b — RethinkSans diagnosis + value-prop spacing + CTA position/width across Sign-up/Permissions + BottomNav Lucide icons + 4-of-5 EMAIL_ADDRESS substitution + 6 visual snapshot baselines (depends on Plan 03-01 assets + infra)
 - [ ] 03-03-cosmetic-functional-regressions-PLAN.md — Wave 1 — navigator-touching changes (useTabTopBarProps hook, useForegroundUserRehydrate hook, CompatFail+CompatRecovery merge, CompatPass auto-advance, route-registry update, 5th [EMAIL_ADDRESS] substitution, 03-WAVE1-SMOKE.md operator runbook)
 
 **Wave 2 entry** _(Wave 2 entry — blocked on Wave 1 commits + operator re-walk per D-WAVE-08)_
@@ -206,7 +206,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | ---------------------------------------------------------- | -------------- | ------------------------------------------------ | ---------- |
 | 1. Foundation, Backend & Distribution Recon                | 13/13          | Complete                                         | 2026-05-08 |
 | 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 22/22          | Authoring complete · operator-smoke gate pending | -          |
-| 3. HumynCapture Native Module (Bytes-on-disk)              | 1/10           | Wave 1 in flight · 03-01 complete                | -          |
+| 3. HumynCapture Native Module (Bytes-on-disk)              | 2/10           | Wave 1 in flight · 03-01+03-02 complete          | -          |
 | 4. HandDetector, Recording UX & Practice Tutorial          | 0/TBD          | Not started                                      | -          |
 | 5. Upload Pipeline, Hash-Verify Worker & Anti-fraud        | 0/TBD          | Not started                                      | -          |
 | 6. Tasks, History, Home Tiles & Hybrid Search              | 0/TBD          | Not started                                      | -          |
