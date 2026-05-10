@@ -41,6 +41,12 @@ import { InlineEditField } from './InlineEditField';
 const PAYMENTS_BODY =
   'Payouts process offline. Your earnings will reflect in the app soon. Keep recording — your data is safe and your payouts are guaranteed.';
 
+// PROF-01 — gender choice picker. User-supplied verbatim spec; the column
+// is `text` on the backend (UserPatchSchema accepts any string up to 40 chars),
+// so the enum is enforced client-side only at MVP. Adding values here is the
+// single source of truth.
+const GENDER_OPTIONS: string[] = ['Male', 'Female', "Don't want to disclose"];
+
 interface ProfileLocal {
   name: string;
   age: number | null;
@@ -261,6 +267,7 @@ export function ProfileScreen(): React.JSX.Element {
           label="Gender"
           value={me.gender}
           nullable
+          options={GENDER_OPTIONS}
           onSave={(v) => saveField('gender', v)}
         />
         <View style={styles.row} accessibilityLabel="profile-joined">
