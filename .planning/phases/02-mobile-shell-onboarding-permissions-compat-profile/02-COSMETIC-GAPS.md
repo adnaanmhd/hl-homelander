@@ -2,7 +2,7 @@
 status: deferred-to-phase-3-wave-1
 phase: 02-mobile-shell-onboarding-permissions-compat-profile
 created: 2026-05-09
-updated: 2026-05-10 (smoke-walk findings: §2 sign-up layout/CTA, §3 permissions CTA, §4 compat-fail merge + center, §4 compat-pass auto-advance, §5 rig illustration + support email decided)
+updated: 2026-05-10 (smoke-walk findings: §2 sign-up layout/CTA, §3 permissions CTA, §4 compat-fail merge + center, §4 compat-pass auto-advance, §5 rig illustration + support email decided, §6 home logo + bottom-nav icons, §7 profile avatar from Google)
 ---
 
 # Phase 2 — Cosmetic gaps (deferred to Phase 3 Wave 1)
@@ -125,6 +125,39 @@ space-between` (or equivalent flex layout instruction in design-spec
 - **Consequence (planning):** the existing CompatPass→next CTA test
   becomes "auto-routes after N ms" — update the unit test alongside
   the screen change.
+
+## Home screen (design-spec §6 / HOME-07..08)
+
+- **Logo missing on Home.** The MainTabs Home tab renders without the
+  brand wordmark in its TopBar. **User direction (verbatim):** "use a
+  big size logo already, I don't want to go through the resizing
+  dance again." Pre-crop the source PNG to a tight wordmark bounding
+  box and re-export at known device-density buckets (`@1x.png`,
+  `@2x.png`, `@3x.png`) so RN picks the right asset density. NO more
+  cover-cropping a transparent-padded 800×800 PNG; ship a
+  device-density-bucketed asset that renders generously without
+  per-screen sizing tweaks.
+- **Bottom-nav: no icons + size too small.** The MainTabs bottom-nav
+  renders text-only labels (Home / Tasks / History) with no Lucide
+  icons above them, and the touch targets feel undersized. Per
+  design-spec §6 the tabs should show 24 dp Lucide icons (`Home`,
+  `ListTodo`, `History`) over the labels with proper accessibility-
+  sized touch targets (≥48 dp). The icons are already pre-allowed in
+  `vitest.setup.ts` lucide mock, so the imports just need wiring in
+  the BottomNav component.
+
+## Profile screen (design-spec §7 / PROF-01..05)
+
+- **Avatar didn't flow from Google account.** The top-right avatar
+  shows a generic placeholder icon instead of the Google account's
+  profile image. Per PROF-01, the user's profile picture URL should
+  flow through from the `/me` response (`avatarUrl` field) and render
+  via `<Image source={{ uri: avatarUrl }} />` in the TopBar avatar
+  slot. Two parts to fix: (a) confirm `/me` returns the avatarUrl
+  from the user table; (b) wire the URL into the TopBar avatar +
+  ProfileScreen header. Note: `/me` was 401'ing until quick task
+  260510-003 landed — operator should re-confirm avatarUrl flow now
+  that the bearer header is attached.
 
 ## Rig Tutorial screen (design-spec §5 / ONB-01..02)
 
