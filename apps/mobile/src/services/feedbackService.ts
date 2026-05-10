@@ -119,8 +119,8 @@ export async function submitFeedback(input: SubmitFeedbackInput): Promise<void> 
   const form = new FormData();
   form.append('category', input.category);
   form.append('message', input.message);
-  // quick-260510-008 — branch on `Platform.OS` instead of `typeof Blob` for
-  // the diagnostic part shape.
+  // quick-260510-008 — branch on Hermes-presence (NOT Platform.OS — see
+  // below) for the diagnostic part shape.
   //
   // Original code: `if (typeof Blob !== 'undefined') { Blob path } else { legacy }`.
   // Hermes (RN 0.83 new architecture) provides a Blob polyfill, so the Blob
@@ -135,14 +135,24 @@ export async function submitFeedback(input: SubmitFeedbackInput): Promise<void> 
   //
   // Fix: use the legacy `{ name, type, string }` blob-shape on real RN (the
   // multipart path that ships through the native FormData implementation
-  // directly, no Blob wrapper). Tests under JSDOM still need a real Blob
-  // because the spec-compliant FormData ctor refuses arbitrary objects, so
-  // the JSDOM branch keeps the Blob path.
+  // directly, no Blob wrapper). JSDOM (vitest) keeps the spec-compliant
+  // Blob branch — JSDOM's FormData throws TypeError on arbitrary-object
+  // values, so we can't share the legacy shape with the test runtime.
+  //
+  // Why `HermesInternal` global instead of `Platform.OS`: Platform.OS is
+  // mocked to 'android' in vitest.setup.ts (apps/mobile is Android-MVP),
+  // so a Platform-based branch routes JSDOM tests through the legacy path
+  // and trips JSDOM's Blob-conversion guard. The HermesInternal global is
+  // only injected by the Hermes engine; JSDOM doesn't have it. Cleanly
+  // partitions production runtime from test runtime without leaking test-
+  // specific knowledge into the production code path.
   //
   // The multipart Content-Type carries `application/json` either way so
   // @fastify/multipart's mimetype allowlist accepts the part.
   const diagnosticJson = JSON.stringify(diagnostic);
-  if (Platform.OS === 'android' || Platform.OS === 'ios') {
+  const isHermes =
+    typeof (globalThis as { HermesInternal?: unknown }).HermesInternal !== 'undefined';
+  if (isHermes) {
     // RN native FormData implementation reads { name, type, string } and emits
     // the multipart part correctly without going through the Blob/RCTBlobManager
     // path that triggers the response-read failure on RN 0.83 new arch.
