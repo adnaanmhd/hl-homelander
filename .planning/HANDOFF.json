@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-10T04:34:24Z",
+  "timestamp": "2026-05-10T06:28:17Z",
   "phase": "02",
   "phase_name": "mobile-shell-onboarding-permissions-compat-profile",
   "phase_dir": ".planning/phases/02-mobile-shell-onboarding-permissions-compat-profile",
@@ -13,14 +13,13 @@
       "id": "smoke-section-1",
       "name": "§1 Cold-start gate decision tree (Path A — fresh install)",
       "status": "done",
-      "commit": "(operator-walked, in apps/mobile/02-MANUAL-SMOKE.md uncommitted edits — DO NOT include cosmetic edits in any commit)"
+      "context": "Re-verified end-to-end on Pixel 10a fresh session post-pm-clear with build containing all today's fix-forwards."
     },
     {
       "id": "smoke-section-2",
       "name": "§2 Sign-up + Terms-of-Use modal — full sign-in round-trip green",
       "status": "done",
-      "commit": "8b13d23 (Pattern 58 nonce padding fix landed via this section)",
-      "context": "4 fix-forward commits cleared the auth wall (77e981f, 8b13d23, 8f4dc57) + operator-side provisioning (OAuth client, SA key, REMOTE_CONFIG_JSON, Play Integrity API enablement)"
+      "context": "Auth surface fully cleared by 4 fix-forward commits earlier today (77e981f, 8b13d23, 8f4dc57, cc867b7) + operator-side provisioning (Google OAuth client, Play Integrity API, REMOTE_CONFIG_JSON, SA key). Re-verified on fresh session."
     },
     {
       "id": "smoke-section-3",
@@ -29,121 +28,146 @@
     },
     {
       "id": "smoke-section-4",
-      "name": "§4 Compat happy path — IMU probe leg cleared (HIGH_SAMPLING_RATE_SENSORS)",
-      "status": "in_progress",
-      "progress": "Encoder probe + IMU probe + DeviceCaps reads all execute end-to-end. Compat result assembled. Single failed check: ultrawideDfov.pass=false (measured 83°, requires ≥110°). Real Pixel 10a back ultrawide spec is ~120°, so DeviceCaps.kt is selecting the wrong camera (likely the main wide-angle ~78° dFOV) rather than the back ultrawide. Auth surface fully unblocked; this is the LAST blocker for §4."
+      "name": "§4 Compat happy path — passes after DeviceCaps LOGICAL_MULTI_CAMERA fix",
+      "status": "done",
+      "commit": "ec86b99",
+      "context": "DeviceCaps.kt now expands LOGICAL_MULTI_CAMERA.physicalIds (Pattern: enumeration via physicalCameraIds on API 28+). Pixel 10a now reports ~115° dFOV (was 83° due to logical-camera default-physical = main-wide). CompatRunningScreen also re-wired to fire row states from real probe events (Pattern 59, commit 629d2be) so the IMU 30s sustained-sampling window doesn't visually hang on the integrity row anymore."
+    },
+    {
+      "id": "smoke-section-6",
+      "name": "§6 Tutorial Rig screen (ONB-01/02)",
+      "status": "done",
+      "context": "Renders heading + body verbatim. 'Don't have a rig yet' → off-ramp. Mailto fires with the [EMAIL_ADDRESS] placeholder (queued for Phase 3 W1 substitution to support@humynlabs.ai per OQ-1 RESOLVED). Hardware-back returns to RigTutorial; Next routes to MainTabs Home."
+    },
+    {
+      "id": "smoke-section-7",
+      "name": "§7 Bottom-nav tabs (HOME-07/08) — structural pass",
+      "status": "done",
+      "context": "3 tabs (Home/Tasks/History) confirmed; Profile is sibling, not tab. TopBar Google avatar now wires through (Pattern 64 — quick-260510-005). Bottom-nav still missing icons + sizing (Phase 3 W1 cosmetic-gaps captured)."
+    },
+    {
+      "id": "smoke-section-8",
+      "name": "§8 Profile (PROF-01..05 + AUTH-08..10) — functional pass",
+      "status": "done",
+      "context": "GET /me works (apiClient bearer header — quick-260510-003 / Pattern 60). PATCH /me persists Name + Gender. Head tap-to-edit functional. Gender modal renders 3 options (Male/Female/Don't want to disclose) — Pattern 63. Logout clears state + resets to OnboardingStack/Signup (Pattern 61, quick-260510-004). Delete-account typing-gate also tested in earlier session (D-tested via test fixtures)."
+    },
+    {
+      "id": "smoke-section-9",
+      "name": "§9 Help Center (HELP-01..05) — functional pass",
+      "status": "done",
+      "context": "Markdown renders correctly via custom <Markdown source={...} /> renderer (Pattern 62, quick-260510-004). Bold, italic, code chips, bullet `•`, ordered lists all visible. No raw `**` glyphs. Contact Support mailto fires with [EMAIL_ADDRESS] placeholder."
     }
   ],
   "remaining_tasks": [
     {
       "id": "smoke-section-5",
-      "name": "§5 Compat fail UI (COMPAT-06/08) — fail UI on a downgrade fixture",
-      "status": "not_started"
+      "name": "§5 Compat fail UI (COMPAT-06/08)",
+      "status": "deferred",
+      "context": "Skipped per user direction. CompatRecoveryScreen will be MERGED into CompatFailScreen as part of Phase 3 W1 cosmetic cleanup (see 02-COSMETIC-GAPS.md → Compat-fail screen entry). Re-spec the §5 runbook against the merged screen at that time. OQ-2 (compat-fail wording) marked SUPERSEDED."
     },
-    {
-      "id": "smoke-section-6",
-      "name": "§6 Tutorial Rig screen (ONB-01/02)",
-      "status": "not_started"
-    },
-    { "id": "smoke-section-7", "name": "§7 Bottom-nav tabs (HOME-07/08)", "status": "not_started" },
-    {
-      "id": "smoke-section-8",
-      "name": "§8 Profile (PROF-01..05 + AUTH-08..10)",
-      "status": "not_started"
-    },
-    { "id": "smoke-section-9", "name": "§9 Help Center (HELP-01..05)", "status": "not_started" },
     {
       "id": "smoke-section-10",
-      "name": "§10 ForceUpgrade APK install (UPG-03 + Pattern 50)",
-      "status": "not_started"
+      "name": "§10 ForceUpgrade APK install (apkRollout, UPG-03 + Pattern 50 hash-mismatch)",
+      "status": "next",
+      "context": "Heaviest manual section. User selected 'Full §10 — I'll prep, you tap'. Requires: bump apkRollout versionCode to 2 in apps/mobile/android/app/build.gradle.kts → ./gradlew :app:assembleApkRolloutDebug → sha256sum the new APK → host on python3 -m http.server 9000 (LAN-reachable URL) → UPDATE app_versions SET min_supported='99.0.0', apk_url='http://<LAN-IP>:9000/...', apk_sha256='<sha>' WHERE flavor='apkRollout'. Cold-start app → ForceUpgradeScreen renders → tap Update → PackageInstaller dialog → install. Then test hash-mismatch (zero-out apk_sha256, re-cold-start, expect 'Update failed (integrity check)' Alert + force_upgrade_apk_hash_mismatch Analytics event). Reset backend to real values when done."
     },
     {
       "id": "smoke-section-11",
-      "name": "§11 ForceUpgrade Play Store hand-off (UPG-03)",
-      "status": "not_started"
+      "name": "§11 ForceUpgrade Play Store hand-off (playStore flavor)",
+      "status": "blocked",
+      "context": "Pre-existing gap: apps/mobile/android/app/src/playStore/google-services.json does not exist. Building :app:assemblePlayStoreDebug would fail at :app:processPlayStoreDebugGoogleServices. Either provision the playStore Firebase config or skip §11 until Phase 7 staged-rollout work."
     },
     {
       "id": "smoke-section-12",
       "name": "§12 Soft-upgrade banner (UPG-04)",
-      "status": "not_started"
+      "status": "not_started",
+      "context": "Set backend min_supported BELOW current versionCode but latest ABOVE → SoftUpgradeBanner appears on Home → tap dismiss → MMKV stores per-version dismiss key (Pattern 51) → re-cold-start → still dismissed at same `latest`. Bump backend `latest` → banner reappears."
     },
     {
       "id": "smoke-section-13",
-      "name": "§13 Crashlytics ≥ 1h soak gate (PHASE-2 SHIP GATE, T-2.21-01)",
-      "status": "not_started"
+      "name": "§13 Crashlytics ≥1h soak gate (PHASE-2 SHIP GATE, T-2.21-01)",
+      "status": "not_started",
+      "context": "App stays foreground / background-cycled for ≥1h on real device with backend reachable. No crashes appear in Firebase Crashlytics console. Operator signs off. THIS is the actual Phase 2 ship gate — required before verify-work fires."
     },
     {
       "id": "commit-walked-runbook",
-      "name": "Commit walked apps/mobile/02-MANUAL-SMOKE.md + clear .continue-here.md",
-      "status": "not_started"
+      "name": "Commit walked apps/mobile/02-MANUAL-SMOKE.md + clear .continue-here.md + delete HANDOFF.json",
+      "status": "not_started",
+      "context": "Final operator action after §13 sign-off: edit the 02-MANUAL-SMOKE.md to mark all sections passed, add operator name + date + Crashlytics sign-off line, commit as 'docs(02-21): manual smoke complete on Pixel 10a — Phase 2 ready for verify-work'. Then delete .planning/HANDOFF.json and remove the .continue-here.md (one-shot artifacts)."
     }
   ],
   "blockers": [
     {
-      "description": "DeviceCaps.kt selects the wrong camera for ultrawide dFOV measurement. Pixel 10a measured 83° vs spec ≥110° (real spec ~120°). This is the same bug the morning .continue-here.md flagged via DeviceCapsTest Robolectric failure (\"dfov for Pixel 7a back ultrawide: expected ~118-122°, got 134.7°\") — both symptoms point to wrong cameraId selection logic.",
-      "type": "technical",
-      "workaround": "None acceptable in scope — capture quality is the LOCKED core value of the project (PROJECT.md). Real fix in DeviceCaps.kt camera-selection logic is required."
+      "description": "§11 Play Store ForceUpgrade hand-off requires playStore flavor APK build, which fails because apps/mobile/android/app/src/playStore/google-services.json does not exist.",
+      "type": "operator-side-provisioning",
+      "workaround": "Skip §11 until Phase 7 (Play Store launch) — Firebase Console → register apps/playStore flavor with applicationId ai.humynlabs.capture → download google-services.json → place in src/playStore/. Or operator provisions it now if proceeding through §11 today."
     }
   ],
   "human_actions_pending": [
     {
-      "action": "Re-establish dev backend if it died (commands in .continue-here.md)",
-      "context": "tsx watch was running at pause time. /gsd-resume-work may need to confirm /tmp/humyn-api.log is fresh and `:8080/healthz` responds.",
+      "action": "Re-establish dev backend if process died",
+      "context": "tsx watch was running at pause time at http://localhost:8080. Recipe in apps/api: pgrep -f 'tsx watch src/index.ts' | xargs kill 2>/dev/null; cd apps/api && nohup bash -c 'set -a && source .env && set +a && pnpm dev' > /tmp/humyn-api.log 2>&1 &",
       "blocking": false
     },
     {
       "action": "Re-confirm adb reverse + device connection",
-      "context": "`adb devices` should show `5C161JEA304304 device`; `adb reverse --list` should show `UsbFfs tcp:8080 tcp:8080`. Re-establish if dropped (USB / reboot).",
+      "context": "adb devices should show 5C161JEA304304 device; adb reverse --list should show UsbFfs tcp:8080 tcp:8080. Re-establish if dropped (USB / reboot).",
       "blocking": false
     },
     {
-      "action": "Walk smoke sections §5–§13 on the device (operator-driven)",
-      "context": "After DeviceCaps fix lands and §4 passes, the operator drives the remaining 9 sections plus the §13 ≥1h Crashlytics soak gate. Total wall-clock ~1.5h including the soak.",
+      "action": "Decide whether to ship §10 today or defer",
+      "context": "User selected 'Full §10 — I'll prep, you tap' before pause. ~20-30 min work. Resume orchestrator should ask whether the user still wants to proceed with §10 or pick a different smoke-walk continuation strategy.",
       "blocking": false
     }
   ],
   "decisions": [
     {
-      "decision": "Pattern 58 — strip trailing `=` from candidateNonce in consumeNonce before SHA-256",
-      "rationale": "Play Integrity Classic API re-pads URL-safe-base64 nonces to standard-base64 length (43 → 44 chars + `=`). Without normalization, every sign-in 401s with `Nonce check: mismatch`. Empirically diagnosed via temp logs that captured both nonce values side-by-side.",
-      "phase": "02-21"
+      "decision": "Compat fail UI (§5) deferred and superseded — CompatRecoveryScreen will be MERGED into CompatFailScreen during Phase 3 W1 cosmetic cleanup",
+      "rationale": "User flagged the dual-screen recovery path as redundant. Better UX: failure list + recovery body + Contact Support all on one scrollable screen. Captured in 02-COSMETIC-GAPS.md → Compat-fail entry. OQ-2 marked SUPERSEDED. Testing §5 against the about-to-be-deleted standalone Recovery screen would waste cycles.",
+      "phase": "02"
     },
     {
-      "decision": "Per-flavor BuildConfig long for GOOGLE_CLOUD_PROJECT_NUMBER (NOT via react-native-config dotenv)",
-      "rationale": "react-native-config's dotenv.gradle emits a String BuildConfig field for every .env key in defaultConfig, which would collide with the explicit `long` per-flavor declaration (AGP merge type-mismatch). No JS caller reads Config.GOOGLE_CLOUD_PROJECT_NUMBER. Native modules read BuildConfig directly. Documented in commit 77e981f.",
-      "phase": "02-21"
+      "decision": "Custom 50-line Markdown renderer for Help Center (Pattern 62) instead of react-native-markdown-display dep",
+      "rationale": "Help content uses a tiny subset (`**`, `_`, `` ` ``, `-`, `\\d+.`). Custom parser avoids dep churn, New-Arch compatibility risk, STACK.md edits. Defensive fallthrough on unmatched delimiters keeps malformed source from blanking lines.",
+      "phase": "02 / quick-260510-004"
     },
     {
-      "decision": "HIGH_SAMPLING_RATE_SENSORS in BASE manifest (universal across both flavors)",
-      "rationale": "Compat probe runs identically on apkRollout + playStore. Permission is a normal-level permission (manifest-only, no runtime prompt). Required by Android 12+ when sensor sampling > 200 Hz. Mirrors Pattern 53 defense-in-depth (vitest source-grep + Gradle merged-manifest shell guard both extended).",
-      "phase": "quick-260510-001"
+      "decision": "appStore.user slice is TRANSIENT (not MMKV-persisted)",
+      "rationale": "Pattern 64. Persisting risks staleness against backend /me updates. Two write-paths (signInWithGoogle return + ProfileScreen /me fetch) keep it self-healing. Existing-session users populate by visiting Profile once.",
+      "phase": "02 / quick-260510-005"
     },
     {
-      "decision": "Diagnostic [COMPAT_DEBUG] + [DEBUG_REVERT_BEFORE_COMMIT] log lines must be reverted before commit",
-      "rationale": "Production must NEVER log nonce material or probe error stacks at warn level. Used during debug to surface the SecurityException from the silent-catch in CompatRunningScreen + the nonce mismatch from the Play Integrity round-trip. Both fully reverted before the fix commits landed (verified via `git diff` shows clean before commit).",
-      "phase": "02-21 / quick-260510-001"
+      "decision": "Gender enum strings enforced client-side only at MVP — no backend migration",
+      "rationale": "User-supplied verbatim spec: ['Male', 'Female', \"Don't want to disclose\"]. Backend users.gender is text + UserPatchSchema accepts any string up to 40 chars; constraining at the UI is sufficient. Adding new values means extending GENDER_OPTIONS const in ProfileScreen.tsx (single source of truth).",
+      "phase": "02 / quick-260510-005"
+    },
+    {
+      "decision": "OQ-1 RESOLVED — support email is `support@humynlabs.ai`. Substitution lands in Phase 3 W1 cleanup, not out-of-band today",
+      "rationale": "Per memory feedback_functionality_first_during_smoke.md, content/copy substitutions during smoke walk are expensive context switches. The 5 [EMAIL_ADDRESS] occurrences (help-center-content.md + content.json + HelpCenterScreen.tsx + CompatRecoveryScreen.tsx + RigTutorialScreen.tsx) substitute atomically in one Phase 3 W1 commit alongside the merge of CompatRecovery into CompatFail.",
+      "phase": "02"
+    },
+    {
+      "decision": "Pattern 65 — surgical commit when working tree carries intentionally-uncommitted backlog",
+      "rationale": "Anti-pattern recorded in quick-260510-005 SUMMARY: blanket `git add <file>` on SignupScreen.tsx silently picked up Phase 3 W1 cosmetic-backlog content. Protocol: save-cosmetic-version → git checkout HEAD -- file → reapply only my edits → stage → commit → restore-cosmetic-version. Apply this protocol to ALL future quick tasks that touch SignupScreen.tsx, Text.tsx, or any file later marked as cosmetic-backlog.",
+      "phase": "02 / quick-260510-005"
     }
   ],
   "uncommitted_files": [
     {
-      "path": ".planning/STATE.md",
-      "kind": "intentional — STATE.md updated at pause to reflect today's progress; will be picked up by the WIP commit below"
-    },
-    {
       "path": "CLAUDE.md",
-      "kind": "pre-existing — predates this session; unrelated to smoke walk; DO NOT include in the WIP commit"
+      "kind": "pre-existing — predates today's smoke walk; unrelated; DO NOT include in any commit"
     },
     {
       "path": "apps/mobile/src/screens/signup/SignupScreen.tsx",
-      "kind": "Phase 3 Wave 1 cosmetic backlog — DO NOT touch or commit (memory feedback_functionality_first_during_smoke.md)"
+      "kind": "Phase 3 Wave 1 cosmetic backlog (orange logo Image swap + checkbox glyph) — DO NOT commit. Per Pattern 65, future quick-task touches must use save→restore-from-HEAD→reapply→commit→restore-cosmetic protocol."
     },
     {
       "path": "apps/mobile/src/ui/primitives/Text.tsx",
-      "kind": "Phase 3 Wave 1 cosmetic backlog — DO NOT touch or commit (memory feedback_functionality_first_during_smoke.md)"
+      "kind": "Phase 3 Wave 1 cosmetic backlog (RethinkSans wiring attempts) — DO NOT commit. Same Pattern 65 surgical-staging protocol applies if future quick-task touches Text.tsx."
     }
   ],
-  "next_action": "Read apps/mobile/android/app/src/main/java/ai/humynlabs/capture/compat/DeviceCaps.kt — focus on the camera-selection logic. Cross-reference with apps/mobile/android/app/src/test/java/ai/humynlabs/capture/compat/DeviceCapsTest.kt (Robolectric, has 3 failing cases including 'dfov for Pixel 7a back ultrawide: expected ~118-122°, got 134.7°' that the morning handoff flagged). Hypothesis: the cameraId picker is choosing the main wide (LENS_FACING=BACK, focal length ~5mm, ~78° dFOV) instead of enumerating ALL back cameras and picking the largest dFOV (the ultrawide). Pixel 10a Camera2 enumeration: ID 0 (main wide), ID 1 (front), ID 2 (back ultrawide). After fix: rebuild apkRollout APK, adb install -r, force-stop + relaunch (no pm clear — app data preserved). Compat should pass → CompatPassScreen → continue smoke walk §5–§13.",
-  "context_notes": "Today (2026-05-10) was a productive iteration session that cleared 5 distinct layers of the auth + compat stack: (1) OAuth Android client provisioning [operator-side, GCP Console], (2) Mobile setCloudProjectNumber [code, commit 77e981f], (3) Backend SA key inlined [config, apps/api/.env], (4) Server-side nonce padding [code, Pattern 58, commit 8b13d23], (5) IMU probe permission [code, commit cc867b7]. Each layer was a real, distinct bug — not a regression. The pattern: Phase 1 plan 01-13 + Phase 2 plan 02-15 were both `code-ready-smoke-deferred`, meaning no engineer ran a sign-in or compat probe end-to-end on real hardware before declaring done. Today paid that bill. The remaining DeviceCaps.kt bug is the LAST of the deferred-smoke gaps for §4. After it lands, smoke walk should proceed unblocked through §5–§13. User signaled context-window pressure and frustration about iteration count — the bug-per-cycle ratio was 1:1 today (no wasted iterations on dead-end hypotheses), but the cycle count was high because the deferred-smoke gaps had stacked.",
+  "next_action": "Re-confirm live env (adb devices + adb reverse + curl :8080/healthz), then ask the user whether to proceed with §10 ForceUpgrade APK install (their pre-pause selection was 'Full §10 — I'll prep, you tap') OR adjust strategy. If §10: bump apkRollout versionCode to 2 in apps/mobile/android/app/build.gradle.kts; rebuild apkRollout debug APK; capture sha256sum; start `python3 -m http.server 9000` from the APK output directory; identify the LAN-reachable URL; craft and execute the SQL UPDATE on app_versions for the apkRollout row. Then hand off to operator for cold-start → ForceUpgradeScreen → tap Update → PackageInstaller flow → verify versionCode=2.",
+  "context_notes": "Today's session was a marathon fix-forward day. Started by resuming a paused §4 smoke walk; the DeviceCaps ultrawide fix (ec86b99) cleared §4. Then user requested CompatRunningScreen UX fix (260510-002, Pattern 59 — progress-event-driven). Then 260510-003 (apiClient bearer header, Pattern 60) unblocked /me + every authenticated endpoint. Then 260510-004 (logout reset → OnboardingStack Pattern 61 + Help Center markdown Pattern 62). Then 260510-005 (Profile head tap-to-edit + Gender enum picker Pattern 63 + TopBar Google avatar via appStore.user slice Pattern 64). Each cycle followed the same shape: smoke walk surfaces real bug → root-cause it in <5 min → atomic fix-forward commit + tests → rebuild + install (data preserved with -r where possible) → operator re-verifies on device → next gap. ALL five quick tasks landed cleanly with passing tests + on-device pass. The pattern continues to be: every code-ready-smoke-deferred plan from earlier in Phase 2 had real-device gaps that surface only when the smoke walk first runs end-to-end. By session end we had paid 9 deferred-smoke gaps total today (5 from this session + 4 from earlier morning that 02-21 was originally paused on). User signaled context-window pressure post-§9 fresh-session-walk pass; pausing here to /clear and resume cleanly. Next session needs to: pre-flight env, ask whether to proceed with §10 (heavy operator work) or pivot, and continue smoke walk through §10 → §12 → §13 (the actual ship gate).",
   "live_environment": {
     "backend": {
       "process": "tsx watch src/index.ts",
@@ -155,8 +179,8 @@
     "device": {
       "model": "Pixel 10a (Android 16, API 36)",
       "serial": "5C161JEA304304",
-      "installed_apk": "apkRollout debug build from commit cc867b7 (latest)",
-      "data_state": "Signed in (JWT + Keychain), permissions granted (Camera + Mic), compatLastResult shows ultrawide fail (83°). Gate-decision tree should drop to CompatRunningScreen on next launch."
+      "installed_apk": "apkRollout debug 0.1.0-apk (versionCode=1) installed 2026-05-10 11:50:35 — contains all fix-forwards through 1a831c0",
+      "data_state": "FRESH — pm clear was run before pause; user did one full §1→§9 walk on this fresh state, then we force-stopped and pm-cleared again (current state). On next launch the gate-decision tree drops to Splash → Sign-up. JWT empty, MMKV empty, permissions revoked, user slice null."
     },
     "adb_reverse": "tcp:8080 tcp:8080",
     "google_cloud_project": {
@@ -167,9 +191,55 @@
       "play_integrity_api": "enabled"
     },
     "env_files": {
-      "apps/api/.env": "Has PLAY_INTEGRITY_SA_KEY_JSON (single-line JSON for service account) and REMOTE_CONFIG_JSON ('{\"auth.apk_install_source_bypass.ai.humynlabs.capture.apk\": true}'). Both gitignored. SA-key JSON file at /Users/adnaan/Documents/hl-homelander/homelander-24045-1184f935e587.json (gitignored via .gitignore patterns added in commit 8b13d23).",
-      "apps/mobile/.env.apkRollout": "API_BASE_URL=http://localhost:8080 (over adb reverse) + GOOGLE_WEB_CLIENT_ID=130483521533-rgtkna3144hod4hdvnkn32r8f6b0i414.apps.googleusercontent.com",
-      "apps/mobile/.env.playStore": "API_BASE_URL=https://api.humyn.ai (prod) + GOOGLE_WEB_CLIENT_ID=same as apkRollout"
+      "apps/api/.env": "Has PLAY_INTEGRITY_SA_KEY_JSON + REMOTE_CONFIG_JSON ('{\"auth.apk_install_source_bypass.ai.humynlabs.capture.apk\": true}'). SA-key JSON file at /Users/adnaan/Documents/hl-homelander/homelander-24045-1184f935e587.json is gitignored.",
+      "apps/mobile/.env.apkRollout": "API_BASE_URL=http://localhost:8080 over adb reverse + GOOGLE_WEB_CLIENT_ID=130483521533-rgtkna3144hod4hdvnkn32r8f6b0i414.apps.googleusercontent.com",
+      "apps/mobile/.env.playStore": "API_BASE_URL=https://api.humyn.ai (prod) + same GOOGLE_WEB_CLIENT_ID"
     }
-  }
+  },
+  "todays_quick_tasks_complete": [
+    {
+      "id": "260510-001",
+      "name": "HIGH_SAMPLING_RATE_SENSORS for IMU probe (Android 12+)",
+      "commit": "cc867b7",
+      "patterns": ["Pattern 53 extension (manifest gates)"]
+    },
+    {
+      "id": "260510-002",
+      "name": "Drive CompatRunningScreen rows from real probe progress",
+      "commit": "629d2be",
+      "patterns": [
+        "Pattern 59 — progress-event-driven UI for variable-duration multi-probe sequences"
+      ]
+    },
+    {
+      "id": "260510-003",
+      "name": "Attach Authorization Bearer header in apiClient",
+      "commit": "ae90541",
+      "patterns": [
+        "Pattern 60 — apiClient bearer-header attachment via direct MMKV read",
+        "Anti-pattern: 100%-mock service-layer tests miss transport-layer regressions"
+      ]
+    },
+    {
+      "id": "260510-004",
+      "name": "LogoutModal reset target + Help Center markdown renderer",
+      "commits": ["7ac0ee7", "720c738"],
+      "patterns": [
+        "Pattern 61 — root-sibling reset over nested-route reset",
+        "Pattern 62 — minimal-subset markdown renderer for hand-curated content",
+        "Anti-pattern: smoke-deferred plans whose tests mock too much"
+      ]
+    },
+    {
+      "id": "260510-005",
+      "name": "Profile UX cluster: head tap-to-edit + Gender enum picker + TopBar Google avatar",
+      "commits": ["cf98090", "d3b6a45", "1a831c0"],
+      "patterns": [
+        "Pattern 63 — controlled-prop choice picker grafted onto a free-text edit primitive",
+        "Pattern 64 — transient user slice with two write-paths (sign-in + /me) and write-through caching",
+        "Anti-pattern → Pattern 65 — surgical commit protocol when working tree carries intentionally-uncommitted backlog"
+      ]
+    }
+  ],
+  "phase_3_wave_1_backlog_accumulated": "12+ items captured in .planning/phases/02-mobile-shell-onboarding-permissions-compat-profile/02-COSMETIC-GAPS.md across §1 (splash logo + animation), §2 (sign-up logo + RethinkSans + spacing + CTA position + CTA width + checkbox glyph), §3 (Permissions CTA position + width), §4 (compat-fail merge + center + CTA), §4 (compat-pass auto-advance), §5 (rig illustration), §6 (Home logo + bottom-nav icons + sizing), §7 (avatar wiring — RESOLVED in 260510-005). Phase 3 W1 plan must open with a 'cosmetic fix-up' wave that re-walks Splash → Sign-up → Permissions → Compat → RigTutorial on a Pixel 7a/8a/10a class device and addresses every item before any HumynCapture native-module work lands."
 }
