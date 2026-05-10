@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: 'Phase 2 manual smoke walk paused mid-§4 (compat happy path) — auth surface fully cleared (4 fix-forward commits today: setCloudProjectNumber, nonce padding Pattern 58, env docs, HIGH_SAMPLING_RATE_SENSORS). Compat ran end-to-end on Pixel 10a after IMU permission fix; remaining blocker = DeviceCaps.kt camera-selection bug returning 83° dFOV instead of ultrawide spec ≥110°. See .planning/phases/02-mobile-shell-onboarding-permissions-compat-profile/.continue-here.md for resume protocol.'
-last_updated: '2026-05-10T04:00:00Z'
-last_activity: 2026-05-10
+status: 'Phase 2 manual smoke walk on Pixel 10a (5C161JEA304304):'
+stopped_at: 'Phase 3 context updated post-Phase-2-soak — Wave 1 freeze (D-WAVE-04), plan split (D-WAVE-05), snapshot infra locked (D-WAVE-06), logo asset Task 1 (D-WAVE-07), Wave 2 gate locked (D-WAVE-08), amendment protocol (D-WAVE-09). 02-COSMETIC-GAPS.md stamped frozen-2026-05-10. Ready for /gsd:plan-phase 3.'
+last_updated: '2026-05-10T10:15:25.493Z'
+last_activity: '2026-05-10 - Completed quick task 260510-005: Profile UX cluster (Patterns 63, 64). Head tap-to-edit, Gender enum picker, TopBar Google avatar via appStore.user slice.'
 progress:
   total_phases: 7
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 35
   completed_plans: 35
   percent: 100
@@ -229,9 +229,9 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-10T04:00:00Z (UTC; ~09:30 IST wall-clock) — RESUMED 2026-05-10 via /gsd-resume-work; routed to /gsd-debug (DeviceCaps ultrawide fix, ec86b99) then /gsd-quick (CompatRunningScreen progress events, 629d2be). Phase 2 §4 unblocked + UX gap closed.
+Last session: 2026-05-10T10:15:25.489Z
 Last activity: 2026-05-10 - Completed quick task 260510-005: Profile UX cluster (Patterns 63, 64). Head tap-to-edit, Gender enum picker, TopBar Google avatar via appStore.user slice.
-Stopped at: Phase 2 manual smoke walk paused mid-§4 (compat happy path) on Pixel 10a 5C161JEA304304. Auth surface fully cleared (4 fix-forward commits today: 77e981f, 8b13d23, 8f4dc57, cc867b7). §1+§2+§3 PASSED; §4 blocked at DeviceCaps.kt ultrawide camera-selection bug (Pixel 10a measured dFOV = 83° vs spec ≥110°; real Pixel 10a back ultrawide spec is ~120°, so the code is selecting the main wide-angle camera). Investigation start point for next session: `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/compat/DeviceCaps.kt` + `apps/mobile/android/app/src/test/java/ai/humynlabs/capture/compat/DeviceCapsTest.kt`. See `.planning/phases/02-mobile-shell-onboarding-permissions-compat-profile/.continue-here.md` for full resume protocol.
+Stopped at: Phase 3 context updated post-Phase-2-soak — Wave 1 freeze (D-WAVE-04), plan split (D-WAVE-05), snapshot infra locked (D-WAVE-06), logo asset Task 1 (D-WAVE-07), Wave 2 gate locked (D-WAVE-08), amendment protocol (D-WAVE-09). 02-COSMETIC-GAPS.md stamped frozen-2026-05-10. Ready for /gsd:plan-phase 3.
 
 - 01-10 (terraform apply): Tasks 1+2+3 complete + committed (430e17a, 9e52db8, ad93d17). Operator runs `terraform fmt -check` + `terraform validate` + `terraform plan` + `terraform apply` against real AWS staging.
 - 01-11 (counsel engagement): code-ready-counsel-deferred. Three commits ship the canonical consent text + boot-time hash guard, takedown SOP runbook, dsr-export CLI, and counsel-engagement checklist. Real attorney review queued for legal-ops backlog.
