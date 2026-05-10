@@ -29,8 +29,10 @@ describe('TopBar', () => {
   });
 
   it('renders the Humyn Labs logo and an avatar Pressable', () => {
-    const { getByText, getByLabelText } = render(<TopBar onAvatarPress={() => undefined} />);
-    expect(getByText('Humyn Labs')).toBeTruthy();
+    const { getByLabelText } = render(<TopBar onAvatarPress={() => undefined} />);
+    // Plan 03-11 (A4) — wordmark is now an Image. Assert via the
+    // accessibility label rather than the legacy 'Humyn Labs' Text node.
+    expect(getByLabelText('Humyn Labs Capture wordmark')).toBeTruthy();
     expect(getByLabelText('top-bar-avatar')).toBeTruthy();
   });
 
