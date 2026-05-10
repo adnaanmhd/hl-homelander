@@ -205,8 +205,10 @@ export default function PermissionsScreen() {
   } else if (state === 'denied') {
     body = 'Camera & Mic are required. Open Settings to enable.';
   } else {
-    body =
-      'Used only while you hit record. Nothing leaves your phone until you stop and we encrypt-upload.';
+    // Plan 03-11 (A1) — body copy tightened to a one-line runtime tooltip
+    // (no manifesto). The longer privacy clause was filler at runtime; the
+    // canonical privacy text lives in the consent block on Sign-up.
+    body = 'Used only while you hit record';
   }
 
   const buttonLabel = isRecovery ? 'Open Settings' : 'Allow access';
