@@ -159,6 +159,18 @@ dependencies {
     // NativeModules.PlayIntegrity.requestIntegrityToken(nonce). Server-side decode in plan 05.
     implementation 'com.google.android.play:integrity:1.4.0'
 
+    // Plan 03-04 — Phase 3 fragmented MP4 muxer (CAP-02).
+    // androidx.media3:media3-muxer ships FragmentedMp4Muxer with periodic
+    // moov-flush via setFragmentDurationMs(); the stock android.media.MediaMuxer
+    // does NOT support fragmented MP4 (RESEARCH.md Pitfall 1). Wrapped by
+    // ai.humynlabs.capture.capture.FragmentedMuxerWrapper which keeps the
+    // existing Phase-2 EncoderProbe encoder→muxer pump shape while routing
+    // through the new Muxer interface. media3-common (1.10.0) and
+    // media3-container (1.10.0) come in transitively as compile/runtime deps
+    // of media3-muxer per its POM (verified 2026-05-10 via
+    // https://dl.google.com/dl/android/maven2/androidx/media3/media3-muxer/1.10.0/media3-muxer-1.10.0.pom).
+    implementation 'androidx.media3:media3-muxer:1.10.0'
+
     // Plan 02-02 Task 2 — Robolectric harness. JVM unit tests for our Kotlin
     // native modules (HumynCompat, HumynCapture, HandDetector, ...) run on
     // the host JVM with shadowed Camera2/SensorManager/StatFs frameworks.
