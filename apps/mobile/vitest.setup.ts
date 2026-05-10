@@ -12,8 +12,36 @@
 // Service-level mocks (e.g. `vi.mock('../src/services/auth', ...)`) still
 // happen at the test-file level — these vi.mock calls only stub the
 // platform/library modules so transitive imports never reach native code.
-import { vi } from 'vitest';
+import { vi, expect } from 'vitest';
 import * as React from 'react';
+import { toMatchImageSnapshot } from 'jest-image-snapshot';
+
+// ---------------------------------------------------------------------------
+// Phase 3 Wave 1 — visual snapshot adapter (D-WAVE-06).
+//
+// jest-image-snapshot ships an `expect.extend`-shaped matcher that compares
+// a PNG Buffer against a baseline PNG on disk; per-test PNG buffers are
+// produced by Plan 03-02 / 03-03 via a screen-to-PNG renderer and asserted
+// via `expect(png).toMatchImageSnapshot()`. Defaults: baselines live in
+// `__image_snapshots__/` adjacent to each test file (Plan 03-01 commits the
+// shared baseline directory `__tests__/visual/__image_snapshots__/.gitkeep`
+// so the convention's well-known location is in-repo from day one).
+//
+// Extending vitest's `expect` here (not per-test) keeps the matcher visible
+// to every test file that opts into visual baselines without a per-suite
+// import. The `declare module 'vitest'` block below makes the matcher
+// type-visible to Plan 03-02's TypeScript test files.
+// ---------------------------------------------------------------------------
+expect.extend({ toMatchImageSnapshot });
+
+declare module 'vitest' {
+  interface Assertion<T = unknown> {
+    toMatchImageSnapshot(opts?: Parameters<typeof toMatchImageSnapshot>[0]): T;
+  }
+  interface AsymmetricMatchersContaining {
+    toMatchImageSnapshot(opts?: Parameters<typeof toMatchImageSnapshot>[0]): unknown;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // react-native (Phase 1 host-component shim — DO NOT alter without re-running
