@@ -61,11 +61,11 @@
 
 ## §3 Permissions (design-spec §3 + PERM-01..04)
 
-- [ ] CTA "Next" stacks immediately under the centered content block (title + permission rows), not pinned to the bottom.
+- [ ] Idle-state CTA "Allow access" stacks immediately under the centered content block (Camera & Mic icon + heading + A1 body), not pinned to the bottom.
 - [ ] CTA width: content-driven, not full-bleed.
-- [ ] Grant Camera + Mic → Continue CTA enables → tap → CompatRunningScreen.
+- [ ] Tap "Allow access" → Android system permission dialog for Camera fires → grant via "While using the app" → Mic dialog fires → grant. After BOTH granted the screen auto-advances to CompatRunningScreen via `navigation.replace('Compat')` (PermissionsScreen.tsx:15 contract: `idle → (tap) requesting → granted → navigation.replace('Compat')`). NO manual "Continue"/"Next" tap required.
 
-**Acceptance:** CTA layout matches Sign-up rule (Plan 03-02 Task 2B).
+**Acceptance:** CTA layout matches Sign-up rule (Plan 03-02 Task 2B); auto-advance fires once both perms are granted (no manual gate).
 
 ---
 
@@ -183,6 +183,40 @@
 **Approved? YES — functionally** (all 12 sections pass behaviorally; 6 cosmetic/UX amendments filed for follow-up)
 
 `re-walked-on: 2026-05-10`
+
+**Re-re-walk (post-Plan-03-11) sign-off — 2026-05-10:**
+
+After Plan 03-11 landed (5 amendments closed in source + A2 closed by post-escalation prototype-SVG raster), the runbook was re-walked end-to-end on the same Pixel 10a (`5C161JEA304304`) by Adnaan Mohammed with Claude Opus 4.7 driving adb. Build: fresh `installApkRolloutDebug` (BUILD SUCCESSFUL in 47s) on top of commit `b0d7305` (post-runbook-stale-fix). Device data fully cleared via `pm clear` before the walk so the cold-start gate decision tree, sign-up, permissions, compat, and rig-tutorial paths walked from scratch.
+
+All six amendments verified closed on-device:
+
+- **A1** ✓ — PermissionsScreen idle body reads "Used only while you hit record" verbatim (UI hierarchy: `text="Used only while you hit record"`).
+- **A2** ✓ — RigTutorialScreen renders the rasterized prototype-SVG illustration (orange head silhouette + camera rig + headstrap + face dots). Real PNG (~38 KB @3x), not transparent placeholder.
+- **A3** ✓ — BottomNav container measured 91.8 dp tall on Pixel 10a (matches `68 + insets.bottom` with 24 dp insets); 35.4 dp gap below tab content (matches `paddingBottom: insets.bottom + 12`); floats above gesture indicator.
+- **A4** ✓ — TopBar's "Humyn Labs Capture wordmark" element is `android.widget.ImageView` with bounds [42,178][364,252] = 122.7 × 28.2 dp (matches intrinsic 320×73 asset). Same Image renders identically on Home / Tasks / History via Pattern 71. ZERO TextView nodes containing literal "Humyn Labs" text.
+- **A5** ✓ — CompatFailScreen "What Now" 3-bullet recovery block deletion verified by source grep + Plan 03-11 visual baseline refresh (live walk skipped per runbook §4 operator note: Pixel 10a passes after `ec86b99` DeviceCaps fix; force-fail apparatus deferred).
+- **A6** ✓ — Sign-up wordmark measured 256 × 57.9 dp on Pixel 10a (672×152 px ÷ 2.625 density factor). Matches the explicit `style={{ width: 256, height: 58, resizeMode: 'contain' }}` from Plan 03-11 Task 4. Splash wordmark briefly captured during fade-in transition; same A6 dimensions confirmed at the steady-state hand-off frame.
+
+Additional acceptance verified on-device: §2 consent-gate alert ("Please accept the Terms of Use to continue.") fires when CTA tapped with consent unchecked; live Google Sign-In via Android 14 Credential Manager auto-picks `m.adnaan161@gmail.com` and routes to Permissions; §3 auto-advances to Compat after Camera + Mic granted; §4 → §5 → §6 chain runs without manual taps (compat-pass 1.5 s auto-advance, T-3.2-05 mitigation honored); §7/§8/§9 TopBar Pattern 71 propagation verified across all three tabs; §10 Profile inline-edit fields + payments card + Help Center / Logout / Delete account row all render unchanged from Phase 2; §11 Pattern 72 force-stop → relaunch flow restored Google avatar within ~2.7 s (avatar populated by t3 screenshot, no manual Profile detour).
+
+`re-walked-on: 2026-05-10` (post-Plan-03-11)
+
+**New runbook stales surfaced during the re-re-walk (patched in same commit):**
+
+- §3 line 66 — replaced "Continue CTA enables → tap → CompatRunningScreen" with the actual auto-advance contract from `PermissionsScreen.tsx:15`.
+
+**New candidate amendment surfaced during the re-re-walk (filed but NOT closed):**
+
+- **A7** — SignupScreen consent checkbox defaults to `useState(true)` (Phase 2 plan 02-09 explicit choice; surfaced regulatory exposure under GDPR Art. 4(11) / DPDP §6 / LGPD Art. 5(XII) — pre-ticked boxes are not "clear affirmative action"). Filed for legal review BEFORE Wave 2 plan-phase. Not blocking Wave 2 entry unless legal flags.
+
+**Wave 2 entry gate — D-WAVE-08 status:** ALL conditions satisfied:
+
+1. ✓ Wave 1 plans 03-01 + 03-02 + 03-03 commits landed (≥7 commits — got 24 across 03-01/02/03/11 today).
+2. ✓ Plan 03-11 (Wave 1 polish) landed end-to-end with all six A-amendments closed in source.
+3. ✓ Operator re-re-walk on Pixel 10a passed all sections + stamped here.
+4. ✓ Runbook line-113 + line-100 stales fixed (commit `b0d7305`); line-66 stale fixed in this same commit.
+
+**Wave 2 plan-phase (Plan 03-04 capture-foundation-muxer-bridge) is UNBLOCKED.**
 
 **Walk summary:**
 
