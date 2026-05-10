@@ -229,6 +229,69 @@ describe('HumynCapture event subscriptions', () => {
   });
 });
 
+describe('HumynCapture (full module wired — Plan 03-09 surface)', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.doUnmock('react-native');
+  });
+
+  /**
+   * 5th describe block per PLAN.md Task 2 — asserts the bridge surface
+   * Plan 03-09 ships:
+   *   - start/stop/event helpers exist + are callable shapes;
+   *   - start surfaces `not_implemented_in_03_09` after opts validation
+   *     passes (the temporary stub Plan 03-10 replaces);
+   *   - the JS bridge contract is operational without spinning up Camera2.
+   */
+  function setupRegisteredMock(): {
+    startMock: ReturnType<typeof vi.fn>;
+    stopMock: ReturnType<typeof vi.fn>;
+    addListener: ReturnType<typeof vi.fn>;
+  } {
+    const startMock = vi.fn().mockRejectedValue(new Error('not_implemented_in_03_09'));
+    const stopMock = vi.fn().mockRejectedValue(new Error('no_active_session'));
+    const remove = vi.fn();
+    const addListener = vi.fn().mockReturnValue({ remove });
+    const emitterCtor = vi.fn(function (this: { addListener: typeof addListener }) {
+      this.addListener = addListener;
+    });
+    vi.doMock('react-native', () => ({
+      NativeModules: { HumynCapture: { start: startMock, stop: stopMock } },
+      NativeEventEmitter: emitterCtor,
+    }));
+    return { startMock, stopMock, addListener };
+  }
+
+  it('exposes start, stop, and 5 event helpers with callable shapes', async () => {
+    setupRegisteredMock();
+    const mod = await import('../../src/native/HumynCapture');
+    expect(typeof mod.start).toBe('function');
+    expect(typeof mod.stop).toBe('function');
+    expect(typeof mod.onSegmentStart).toBe('function');
+    expect(typeof mod.onSegmentComplete).toBe('function');
+    expect(typeof mod.onSessionStop).toBe('function');
+    expect(typeof mod.onThermalAbort).toBe('function');
+    expect(typeof mod.onError).toBe('function');
+  });
+
+  it('start surfaces the not_implemented_in_03_09 stub from Plan 03-09 (Plan 03-10 replaces)', async () => {
+    const { startMock } = setupRegisteredMock();
+    const { start } = await import('../../src/native/HumynCapture');
+    await expect(start(VALID_OPTS)).rejects.toThrow(/not_implemented_in_03_09/);
+    expect(startMock).toHaveBeenCalledWith(VALID_OPTS);
+  });
+
+  it('stop surfaces the no_active_session stub from Plan 03-09', async () => {
+    const { stopMock } = setupRegisteredMock();
+    const { stop } = await import('../../src/native/HumynCapture');
+    await expect(stop()).rejects.toThrow(/no_active_session/);
+    expect(stopMock).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('CaptureSessionOpts Zod cross-validation', () => {
   it('valid opts parse without error', async () => {
     const { CaptureSessionOptsSchema } = await import('@humyn/shared-types');
