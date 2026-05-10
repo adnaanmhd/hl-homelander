@@ -148,16 +148,11 @@ space-between` (or equivalent flex layout instruction in design-spec
 
 ## Profile screen (design-spec §7 / PROF-01..05)
 
-- **Avatar didn't flow from Google account.** The top-right avatar
-  shows a generic placeholder icon instead of the Google account's
-  profile image. Per PROF-01, the user's profile picture URL should
-  flow through from the `/me` response (`avatarUrl` field) and render
-  via `<Image source={{ uri: avatarUrl }} />` in the TopBar avatar
-  slot. Two parts to fix: (a) confirm `/me` returns the avatarUrl
-  from the user table; (b) wire the URL into the TopBar avatar +
-  ProfileScreen header. Note: `/me` was 401'ing until quick task
-  260510-003 landed — operator should re-confirm avatarUrl flow now
-  that the bearer header is attached.
+- ~~**Avatar didn't flow from Google account.**~~ **RESOLVED in
+  quick task 260510-005** — appStore gained a `user` slice populated
+  by Sign-up + ProfileScreen `/me`; TopBar accepts `avatarUrl?: string`
+  and renders an Image when present, fallback to initial otherwise.
+  HomeSkeletonScreen reads from the store and passes through.
 
 ## Rig Tutorial screen (design-spec §5 / ONB-01..02)
 
