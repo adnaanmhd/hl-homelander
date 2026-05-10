@@ -1,14 +1,14 @@
 ---
-status: partial-closed-by-03-11-2026-05-10-a2-escalated
+status: closed-by-03-11-2026-05-10
 phase: 03-humyn-capture-native-module
 wave: 1
 source: 03-WAVE1-SMOKE.md (D-WAVE-09 amendment protocol)
 device: Pixel 10a (5C161JEA304304, Android 16 / API 36)
 operator: Adnaan Mohammed
 started: 2026-05-10T20:25:00+05:30
-updated: 2026-05-10T16:03:00Z
+updated: 2026-05-10T16:32:00Z
 closed-by: Plan 03-11 (Tasks 1–5 — A1+A3 / A4 / A5 / A6 / A2)
-a2_status: open-escalated # Plan 03-11 Task 5 — no source artwork found
+a2_status: closed-by-prototype-svg-raster # rig PNGs rasterized from prototype.html:1224-1235 (locked design source)
 ---
 
 ## Context
@@ -40,7 +40,7 @@ Each amendment is bounded enough to land in a focused follow-up plan (likely a W
 - **Severity:** Medium (functional regression — page intent is unclear without the illustration, even with the title text).
 - **Logcat ref:** screenshot path captured during walk.
 
-**Closure:** ESCALATED — see "A2 closure attempt" subsection. No source artwork found; user must provide real rig PNG before this closes.
+**Closure:** Plan 03-11 follow-up (post-escalation, 2026-05-10) — user directed orchestrator to rasterize the canonical rig SVG from `prototype.html:1224-1235` (the design source of truth per CLAUDE.md "Designs LOCKED" rule). Rendered via `sharp(svgBuffer).resize(N,N,{fit:'contain',background:{alpha:0}}).png()` at 280/280/560/840 dp into `apps/mobile/src/assets/illustrations/rig{,@1x,@2x,@3x}.png`. Final byte sizes 11611 / 11611 / 24678 / 38633 — all clear the ≥4096 byte real-PNG threshold. RigTutorialScreen visual baseline unchanged (encoder is shape-only — same 280×280 canvas, same require path); full visual suite 10/10 passes; TS clean.
 
 ### A2 — closure attempt (Plan 03-11 Task 5)
 
@@ -73,7 +73,7 @@ density-bucket re-export (sharp(source).trim() → 280/560/840 dp). The
 RigTutorialScreen.tsx require path is unchanged so the asset replacement
 needs no code change.
 
-**Status:** A2 remains OPEN; A1, A3, A4, A5, A6 closed by Plan 03-11.
+**Status:** A2 ORIGINALLY ESCALATED, then RESOLVED by post-escalation rasterization of `prototype.html` rig SVG into the four density buckets (see A2 Closure stamp above). All six amendments (A1–A6) closed by Plan 03-11.
 
 ### A3 — Bottom nav sits too low; lift it like Instagram
 
@@ -142,6 +142,6 @@ Amendments above DO NOT block §1–§3, §5–§12 walk completion. They are ea
 
 ## Plan 03-11 closure (2026-05-10)
 
-Plan 03-11 landed Option 1: Wave 1 polish plan covering A1, A3, A4, A5, A6. A2 escalated to user (no source rig artwork available — see "A2 closure attempt" subsection above). Per-amendment closure stamps recorded inline above (search for `**Closure:**`).
+Plan 03-11 landed Option 1: Wave 1 polish plan covering A1, A3, A4, A5, A6. A2 originally escalated for missing source artwork; resolved in a follow-up step the same day by rasterizing the canonical rig SVG from `prototype.html:1224-1235` (the locked design source per CLAUDE.md) into the four density buckets via `sharp`. All six amendments (A1–A6) now closed by Plan 03-11. Per-amendment closure stamps recorded inline above (search for `**Closure:**`).
 
-**Next operator action — D-WAVE-08 acceptance gate:** re-walk Pixel 10a per `03-WAVE1-SMOKE.md` to verify A1, A3, A4, A5, A6 closures on-device, then stamp `re-walked-on: 2026-MM-DD` in `03-WAVE1-SMOKE.md`. Wave 2 plan-phase (Plan 03-04 capture-foundation-muxer-bridge) is gated on that stamp. If the operator chooses to ship Wave 2 with the rig page still showing transparent placeholder (A2 escalated), that's an explicit operator call.
+**Next operator action — D-WAVE-08 acceptance gate:** re-walk Pixel 10a per `03-WAVE1-SMOKE.md` to verify A1, A2, A3, A4, A5, A6 closures on-device, then stamp `re-walked-on: 2026-MM-DD` in `03-WAVE1-SMOKE.md`. Wave 2 plan-phase (Plan 03-04 capture-foundation-muxer-bridge) is gated on that stamp.
