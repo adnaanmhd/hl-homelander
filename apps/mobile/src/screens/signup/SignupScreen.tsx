@@ -140,15 +140,25 @@ export default function SignupScreen() {
           Real Humyns. Real Intelligence.
         </Text>
         <View style={{ height: spacing.hh }} />
-        <Text variant="pitch" tone="primary" style={styles.pitchLine}>
-          Record real moments.
-        </Text>
-        <Text variant="pitch" tone="primary" style={styles.pitchLine}>
-          Train real intelligence.
-        </Text>
-        <Text variant="pitch" style={[styles.pitchLine, { color: colors.accent }]}>
-          Get paid
-        </Text>
+        {/* Plan 03-02 — three value-prop lines render as ONE cohesive block,
+            not three independent paragraphs. `gap: spacing.xs` (4 px between
+            siblings) plus the variant's own line-height (32 px) gives the
+            trio the right amount of breathing without losing the unity. The
+            previous `marginVertical: spacing.xs` on each line doubled the
+            inter-line gap (4 px top + 4 px bottom + 32 px line-height) so
+            the trio read as separate paragraphs (02-COSMETIC-GAPS.md
+            "Reduce vertical spacing between the three value-prop lines"). */}
+        <View style={styles.valueProps}>
+          <Text variant="pitch" tone="primary" style={styles.pitchLine}>
+            Record real moments.
+          </Text>
+          <Text variant="pitch" tone="primary" style={styles.pitchLine}>
+            Train real intelligence.
+          </Text>
+          <Text variant="pitch" style={[styles.pitchLine, { color: colors.accent }]}>
+            Get paid
+          </Text>
+        </View>
       </View>
 
       <View style={styles.bottom}>
@@ -241,9 +251,15 @@ const styles = StyleSheet.create({
   tagline: {
     textAlign: 'center',
   },
+  // Plan 03-02 — drop the per-line marginVertical; the parent
+  // `valueProps` container's `gap: spacing.xs` provides the inter-line
+  // spacing (4 px between siblings, no double-stacking).
   pitchLine: {
     textAlign: 'center',
-    marginVertical: spacing.xs,
+  },
+  valueProps: {
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   bottom: {
     paddingBottom: spacing.m,
