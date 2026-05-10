@@ -29,11 +29,27 @@ export async function mintNonce(): Promise<MintedNonce> {
 // Look up + delete in one transaction. Single-use semantics: the row is always
 // deleted on lookup so it cannot be reused. Returns ok=true only if the row
 // existed, was not expired, and the candidate hash matched the stored one.
+//
+// Pattern 58 — Play Integrity nonce padding round-trip normalization.
+// We mint nonces as `randomBytes(32).toString('base64url')` (43 chars, no
+// padding), but the Play Integrity Classic API re-pads URL-safe-base64
+// nonces to standard-base64 length (44 chars, one trailing `=`) before
+// embedding them in `tokenPayloadExternal.requestDetails.nonce`. Without
+// stripping the padding here, `sha256(<unpadded>) !== sha256(<padded>)`
+// and every legitimate sign-in 401s with `Nonce check: mismatch`
+// (debug session: .planning/debug/resolved/auth-nonce-mismatch.md).
+//
+// Stripping `=` is safe because base64 padding carries no information —
+// 32 bytes always encode to exactly 43 base64url chars or 44 base64 chars
+// with one `=`. An attacker cannot manufacture a different preimage that
+// hashes to the same value by adding/removing padding. Future callers
+// passing a candidate with no padding (or arbitrary trailing `=` count)
+// converge on the same canonical form.
 export async function consumeNonce(opts: {
   nonceId: string;
   candidateNonce: string;
 }): Promise<{ ok: true } | { ok: false; reason: 'absent' | 'expired' | 'mismatch' }> {
-  const candHash = sha256Hex(opts.candidateNonce);
+  const candHash = sha256Hex(opts.candidateNonce.replace(/=+$/, ''));
   const result = await db.transaction(async (tx) => {
     const rows = await tx
       .select()
