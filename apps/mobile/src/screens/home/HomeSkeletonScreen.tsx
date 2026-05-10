@@ -20,29 +20,21 @@
 
 import React from 'react';
 import { View, ScrollView } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import ScreenContainer from '../../ui/primitives/ScreenContainer';
 import Text from '../../ui/primitives/Text';
 import { TopBar } from '../../components/TopBar';
 import { SoftUpgradeBanner } from '../../components/SoftUpgradeBanner';
 import { useAppStore } from '../../state/appStore';
+import { useTabTopBarProps } from '../../hooks/useTabTopBarProps';
 import { spacing } from '../../ui/tokens';
 
 export default function HomeSkeletonScreen() {
-  const navigation = useNavigation<{ navigate: (route: string) => void }>();
+  const topBarProps = useTabTopBarProps();
   const softUpgradeAvailable = useAppStore((s) => s.softUpgradeAvailable);
-  const user = useAppStore((s) => s.user);
-  const avatarInitial = (
-    (user?.name ?? user?.email ?? 'U').trim().slice(0, 1) || 'U'
-  ).toUpperCase();
 
   return (
     <ScreenContainer accessibilityLabel="Home screen" padding={0}>
-      <TopBar
-        onAvatarPress={() => navigation.navigate('Profile')}
-        avatarInitial={avatarInitial}
-        {...(user?.avatarUrl ? { avatarUrl: user.avatarUrl } : {})}
-      />
+      <TopBar {...topBarProps} />
       {softUpgradeAvailable ? (
         <View
           accessibilityLabel="soft-upgrade-banner-slot"
