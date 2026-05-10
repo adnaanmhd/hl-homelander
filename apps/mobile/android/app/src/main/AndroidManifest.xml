@@ -70,5 +70,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+          Phase 3 D-FGS-01 (plan 03-07) — capture foreground service.
+          Pitfall 6 strict-mode: foregroundServiceType MUST exactly equal
+          HumynForegroundService.FGS_TYPE_RECORDING bitmask
+          (FOREGROUND_SERVICE_TYPE_CAMERA | _MICROPHONE | _DATA_SYNC).
+          Two-sided lock: manifests.test.ts (static) + HumynForegroundServiceTest
+          (runtime) both fail if either side drifts.
+        -->
+        <service
+            android:name=".fgs.HumynForegroundService"
+            android:foregroundServiceType="camera|microphone|dataSync"
+            android:exported="false" />
     </application>
 </manifest>
