@@ -2,7 +2,7 @@
 status: deferred-to-phase-3-wave-1
 phase: 02-mobile-shell-onboarding-permissions-compat-profile
 created: 2026-05-09
-updated: 2026-05-10 (smoke-walk findings: §2 sign-up layout/CTA, §3 permissions CTA, §4 compat-fail merge + center, §4 compat-pass auto-advance, §5 rig illustration + support email decided, §6 home logo + bottom-nav icons, §7 profile avatar from Google)
+updated: 2026-05-10 (smoke-walk findings: §2 sign-up layout/CTA, §3 permissions CTA, §4 compat-fail merge + center, §4 compat-pass auto-advance, §5 rig illustration + support email decided, §6 home logo + bottom-nav icons, §7 profile avatar from Google [partial — Tasks/History tabs missed + foreground-rehydrate regression captured during §13 soak])
 ---
 
 # Phase 2 — Cosmetic gaps (deferred to Phase 3 Wave 1)
@@ -148,11 +148,34 @@ space-between` (or equivalent flex layout instruction in design-spec
 
 ## Profile screen (design-spec §7 / PROF-01..05)
 
-- ~~**Avatar didn't flow from Google account.**~~ **RESOLVED in
-  quick task 260510-005** — appStore gained a `user` slice populated
-  by Sign-up + ProfileScreen `/me`; TopBar accepts `avatarUrl?: string`
-  and renders an Image when present, fallback to initial otherwise.
-  HomeSkeletonScreen reads from the store and passes through.
+- ~~**Avatar didn't flow from Google account.**~~ **PARTIALLY
+  RESOLVED in quick task 260510-005** — appStore gained a `user`
+  slice populated by Sign-up + ProfileScreen `/me`; TopBar accepts
+  `avatarUrl?: string` and renders an Image when present, fallback to
+  initial otherwise. **HomeSkeletonScreen reads from the store and
+  passes through; TasksPlaceholderScreen + HistoryPlaceholderScreen
+  do NOT — they render `<TopBar onAvatarPress={…} />` with no
+  `avatarUrl`/`avatarInitial`, so switching to Tasks/History tabs
+  reverts the avatar to the 'U' fallback.** Surfaced during Phase 2
+  §13 Crashlytics soak (2026-05-10).
+- **Avatar regresses to 'U' on app foreground after Android process
+  kill.** Pattern 64's `appStore.user` slice is _transient_ (not
+  MMKV-persisted by design — staleness-vs-backend trade-off). When
+  Android reaps the JS context during background, MMKV restores the
+  JWT but the user slice rehydrates as `null`. All three tab TopBars
+  then show 'U' until the user navigates to Profile, which triggers
+  `/me` and repopulates the slice. Phase 3 W1 fix should either
+  (a) add a foreground hook in `RootNativeStack`/`MainTabs` that
+  fires `/me` when `appStore.user == null && jwt != null`, or
+  (b) reverse Pattern 64 and persist a minimally-stale snapshot
+  (last-known avatar URL only) — option (a) is preferred to keep the
+  staleness window short and avoid persisting display state.
+- **Refactor candidate (Phase 3 W1).** Extract a small
+  `useTabTopBarProps()` hook that returns
+  `{ avatarInitial, avatarUrl, onAvatarPress }` so all three tab
+  bodies (Home / Tasks / History) consume the avatar identically
+  and the wiring can't drift again. This both fixes the Tasks/History
+  gap above AND localizes the foreground-rehydrate logic.
 
 ## Rig Tutorial screen (design-spec §5 / ONB-01..02)
 

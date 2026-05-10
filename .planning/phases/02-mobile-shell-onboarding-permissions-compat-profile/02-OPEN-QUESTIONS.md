@@ -89,4 +89,51 @@
 
 ---
 
+## OQ-4: Crashlytics SDK integration + §13 ship-gate (T-2.21-01) deferred to Phase 4 last wave
+
+**Status (2026-05-10):** **DEFERRED** to Phase 4 last wave per operator decision during Phase 2 §13 attempt. Phase 2 closes with §13 NOT signed off; T-2.21-01 mitigation carried forward.
+
+**Description:** During the Phase 2 §13 ≥1h Crashlytics soak (2026-05-10, Pixel 10a), the Firebase Console showed an "Add SDK" CTA for `ai.humynlabs.capture.apk` — proof that **`@react-native-firebase/crashlytics` is not integrated into the build at all.** Diagnostic at deferral time:
+
+| Check                                                                                 | Status                                                                          |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `@react-native-firebase/crashlytics@24.0.0` in `apps/mobile/package.json`             | ❌ MISSING (deps tree has `app + auth + remote-config` only)                    |
+| `com.google.firebase.crashlytics` Gradle plugin (project-level classpath)             | ❌ MISSING                                                                      |
+| `apply plugin: com.google.firebase.crashlytics` in `app/build.gradle.kts`             | ❌ MISSING                                                                      |
+| `firebase_crashlytics_collection_enabled` meta-data in any AndroidManifest source-set | ❌ MISSING (only the `assert_crashlytics_not_disabled` regression-guard exists) |
+| Firebase Console events received from apkRollout                                      | ❌ ZERO                                                                         |
+
+The 02-22 plan summary's claim that Crashlytics was wired (via the manifest `assert_crashlytics_not_disabled` gate) was a misframing — that gate guards against a future opt-out regression, not against the SDK being absent. Default-true for `firebase_crashlytics_collection_enabled` only matters if the SDK is present.
+
+**On-device evidence Phase 2 IS stable (despite SDK absence):**
+
+- 1h+ AndroidRuntime:E logcat soak (2026-05-10T07:09:47Z → 2026-05-10T08:18:38Z, Pixel 10a) — **0 fatal exceptions** captured.
+- All other §13 surface paths exercised cleanly (Sign-up → Perms → Compat → RigTutorial → Home → Profile → Help Center → Logout → Sign-up + foreground/background cycles).
+- This is materially weaker than Crashlytics dashboard observation (no ANR coverage, no native-crash post-process-death coverage, no non-fatal coverage), but non-zero.
+
+**Why Phase 4 last wave (not Phase 3 W1):** by Phase 4 last wave, both HumynCapture (Phase 3 — Camera2 + MediaCodec native pipeline) and HandDetector + Recording UX (Phase 4 — MediaPipe + RN bridge work) are landed. Running the eventual ≥1h Crashlytics soak then exercises the most defect-rich surface the project will have at MVP (the native-module layers are where real crashes live; the Phase 2 React-only surface barely surfaces any). Doing it after Phase 3 only would re-surface immediately when Phase 4 lands new native code; doing it after Phase 4 captures both at once.
+
+**Resolution path** (Phase 4 last wave):
+
+1. Add `@react-native-firebase/crashlytics@24.0.0` to `apps/mobile/package.json` (matches CLAUDE.md unified-version rule for `@react-native-firebase/*`).
+2. Add `com.google.firebase.crashlytics` Gradle plugin:
+   - `apps/mobile/android/build.gradle.kts` → `dependencies { classpath("com.google.firebase:firebase-crashlytics-gradle:<latest 3.x>") }`
+   - `apps/mobile/android/app/build.gradle.kts` → `plugins { id("com.google.firebase.crashlytics") }`
+3. In Firebase Console, register Crashlytics for `ai.humynlabs.capture.apk` (and `ai.humynlabs.capture` for playStore once that flavor's `google-services.json` is provisioned — see `apps/mobile/android/app/src/playStore/` gap).
+4. Confirm no `firebase_crashlytics_collection_enabled` meta-data with explicit-false anywhere (the existing `assert_crashlytics_not_disabled` gate in `verify-merged-manifests.sh` already guards this).
+5. Add a unit-test that fails the build if `@react-native-firebase/crashlytics` is missing OR the Gradle plugin isn't applied — this is the gate the 02-22 summary thought it had. Pattern: an additional source-grep gate against `apps/mobile/android/app/build.gradle.kts` for `id("com.google.firebase.crashlytics")` + a `package.json` check.
+6. Rebuild apkRollout debug → install -r → cold-start → verify Firebase Console populates with the first ping (≤5 min wait).
+7. Trigger one test crash via `crashlytics().crash()` → confirm dashboard receives → resolve the test crash in the dashboard (closes the loop end-to-end).
+8. Run a fresh ≥1h soak of the apkRollout debug build with both Phase 3 + Phase 4 native modules active, exercising recording / hand-detect surfaces alongside the Phase 2 surface.
+9. Open Firebase Console → confirm 0 new fatal AND 0 new non-fatal during the soak window.
+10. Operator signs off T-2.21-01 in `02-MANUAL-SMOKE.md` § 13 (file lives forward in `apps/mobile/`; the runbook stays the canonical sign-off artifact even after Phase 2 closes).
+11. Mark this OQ-4 as RESOLVED with the commit hash + date.
+
+**Why deferred** (and not fixed inline during Phase 2 close-out): adding Crashlytics now means a re-soak with only Phase 2 surface coverage, and the same gate must re-fire after Phase 3/Phase 4 land new native modules anyway. Doing it once at Phase 4 last wave consolidates the integration, dashboard provisioning, and soak-with-real-coverage into one operator session.
+
+**Owner:** Engineering (Phase 4 last-wave plan author).
+**Target:** Phase 4 last wave (do NOT slip past it — T-2.21-01 is a threat-register ship gate, MUST land before staged Play Store rollout in Phase 7).
+
+---
+
 _Reviewed at Phase 2 verify-work; carry forward to Phase 7 entry checklist. Update this file (mark `RESOLVED` + commit hash + date) when each item is closed._
