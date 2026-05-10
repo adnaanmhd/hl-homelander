@@ -19,9 +19,9 @@
  *
  * Plan 03-02 — OQ-1 resolved: SUPPORT_EMAIL is `support@humynlabs.ai`
  * (02-COSMETIC-GAPS.md "Rig Tutorial screen" + 02-OPEN-QUESTIONS.md OQ-1
- * resolution). The 5th placeholder occurrence
- * (apps/mobile/src/screens/compat/CompatRecoveryScreen.tsx) lands inside
- * Plan 03-03's Compat-fail merge.
+ * resolution). The 5th and final placeholder occurrence landed inside
+ * Plan 03-03's merged CompatFailScreen (the standalone CompatRecoveryScreen
+ * was merged into CompatFailScreen and deleted in the same plan).
  *
  * NO hex literals — every spacing/color token comes from `../../ui/tokens`.
  */

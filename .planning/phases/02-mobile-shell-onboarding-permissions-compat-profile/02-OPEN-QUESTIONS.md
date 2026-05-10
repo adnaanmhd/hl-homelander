@@ -10,7 +10,7 @@
 
 ## OQ-1: Help Center / Contact Support — final email address
 
-**Status (2026-05-10):** **RESOLVED** — email is `support@humynlabs.ai`. Code substitution is queued in the Phase 3 Wave 1 cosmetic-cleanup commit (see `02-COSMETIC-GAPS.md` § Rig Tutorial screen). NOT applied out-of-band during the Phase 2 smoke walk per `feedback_functionality_first_during_smoke.md`.
+**Status (2026-05-10):** **resolved** — email is `support@humynlabs.ai`. All 5 occurrences swapped: 4 in Plan 03-02 (RigTutorialScreen.tsx, HelpCenterScreen.tsx, content.json via `npm run build:help`, help-center-content.md), and the 5th and final in Plan 03-03 (the merged CompatFailScreen.tsx — which absorbs the deleted CompatRecoveryScreen.tsx body). Test assertions across `__tests__/screens/CompatFailScreen.test.tsx`, `__tests__/screens/HelpCenterScreen.test.tsx`, `__tests__/screens/RigTutorialScreen.test.tsx`, and `__tests__/scripts/build-help-content.test.ts` enforce the canonical email going forward; a regression that re-introduces the placeholder fails CI.
 
 **Description:** The `[EMAIL_ADDRESS]` placeholder is the user-visible support email. It surfaces at every Contact Support exit in the Phase 2 surface — three on-device touchpoints derived from one source-of-truth file. All five occurrences must flip to the real address atomically (one commit) so we never ship a build where some surfaces have the real email and some don't.
 
@@ -43,7 +43,7 @@
 
 ## OQ-2: Compat-fail "what now" recovery page — final wording
 
-**Status (2026-05-10):** **SUPERSEDED** by Phase 3 Wave 1 scope change — `CompatRecoveryScreen` will be merged into `CompatFailScreen` (single screen, no second navigation hop). See `02-COSMETIC-GAPS.md` § Compat-fail screen. The writer pass now happens against the merged screen, not the standalone recovery screen. The original wording-quality concern still stands — re-target it at the merged screen during the cleanup. The text below stays as a record of the pre-merge state.
+**Status (2026-05-10):** **superseded-by-03-02-merge** — Plan 03-03 has now merged `CompatRecoveryScreen` into `CompatFailScreen` (single screen, no second navigation hop). The standalone screen file + its test + its `CompatRecovery` route are deleted; the route-registry invariant test (`__tests__/navigation/route-registry.test.ts`) now asserts CompatRecovery is NOT re-registered (REMOVED_PHASE_2_ROUTES list). The writer pass against the merged screen (`apps/mobile/src/screens/compat/CompatFailScreen.tsx`) is the new resolution path; the original wording-quality concern still stands and now applies to the merged screen body. The text below stays as a record of the pre-merge state.
 
 **Description:** `apps/mobile/src/screens/compat/CompatRecoveryScreen.tsx` ships first-pass recovery copy that's technically accurate but has not had a writer pass. The prototype.html `#compat-fail` recovery state is currently a TBD per design-spec §4 ("Edge states (production)"). Final wording is owed before the screen is seen by paying users.
 
