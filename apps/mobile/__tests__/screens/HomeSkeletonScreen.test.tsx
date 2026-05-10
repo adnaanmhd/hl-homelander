@@ -24,9 +24,23 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 // vi.hoisted spies — declared at the same hoisted level as the vi.mock
 // factory below so the factory can reference them safely. Module-level
 // const declarations execute AFTER hoisted vi.mock factories.
+//
+// Plan 03-03 Task 1 — `user` slice added to mockState because the screen now
+// sources avatar props through the shared `useTabTopBarProps()` hook
+// (Pattern 71) which selects `appStore.user`.
 // ---------------------------------------------------------------------------
+type MockUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  avatarUrl: string | null;
+} | null;
+
 const { mockState } = vi.hoisted(() => ({
-  mockState: { softUpgradeAvailable: null as { latest: string } | null },
+  mockState: {
+    softUpgradeAvailable: null as { latest: string } | null,
+    user: null as MockUser,
+  },
 }));
 
 vi.mock('../../src/state/appStore', () => ({
@@ -41,6 +55,7 @@ describe('HomeSkeletonScreen', () => {
   afterEach(() => {
     cleanup();
     mockState.softUpgradeAvailable = null;
+    mockState.user = null;
   });
 
   it('renders the TopBar (Humyn Labs wordmark) and an avatar Pressable', () => {
@@ -59,5 +74,28 @@ describe('HomeSkeletonScreen', () => {
     mockState.softUpgradeAvailable = { latest: '0.16.0' };
     const { getByLabelText } = render(<HomeSkeletonScreen />);
     expect(getByLabelText('soft-upgrade-banner-slot')).toBeTruthy();
+  });
+
+  it('renders avatar with Google initial when appStore.user is populated (Pattern 71)', () => {
+    mockState.user = {
+      id: '1',
+      email: 'alice@x.com',
+      name: 'Alice',
+      avatarUrl: 'https://x/a.jpg',
+    };
+    const { getByText, getByLabelText } = render(<HomeSkeletonScreen />);
+    // avatarUrl is set → an Image renders inside the Pressable instead of an
+    // initial fallback. Assert the Image's accessibility label is present.
+    expect(getByLabelText('top-bar-avatar-image')).toBeTruthy();
+    // Hostmark + avatar Pressable still present.
+    expect(getByText('Humyn Labs')).toBeTruthy();
+  });
+
+  it('falls back to "U" initial when appStore.user is null', () => {
+    mockState.user = null;
+    const { getByText, queryByLabelText } = render(<HomeSkeletonScreen />);
+    expect(queryByLabelText('top-bar-avatar-image')).toBeNull();
+    // The 'U' initial renders as Text inside the Pressable.
+    expect(getByText('U')).toBeTruthy();
   });
 });
