@@ -127,7 +127,7 @@ Plans:
 
 **Wave 4** _(encoder/audio/IMU wrappers + segment timer; depend on 03-04 + 03-05)_
 
-- [ ] 03-08-encoder-imu-segment-timer-PLAN.md — HevcEncoder (CAP-01), AacEncoder (CAP-03), ImuWriter (CAP-04/05/06), SegmentTimer (CAP-09), BackUltrawidePicker shared util — flips 4 stubs
+- [x] 03-08-encoder-imu-segment-timer-PLAN.md — HevcEncoder (CAP-01), AacEncoder (CAP-03), ImuWriter (CAP-04/05/06), SegmentTimer (CAP-09), BackUltrawidePicker shared util — flips 4 stubs
 
 **Wave 5** _(orchestrator part 1 — bridge surface; depends on 03-04..08)_
 
