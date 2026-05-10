@@ -34,15 +34,23 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // hoisted) vi.mock factories below can reference them. Module-level const
 // declarations execute AFTER hoisted vi.mock factories.
 // ---------------------------------------------------------------------------
-const { mockSignInWithGoogle, mockSetJwt, mockSetConsent, mockReplace, mockLogEvent, mockAlert } =
-  vi.hoisted(() => ({
-    mockSignInWithGoogle: vi.fn(),
-    mockSetJwt: vi.fn(),
-    mockSetConsent: vi.fn(),
-    mockReplace: vi.fn(),
-    mockLogEvent: vi.fn(),
-    mockAlert: vi.fn(),
-  }));
+const {
+  mockSignInWithGoogle,
+  mockSetJwt,
+  mockSetConsent,
+  mockSetUser,
+  mockReplace,
+  mockLogEvent,
+  mockAlert,
+} = vi.hoisted(() => ({
+  mockSignInWithGoogle: vi.fn(),
+  mockSetJwt: vi.fn(),
+  mockSetConsent: vi.fn(),
+  mockSetUser: vi.fn(),
+  mockReplace: vi.fn(),
+  mockLogEvent: vi.fn(),
+  mockAlert: vi.fn(),
+}));
 
 // ---------------------------------------------------------------------------
 // react-native shim extension — vitest.setup.ts already shims View/Text/etc.
@@ -128,6 +136,7 @@ vi.mock('../../src/state/appStore', () => {
   const state = {
     setJwt: mockSetJwt,
     setConsent: mockSetConsent,
+    setUser: mockSetUser,
   };
   function useAppStore<T>(selector: (s: typeof state) => T): T {
     return selector(state);

@@ -31,10 +31,18 @@ import { spacing } from '../../ui/tokens';
 export default function HomeSkeletonScreen() {
   const navigation = useNavigation<{ navigate: (route: string) => void }>();
   const softUpgradeAvailable = useAppStore((s) => s.softUpgradeAvailable);
+  const user = useAppStore((s) => s.user);
+  const avatarInitial = (
+    (user?.name ?? user?.email ?? 'U').trim().slice(0, 1) || 'U'
+  ).toUpperCase();
 
   return (
     <ScreenContainer accessibilityLabel="Home screen" padding={0}>
-      <TopBar onAvatarPress={() => navigation.navigate('Profile')} />
+      <TopBar
+        onAvatarPress={() => navigation.navigate('Profile')}
+        avatarInitial={avatarInitial}
+        {...(user?.avatarUrl ? { avatarUrl: user.avatarUrl } : {})}
+      />
       {softUpgradeAvailable ? (
         <View
           accessibilityLabel="soft-upgrade-banner-slot"

@@ -39,6 +39,19 @@ export interface AppVersionCacheEntry {
   fetchedAt: number; // epoch ms
 }
 
+/**
+ * Display-only user payload populated from sign-in or `/me`. Used by TopBar
+ * (Google avatar in MainTabs) and any future surface that needs name / email
+ * outside ProfileScreen's local fetch. NOT persisted across app launches —
+ * sign-in (or first ProfileScreen mount) repopulates it; signOut clears it.
+ */
+export interface UserDisplay {
+  id: string;
+  email: string;
+  name: string | null;
+  avatarUrl: string | null;
+}
+
 export interface AppState {
   // ---------------------------------------------------------------------
   // Persisted (round-tripped to MMKV)
@@ -57,6 +70,7 @@ export interface AppState {
   // ---------------------------------------------------------------------
   softUpgradeAvailable: { latest: string } | null;
   forceUpgradeBlocked: boolean;
+  user: UserDisplay | null;
 
   // ---------------------------------------------------------------------
   // Actions
@@ -72,6 +86,7 @@ export interface AppState {
   setAppVersionCache(c: AppVersionCacheEntry): void;
   setSoftUpgradeAvailable(s: { latest: string } | null): void;
   setForceUpgradeBlocked(b: boolean): void;
+  setUser(u: UserDisplay | null): void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -85,6 +100,7 @@ export const useAppStore = create<AppState>((set) => ({
   appVersionCache: null,
   softUpgradeAvailable: null,
   forceUpgradeBlocked: false,
+  user: null,
 
   setJwt: (jwt) => {
     if (jwt === null) {
@@ -97,7 +113,7 @@ export const useAppStore = create<AppState>((set) => ({
 
   signOut: () => {
     secureMmkv.remove(KEYS.AUTH_JWT);
-    set({ jwt: null });
+    set({ jwt: null, user: null });
   },
 
   setConsent: (consent) => {
@@ -149,4 +165,5 @@ export const useAppStore = create<AppState>((set) => ({
 
   setSoftUpgradeAvailable: (s) => set({ softUpgradeAvailable: s }),
   setForceUpgradeBlocked: (b) => set({ forceUpgradeBlocked: b }),
+  setUser: (user) => set({ user }),
 }));
