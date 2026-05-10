@@ -19,6 +19,11 @@ apps/mobile/android/app/google-services.json
 apps/mobile/android/app/src/*/google-services.json
 apps/mobile/android/app/src/main/google-services*.json
 
+# Google Cloud service-account JSON keys (per-developer; contain private keys)
+# Pattern matches the GCP-default download filename (e.g. homelander-24045-1184f935e587.json)
+*-iam.gserviceaccount.com.json
+*-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].json
+
 # Environment
 .env
 .env.local
