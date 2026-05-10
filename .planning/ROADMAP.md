@@ -105,7 +105,7 @@ Plans:
 4. Pre-record thermal check refuses to start when `getCurrentThermalStatus() ≥ THROTTLING` with the documented toast, mid-record `≥ THROTTLING_SEVERE` ends the segment cleanly within ~2.5 s, the foreground service runs as `camera | microphone | dataSync` with `KEEP_SCREEN_ON`, and in-flight uploads pause on record start and resume on stop
 5. SHA-256 of the MP4 and SHA-256 of the IMU CSV are computed at finalize and stamped into the metadata JSON as `file_sha256` / `imu_sha256`, and the resulting MP4 / CSV / JSON files are NEVER decoded, re-encoded, transcoded, or stripped between device and S3
 
-**Plans:** 10 plans
+**Plans:** 11 plans
 
 Plans:
 **Wave 1** _(Phase 2 cosmetic fix-up — D-WAVE-04..05; lands first per memory `project_phase3_wave1_cosmetic_fixup.md`; parallel-OK among the three since file ownership doesn't overlap)_
@@ -113,8 +113,9 @@ Plans:
 - [x] 03-01-cosmetic-asset-prep-PLAN.md — Wave 1a — pre-cropped @1x/@2x/@3x logo + rig asset PNGs + jest-image-snapshot dev dep + Vitest expect.extend adapter (no screen edits)
 - [x] 03-02-cosmetic-screen-fixup-PLAN.md — Wave 1b — RethinkSans diagnosis + value-prop spacing + CTA position/width across Sign-up/Permissions + BottomNav Lucide icons + 4-of-5 EMAIL_ADDRESS substitution + 6 visual snapshot baselines (depends on Plan 03-01 assets + infra)
 - [x] 03-03-cosmetic-functional-regressions-PLAN.md — Wave 1 — navigator-touching changes (useTabTopBarProps hook Pattern 71, useForegroundUserRehydrate hook Pattern 72, CompatFail+CompatRecovery merge, CompatPass auto-advance, route-registry REMOVED_PHASE_2_ROUTES list, 5th [EMAIL_ADDRESS] substitution closes OQ-1 end-to-end, 03-WAVE1-SMOKE.md operator runbook)
+- [ ] 03-11-wave1-polish-PLAN.md — Wave 1 polish (D-WAVE-09 amendments protocol) — A1 Permissions copy + A2 RigTutorial illustration (asset replacement OR escalation) + A3 BottomNav lift via `useSafeAreaInsets()` + A4 TopBar orange wordmark Image on Home/Tasks/History + A5 CompatFail "What Now" removal + A6 Splash/Sign-up logos shrink ~20%; refreshes 7 visual baselines; gates Wave 2 entry per D-WAVE-08 (depends on 03-03)
 
-**Wave 2 entry** _(Wave 2 entry — blocked on Wave 1 commits + operator re-walk per D-WAVE-08)_
+**Wave 2 entry** _(Wave 2 entry — blocked on Wave 1 commits + Plan 03-11 polish + operator re-walk per D-WAVE-08; Plan 03-04 `depends_on: [03-03, 03-11]`)_
 
 - [ ] 03-04-capture-foundation-muxer-bridge-PLAN.md — `androidx.media3:media3-muxer:1.10.0` Gradle dep + FragmentedMuxerWrapper.kt + 17 capture/ Wave 0 Kotlin test stubs (Task 2a) + 1 fgs/ Wave 0 stub (Task 2b) + HumynCapture.ts JS bridge stubs + CaptureSessionOpts Zod schema; includes Task 0 pre-flight that requires `re-walked-on:` stamp in 03-WAVE1-SMOKE.md before any encoder work
 

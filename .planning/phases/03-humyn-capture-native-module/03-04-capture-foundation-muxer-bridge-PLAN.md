@@ -4,7 +4,7 @@ plan_id: 03-04
 plan: 4
 type: execute
 wave: 2
-depends_on: [03-03]
+depends_on: [03-03, 03-11]
 files_modified:
   - apps/mobile/android/app/build.gradle
   - apps/mobile/android/app/src/main/java/ai/humynlabs/capture/capture/FragmentedMuxerWrapper.kt
@@ -87,6 +87,8 @@ Wave 2 entry — land the Gradle dependency, the muxer wrapper (the "single most
 Purpose: per RESEARCH.md `## Validation Architecture` "Wave 0 Gaps" lines 1149–1170, 17 Kotlin test files + 1 JS bridge test file MUST be created BEFORE any production code lands so the Nyquist sampling rate (per-task <30 s feedback) holds for every subsequent plan. CAP-02 (fragmented MP4 with periodic moov flush) is the project-killer pitfall — landing the muxer wrapper here, with its own dedicated test, de-risks all downstream encoder/audio/IMU work.
 
 Output: 1 new Gradle dep, 1 new Kotlin file (FragmentedMuxerWrapper.kt), 17 Kotlin test stubs, 2 new JS files (HumynCapture.ts + .types.ts), 1 new Vitest spec, 1 new Zod schema with index.ts re-export.
+
+<!-- Plan 03-11 (Wave 1 polish per D-WAVE-09) gates Wave 2 entry per D-WAVE-08; depends_on includes 03-11 so the orchestrator dep-graph honors the Wave 1 → Wave 2 ordering rather than allowing 03-04 to run the moment 03-03 lands. -->
 </objective>
 
 <execution_context>
