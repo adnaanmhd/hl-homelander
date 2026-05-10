@@ -55,3 +55,76 @@ cd apps/mobile && npx vitest run __tests__/screens/SplashScreen.test.tsx __tests
 ```
 
 Expected post-fix: 7 passed, 0 failed.
+
+---
+
+## Pre-existing compat/ Robolectric SoLoader NPE (observed at Plan 03-06 execution, 2026-05-10)
+
+**Discovered during:** Plan 03-06 Task 2 verification (full
+`./gradlew :app:testApkRolloutDebugUnitTest` run after writing
+`MetadataComposer.kt`).
+
+**Status:** Pre-existing on this worktree's branch base
+(`cf8f53016`) BEFORE Plan 03-06 — confirmed by `git stash` round-trip
+(`NalParserTest` reproduces the failure with my Task 2 changes
+stashed).
+
+**Failures (15 total across 4 files, all in `ai.humynlabs.capture.compat`):**
+
+- `DeviceCapsTest` — 6/6 fail
+- `EncoderProbeTest` — 1/1 fails
+- `ImuProbeTest` — 4/4 fail
+- `NalParserTest` — 4/4 fail
+
+All four classes fail with the **same** stack trace:
+
+```
+java.lang.NullPointerException
+  at java.base/java.io.File.<init>(File.java:278)
+  at com.facebook.soloader.ApplicationSoSource.getNativeLibDirFromContext(...)
+  at com.facebook.soloader.SoLoader.initSoSources(SoLoader.java:425)
+  ...
+  at MainApplication.onCreate(...)
+```
+
+**Root cause:** Robolectric auto-runs `MainApplication.onCreate()` for
+every test. Phase 2's `MainApplication` calls `SoLoader.init(...)` →
+`ApplicationSoSource.getNativeLibDirFromContext(...)` → returns `null`
+under Robolectric → `new File(null)` NPE. This is the SAME issue that
+Plan 03-04's SUMMARY documented (Deviation 3) for the Phase 3 stubs,
+and Plan 03-04 patched it for the 18 stubs by adding
+`@Config(application = Application::class)` to bypass
+`MainApplication.onCreate`. The Phase 2 `compat/` tests were NOT
+patched at that time.
+
+**Why deferred (not fixed in 03-06):**
+
+1. Plan 03-06's `<files>` and `<action>` are scoped to
+   `MetadataComposer.kt` + `MetadataSchemaConformanceTest.kt` +
+   `video_metadata_v1_1_0_template.json` + `recording.ts` only — the
+   `compat/` folder is out of scope.
+2. The fix is mechanical (add `application = Application::class` to
+   each `@Config(...)` annotation in the 4 affected test classes) but
+   it touches Phase 2 source files that this plan does not own.
+3. The `MetadataSchemaConformanceTest` flip itself (Plan 03-06's
+   stated deliverable) is **GREEN** — verified independently by
+   `./gradlew :app:testApkRolloutDebugUnitTest --tests
+"ai.humynlabs.capture.capture.MetadataSchemaConformanceTest"` (7/7
+   pass).
+
+**Where it should be fixed:** A future Phase 2 cleanup pass, or
+opportunistically inside any Wave 2 plan that already touches the
+`compat/` source tree. Suggested patch: add
+`@Config(sdk = [33], application = Application::class)` to
+`DeviceCapsTest`, `EncoderProbeTest`, `ImuProbeTest`, and
+`NalParserTest` (mirrors Plan 03-04's pattern for Phase 3 stubs).
+
+**Verification command** (run after fix to confirm):
+
+```
+cd apps/mobile/android && ./gradlew :app:testApkRolloutDebugUnitTest \
+  --tests "ai.humynlabs.capture.compat.*"
+```
+
+Expected post-fix: 15 passed (or all-skipped under shadowed APIs), 0
+SoLoader NPEs.
