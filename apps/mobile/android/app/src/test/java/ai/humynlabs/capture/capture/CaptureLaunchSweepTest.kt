@@ -16,12 +16,12 @@ import java.io.File
  * (D-FS-04 from CONTEXT.md).
  *
  * Behavior contract (PLAN.md `<behavior>`):
- *  - recordings/*.mp4 without matching .json:
- *      - if .session.json sidecar exists AND parseable → leave for Phase 4 re-finalize
- *      - if sidecar corrupt or missing → delete the triple
- *  - recordings/*.json (non-sidecar) without matching .mp4 → delete (orphan JSON)
- *  - practice/* files older than 24 h → delete; fresh ones kept
- *  - complete triples (.mp4 + .csv + .json) → untouched
+ *  - recordings/[base].mp4 without matching .json:
+ *      - if .session.json sidecar exists AND parseable, leave for Phase 4 re-finalize
+ *      - if sidecar corrupt or missing, delete the triple
+ *  - recordings/[base].json (non-sidecar) without matching .mp4, delete (orphan JSON)
+ *  - practice/[any] files older than 24 h, delete; fresh ones kept
+ *  - complete triples (.mp4 + .csv + .json), untouched
  *
  * `application = Application::class` — bypasses MainApplication.onCreate
  * SoLoader.init NPE under Robolectric (canonical Phase 3 pattern).
@@ -114,7 +114,7 @@ class CaptureLaunchSweepTest {
     }
 
     @Test
-    fun `practice file older than 24h deletes; fresh kept`() {
+    fun `practice file older than 24h deletes - fresh kept`() {
         val old = File(practiceDir, "old.mp4").apply {
             writeText("old practice")
             setLastModified(System.currentTimeMillis() - 25L * 60L * 60L * 1000L)
