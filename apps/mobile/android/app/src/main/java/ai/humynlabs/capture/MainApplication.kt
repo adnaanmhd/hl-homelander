@@ -12,7 +12,10 @@ import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.react.soloader.OpenSourceMergedSoMapping
 import com.facebook.soloader.SoLoader
 import io.humyn.app.PlayIntegrityPackage
+import ai.humynlabs.capture.capture.HumynCapturePackage
+import ai.humynlabs.capture.capture.SegmentDurationConfig
 import ai.humynlabs.capture.compat.HumynCompatPackage
+import ai.humynlabs.capture.fgs.HumynForegroundNotification
 import ai.humynlabs.capture.updater.HumynUpdaterPackage
 
 /**
@@ -31,6 +34,7 @@ class MainApplication : Application(), ReactApplication {
                 packages.add(PlayIntegrityPackage())  // Plan 13 — Phase 1 mobile sign-in scaffold
                 packages.add(HumynCompatPackage())    // Plan 02-06 — Phase 2 compat probe shell
                 packages.add(HumynUpdaterPackage())   // Plan 02-07 — Phase 2 force-upgrade APK installer (apkRollout flavor)
+                packages.add(HumynCapturePackage())   // Plan 03-09 — Phase 3 capture pipeline entry
                 return packages
             }
 
@@ -56,5 +60,20 @@ class MainApplication : Application(), ReactApplication {
         // finally-block deletion ran. Best-effort — listFiles can return null.
         cacheDir.listFiles { f -> f.name.startsWith("compat-probe-") && f.name.endsWith(".mp4") }
             ?.forEach { it.delete() }
+
+        // Phase 3 — set capture.segment_minutes default (read by SegmentDurationConfig.load()).
+        // Defaults are best-effort: if Firebase init hasn't completed (test/no-network), the
+        // SegmentDurationConfig.load() catch-block falls back to DEFAULT_MINUTES anyway.
+        try {
+            com.google.firebase.remoteconfig.FirebaseRemoteConfig.getInstance().setDefaultsAsync(
+                mapOf(SegmentDurationConfig.KEY to SegmentDurationConfig.DEFAULT_MINUTES),
+            )
+        } catch (_: Throwable) {
+            // Phase 2 already wired the SDK; default suffices on failure.
+        }
+
+        // Phase 3 — ensure FGS notification channel exists for the next start().
+        // Plan 03-07 ships the helper; channel creation is idempotent.
+        HumynForegroundNotification.ensureChannel(this)
     }
 }
