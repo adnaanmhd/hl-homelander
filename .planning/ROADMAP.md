@@ -112,7 +112,7 @@ Plans:
 
 - [x] 03-01-cosmetic-asset-prep-PLAN.md — Wave 1a — pre-cropped @1x/@2x/@3x logo + rig asset PNGs + jest-image-snapshot dev dep + Vitest expect.extend adapter (no screen edits)
 - [x] 03-02-cosmetic-screen-fixup-PLAN.md — Wave 1b — RethinkSans diagnosis + value-prop spacing + CTA position/width across Sign-up/Permissions + BottomNav Lucide icons + 4-of-5 EMAIL_ADDRESS substitution + 6 visual snapshot baselines (depends on Plan 03-01 assets + infra)
-- [ ] 03-03-cosmetic-functional-regressions-PLAN.md — Wave 1 — navigator-touching changes (useTabTopBarProps hook, useForegroundUserRehydrate hook, CompatFail+CompatRecovery merge, CompatPass auto-advance, route-registry update, 5th [EMAIL_ADDRESS] substitution, 03-WAVE1-SMOKE.md operator runbook)
+- [x] 03-03-cosmetic-functional-regressions-PLAN.md — Wave 1 — navigator-touching changes (useTabTopBarProps hook Pattern 71, useForegroundUserRehydrate hook Pattern 72, CompatFail+CompatRecovery merge, CompatPass auto-advance, route-registry REMOVED_PHASE_2_ROUTES list, 5th [EMAIL_ADDRESS] substitution closes OQ-1 end-to-end, 03-WAVE1-SMOKE.md operator runbook)
 
 **Wave 2 entry** _(Wave 2 entry — blocked on Wave 1 commits + operator re-walk per D-WAVE-08)_
 
