@@ -43,9 +43,32 @@ import kotlin.math.sqrt
  * focal length (= widest dFOV = ultrawide). Picking just the first BACK camera
  * may land on the telephoto and report ~25° dFOV.
  *
+ * Logical multi-camera handling (Pixel 7+, Galaxy S20+, etc.): on Camera2 API,
+ * modern multi-lens phones expose a single LOGICAL_MULTI_CAMERA per facing
+ * direction in `cameraIdList`; the individual physical lenses (main / ultrawide
+ * / telephoto) live behind `LOGICAL_MULTI_CAMERA.physicalIds`. Iterating only
+ * the public ID list reads the logical camera's DEFAULT physical (usually the
+ * main wide), missing the ultrawide entirely. The fix: flatten public IDs ∪
+ * physical sub-IDs, then pick min-focal across the flattened set. Resolution,
+ * FPS and timestamp source must still come from the LOGICAL parent (the openable
+ * camera) since physical sub-cameras don't expose their own session config.
+ *
  * dFOV math: 2 * atan(sensor_diagonal / (2 * focal)) — see RESEARCH § Code Examples.
  */
 class DeviceCaps(private val ctx: Context) {
+
+    /**
+     * Result of ultrawide camera selection: the logical (openable) camera ID
+     * for resolution/fps/timestamp queries, plus the characteristics for the
+     * physical sub-camera whose intrinsics define the ultrawide dFOV. On
+     * non-logical-multi-camera devices, both ID and characteristics refer to
+     * the same camera.
+     */
+    internal data class UltrawidePick(
+        val openableId: String,
+        val openableChars: CameraCharacteristics,
+        val ultrawideChars: CameraCharacteristics,
+    )
 
     /**
      * Single entry point — returns a JS-bridge-ready WritableMap so the calling
@@ -58,16 +81,17 @@ class DeviceCaps(private val ctx: Context) {
 
         // --- 1. Camera capabilities — back ultrawide (Pitfall 5) ---------------
         val mgr = ctx.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
-        val ultrawideId = mgr?.let { pickBackUltrawideCamera(it) }
-        val ultrawideChars = ultrawideId?.let { mgr.getCameraCharacteristics(it) }
+        val pick = mgr?.let { pickBackUltrawide(it) }
 
         val resolutionMap = Arguments.createMap()
-        if (ultrawideChars != null) {
-            val (resW, resH) = readMaxResolution(ultrawideChars)
+        if (pick != null) {
+            // Resolution/FPS belong to the OPENABLE (logical or sole) camera.
+            val (resW, resH) = readMaxResolution(pick.openableChars)
             resolutionMap.putInt("w", resW)
             resolutionMap.putInt("h", resH)
-            out.putInt("fpsMax", readMaxFps(ultrawideChars))
-            out.putDouble("ultrawideDfovDeg", computeDfov(ultrawideChars).toDouble())
+            out.putInt("fpsMax", readMaxFps(pick.openableChars))
+            // dFOV belongs to the SPECIFIC physical sub-camera (the ultrawide).
+            out.putDouble("ultrawideDfovDeg", computeDfov(pick.ultrawideChars).toDouble())
         } else {
             resolutionMap.putInt("w", 0)
             resolutionMap.putInt("h", 0)
@@ -84,8 +108,10 @@ class DeviceCaps(private val ctx: Context) {
         )
         out.putInt("micSampleRateMax", if (micBuf > 0) 48_000 else 0)
 
-        // --- 3. REALTIME timestamp source (Camera2 ultrawide) ------------------
-        val realtime = ultrawideChars
+        // --- 3. REALTIME timestamp source (Camera2 logical parent) -------------
+        // Read from the openable (logical) camera — this is the device-level
+        // sensor clock domain and is identical for all physical sub-cameras.
+        val realtime = pick?.openableChars
             ?.get(CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE) ==
             CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE_REALTIME
         out.putBoolean("realtimeTimestampSource", realtime)
@@ -105,9 +131,15 @@ class DeviceCaps(private val ctx: Context) {
         return out
     }
 
-    /** Pick the back camera with shortest focal length (= widest dFOV). Pitfall 5. */
-    internal fun pickBackUltrawideCamera(mgr: CameraManager): String? {
-        val backCameras = try {
+    /**
+     * Pick the back ultrawide. Returns the openable (logical or sole) camera ID
+     * paired with the characteristics of the specific physical sub-camera that
+     * owns the shortest focal length — the ultrawide. Pitfall 5 + logical
+     * multi-camera handling.
+     */
+    internal fun pickBackUltrawide(mgr: CameraManager): UltrawidePick? {
+        // 1. Enumerate all back-facing top-level cameras (logical or sole).
+        val backTopLevel = try {
             mgr.cameraIdList.mapNotNull { id ->
                 val chars = try {
                     mgr.getCameraCharacteristics(id)
@@ -125,13 +157,74 @@ class DeviceCaps(private val ctx: Context) {
         } catch (_: Throwable) {
             return null
         }
-        if (backCameras.isEmpty()) return null
+        if (backTopLevel.isEmpty()) return null
 
-        return backCameras.minByOrNull { (_, chars) ->
-            val focals = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
-            if (focals == null || focals.isEmpty()) Float.MAX_VALUE else focals.min()
-        }?.first
+        // 2. For each top-level back camera, build the candidate set:
+        //      candidate = (this top-level camera, its own characteristics)
+        //    plus, if it's a LOGICAL_MULTI_CAMERA on API 28+, expand into
+        //      (top-level camera, each physical sub-camera's characteristics).
+        //    The top-level ID stays the OPENABLE handle; the per-physical chars
+        //    drive the dFOV pick.
+        data class Candidate(
+            val openableId: String,
+            val openableChars: CameraCharacteristics,
+            val ultrawideChars: CameraCharacteristics,
+            val minFocalMm: Float,
+        )
+
+        val candidates = mutableListOf<Candidate>()
+        for ((topId, topChars) in backTopLevel) {
+            // Always include the top-level itself as a fallback candidate.
+            candidates += Candidate(
+                openableId = topId,
+                openableChars = topChars,
+                ultrawideChars = topChars,
+                minFocalMm = minFocal(topChars),
+            )
+            // Expand physical sub-cameras when supported (API 28+ + capability).
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val physicalIds: Set<String> = try {
+                    topChars.physicalCameraIds
+                } catch (_: Throwable) {
+                    emptySet()
+                }
+                for (physId in physicalIds) {
+                    val physChars = try {
+                        mgr.getCameraCharacteristics(physId)
+                    } catch (_: Throwable) {
+                        null
+                    } ?: continue
+                    candidates += Candidate(
+                        openableId = topId, // open the LOGICAL parent, not the physical
+                        openableChars = topChars,
+                        ultrawideChars = physChars,
+                        minFocalMm = minFocal(physChars),
+                    )
+                }
+            }
+        }
+
+        // 3. Pick min-focal across the flattened candidate set.
+        val best = candidates.minByOrNull { it.minFocalMm } ?: return null
+        return UltrawidePick(
+            openableId = best.openableId,
+            openableChars = best.openableChars,
+            ultrawideChars = best.ultrawideChars,
+        )
     }
+
+    /** Smallest focal length advertised by a camera, or Float.MAX_VALUE if unknown. */
+    private fun minFocal(chars: CameraCharacteristics): Float {
+        val focals = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
+        return if (focals == null || focals.isEmpty()) Float.MAX_VALUE else focals.min()
+    }
+
+    /**
+     * Back-compat alias for callers that only need the openable camera ID.
+     * Retained so existing call sites and tests keep working.
+     */
+    internal fun pickBackUltrawideCamera(mgr: CameraManager): String? =
+        pickBackUltrawide(mgr)?.openableId
 
     /** Read max resolution (long edge, short edge) from StreamConfigurationMap. */
     internal fun readMaxResolution(chars: CameraCharacteristics): Pair<Int, Int> {
