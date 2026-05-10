@@ -64,6 +64,16 @@ android {
             versionNameSuffix ''
             buildConfigField 'String', 'FLAVOR_NAME', '"playStore"'
             buildConfigField 'String', 'APPLICATION_ID', '"ai.humynlabs.capture"'
+            // Play Integrity Classic API: required by IntegrityTokenRequest.setCloudProjectNumber(...)
+            // when the package is not auto-attributed via Play Console linkage. The playStore
+            // flavor would normally be auto-attributed once published, but we set it explicitly
+            // so the call site is uniform across flavors and Play-Console linkage state cannot
+            // silently regress us. Source of the number: GCP Console → Project info → Project
+            // number for project 'humyn-prod' (matches the prefix of GOOGLE_WEB_CLIENT_ID in
+            // .env.playStore). Read via BuildConfig.GOOGLE_CLOUD_PROJECT_NUMBER in
+            // io.humyn.app.PlayIntegrityModule. The trailing 'L' makes this a Java long literal
+            // (Play Integrity setter signature is setCloudProjectNumber(Long)).
+            buildConfigField 'long', 'GOOGLE_CLOUD_PROJECT_NUMBER', '130483521533L'
         }
         apkRollout {
             dimension 'distribution'
@@ -73,6 +83,14 @@ android {
             versionNameSuffix '-apk'
             buildConfigField 'String', 'FLAVOR_NAME', '"apkRollout"'
             buildConfigField 'String', 'APPLICATION_ID', '"ai.humynlabs.capture.apk"'
+            // Play Integrity Classic API: REQUIRED for this flavor — the apkRollout package
+            // (ai.humynlabs.capture.apk, D-FLAV-01 / D-DIST-01) is intentionally never
+            // registered in Play Console (it's the sideload distribution flavor that ships
+            // before Play Store). Without this number the Integrity API has no project to
+            // attribute the request to and fails with -16 CLOUD_PROJECT_NUMBER_IS_INVALID.
+            // Same project number as the playStore flavor (single GCP project hosts both
+            // OAuth client + Play Integrity).
+            buildConfigField 'long', 'GOOGLE_CLOUD_PROJECT_NUMBER', '130483521533L'
         }
         // NOTE: Two flavors only. DIST-07 (third-flavor recon build) is rescinded per
         // CONTEXT.md D-DIST-01. iOS distribution is an Xcode scheme target, not an Android
