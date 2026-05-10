@@ -131,7 +131,7 @@ Plans:
 
 **Wave 5** _(orchestrator part 1 — bridge surface; depends on 03-04..08)_
 
-- [ ] 03-09-orchestrator-bridge-wireup-PLAN.md — HumynCaptureModule + Package + SegmentDurationConfig + CaptureSessionOptsBridge (dedicated file per checker issue #14) + CaptureLaunchSweep + MainApplication wire-up + JS bridge integration test (5th describe block) + 03-MANUAL-SMOKE.md runbook (start()/stop() ship as `not_implemented_in_03_09` stubs; Plan 03-10 replaces)
+- [x] 03-09-orchestrator-bridge-wireup-PLAN.md — HumynCaptureModule + Package + SegmentDurationConfig + CaptureSessionOptsBridge (dedicated file per checker issue #14) + CaptureLaunchSweep + MainApplication wire-up + JS bridge integration test (5th describe block) + 03-MANUAL-SMOKE.md runbook (start()/stop() ship as `not_implemented_in_03_09` stubs; Plan 03-10 replaces)
 
 **Wave 6** _(orchestrator part 2 — segment lifecycle + final stub flips; depends on 03-09)_
 
