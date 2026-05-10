@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: 'Phase 3 Wave 1 polish COMPLETE + post-Plan-03-11 re-re-walk PASSED on Pixel 10a — Wave 2 UNBLOCKED. All six amendments (A1–A6) verified closed on-device: A1 Permissions body reads "Used only while you hit record" verbatim; A2 RigTutorial renders rasterized prototype-SVG illustration (real PNG, not transparent placeholder); A3 BottomNav measured 91.8 dp tall + 35.4 dp gap below tab content (matches insets.bottom + 12); A4 TopBar wordmark is android.widget.ImageView 122.7×28.2 dp (NOT TextView "Humyn Labs"), propagates identically to Tasks + History via Pattern 71; A5 CompatFail "What Now" block deletion verified by source grep + visual baseline refresh; A6 Sign-up wordmark measured 256×57.9 dp on Pixel 10a (matches explicit style 256×58 dp). Additional verifications: §2 consent-gate alert fires; §3 auto-advances to Compat post-grant (no manual Continue — runbook §3 line 66 was stale, fixed in same commit); §5 CompatPass auto-advances 1.5s; §10 Profile Phase 2 surface intact; §11 Pattern 72 avatar self-heals within ~2.7s after force-stop. New candidate amendment A7 filed (NOT closed): SignupScreen consent checkbox defaults to useState(true) — Phase 2 02-09 explicit choice but regulatory exposure under GDPR Art. 4(11) / DPDP §6 / LGPD Art. 5(XII) (pre-ticked boxes do not constitute "clear affirmative action"). A7 disposition: pending legal review BEFORE Wave 2 plan-phase; NOT blocking Wave 2 entry. D-WAVE-08 entry gate fully satisfied; Plan 03-04 capture-foundation-muxer-bridge plan-phase is UNBLOCKED.'
-last_updated: '2026-05-10T17:25:00.000Z'
+stopped_at: 'Phase 3 Wave 1 polish COMPLETE + post-Plan-03-11 re-re-walk PASSED on Pixel 10a — Wave 2 UNBLOCKED. All six amendments (A1–A6) verified closed on-device: A1 Permissions body reads "Used only while you hit record" verbatim; A2 RigTutorial renders rasterized prototype-SVG illustration (real PNG, not transparent placeholder); A3 BottomNav measured 91.8 dp tall + 35.4 dp gap below tab content (matches insets.bottom + 12); A4 TopBar wordmark is android.widget.ImageView 122.7×28.2 dp (NOT TextView "Humyn Labs"), propagates identically to Tasks + History via Pattern 71; A5 CompatFail "What Now" block deletion verified by source grep + visual baseline refresh; A6 Sign-up wordmark measured 256×57.9 dp on Pixel 10a (matches explicit style 256×58 dp). Additional verifications: §2 consent-gate alert fires; §3 auto-advances to Compat post-grant (no manual Continue — runbook §3 line 66 was stale, fixed in same commit); §5 CompatPass auto-advances 1.5s; §10 Profile Phase 2 surface intact; §11 Pattern 72 avatar self-heals within ~2.7s after force-stop. D-WAVE-08 entry gate fully satisfied; Plan 03-04 capture-foundation-muxer-bridge plan-phase is UNBLOCKED.'
+last_updated: '2026-05-10T17:35:00.000Z'
 last_activity: 2026-05-10
 progress:
   total_phases: 7
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 
 Phase: 03 (humyn-capture-native-module) — EXECUTING
 Plan: 4 of 11 (Plans 03-01 + 03-02 + 03-03 + 03-11 COMPLETE on 2026-05-10 — Wave 1 polish fully closed, all six amendments A1–A6 verified on-device)
-Status: Executing Phase 03 — Wave 1 closed end-to-end (source + on-device verification); Wave 2 (Plan 03-04 capture-foundation-muxer-bridge) UNBLOCKED. Candidate amendment A7 filed (consent-checkbox default — pending legal review, not blocking Wave 2)
+Status: Executing Phase 03 — Wave 1 closed end-to-end (source + on-device verification); Wave 2 (Plan 03-04 capture-foundation-muxer-bridge) UNBLOCKED.
 
 - §1 Cold-start gate decision tree — PASSED (Path A, fresh install)
 - §2 Sign-up + Terms-of-Use modal — PASSED (after 4 auth-stack provisioning fixes, see commits below)

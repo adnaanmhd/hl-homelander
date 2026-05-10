@@ -205,10 +205,6 @@ Additional acceptance verified on-device: §2 consent-gate alert ("Please accept
 
 - §3 line 66 — replaced "Continue CTA enables → tap → CompatRunningScreen" with the actual auto-advance contract from `PermissionsScreen.tsx:15`.
 
-**New candidate amendment surfaced during the re-re-walk (filed but NOT closed):**
-
-- **A7** — SignupScreen consent checkbox defaults to `useState(true)` (Phase 2 plan 02-09 explicit choice; surfaced regulatory exposure under GDPR Art. 4(11) / DPDP §6 / LGPD Art. 5(XII) — pre-ticked boxes are not "clear affirmative action"). Filed for legal review BEFORE Wave 2 plan-phase. Not blocking Wave 2 entry unless legal flags.
-
 **Wave 2 entry gate — D-WAVE-08 status:** ALL conditions satisfied:
 
 1. ✓ Wave 1 plans 03-01 + 03-02 + 03-03 commits landed (≥7 commits — got 24 across 03-01/02/03/11 today).
