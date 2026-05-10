@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: 'Phase 3 context updated post-Phase-2-soak — Wave 1 freeze (D-WAVE-04), plan split (D-WAVE-05), snapshot infra locked (D-WAVE-06), logo asset Task 1 (D-WAVE-07), Wave 2 gate locked (D-WAVE-08), amendment protocol (D-WAVE-09). 02-COSMETIC-GAPS.md stamped frozen-2026-05-10. Ready for /gsd:plan-phase 3.'
-last_updated: '2026-05-10T12:14:19.800Z'
+stopped_at: 'Phase 3 Wave 1 in flight — Plan 03-01 (cosmetic-asset-prep) complete. Density-bucketed orange_logo PNGs + transparent rig illustration placeholders + jest-image-snapshot adapter wired into Vitest. Plan 03-02 (cosmetic-screen-fixup) is unblocked — owns SplashScreen.tsx + SignupScreen.tsx + HomeSkeletonScreen.tsx + RigTutorialScreen.tsx wiring + 6 visual snapshot baselines + a pre-existing render-time regression captured in deferred-items.md.'
+last_updated: '2026-05-10T13:30:00.000Z'
 last_activity: 2026-05-10
 progress:
   total_phases: 7
   completed_phases: 2
-  total_plans: 45
-  completed_plans: 35
-  percent: 78
+  total_plans: 47
+  completed_plans: 36
+  percent: 77
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-07)
 
 **Core value:** On-device capture quality is non-negotiable — every uploaded segment must hit the locked spec (1080p / 30 FPS / ≥110° dFOV / IMU sustained ≥100 Hz / ±1 ms timestamp alignment) or the bytes are worthless for training.
-**Current focus:** Phase 02 — mobile-shell-onboarding-permissions-compat-profile
+**Current focus:** Phase 03 — humyn-capture-native-module
 
 ## Current Position
 
-Phase: 02 (mobile-shell-onboarding-permissions-compat-profile) — EXECUTING (operator-smoke walk in progress, paused mid-§4)
-Plan: 22 of 22 complete (authoring); 5 fix-forward quick-task commits applied today (2026-05-10) to clear smoke-walk blockers.
-Status: Ready to execute
+Phase: 03 (humyn-capture-native-module) — EXECUTING
+Plan: 2 of 10 (Plan 03-01 cosmetic-asset-prep COMPLETE on 2026-05-10)
+Status: Executing Phase 03 — Wave 1 in flight
 
 - §1 Cold-start gate decision tree — PASSED (Path A, fresh install)
 - §2 Sign-up + Terms-of-Use modal — PASSED (after 4 auth-stack provisioning fixes, see commits below)
@@ -56,9 +56,9 @@ To resume Phase 1:
 
 **Velocity:**
 
-- Total plans completed: 27
+- Total plans completed: 28
 - Average duration: ~9.9 min
-- Total execution time: ~2.18 hours
+- Total execution time: ~2.38 hours
 
 **By Phase:**
 
@@ -69,8 +69,8 @@ To resume Phase 1:
 
 **Recent Trend:**
 
-- Last 10 plans: 01-01 (7 min, 3 tasks, 22 files), 01-03 (5 min, 3 tasks, 7 files), 01-02 (6 min, 3 tasks + checkpoint, 11 files), 01-04 (9 min, 3 tasks, 18 files), 01-05 (13 min, 4 tasks, 25 files), 01-06 (18 min, 3 tasks, 17 files), 01-07 (12 min, 4 tasks, 17 files), 01-08 (17 min, 3 tasks, 28 files), 01-09 (7 min, 3 tasks, 19 files), 02-17 (12 min, 3 tasks, 8 files), 02-18 (12 min, 4 tasks, 14 files), 02-19 (7 min, 3 tasks, 9 files), 02-20 (8 min, 3 tasks, 12 files), 02-22 (5 min, 4 tasks, 5 files), 02-21 (5 min, 2 tasks authored + 1 deferred operator-checkpoint, 2 files).
-- Trend: 02-21 ties 02-22 as fastest plan in Phase 2 (5 min authoring; Task 3 = operator-driven on-device walk-through, ~ ≥ 1 h elapsed time on the smoke device but ~0 of the planner clock). 1 deviation auto-fixed (Rule 2 — completeness: enumerated 5 [EMAIL_ADDRESS] occurrences, not the 3 the plan body listed; RigTutorialScreen.tsx mailto found via grep). Phase 2 surface authoring complete; 02-MANUAL-SMOKE.md (290 lines, 85 checkboxes, 13 sections, T-2.21-01 Crashlytics gate) and 02-OPEN-QUESTIONS.md (3 OQs) committed. Awaits operator commit for verify-work.
+- Last 10 plans: 01-01 (7 min, 3 tasks, 22 files), 01-03 (5 min, 3 tasks, 7 files), 01-02 (6 min, 3 tasks + checkpoint, 11 files), 01-04 (9 min, 3 tasks, 18 files), 01-05 (13 min, 4 tasks, 25 files), 01-06 (18 min, 3 tasks, 17 files), 01-07 (12 min, 4 tasks, 17 files), 01-08 (17 min, 3 tasks, 28 files), 01-09 (7 min, 3 tasks, 19 files), 02-17 (12 min, 3 tasks, 8 files), 02-18 (12 min, 4 tasks, 14 files), 02-19 (7 min, 3 tasks, 9 files), 02-20 (8 min, 3 tasks, 12 files), 02-22 (5 min, 4 tasks, 5 files), 02-21 (5 min, 2 tasks authored + 1 deferred operator-checkpoint, 2 files), 03-01 (12 min, 2 tasks, 13 files).
+- Trend: 03-01 = first Phase 3 Wave 1 plan (asset prep + visual snapshot infra). 12 min for 8 PNG asset generations + jest-image-snapshot install + expect.extend adapter wiring + .gitkeep + deferred-items.md authoring. 2 deviations auto-fixed (Rule 1 — bug: aspect-correct asset dimensions 320x73 not 320x96 because trimmed wordmark aspect ~4.37:1; Rule 2 — completeness: deferred-items.md handoff for 7 pre-existing SplashScreen + RootNativeStack render-time failures unrelated to this plan; assigned to Plan 03-02 commit boundary). 02-21 still ties 02-22 as fastest plan in Phase 2 (5 min authoring).
 
 _Updated after each plan completion_
 | Phase 01 P08 | 17 min | 3 tasks | 28 files |
@@ -83,6 +83,7 @@ _Updated after each plan completion_
 | Phase 02 P20 | 8min | 3 tasks | 12 files |
 | Phase 02 P22 | 5min | 4 tasks | 5 files |
 | Phase 02 P21 | 5min | 2 tasks (+1 deferred operator-checkpoint) | 2 files |
+| Phase 03 P01 | 12min | 2 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -176,6 +177,9 @@ Recent decisions affecting current work:
 - [Phase 2]: Plan 02-21: Pattern 57 — Open Questions file shape (.planning/phases/0X-name/0X-OPEN-QUESTIONS.md). Per-OQ enumeration of placeholder occurrences with file + line numbers (atomic search-and-replace), explicit resolution path, why-deferred justification, owner, Phase-N target. Carries forward into the next phase entry checklist. Phase 2's 02-OPEN-QUESTIONS.md tracks OQ-1 [EMAIL_ADDRESS] (5 occurrences, not 3 as the plan body listed — Rule 2 augmentation found a fourth runtime occurrence in RigTutorialScreen.tsx via grep), OQ-2 compat-fail wording (writer pass deferred), OQ-3 APK SHA-256 disclosure UX (Phase 1 carry-forward; planner-pick).
 - [Phase 2 quick-260510-001]: Pattern 58 — Play Integrity nonce padding round-trip normalization. Backend mints `randomBytes(32).toString('base64url')` (43 chars, no padding) but Play Integrity Classic API re-pads URL-safe-base64 nonces to standard-base64 length (44 chars, one trailing `=`) before embedding in `tokenPayloadExternal.requestDetails.nonce`. Without `s.replace(/=+$/, '')` normalization in `consumeNonce` before SHA-256, every legitimate sign-in 401s with `Nonce check: mismatch`. Fix landed in apps/api/src/auth/nonce-store.ts (commit 8b13d23). Empirically diagnosed via temp logs that captured both nonce values side-by-side (43 vs 44 chars, single `=` diff). See .planning/debug/resolved/auth-nonce-mismatch.md for the full debug record.
 - [Phase 3]: Context gathered (2026-05-10) — `.planning/phases/03-humyn-capture-native-module/03-CONTEXT.md`. Wave structure: Wave 1 = Phase 2 cosmetic fix-up (resolves 02-COSMETIC-GAPS.md, scope deferred to post-Phase-2-soak); Wave 2+ = HumynCapture native module, blocked on Wave 1 commit. HumynCapture API = Promise + NativeEventEmitter (`start(opts) → Promise`, events `onSegmentStart/Complete`, `onSessionStop`, `onThermalAbort`, `onError`). Module owns 10-min auto-segment timer (Firebase RC `capture.segment_minutes`); concurrent finalize on worker thread. Storage = flat `filesDir/recordings/` for real, separate `filesDir/practice/` for practice — directory IS the segregation. App-launch sweep owned by HumynCapture (re-finalize orphan MP4s via per-segment `.session.json` sidecar; clean practice >24 h). CAP-19 = finalize-only mark (`imu_min_rate_hz_observed_p1` stamped, server filters; schema_version → 1.1.0). HumynForegroundService lives in Phase 3 with `setUploadActive(boolean)` seam Phase 5 wires. Thermal CAP-11/12 fully owned by module (pre-record reject + 2.5 s graceful stop on SEVERE). Phase 3 E2E verification deferred to Phase 4 smoke walk against real RecordingScreen. Three blocking anti-patterns from 02-`.continue-here.md` carried forward.
+- [Phase 3]: Plan 03-01: Pattern 65 — density-bucketed RN asset re-export from a single padded source PNG. `sharp(...).trim()` detects the tight wordmark bounding box (568x130 for orange_logo at aspect ~4.37:1), then re-export at @1x / @2x / @3x widths preserving aspect ratio. Drops the cover-cropping + magic-number sizing dance in JSX. Width-bound resize (target the design-spec's lg width and let height derive from true aspect) prevents re-introducing transparent padding inside the PNG — that re-introduction is exactly the cosmetic regression 02-COSMETIC-GAPS.md cross-cutting note flagged. Plan body's literal 320x96 was Rule-1 corrected to 320x73 because 320:96 (3.33:1) doesn't match the trimmed wordmark aspect.
+- [Phase 3]: Plan 03-01: Pattern 66 — Vitest expect.extend(toMatchImageSnapshot) adapter wired in the global vitest.setup.ts. `import { toMatchImageSnapshot } from 'jest-image-snapshot'` + `expect.extend({ toMatchImageSnapshot })` happen ONCE at setup time so every test file inherits the matcher; the same file's `declare module 'vitest' { interface Assertion ... }` block makes the matcher type-visible. Default jest-image-snapshot baseline path (`__image_snapshots__/` adjacent to each test file) used as-is. Empty baseline directory `apps/mobile/__tests__/visual/__image_snapshots__/.gitkeep` committed so the convention's well-known location is in-repo before Plans 03-02 / 03-03 author the first PNGs.
+- [Phase 3]: Plan 03-01: deferred-items.md handoff pattern. Pre-existing test failures (7 across SplashScreen + RootNativeStack — render-time `Element type is invalid: ... got: undefined` regression from Phase 2 plan 02-08 commits 5fe1443 + 5b9629c) documented at `.planning/phases/03-humyn-capture-native-module/deferred-items.md` with stash-roundtrip evidence + explicit assignment to Plan 03-02 (the designated owner of SplashScreen.tsx per its `<files_modified>` block; Rule 1 will apply inside that plan's commit boundary).
 
 ### Quick Tasks Completed
 
@@ -229,9 +233,9 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-10T10:15:25.489Z
+Last session: 2026-05-10T13:30:00.000Z
 Last activity: 2026-05-10
-Stopped at: Phase 3 context updated post-Phase-2-soak — Wave 1 freeze (D-WAVE-04), plan split (D-WAVE-05), snapshot infra locked (D-WAVE-06), logo asset Task 1 (D-WAVE-07), Wave 2 gate locked (D-WAVE-08), amendment protocol (D-WAVE-09). 02-COSMETIC-GAPS.md stamped frozen-2026-05-10. Ready for /gsd:plan-phase 3.
+Stopped at: Phase 3 Wave 1 in flight — Plan 03-01 (cosmetic-asset-prep) COMPLETE on 2026-05-10. Density-bucketed orange_logo PNGs (320x73 / 640x146 / 960x220) + transparent rig illustration placeholders + jest-image-snapshot adapter wired into Vitest. Empty baseline directory committed. Pre-existing SplashScreen + RootNativeStack render-time failures (7 tests) documented in `.planning/phases/03-humyn-capture-native-module/deferred-items.md` for Plan 03-02 to root-cause inside its commit boundary. Plan 03-02 (cosmetic-screen-fixup) is unblocked.
 
 - 01-10 (terraform apply): Tasks 1+2+3 complete + committed (430e17a, 9e52db8, ad93d17). Operator runs `terraform fmt -check` + `terraform validate` + `terraform plan` + `terraform apply` against real AWS staging.
 - 01-11 (counsel engagement): code-ready-counsel-deferred. Three commits ship the canonical consent text + boot-time hash guard, takedown SOP runbook, dsr-export CLI, and counsel-engagement checklist. Real attorney review queued for legal-ops backlog.
