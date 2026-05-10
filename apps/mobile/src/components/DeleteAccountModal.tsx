@@ -19,16 +19,43 @@
 //      client-side gate is UX defense-in-depth — a user who patches the JS
 //      bundle still hits the server-side gate).
 //   2. auth.signOut()             → clears JWT + onboarding flags.
-//   3. navigation.reset to Signup → user must re-authenticate to test the
-//      30-day soft-delete restore path (D-DEL-01).
+//   3. navigation.reset to OnboardingStack (Pattern 61 — root-sibling reset)
+//      → user must re-authenticate to test the 30-day soft-delete restore
+//      path (D-DEL-01). Pre-quick-260510-006 this reset targeted 'Signup'
+//      directly, which silently no-ops because Signup is nested inside
+//      OnboardingStack rather than being a root-level route.
 //
 // On error: Alert + step stays visible (no MMKV cleanup, no nav reset). The
 // 30-day restore window is server-side; the user can sign in again later
 // even if this client-side cleanup never ran.
 //
+// **Pattern 66 — synchronous re-entrancy guard for destructive async
+// handlers** (quick-260510-006). The `submitting` state alone CANNOT block a
+// fast double-tap: setState propagates only on the next render, so a second
+// tap that lands while the first `await deleteMe()` is in flight (or while
+// nav.reset is mid-unmount but the Modal is still receiving events) will
+// re-enter `confirmDelete` because `disabled={!confirmEnabled}` still reads
+// the stale `submitting=false`. The first call has already cleared the JWT
+// via signOut(), so the second DELETE arrives at the backend without an
+// Authorization header and returns 401 — the Alert that surfaces tells the
+// user "Could not delete" even though the FIRST call DID delete the account.
+// `useRef` updates synchronously in the same render frame, so the ref-based
+// guard short-circuits before any work is done. Pair the ref guard with the
+// state-based UI guard (kept for the visual `submitting` label).
+//
+// **Crucial detail — release only on error, never on success.** The
+// natural reflex is to release the ref in `finally` to mirror the
+// `setSubmitting(false)` cleanup, but on the success path that releases
+// the guard AFTER signOut() has cleared the JWT. A second tap arriving
+// after the success-path `finally` (e.g. 100-200 ms after the first tap,
+// while nav.reset's unmount animation is still in progress) would then
+// pass the now-released guard and fire a DELETE without the Authorization
+// header — the exact 401 bug we're fixing. Release in `catch` only; on
+// success the component unmounts via nav.reset and the ref dies with it.
+//
 // NO hex literals — all colors / spacing / radii come from `../ui/tokens`.
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Alert, Modal, StyleSheet, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Text } from '../ui/primitives/Text';
@@ -53,6 +80,9 @@ export function DeleteAccountModal(): React.JSX.Element {
   const [step, setStep] = useState<Step>('confirm');
   const [typed, setTyped] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
+  // Pattern 66 — synchronous re-entrancy guard. `useRef` updates immediately
+  // in the same frame; state setters do not. See file header.
+  const inFlightRef = useRef(false);
 
   const cancel = () => nav.goBack();
   const continueToType = () => setStep('type-delete');
@@ -68,13 +98,27 @@ export function DeleteAccountModal(): React.JSX.Element {
       Alert.alert('Type DELETE to confirm.');
       return;
     }
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setSubmitting(true);
     try {
       await deleteMe();
       // Clear all auth + onboarding state, return to Signup (D-DEL-01).
       signOut();
-      nav.reset({ index: 0, routes: [{ name: 'Signup' }] });
+      // Pattern 61 — reset to the OnboardingStack root sibling, NOT 'Signup'.
+      // Signup is nested INSIDE OnboardingStack and is not reachable as a
+      // root-level route, so a reset to 'Signup' would silently no-op and
+      // leave the user on this modal with submitting=false (button label
+      // flips back from "Deleting…" to "Confirm" — looks like "not working").
+      // OnboardingStack registers Signup as its initial screen, so this
+      // lands the user on Signup with a fresh stack.
+      nav.reset({ index: 0, routes: [{ name: 'OnboardingStack' }] });
+      // Note: NO ref release here. nav.reset unmounts this component;
+      // ref dies with it. See file header for why finally-release is wrong.
     } catch (e) {
+      // Release on error so the user can retry (network failure, 429
+      // rate-limit, etc.). The success path intentionally never releases.
+      inFlightRef.current = false;
       Alert.alert('Could not delete', e instanceof Error ? e.message : 'Try again later.');
     } finally {
       setSubmitting(false);

@@ -13,9 +13,18 @@
 // Registered as a transparent modal route in RootNativeStack so the bottom
 // tab bar is not visible while the confirm is open.
 //
+// **Pattern 66 — synchronous re-entrancy guard for destructive handlers**
+// (quick-260510-006). `signOut()` is currently synchronous and `nav.reset`
+// is sync, so a double-tap today only re-fires idempotent work. The guard
+// is added for symmetry with DeleteAccountModal AND as a forward-looking
+// shield: if the logout flow ever gains an async pre-check (e.g.
+// `await api.post('/me/logout')` to revoke server-side tokens), removing
+// this guard at that point would re-introduce the same misleading-error
+// class as DeleteAccountModal's pre-fix bug.
+//
 // NO hex literals — all colors / spacing / radii come from `../ui/tokens`.
 
-import React from 'react';
+import React, { useRef } from 'react';
 import { Modal, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Text } from '../ui/primitives/Text';
@@ -25,16 +34,22 @@ import { signOut } from '../services/auth';
 
 export function LogoutModal(): React.JSX.Element {
   const nav = useNavigation<{ goBack: () => void; reset: (state: object) => void }>();
+  const inFlightRef = useRef(false);
 
   const cancel = () => nav.goBack();
 
   const confirm = () => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     signOut();
     // Reset to the OnboardingStack sibling (NOT 'Signup', which is nested
     // inside OnboardingStack and is not reachable as a root-level route).
     // OnboardingStack registers Signup as its initial screen, so this lands
     // the user on Signup with a fresh stack.
     nav.reset({ index: 0, routes: [{ name: 'OnboardingStack' }] });
+    // Note: no `inFlightRef.current = false` — once nav.reset fires, this
+    // component unmounts; the ref dies with it. If a future async pre-check
+    // is added, wrap in try/finally to release the guard on rejection.
   };
 
   return (
