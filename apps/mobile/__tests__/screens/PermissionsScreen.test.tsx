@@ -102,9 +102,8 @@ describe('PermissionsScreen', () => {
     expect(titleNode.textContent).toBe('Camera & Mic\nPermissions');
 
     const bodyNode = getByLabelText('permissions body');
-    expect(bodyNode.textContent).toBe(
-      'Used only while you hit record. Nothing leaves your phone until you stop and we encrypt-upload.',
-    );
+    // Plan 03-11 (A1) — body tightened to a single runtime-tooltip line.
+    expect(bodyNode.textContent).toBe('Used only while you hit record');
 
     // §3a CTA — verbatim, addressable by aria-label
     expect(getByLabelText('Allow access')).toBeTruthy();
