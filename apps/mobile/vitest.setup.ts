@@ -201,7 +201,22 @@ vi.mock('react-native', () => {
     // `Animated.timing(...).start()` at module-init time. JSDOM never
     // executes the actual animation; the AnimatedCircle just renders the
     // wrapped SVG primitive once.
+    //
+    // Plan 03-02 fix-forward (deferred-items.md handoff from 03-01):
+    // SplashScreen + RootNativeStack tests were failing with
+    // `Element type is invalid: ... got: undefined` because the splash
+    // animation refactor (commits 5fe1443 + 5b9629c) introduced
+    // `<Animated.View>` consumers but the mock here only stubbed the
+    // imperative API surface (Value, timing, parallel, …). React resolved
+    // `Animated.View` to undefined and threw at render time. Adding View
+    // and Text host-component-shim siblings makes the screen render with
+    // its animation wrappers in JSDOM (no actual animation executes — the
+    // Animated.timing(...).start() chain is still a no-op).
     Animated: {
+      View: makeComponent('AnimatedView'),
+      Text: makeComponent('AnimatedText'),
+      Image: makeComponent('AnimatedImage'),
+      ScrollView: makeComponent('AnimatedScrollView'),
       Value: class {
         _v: number;
         constructor(v: number) {
