@@ -1,11 +1,13 @@
-// CompatFailScreen unit tests — design-spec §4d (post Plan 03-03 merge).
+// CompatFailScreen unit tests — design-spec §4d (post Plan 03-03 merge,
+// post Plan 03-11 / A5 bullet removal).
 //
-// Coverage (post-merge):
+// Coverage:
 //   - renders "This phone can't record yet" verbatim
 //   - failed-key copy renders the design-spec §4d copy with measured value:
 //     "Stable motion sensors at 100 Hz+ required (yours: 44 Hz)"
-//   - inline recovery body + 3 recovery bullets render directly under the
-//     failure list (no separate CompatRecovery navigation hop)
+//   - inline 1-sentence recovery body renders directly under the failure
+//     list (Plan 03-11 / A5: the 3 recovery bullets were dropped as filler)
+//   - regression guard — the legacy `recovery-bullet-*` Text nodes are GONE
 //   - Contact Support button opens mailto with `support@humynlabs.ai`
 //     (Plan 03-03 swap of OQ-1's 5th and final placeholder occurrence)
 //   - multiple failed keys render multiple rows
@@ -171,16 +173,19 @@ describe('CompatFailScreen (design-spec §4d, post Plan 03-03 merge)', () => {
     expect(screen.queryByLabelText('compat-fail-row-imuSustained100Hz')).toBeNull();
   });
 
-  it('Test 6 (post-merge): inline recovery body + 3 bullets render under the failure list', () => {
+  it('Test 6 (Plan 03-11 / A5): inline 1-sentence recovery body renders under the failure list', () => {
     render(<CompatFailScreen />);
-    // Recovery body — matches the verbatim COMPAT-08 copy carried over from
-    // the deleted CompatRecoveryScreen.
-    expect(
-      screen.getByText(/Try a different qualifying device, or reach out to support/),
-    ).toBeTruthy();
-    expect(screen.getByLabelText('recovery-bullet-different-device')).toBeTruthy();
-    expect(screen.getByLabelText('recovery-bullet-not-rooted')).toBeTruthy();
-    expect(screen.getByLabelText('recovery-bullet-rerun')).toBeTruthy();
+    // Plan 03-11 (A5) — recovery body tightened to a single sentence; the
+    // bullet-list "What Now" block is gone. Failure list above already
+    // itemizes WHAT failed.
+    expect(screen.getByText("This phone doesn't meet the recording requirements.")).toBeTruthy();
+  });
+
+  it('Test 6b (Plan 03-11 / A5): legacy `recovery-bullet-*` Text nodes are GONE', () => {
+    render(<CompatFailScreen />);
+    expect(screen.queryByLabelText('recovery-bullet-different-device')).toBeNull();
+    expect(screen.queryByLabelText('recovery-bullet-not-rooted')).toBeNull();
+    expect(screen.queryByLabelText('recovery-bullet-rerun')).toBeNull();
   });
 
   it('Test 7 (post-merge): Contact Support mailto contains support@humynlabs.ai (OQ-1 5th occurrence resolved)', () => {
