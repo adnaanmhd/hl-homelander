@@ -60,7 +60,9 @@ describe('TasksPlaceholderScreen (Plan 03-03 Task 1)', () => {
   it('renders the Tasks placeholder copy + TopBar wordmark + avatar Pressable', () => {
     const { getByText, getByLabelText } = render(<TasksPlaceholderScreen />);
     expect(getByText('Tasks — coming in Phase 6.')).toBeTruthy();
-    expect(getByText('Humyn Labs')).toBeTruthy();
+    // Plan 03-11 (A4) — wordmark is the orange logo Image (accessibilityLabel
+    // 'Humyn Labs Capture wordmark') rather than the legacy 'Humyn Labs' Text.
+    expect(getByLabelText('Humyn Labs Capture wordmark')).toBeTruthy();
     expect(getByLabelText('top-bar-avatar')).toBeTruthy();
   });
 

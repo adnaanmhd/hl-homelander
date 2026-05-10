@@ -1,19 +1,25 @@
 // TopBar — top navigation chrome per design-spec §0.5 + §5.6 + §15.
 //
-// 48 px min-height. "Humyn Labs" wordmark on the left. 36 px circular avatar
-// Pressable on the right. Tapping the avatar invokes onAvatarPress; the
-// canonical wiring (HOME-07: Profile reachable ONLY via this avatar) is the
-// caller passing `() => navigation.navigate('Profile')`. RootNativeStack
-// mounts Profile as a sibling of MainTabs, so this navigate target works
-// from inside any tab body.
+// 48 px min-height. Orange wordmark Image (Plan 03-11 / A4) on the left.
+// 36 px circular avatar Pressable on the right. Tapping the avatar invokes
+// onAvatarPress; the canonical wiring (HOME-07: Profile reachable ONLY via
+// this avatar) is the caller passing
+// `() => navigation.navigate('Profile')`. RootNativeStack mounts Profile as
+// a sibling of MainTabs, so this navigate target works from inside any tab
+// body.
 //
 // Why a stand-alone component: every screen inside MainTabs needs the same
 // chrome — landing it here means a single token-bound implementation. The
 // avatar gradient stub (solid colors.accent today) is replaced with the real
 // linear-gradient when plan 02-19 (Profile) lands.
 //
-// Acceptance gates (plan 02-16 Task 1):
-//   - "Humyn Labs"        wordmark (grep)
+// Plan 03-11 (A4) — TopBar wordmark promoted from the Phase 2 Text stub
+// to the orange wordmark Image (asset under src/assets/logos/). Single-
+// component edit propagates to Home + Tasks + History via Pattern 71's
+// useTabTopBarProps() consumer chain.
+//
+// Acceptance gates (plan 02-16 Task 1; updated by Plan 03-11):
+//   - require('../assets/logos/orange_logo  wordmark Image source path (grep)
 //   - "top-bar-avatar"    Pressable accessibilityLabel (grep)
 //   - "navigate.*Profile" call site — lives in the caller (HomeSkeletonScreen
 //     etc.) since TopBar takes onAvatarPress as a prop, but the docstring
@@ -63,9 +69,17 @@ export function TopBar({
       ]}
     >
       <View accessibilityLabel="top-bar-logo">
-        <Text variant="title28" tone="primary">
-          Humyn Labs
-        </Text>
+        {/* Plan 03-11 (A4) — orange wordmark Image replaces the Phase 2
+            Text stub. Height-bound at 28 dp; aspectRatio 320/73 preserves
+            the source asset's exact aspect (~4.38:1). resizeMode 'contain'
+            guards against pixel rounding. */}
+        <Image
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          source={require('../assets/logos/orange_logo.png')}
+          accessibilityLabel="Humyn Labs Capture wordmark"
+          accessibilityIgnoresInvertColors
+          style={{ height: 28, width: undefined, aspectRatio: 320 / 73, resizeMode: 'contain' }}
+        />
       </View>
 
       {title ? (
