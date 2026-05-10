@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: 'Phase 3 Wave 1 polish COMPLETE — Plan 03-11 landed 2026-05-10 (5/6 amendments closed in source: A1 Permissions copy tightened to "Used only while you hit record"; A3 BottomNav lifts above gesture bar via useSafeAreaInsets paddingBottom: insets.bottom + 12; A4 TopBar wordmark Image replaces "Humyn Labs" Text node, propagates to Home/Tasks/History via Pattern 71; A5 CompatFail "What Now" 3-bullet recovery block deleted; A6 Splash + Sign-up logos shrunk ~20% to 256×58 dp). A2 (RigTutorial real artwork) ESCALATED to user — no source artwork in design-system/illustrations/; CLAUDE.md "Designs LOCKED" rule blocks AI/line-art substitutes. 4 visual baselines refreshed (Home, Tasks, History, CompatFail); Splash/Signup/Permissions baselines intentionally unchanged (encoder is shape-only — A1/A6 are text/style-only; source-level grep gate verifies). 345/345 tests pass across 61 test files; TS clean. Wave 2 plan-phase (Plan 03-04 capture-foundation-muxer-bridge) gated on (a) operator re-walk Pixel 10a per 03-WAVE1-SMOKE.md to verify A1/A3/A4/A5/A6 closures + stamp re-walked-on, (b) operator drops real rig PNG at design-system/illustrations/rig.png to fully close A2, (c) runbook line 113 misalignment fix ("typographic stub still renders Humyn Labs").'
-last_updated: '2026-05-10T16:27:39.000Z'
+stopped_at: 'Phase 3 Wave 1 polish COMPLETE — Plan 03-11 landed 2026-05-10, all six amendments (A1–A6) closed: A1 Permissions copy tightened to "Used only while you hit record"; A3 BottomNav lifts above gesture bar via useSafeAreaInsets paddingBottom: insets.bottom + 12; A4 TopBar wordmark Image replaces "Humyn Labs" Text node, propagates to Home/Tasks/History via Pattern 71; A5 CompatFail "What Now" 3-bullet recovery block deleted; A6 Splash + Sign-up logos shrunk ~20% to 256×58 dp. A2 originally escalated for missing source artwork; resolved in a follow-up step the same day by rasterizing the canonical rig SVG from prototype.html:1224-1235 (the locked design source per CLAUDE.md "Designs LOCKED" rule) via sharp into 280/280/560/840 dp — final byte sizes 11611/11611/24678/38633 all ≥4096. 4 visual baselines refreshed (Home, Tasks, History, CompatFail); Splash/Signup/Permissions/RigTutorial baselines unchanged (encoder is shape-only — A1/A6/A2 are text/style/asset-replacement; source-level grep + byte-threshold gates verify). Full visual suite 10/10; TS clean. Wave 2 plan-phase (Plan 03-04 capture-foundation-muxer-bridge) gated on (a) operator re-walk Pixel 10a per 03-WAVE1-SMOKE.md to verify A1–A6 closures + stamp re-walked-on, (b) runbook line 113 misalignment fix ("typographic stub still renders Humyn Labs").'
+last_updated: '2026-05-10T16:33:00.000Z'
 last_activity: 2026-05-10
 progress:
   total_phases: 7
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 03 (humyn-capture-native-module) — EXECUTING
-Plan: 4 of 11 (Plans 03-01 + 03-02 + 03-03 + 03-11 COMPLETE on 2026-05-10 — Wave 1 polish closed; A2 escalated)
-Status: Executing Phase 03 — Wave 1 source closed (5 amendments landed; A2 awaiting real rig artwork from operator); Wave 2 (Plan 03-04 capture-foundation-muxer-bridge) gated on Pixel 10a re-walk + A2 artwork drop + runbook line 113 fix
+Plan: 4 of 11 (Plans 03-01 + 03-02 + 03-03 + 03-11 COMPLETE on 2026-05-10 — Wave 1 polish fully closed, all six amendments A1–A6 landed)
+Status: Executing Phase 03 — Wave 1 source fully closed; Wave 2 (Plan 03-04 capture-foundation-muxer-bridge) gated on Pixel 10a re-walk + runbook line 113 fix
 
 - §1 Cold-start gate decision tree — PASSED (Path A, fresh install)
 - §2 Sign-up + Terms-of-Use modal — PASSED (after 4 auth-stack provisioning fixes, see commits below)
