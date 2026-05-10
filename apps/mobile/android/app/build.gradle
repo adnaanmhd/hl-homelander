@@ -171,6 +171,17 @@ dependencies {
     // https://dl.google.com/dl/android/maven2/androidx/media3/media3-muxer/1.10.0/media3-muxer-1.10.0.pom).
     implementation 'androidx.media3:media3-muxer:1.10.0'
 
+    // Plan 03-09 — D-SEG-01: read `capture.segment_minutes` from Firebase Remote Config
+    // in Kotlin (`SegmentDurationConfig.kt`) + set defaults in `MainApplication.onCreate`.
+    // The autolinked `:react-native-firebase_remote-config` module declares
+    // `com.google.firebase:firebase-config` as `implementation` (not `api`), so the
+    // dep doesn't propagate to the app's compile classpath. The Firebase BOM is
+    // imported from the autolinked `:react-native-firebase_app` module's classpath
+    // (via the same v34.10.0 BOM the JS bridge uses); pinning here keeps the
+    // version single-sourced.
+    implementation platform('com.google.firebase:firebase-bom:34.10.0')
+    implementation 'com.google.firebase:firebase-config'
+
     // Plan 02-02 Task 2 — Robolectric harness. JVM unit tests for our Kotlin
     // native modules (HumynCompat, HumynCapture, HandDetector, ...) run on
     // the host JVM with shadowed Camera2/SensorManager/StatFs frameworks.
