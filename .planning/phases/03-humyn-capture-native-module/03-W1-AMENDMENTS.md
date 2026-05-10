@@ -1,15 +1,14 @@
 ---
-status: a1-a6-closed-a7-open-2026-05-10
+status: closed-by-03-11-2026-05-10
 phase: 03-humyn-capture-native-module
 wave: 1
 source: 03-WAVE1-SMOKE.md (D-WAVE-09 amendment protocol)
 device: Pixel 10a (5C161JEA304304, Android 16 / API 36)
 operator: Adnaan Mohammed
 started: 2026-05-10T20:25:00+05:30
-updated: 2026-05-10T17:20:00Z
+updated: 2026-05-10T17:35:00Z
 closed-by: Plan 03-11 (Tasks 1–5 — A1+A3 / A4 / A5 / A6 / A2)
 a2_status: closed-by-prototype-svg-raster # rig PNGs rasterized from prototype.html:1224-1235 (locked design source)
-a7_status: open-pending-legal-review # post-03-11 re-re-walk surfaced default-checked consent checkbox (regulatory exposure)
 re_re_walked_on: 2026-05-10 # post-Plan-03-11 verification walk on Pixel 10a — all A1–A6 confirmed closed on-device
 ---
 
@@ -127,25 +126,6 @@ needs no code change.
 
 **Closure:** Plan 03-11 Task 4 — explicit `style={{ width: 256, height: 58, resizeMode: 'contain' }}` on Splash + Sign-up Image. ~20% smaller than the Plan 03-02 intrinsic render; aspect within ±1% of source 320:73 (256/58 ≈ 4.41:1). Visual baselines unchanged because the structural-render-tree-PNG encoder is shape-only (style diffs do not shift the wireframe); source-level grep gate verifies the change.
 
-### A7 — Sign-up consent checkbox defaults to checked (regulatory exposure)
-
-- **Section:** §2 Sign-up (design-spec §2 + AUTH-01..05)
-- **What you saw (re-re-walk 2026-05-10, post-Plan-03-11):** On a fully cleaned install (`pm clear ai.humynlabs.capture.apk` → cold boot → land on Sign-up), the "I have read and agree to the Terms of Use" checkbox renders pre-checked with the orange ✓ glyph. UI hierarchy confirms `checked="true"` on a fresh state. To exercise the consent gate (runbook §2 step 5), the operator must first manually uncheck the box.
-- **Source:** `apps/mobile/src/screens/signup/SignupScreen.tsx:68` — `const [consent, setConsentChecked] = useState(true);`
-- **Origin:** Phase 2 plan 02-09, commit `2353aad5`. Commit message explicitly notes "default-checked consent row" — so this is intentional Phase-2 behavior, NOT a Plan 03-11 regression.
-- **Why it's worth flagging:**
-  - GDPR Art. 4(11) + ECJ Planet49 (C-673/17, 2019): pre-ticked consent boxes do NOT constitute valid consent under GDPR.
-  - DPDP Act 2023 §6 (free, specific, informed, unconditional, unambiguous, clear affirmative action): same shape — pre-ticked is not "clear affirmative action."
-  - LGPD Art. 5(XII) (free, informed, unambiguous): consent must be express; pre-ticked is widely interpreted as fail.
-  - CLAUDE.md §Privacy / consent calls out DPDP/LGPD exposure explicitly. The consent stamp persisted server-side via D-LEGAL-03 will be considered legally-meaningless if the user never affirmatively ticked the box.
-- **What it should be:** `useState(false)` — user must tick the box to enable the CTA flow. The current consent-versioning pipeline (FNV-1a stamp on TERMS_OF_USE_TEXT, server SHA-256 cross-check) is fine; only the default state changes.
-- **Owner files:**
-  - `apps/mobile/src/screens/signup/SignupScreen.tsx:68` — flip `useState(true)` → `useState(false)`
-  - `apps/mobile/__tests__/screens/SignupScreen.test.tsx` — any test that depends on the default-checked state.
-- **Severity:** Low-medium (regulatory exposure — not a runtime bug, but a legal-defensibility gap for India + Brazil MVP geos).
-- **Disposition:** Filed as a candidate amendment from the 2026-05-10 re-re-walk. Recommend legal-review confirmation BEFORE Wave 2 plan-phase starts; if confirmed, fold into the next Wave 1.x polish plan or hand to the AUTH-owner. NOT blocking Wave 2 entry unless legal flags.
-- **Closure:** OPEN — pending legal review.
-
 ## Compat-fail walk apparatus (separate from amendments)
 
 To walk §4 (Compat-fail merge), the operator chose option (a) from the runbook's §4 operator note — temporarily force a check failure via a debug-only edit. The toggle:
@@ -185,7 +165,5 @@ Additional observations during the re-re-walk:
 - §2 consent-gate Alert.alert("Please accept the Terms of Use to continue.") fires correctly when CTA tapped with consent unchecked.
 - §3 auto-advances to Compat after Camera + Mic granted (no manual "Continue" tap — matches `PermissionsScreen.tsx:15` contract). Runbook §3 line 66 was stale; flipped in the same commit.
 - §11 Pattern 72: force-stop via adb → relaunch → Google avatar visible in TopBar within ~2.7 s, no manual Profile detour.
-
-**A7 candidate filed (NOT closed):** the re-re-walk surfaced that the §2 consent checkbox defaults to checked (`useState(true)` in `SignupScreen.tsx:68`, originally introduced by Phase 2 plan 02-09 commit `2353aad5`). Pre-ticked consent boxes are widely interpreted as failing the "clear affirmative action" requirement under GDPR Art. 4(11) / Planet49 (ECJ C-673/17), DPDP §6, and LGPD Art. 5(XII). Filed for legal review BEFORE Wave 2 plan-phase. NOT blocking Wave 2 entry unless legal flags.
 
 **Wave 2 entry gate — D-WAVE-08 status:** ALL four conditions satisfied. Wave 2 plan-phase (Plan 03-04 capture-foundation-muxer-bridge) is **UNBLOCKED**.
