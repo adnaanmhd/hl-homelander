@@ -1,5 +1,6 @@
 package ai.humynlabs.capture.compat
 
+import ai.humynlabs.capture.capture.common.BackUltrawidePicker
 import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorManager
@@ -16,6 +17,16 @@ import java.io.File
 import kotlin.math.PI
 import kotlin.math.atan
 import kotlin.math.sqrt
+
+/**
+ * Type alias re-export — Phase 3 Plan 03-08 extracted the UltrawidePick
+ * data class into `ai.humynlabs.capture.capture.common`. The alias keeps
+ * any in-package callers (e.g., the existing `pickBackUltrawideCamera`
+ * back-compat alias) compiling against `UltrawidePick` without an
+ * explicit import; external callers should reference the new
+ * `ai.humynlabs.capture.capture.common.UltrawidePick` directly.
+ */
+internal typealias UltrawidePick = ai.humynlabs.capture.capture.common.UltrawidePick
 
 /**
  * COMPAT-01 + COMPAT-03 + COMPAT-07 — non-recording capability enumeration.
@@ -56,19 +67,6 @@ import kotlin.math.sqrt
  * dFOV math: 2 * atan(sensor_diagonal / (2 * focal)) — see RESEARCH § Code Examples.
  */
 class DeviceCaps(private val ctx: Context) {
-
-    /**
-     * Result of ultrawide camera selection: the logical (openable) camera ID
-     * for resolution/fps/timestamp queries, plus the characteristics for the
-     * physical sub-camera whose intrinsics define the ultrawide dFOV. On
-     * non-logical-multi-camera devices, both ID and characteristics refer to
-     * the same camera.
-     */
-    internal data class UltrawidePick(
-        val openableId: String,
-        val openableChars: CameraCharacteristics,
-        val ultrawideChars: CameraCharacteristics,
-    )
 
     /**
      * Single entry point — returns a JS-bridge-ready WritableMap so the calling
@@ -136,88 +134,14 @@ class DeviceCaps(private val ctx: Context) {
      * paired with the characteristics of the specific physical sub-camera that
      * owns the shortest focal length — the ultrawide. Pitfall 5 + logical
      * multi-camera handling.
+     *
+     * Phase 3 Plan 03-08: thin delegate to
+     * [BackUltrawidePicker.pick] (extracted shared util) per CONTEXT.md
+     * "Claude's Discretion" option (a). Behavior is unchanged — the
+     * existing `DeviceCapsTest` suite is the regression safety net.
      */
-    internal fun pickBackUltrawide(mgr: CameraManager): UltrawidePick? {
-        // 1. Enumerate all back-facing top-level cameras (logical or sole).
-        val backTopLevel = try {
-            mgr.cameraIdList.mapNotNull { id ->
-                val chars = try {
-                    mgr.getCameraCharacteristics(id)
-                } catch (_: Throwable) {
-                    null
-                }
-                if (chars != null &&
-                    chars.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_BACK
-                ) {
-                    id to chars
-                } else {
-                    null
-                }
-            }
-        } catch (_: Throwable) {
-            return null
-        }
-        if (backTopLevel.isEmpty()) return null
-
-        // 2. For each top-level back camera, build the candidate set:
-        //      candidate = (this top-level camera, its own characteristics)
-        //    plus, if it's a LOGICAL_MULTI_CAMERA on API 28+, expand into
-        //      (top-level camera, each physical sub-camera's characteristics).
-        //    The top-level ID stays the OPENABLE handle; the per-physical chars
-        //    drive the dFOV pick.
-        data class Candidate(
-            val openableId: String,
-            val openableChars: CameraCharacteristics,
-            val ultrawideChars: CameraCharacteristics,
-            val minFocalMm: Float,
-        )
-
-        val candidates = mutableListOf<Candidate>()
-        for ((topId, topChars) in backTopLevel) {
-            // Always include the top-level itself as a fallback candidate.
-            candidates += Candidate(
-                openableId = topId,
-                openableChars = topChars,
-                ultrawideChars = topChars,
-                minFocalMm = minFocal(topChars),
-            )
-            // Expand physical sub-cameras when supported (API 28+ + capability).
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                val physicalIds: Set<String> = try {
-                    topChars.physicalCameraIds
-                } catch (_: Throwable) {
-                    emptySet()
-                }
-                for (physId in physicalIds) {
-                    val physChars = try {
-                        mgr.getCameraCharacteristics(physId)
-                    } catch (_: Throwable) {
-                        null
-                    } ?: continue
-                    candidates += Candidate(
-                        openableId = topId, // open the LOGICAL parent, not the physical
-                        openableChars = topChars,
-                        ultrawideChars = physChars,
-                        minFocalMm = minFocal(physChars),
-                    )
-                }
-            }
-        }
-
-        // 3. Pick min-focal across the flattened candidate set.
-        val best = candidates.minByOrNull { it.minFocalMm } ?: return null
-        return UltrawidePick(
-            openableId = best.openableId,
-            openableChars = best.openableChars,
-            ultrawideChars = best.ultrawideChars,
-        )
-    }
-
-    /** Smallest focal length advertised by a camera, or Float.MAX_VALUE if unknown. */
-    private fun minFocal(chars: CameraCharacteristics): Float {
-        val focals = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
-        return if (focals == null || focals.isEmpty()) Float.MAX_VALUE else focals.min()
-    }
+    internal fun pickBackUltrawide(mgr: CameraManager): UltrawidePick? =
+        BackUltrawidePicker.pick(mgr)
 
     /**
      * Back-compat alias for callers that only need the openable camera ID.
