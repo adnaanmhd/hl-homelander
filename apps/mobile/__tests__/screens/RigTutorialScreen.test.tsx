@@ -9,7 +9,7 @@
 //         navigator.replace('MainTabs') called (Phase 2 stops here; Phase 4
 //         splices Practice between this screen's Next and MainTabs).
 // Test 4: Tap "Don't have a rig yet?" → off-ramp Sheet opens; sheet body
-//         mentions the [EMAIL_ADDRESS] mailto target (T-2.11-01: placeholder
+//         mentions the support@humynlabs.ai mailto target (T-2.11-01: OQ-1 resolved)
 //         intentionally bundled at MVP; swap tracked in 02-21 manual smoke).
 // Test 5: After viewing the off-ramp, "Next" still works — the sheet does
 //         NOT block onboarding completion (CONTEXT.md "must NOT soft-lock").
@@ -221,14 +221,17 @@ describe('RigTutorialScreen (plan 02-11 — ONB-01 + ONB-02)', () => {
   it('Test 4: tap "Don\'t have a rig yet?" → off-ramp sheet opens with mailto target', () => {
     const { getByLabelText, getByText } = render(<RigTutorialScreen />);
     fireEvent.click(getByLabelText("Don't have a rig yet"));
-    // Sheet body mentions the support email placeholder
+    // Sheet body mentions the support email
     expect(getByLabelText('No rig off-ramp sheet')).toBeTruthy();
-    // The body copy contains the placeholder string
-    expect(getByText(/\[EMAIL_ADDRESS\]/)).toBeTruthy();
+    // Plan 03-02 — OQ-1 resolved: support email = `support@humynlabs.ai`.
+    // The body copy contains the canonical address (no placeholder).
+    expect(getByText(/support@humynlabs\.ai/)).toBeTruthy();
     // Email button → Linking.openURL with the mailto URL
     fireEvent.click(getByLabelText('Email support about rig'));
     expect(mockOpenURL).toHaveBeenCalledTimes(1);
-    expect(mockOpenURL).toHaveBeenCalledWith(expect.stringMatching(/^mailto:\[EMAIL_ADDRESS\]/));
+    expect(mockOpenURL).toHaveBeenCalledWith(
+      expect.stringMatching(/^mailto:support@humynlabs\.ai/),
+    );
   });
 
   it('Test 5: off-ramp sheet does NOT soft-lock — Next still works after viewing', () => {

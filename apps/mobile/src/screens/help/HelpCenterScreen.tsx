@@ -5,7 +5,7 @@
  *   - 3 stacked AccordionItems in HELP-01 order: Instructions Guide / FAQs /
  *     Troubleshooting. All start collapsed.
  *   - Below the third accordion: a Contact Support headline + two CTAs —
- *     "Contact Support" (mailto:[EMAIL_ADDRESS]) and "Report a problem"
+ *     "Contact Support" (mailto:support@humynlabs.ai) and "Report a problem"
  *     (opens the ReportProblemSheet).
  *
  * Reachability (HELP-04): this screen is registered as a sibling of MainTabs
@@ -17,11 +17,11 @@
  * `help-center-content.md` at build time (apps/mobile/scripts/build-help-content.mjs).
  * Editing the markdown re-runs the script via `npm run prebuild`.
  *
- * Open Question: SUPPORT_EMAIL_PLACEHOLDER stays as `[EMAIL_ADDRESS]` until
- * the final support email is decided (tracked in STATE.md and 02-21 manual
- * smoke). When the address lands, the placeholder gets replaced in
- * help-center-content.md (the parser preserves the verbatim string into
- * content.json) and here in the mailto: URL.
+ * Plan 03-02 — OQ-1 resolved: SUPPORT_EMAIL is `support@humynlabs.ai`
+ * (02-COSMETIC-GAPS.md "Rig Tutorial screen" + 02-OPEN-QUESTIONS.md OQ-1
+ * resolution). The 5th placeholder occurrence
+ * (apps/mobile/src/screens/compat/CompatRecoveryScreen.tsx) lands inside
+ * Plan 03-03's Compat-fail merge.
  *
  * NO hex literals — every spacing/color token comes from `../../ui/tokens`.
  */
@@ -36,11 +36,10 @@ import { ReportProblemSheet } from '../../components/ReportProblemSheet';
 import { Markdown } from './markdown';
 import content from './content.json';
 
-// Final email is an OPEN QUESTION (see CONTEXT.md §HELP and STATE.md
-// blockers). Replacing this constant is a single-character substitution at
-// gate-close time — the placeholder is preserved verbatim from
-// help-center-content.md so PRs that change it surface in the diff.
-const SUPPORT_EMAIL_PLACEHOLDER = '[EMAIL_ADDRESS]';
+// Plan 03-02 — OQ-1 resolved: support email is `support@humynlabs.ai`
+// (02-OPEN-QUESTIONS.md OQ-1 resolution path). Constant name kept for
+// stable diff history; the value is no longer a placeholder.
+const SUPPORT_EMAIL_PLACEHOLDER = 'support@humynlabs.ai';
 
 type AccordionItemPayload =
   | { kind: 'subsection'; heading: string; body: string }

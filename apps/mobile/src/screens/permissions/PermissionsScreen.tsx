@@ -237,28 +237,43 @@ export default function PermissionsScreen() {
         >
           {body}
         </Text>
+        <View style={{ height: spacing.xl }} />
+        {/* Plan 03-02 — CTA stacks immediately under the centered content
+            block; alignSelf:'center' makes the button content-driven
+            width instead of full bleed (02-COSMETIC-GAPS.md
+            "Permissions / Camera & Mic screen" CTA position + width). */}
+        <View style={styles.ctaWrap}>
+          <Button
+            variant="primary"
+            label={buttonLabel}
+            accessibilityLabel={buttonLabel}
+            onPress={handlePress}
+            disabled={isRequesting}
+          />
+        </View>
       </View>
-      <Button
-        variant="primary"
-        label={buttonLabel}
-        accessibilityLabel={buttonLabel}
-        onPress={handlePress}
-        disabled={isRequesting}
-      />
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
+  // Plan 03-02 — drop `justifyContent: 'space-between'`. The CTA now
+  // sits immediately under the centered content block (icon + title +
+  // body) instead of being pinned to the bottom by a flex spacer
+  // (02-COSMETIC-GAPS.md "Permissions / Camera & Mic screen" CTA
+  // position rule).
   container: {
     paddingTop: 48,
     paddingHorizontal: 28,
-    justifyContent: 'space-between',
+    justifyContent: 'center',
   },
   contentWell: {
     alignItems: 'center',
-    flex: 1,
     justifyContent: 'center',
+  },
+  // Plan 03-02 — CTA wrapper centers the button at content-driven width.
+  ctaWrap: {
+    alignSelf: 'center',
   },
   iconWell: {
     width: 96,

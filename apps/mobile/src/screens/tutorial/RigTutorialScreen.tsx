@@ -12,9 +12,8 @@
 // either before or after viewing the off-ramp (the CONTEXT.md "must NOT
 // soft-lock" rule).
 //
-// T-2.11-01: SUPPORT_EMAIL is the [EMAIL_ADDRESS] placeholder per Open
-// Question 1. The canonical address is swapped in before Play Store
-// submission; tracked in the 02-21 manual smoke runbook.
+// T-2.11-01: SUPPORT_EMAIL was a placeholder until OQ-1 resolved in
+// Plan 03-02 — see SUPPORT_EMAIL constant below for the canonical value.
 //
 // Analytics:
 //   - rig_tutorial_shown        → fires once on mount
@@ -23,7 +22,7 @@
 // Both names are pre-registered in src/util/analytics.ts EVENT_NAMES.
 
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Linking } from 'react-native';
+import { View, Image, StyleSheet, Linking } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
 import { Text } from '../../ui/primitives/Text';
@@ -34,9 +33,15 @@ import { colors, spacing } from '../../ui/tokens';
 import { useAppStore } from '../../state/appStore';
 import { logEvent } from '../../util/analytics';
 
-// T-2.11-01 — placeholder support email; swap before Play Store submission.
-// Tracked in 02-21 manual smoke. The string is greppable for the swap PR.
-const SUPPORT_EMAIL = '[EMAIL_ADDRESS]';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const RIG_ILLUSTRATION = require('../../assets/illustrations/rig.png');
+
+// Plan 03-02 — OQ-1 resolved: support email is `support@humynlabs.ai`
+// (02-COSMETIC-GAPS.md "Rig Tutorial screen" + 02-OPEN-QUESTIONS.md OQ-1
+// resolution). Replaced the placeholder constant. The 5th occurrence
+// (apps/mobile/src/screens/compat/CompatRecoveryScreen.tsx) lands inside
+// Plan 03-03's Compat-fail merge, not here.
+const SUPPORT_EMAIL = 'support@humynlabs.ai';
 
 /**
  * Decode the `sub` claim from a JWS-shaped JWT (header.payload.signature)
@@ -123,13 +128,18 @@ export default function RigTutorialScreen() {
     <ScreenContainer accessibilityLabel="RigTutorial screen" style={styles.screen}>
       <View style={styles.center}>
         {/*
-          design-spec §5 specifies a 280 px illustration. Phase 2 ships a
-          design-token-coloured rectangle as a placeholder; the real asset
-          is sourced via the design-system follow-up (deferred). Functional
-          parity with the spec is the heading + body + Next CTA — those are
-          verbatim and the off-ramp is the only Phase 2 addition.
+          design-spec §5 specifies a 280 px illustration. Plan 03-01
+          shipped transparent placeholder PNGs at the spec dimensions
+          (280/560/840 px @1x/@2x/@3x); the real artwork lands later by
+          re-exporting to the same paths (no JSX edit required). Until
+          then the Image renders transparent — the heading + body + Next
+          CTA are functional parity with the spec.
         */}
-        <View style={styles.illustrationStub} accessibilityLabel="rig illustration placeholder" />
+        <Image
+          source={RIG_ILLUSTRATION}
+          style={styles.illustration}
+          accessibilityLabel="rig illustration"
+        />
         <View style={{ height: spacing.xxxl }} />
         <Text
           variant="tutorialHeading"
@@ -209,11 +219,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  illustrationStub: {
-    width: 240,
+  // Plan 03-02 — illustration uses the @1x/@2x/@3x density-bucketed
+  // placeholder from Plan 03-01 (280×280 @1x). Force the rendered size
+  // to design-spec §5's 280 px target so the layout doesn't reflow when
+  // the real artwork arrives at different intrinsic dimensions.
+  illustration: {
+    width: 280,
     height: 280,
-    backgroundColor: colors.accentSoft,
-    borderRadius: 24,
   },
   heading: {
     textAlign: 'center',

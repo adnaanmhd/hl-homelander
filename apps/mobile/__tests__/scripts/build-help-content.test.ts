@@ -77,8 +77,12 @@ describe('build-help-content', () => {
     expect(first.resolution).toMatch(/.+/);
   });
 
-  it('Contact Support body contains [EMAIL_ADDRESS] placeholder until OPEN QUESTION resolves', () => {
+  it('Contact Support body contains the canonical support@humynlabs.ai address (OQ-1 resolved in Plan 03-02)', () => {
     const parsed = parseHelpCenter(md) as Parsed;
-    expect(parsed.contactSupport.body).toContain('[EMAIL_ADDRESS]');
+    expect(parsed.contactSupport.body).toContain('support@humynlabs.ai');
+    // Negative assertion: the placeholder MUST be fully drained from the
+    // canonical content. If a future edit re-introduces the placeholder
+    // (e.g., a copy-paste from an older Phase 2 fixture), this fails fast.
+    expect(parsed.contactSupport.body).not.toContain('[EMAIL_ADDRESS]');
   });
 });

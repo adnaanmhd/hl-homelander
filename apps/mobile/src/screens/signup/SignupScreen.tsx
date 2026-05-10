@@ -124,10 +124,12 @@ export default function SignupScreen() {
     <ScreenContainer accessibilityLabel="Signup screen" style={styles.container}>
       <View style={styles.top}>
         <View accessibilityLabel="Humyn Labs logo" style={styles.logoWell}>
+          {/* Plan 03-02 — drop the cover-crop + magic-number sizing. The
+              @1x/@2x/@3x density-bucketed PNG (Plan 03-01) carries its
+              intrinsic dimensions and Metro auto-picks per device. */}
           <Image
             source={ORANGE_LOGO}
-            style={styles.logo}
-            resizeMode="cover"
+            accessibilityLabel="Humyn Labs Capture wordmark"
             accessibilityIgnoresInvertColors
           />
         </View>
@@ -162,13 +164,21 @@ export default function SignupScreen() {
       </View>
 
       <View style={styles.bottom}>
-        <Button
-          variant="primary"
-          label={loading ? 'Signing in…' : 'Continue with Google'}
-          accessibilityLabel="Continue with Google"
-          onPress={handleSignIn}
-          disabled={loading}
-        />
+        {/* Plan 03-02 — CTA stacks immediately under the centered content
+            block; alignSelf:'center' + paddingHorizontal makes the
+            button content-driven width (~280-300 dp) instead of full
+            bleed (02-COSMETIC-GAPS.md "CTA position: immediately below
+            content, NOT pinned to the bottom" + "CTA width: adaptive,
+            NOT full-width"). */}
+        <View style={styles.ctaWrap}>
+          <Button
+            variant="primary"
+            label={loading ? 'Signing in…' : 'Continue with Google'}
+            accessibilityLabel="Continue with Google"
+            onPress={handleSignIn}
+            disabled={loading}
+          />
+        </View>
 
         <View style={styles.consentRow}>
           <Pressable
@@ -228,17 +238,20 @@ export default function SignupScreen() {
 }
 
 const styles = StyleSheet.create({
-  // Match prototype.html #signup: padding 60/28/32 px. The top block uses
-  // flex: 1 to fill the available vertical space; the bottom block wraps
-  // its children at natural height and sits at the bottom — gap between
-  // them is whatever the screen gives, not a hard `space-between`.
+  // Plan 03-02 — drop the `space-between` body layout. The screen now
+  // renders ONE vertically-centered group: logo + tagline + value-props
+  // (top) directly above CTA + consent + error (bottom). No flex spacer
+  // pushes the CTA to the bottom of the screen (02-COSMETIC-GAPS.md
+  // "CTA position: immediately below content, NOT pinned to the
+  // bottom"). The container uses `justifyContent: 'center'` so the
+  // whole group sits as one centered group.
   container: {
     paddingTop: 60,
     paddingHorizontal: 28,
     paddingBottom: 32,
+    justifyContent: 'center',
   },
   top: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 14,
@@ -246,8 +259,6 @@ const styles = StyleSheet.create({
   logoWell: {
     alignItems: 'center',
   },
-  // Sign-up logo = `lg` (310x90) per prototype.html `.logo-img.lg`.
-  logo: { width: 310, height: 90 },
   tagline: {
     textAlign: 'center',
   },
@@ -262,8 +273,16 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   bottom: {
-    paddingBottom: spacing.m,
+    paddingTop: spacing.xl,
     gap: spacing.l,
+  },
+  // Plan 03-02 — CTA wrapper centers the button at content-driven width.
+  // alignSelf:'center' bounds the wrapper to its child's natural size;
+  // the Button primitive picks up its own paddingHorizontal so the final
+  // visual width is ~280-300 dp on a Pixel-class device (Google logo +
+  // label + horizontal padding) instead of the previous full-bleed.
+  ctaWrap: {
+    alignSelf: 'center',
   },
   consentRow: {
     flexDirection: 'row',

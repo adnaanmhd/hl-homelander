@@ -172,10 +172,16 @@ export default function SplashScreen() {
             transform: [{ scale: logoScale }],
           }}
         >
+          {/* Plan 03-02 — drop the cover-crop + magic-number sizing.
+              Plan 03-01 pre-cropped the source PNG to a tight wordmark
+              bounding box and exported @1x/@2x/@3x density buckets
+              (320×73 / 640×146 / 960×220). RN Metro auto-picks the
+              right bucket per device density; the asset's intrinsic
+              dimensions are the rendered dimensions, so no `style`
+              width/height is needed. */}
           <Image
             source={ORANGE_LOGO}
-            style={styles.logo}
-            resizeMode="cover"
+            accessibilityLabel="Humyn Labs Capture wordmark"
             accessibilityIgnoresInvertColors
           />
         </Animated.View>
@@ -195,6 +201,7 @@ export default function SplashScreen() {
 
 const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
-  // Splash logo is the `xl` size from prototype.html (.logo-img.xl).
-  logo: { width: 360, height: 104 },
+  // Plan 03-02 — `logo` style removed; the @1x/@2x/@3x density-bucketed
+  // PNG (Plan 03-01) carries its intrinsic dimensions and Metro
+  // auto-picks per device density.
 });
