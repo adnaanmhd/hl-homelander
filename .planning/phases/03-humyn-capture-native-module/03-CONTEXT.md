@@ -1001,6 +1001,28 @@ Areas where the user did not specify and the planner has flexibility:
   fail when bar is raised — COMPAT-05) — already deferred from
   Phase 2; remains deferred to Phase 4 alongside Remote Config
   wiring.
+- **D-FLAG-04: `RecordingsInitRequestSchema.imuVideoDriftMaxMs .int()`
+  vs decimal-on-disk drift conflict** — Phase 5 follow-up. Phase 3's
+  metadata JSON on disk stays decimal per the canonical
+  `video_metadata.json` schema (idea-brief.md §6.5 example values
+  `0.7`, `0.18`, `0.5`). The wire-shape mismatch with
+  `shared-types/recording.ts` line 30–32 (`z.number().int()`) is
+  recorded here for Phase 5's planner to reconcile when the upload
+  pipeline wires the multipart init request — either drop the
+  `.int()` constraint OR multiply by 1000 to nanoseconds-as-int on
+  the wire. Phase 3 does NOT alter the on-disk schema.
+
+## Edge Cases
+
+- **`filename_seq_exhausted`** — `FilenameGenerator.nextBase` throws
+  `IllegalStateException("filename_seq_exhausted_for_day_${date}")`
+  when a single calendar day exceeds 999 segments per second-bucket
+  (CAP-17 mandates a 3-digit per-day sequence). At the 10-min
+  default segment, 999/day is unreachable; this is a defensive cap,
+  not a runtime concern. The `start()` Promise rejects with
+  `internal_error` (mapped via `errorCodeFor` in HumynCaptureModule);
+  Phase 4's RecordingScreen surfaces a "filename sequence exhausted —
+  please contact support" toast.
 
 ### Reviewed Todos (not folded)
 
