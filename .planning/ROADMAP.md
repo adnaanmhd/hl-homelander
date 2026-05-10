@@ -117,7 +117,7 @@ Plans:
 
 **Wave 2 entry** _(Wave 2 entry — blocked on Wave 1 commits + Plan 03-11 polish + operator re-walk per D-WAVE-08; Plan 03-04 `depends_on: [03-03, 03-11]`)_
 
-- [ ] 03-04-capture-foundation-muxer-bridge-PLAN.md — `androidx.media3:media3-muxer:1.10.0` Gradle dep + FragmentedMuxerWrapper.kt + 17 capture/ Wave 0 Kotlin test stubs (Task 2a) + 1 fgs/ Wave 0 stub (Task 2b) + HumynCapture.ts JS bridge stubs + CaptureSessionOpts Zod schema; includes Task 0 pre-flight that requires `re-walked-on:` stamp in 03-WAVE1-SMOKE.md before any encoder work
+- [x] 03-04-capture-foundation-muxer-bridge-PLAN.md — `androidx.media3:media3-muxer:1.10.0` Gradle dep + FragmentedMuxerWrapper.kt + 17 capture/ Wave 0 Kotlin test stubs (Task 2a) + 1 fgs/ Wave 0 stub (Task 2b) + HumynCapture.ts JS bridge stubs + CaptureSessionOpts Zod schema; includes Task 0 pre-flight that requires `re-walked-on:` stamp in 03-WAVE1-SMOKE.md before any encoder work
 
 **Wave 3** _(parallel — pure-fn primitives + metadata + FGS; depend only on Plan 03-04)_
 
