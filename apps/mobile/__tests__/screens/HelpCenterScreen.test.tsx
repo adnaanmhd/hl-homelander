@@ -2,7 +2,7 @@
 //   Test 1: All 3 accordions render in HELP-01 order (Instructions Guide /
 //           FAQs / Troubleshooting), each with its accordion-toggle label.
 //   Test 2: Contact Support button calls Linking.openURL with the
-//           [EMAIL_ADDRESS] mailto: URL (placeholder until OPEN QUESTION
+//           support@humynlabs.ai mailto: URL (OQ-1 resolved in Plan 03-02:
 //           resolves; the parser preserves it verbatim from
 //           help-center-content.md → content.json).
 //   Test 3: Report-a-problem button mounts the ReportProblemSheet
@@ -160,14 +160,13 @@ describe('HelpCenterScreen', () => {
     expect(getByLabelText('accordion-toggle-Troubleshooting')).toBeTruthy();
   });
 
-  it('Contact Support button opens the [EMAIL_ADDRESS] mailto: URL', () => {
+  it('Contact Support button opens the support@humynlabs.ai mailto: URL', () => {
     const { getByLabelText } = render(<HelpCenterScreen />);
     fireEvent.click(getByLabelText('help-contact-support-mailto'));
     expect(mockOpenURL).toHaveBeenCalledTimes(1);
     expect(mockOpenURL).toHaveBeenCalledWith(
-      // The EMAIL_ADDRESS placeholder is intentionally preserved (Open
-      // Question — final email tracked at phase gate).
-      expect.stringMatching(/^mailto:\[EMAIL_ADDRESS\]\?subject=/),
+      // Plan 03-02 — OQ-1 resolved: support email = `support@humynlabs.ai`.
+      expect.stringMatching(/^mailto:support@humynlabs\.ai\?subject=/),
     );
   });
 

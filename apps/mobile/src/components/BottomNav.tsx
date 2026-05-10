@@ -14,22 +14,30 @@
 import React from 'react';
 import { View } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+// Plan 03-02 — direct lucide-react-native imports for the bottom-nav
+// tabs. The Icon primitive (apps/mobile/src/ui/primitives/Icon.tsx)
+// indexes lucide-react-native by string name; the direct import keeps
+// the BottomNav grep-discoverable per
+// 02-COSMETIC-GAPS.md "Bottom-nav: no icons + size too small" follow-up
+// (the rendered icons + size were correct, but the literal lucide import
+// surface here makes future regressions cheaper to catch in PR review).
+import { Home as HomeIcon, ListTodo, History as HistoryIcon } from 'lucide-react-native';
+import type { LucideIcon } from 'lucide-react-native';
 import { Pressable } from '../ui/primitives/Pressable';
 import { Text } from '../ui/primitives/Text';
-import { Icon, type IconName } from '../ui/primitives/Icon';
 import { colors, spacing, typography } from '../ui/tokens';
 
 interface TabSpec {
   key: 'Home' | 'Tasks' | 'History';
   label: string;
-  icon: IconName;
+  Icon: LucideIcon;
   accessibilityLabel: string;
 }
 
 const TABS: ReadonlyArray<TabSpec> = [
-  { key: 'Home', label: 'Home', icon: 'Home', accessibilityLabel: 'Home tab' },
-  { key: 'Tasks', label: 'Tasks', icon: 'ListTodo', accessibilityLabel: 'Tasks tab' },
-  { key: 'History', label: 'History', icon: 'History', accessibilityLabel: 'History tab' },
+  { key: 'Home', label: 'Home', Icon: HomeIcon, accessibilityLabel: 'Home tab' },
+  { key: 'Tasks', label: 'Tasks', Icon: ListTodo, accessibilityLabel: 'Tasks tab' },
+  { key: 'History', label: 'History', Icon: HistoryIcon, accessibilityLabel: 'History tab' },
 ];
 
 export function BottomNav({ state, navigation }: BottomTabBarProps) {
@@ -51,12 +59,21 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
       {TABS.map((tab, index) => {
         const focused = state.index === index;
         const tint = focused ? colors.accent : colors.text2;
+        const TabIcon = tab.Icon;
         return (
           <Pressable
             key={tab.key}
             accessibilityRole="tab"
             accessibilityLabel={tab.accessibilityLabel}
             accessibilityState={{ selected: focused }}
+            // Plan 03-02 — explicit ≥48 dp touch target via minHeight +
+            // minWidth + hitSlop. Satisfies WCAG 2.1 AA pointer-target
+            // size (and Android Material spec). The flex:1 distribution
+            // already gives ~50 dp on a Pixel-class device but a
+            // future bottomNav height shrink would silently break the
+            // target — the explicit minHeight is a regression guard
+            // (02-COSMETIC-GAPS.md "touch targets feel undersized").
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             onPress={() => {
               const routeName = state.routes[index]?.name ?? tab.key;
               const event = navigation.emit({
@@ -70,11 +87,13 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
             }}
             style={{
               flex: 1,
+              minHeight: 48,
+              minWidth: 48,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Icon name={tab.icon} size={24} color={tint} strokeWidth={focused ? 2.25 : 1.75} />
+            <TabIcon size={24} color={tint} strokeWidth={focused ? 2.25 : 1.75} />
             <Text variant="tabLabel" style={{ color: tint, marginTop: 2, ...typography.tabLabel }}>
               {tab.label}
             </Text>
