@@ -25,9 +25,11 @@
  * truth; client hash is bookkeeping).
  */
 import React, { useCallback, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, Image, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ORANGE_LOGO = require('../../assets/logos/orange_logo.png');
 import { Text } from '../../ui/primitives/Text';
 import { Button } from '../../ui/primitives/Button';
 import { Pressable } from '../../ui/primitives/Pressable';
@@ -121,12 +123,13 @@ export default function SignupScreen() {
   return (
     <ScreenContainer accessibilityLabel="Signup screen" style={styles.container}>
       <View style={styles.top}>
-        {/* Logo: stub wordmark; design-spec §2 calls for the brand SVG. The
-            accessibilityLabel is the stable contract — see plan 02-15. */}
         <View accessibilityLabel="Humyn Labs logo" style={styles.logoWell}>
-          <Text variant="title28" tone="primary">
-            Humyn Labs
-          </Text>
+          <Image
+            source={ORANGE_LOGO}
+            style={styles.logo}
+            resizeMode="cover"
+            accessibilityIgnoresInvertColors
+          />
         </View>
         <Text
           variant="caption"
@@ -166,14 +169,17 @@ export default function SignupScreen() {
             style={[styles.checkbox, consent ? styles.checkboxChecked : null]}
           >
             {consent ? (
-              <View
+              <Text
+                variant="caption"
                 accessibilityLabel="checkbox checked indicator"
-                style={styles.checkboxInner}
+                style={styles.checkboxGlyph}
                 // data-testid sentinel for tests — the host-component shim
                 // forwards unknown props onto the DOM, which lets the test
                 // assert against `[data-testid="checkbox-checked-indicator"]`.
                 {...{ 'data-testid': 'checkbox-checked-indicator' }}
-              />
+              >
+                {'✓'}
+              </Text>
             ) : null}
           </Pressable>
           <Text
@@ -212,21 +218,27 @@ export default function SignupScreen() {
 }
 
 const styles = StyleSheet.create({
+  // Match prototype.html #signup: padding 60/28/32 px. The top block uses
+  // flex: 1 to fill the available vertical space; the bottom block wraps
+  // its children at natural height and sits at the bottom — gap between
+  // them is whatever the screen gives, not a hard `space-between`.
   container: {
     paddingTop: 60,
     paddingHorizontal: 28,
     paddingBottom: 32,
-    justifyContent: 'space-between',
   },
   top: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
   },
   logoWell: {
-    marginBottom: spacing.m,
     alignItems: 'center',
   },
+  // Sign-up logo = `lg` (310x90) per prototype.html `.logo-img.lg`.
+  logo: { width: 310, height: 90 },
   tagline: {
-    marginTop: spacing.m,
     textAlign: 'center',
   },
   pitchLine: {
@@ -243,8 +255,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkbox: {
-    width: 16,
-    height: 16,
+    width: 18,
+    height: 18,
     borderWidth: 1.5,
     borderColor: colors.line,
     borderRadius: 3,
@@ -255,10 +267,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     borderColor: colors.accent,
   },
-  checkboxInner: {
-    width: 8,
-    height: 8,
-    backgroundColor: colors.surface,
-    borderRadius: 1,
+  checkboxGlyph: {
+    color: colors.surface,
+    fontSize: 13,
+    lineHeight: 14,
+    fontWeight: '700' as const,
+    textAlign: 'center',
+    includeFontPadding: false,
   },
 });
