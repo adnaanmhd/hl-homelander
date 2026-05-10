@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: 'Phase 3 Wave 1 in flight — Plan 03-01 (cosmetic-asset-prep) complete. Density-bucketed orange_logo PNGs + transparent rig illustration placeholders + jest-image-snapshot adapter wired into Vitest. Plan 03-02 (cosmetic-screen-fixup) is unblocked — owns SplashScreen.tsx + SignupScreen.tsx + HomeSkeletonScreen.tsx + RigTutorialScreen.tsx wiring + 6 visual snapshot baselines + a pre-existing render-time regression captured in deferred-items.md.'
-last_updated: '2026-05-10T13:30:00.000Z'
+stopped_at: 'Phase 3 Wave 1 in flight — Plans 03-01 + 03-02 complete (Wave 1a + 1b). Sign-up/Permissions CTA layout fixed; logo + rig assets wired through 4 surfaces; BottomNav Lucide icons + ≥48 dp touch targets; 4 of 5 [EMAIL_ADDRESS] occurrences swapped for support@humynlabs.ai; RethinkSans dispatch hardened via stripFontWeight() defense; 6 jest-image-snapshot visual baselines committed; 7 pre-existing SplashScreen + RootNativeStack render-time failures from deferred-items.md retired (root cause: missing Animated.View/Text/Image/ScrollView in vitest.setup.ts mock). Plan 03-03 (cosmetic-functional-regressions) is unblocked — owns the navigator-touching changes (CompatFail+CompatRecovery merge, CompatPass auto-advance, useTabTopBarProps hook, useForegroundUserRehydrate hook, route-registry update, 5th [EMAIL_ADDRESS] substitution, 03-WAVE1-SMOKE.md operator runbook).'
+last_updated: '2026-05-10T19:32:00.000Z'
 last_activity: 2026-05-10
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 47
-  completed_plans: 36
-  percent: 77
+  completed_plans: 37
+  percent: 79
 ---
 
 # Project State
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 03 (humyn-capture-native-module) — EXECUTING
-Plan: 2 of 10 (Plan 03-01 cosmetic-asset-prep COMPLETE on 2026-05-10)
-Status: Executing Phase 03 — Wave 1 in flight
+Plan: 3 of 10 (Plans 03-01 + 03-02 COMPLETE on 2026-05-10)
+Status: Executing Phase 03 — Wave 1 in flight (Wave 1a + Wave 1b authoring complete; Wave 1c = Plan 03-03 next)
 
 - §1 Cold-start gate decision tree — PASSED (Path A, fresh install)
 - §2 Sign-up + Terms-of-Use modal — PASSED (after 4 auth-stack provisioning fixes, see commits below)
@@ -69,8 +69,8 @@ To resume Phase 1:
 
 **Recent Trend:**
 
-- Last 10 plans: 01-01 (7 min, 3 tasks, 22 files), 01-03 (5 min, 3 tasks, 7 files), 01-02 (6 min, 3 tasks + checkpoint, 11 files), 01-04 (9 min, 3 tasks, 18 files), 01-05 (13 min, 4 tasks, 25 files), 01-06 (18 min, 3 tasks, 17 files), 01-07 (12 min, 4 tasks, 17 files), 01-08 (17 min, 3 tasks, 28 files), 01-09 (7 min, 3 tasks, 19 files), 02-17 (12 min, 3 tasks, 8 files), 02-18 (12 min, 4 tasks, 14 files), 02-19 (7 min, 3 tasks, 9 files), 02-20 (8 min, 3 tasks, 12 files), 02-22 (5 min, 4 tasks, 5 files), 02-21 (5 min, 2 tasks authored + 1 deferred operator-checkpoint, 2 files), 03-01 (12 min, 2 tasks, 13 files).
-- Trend: 03-01 = first Phase 3 Wave 1 plan (asset prep + visual snapshot infra). 12 min for 8 PNG asset generations + jest-image-snapshot install + expect.extend adapter wiring + .gitkeep + deferred-items.md authoring. 2 deviations auto-fixed (Rule 1 — bug: aspect-correct asset dimensions 320x73 not 320x96 because trimmed wordmark aspect ~4.37:1; Rule 2 — completeness: deferred-items.md handoff for 7 pre-existing SplashScreen + RootNativeStack render-time failures unrelated to this plan; assigned to Plan 03-02 commit boundary). 02-21 still ties 02-22 as fastest plan in Phase 2 (5 min authoring).
+- Last 10 plans: 01-09 (7 min, 3 tasks, 19 files), 02-17 (12 min, 3 tasks, 8 files), 02-18 (12 min, 4 tasks, 14 files), 02-19 (7 min, 3 tasks, 9 files), 02-20 (8 min, 3 tasks, 12 files), 02-22 (5 min, 4 tasks, 5 files), 02-21 (5 min, 2 tasks authored + 1 deferred operator-checkpoint, 2 files), 03-01 (12 min, 2 tasks, 13 files), 03-02 (25 min, 3 tasks, 26 files).
+- Trend: 03-02 = first Phase 3 Wave 1b plan (cosmetic screen fixup + visual baselines). 25 min for the 3-task arc — longer than 03-01 due to: (a) running the 7 deferred-items.md test failures to root cause (missing Animated.View/Text mock); (b) full RethinkSans diagnosis path (fc-query post-script-name verification + APK font bundling check + react-native-asset re-link); (c) 6 visual snapshot baselines required two iterations (Pattern 52 importOriginal failure + JSX generic syntax + ambient .d.ts pair); (d) one git stash recovery detour after `git stash pop` applied an unrelated old worktree-agent stash. 5 deviations auto-fixed (1 Rule 1 — Animated mock; 1 Rule 2 — stripFontWeight defense-in-depth; 3 Rule 3 — blocking type/test/mock issues). 4 new patterns established (67–70).
 
 _Updated after each plan completion_
 | Phase 01 P08 | 17 min | 3 tasks | 28 files |
@@ -84,6 +84,7 @@ _Updated after each plan completion_
 | Phase 02 P22 | 5min | 4 tasks | 5 files |
 | Phase 02 P21 | 5min | 2 tasks (+1 deferred operator-checkpoint) | 2 files |
 | Phase 03 P01 | 12min | 2 tasks | 13 files |
+| Phase 03 P02 | 25min | 3 tasks | 26 files |
 
 ## Accumulated Context
 
@@ -180,6 +181,13 @@ Recent decisions affecting current work:
 - [Phase 3]: Plan 03-01: Pattern 65 — density-bucketed RN asset re-export from a single padded source PNG. `sharp(...).trim()` detects the tight wordmark bounding box (568x130 for orange_logo at aspect ~4.37:1), then re-export at @1x / @2x / @3x widths preserving aspect ratio. Drops the cover-cropping + magic-number sizing dance in JSX. Width-bound resize (target the design-spec's lg width and let height derive from true aspect) prevents re-introducing transparent padding inside the PNG — that re-introduction is exactly the cosmetic regression 02-COSMETIC-GAPS.md cross-cutting note flagged. Plan body's literal 320x96 was Rule-1 corrected to 320x73 because 320:96 (3.33:1) doesn't match the trimmed wordmark aspect.
 - [Phase 3]: Plan 03-01: Pattern 66 — Vitest expect.extend(toMatchImageSnapshot) adapter wired in the global vitest.setup.ts. `import { toMatchImageSnapshot } from 'jest-image-snapshot'` + `expect.extend({ toMatchImageSnapshot })` happen ONCE at setup time so every test file inherits the matcher; the same file's `declare module 'vitest' { interface Assertion ... }` block makes the matcher type-visible. Default jest-image-snapshot baseline path (`__image_snapshots__/` adjacent to each test file) used as-is. Empty baseline directory `apps/mobile/__tests__/visual/__image_snapshots__/.gitkeep` committed so the convention's well-known location is in-repo before Plans 03-02 / 03-03 author the first PNGs.
 - [Phase 3]: Plan 03-01: deferred-items.md handoff pattern. Pre-existing test failures (7 across SplashScreen + RootNativeStack — render-time `Element type is invalid: ... got: undefined` regression from Phase 2 plan 02-08 commits 5fe1443 + 5b9629c) documented at `.planning/phases/03-humyn-capture-native-module/deferred-items.md` with stash-roundtrip evidence + explicit assignment to Plan 03-02 (the designated owner of SplashScreen.tsx per its `<files_modified>` block; Rule 1 will apply inside that plan's commit boundary).
+- [Phase 3]: Plan 03-02: Pattern 67 — RethinkSans on-device font dispatch hardening. Verified via `fc-query -f "%{postscriptname}"` that each TTF in apps/mobile/assets/fonts/ ships a post-script name matching the file basename (extension dropped) AND matching typography.fontFamily.\* token values. Android RCTFont resolves assets/fonts/ entries by basename, iOS UIFont by post-script name; both paths correct. Defense-in-depth: Text primitive runs `stripFontWeight()` over user-supplied `style` so a leaky consumer can no longer trip the Android dispatcher into a Roboto fallback by re-introducing fontWeight after the variant cascade. On-device validation deferred to the Wave 1 manual re-walk per D-WAVE-08.
+- [Phase 3]: Plan 03-02: Pattern 68 — Render-tree-PNG visual snapshot helper for JSDOM (apps/mobile/**tests**/visual/\_utils/renderToImage.ts). JSDOM has no <canvas> rasterizer; pulling in node-canvas is a heavy native-binding dep on macOS. The cosmetic regressions in 02-COSMETIC-GAPS.md are STRUCTURAL (CTA moved, icon missing, logo path wrong, value-prop spacing collapsed) — a layout-shift detector that walks the rendered DOM tree and emits a deterministic wireframe PNG (one coloured rectangle per element keyed by accessibilityLabel hash + tag-type) suffices. Lower fidelity than a real rasterizer; HIGHER signal-to-noise for cosmetic regressions. Plan 03-03 inherits the helper for its 3 additional baselines.
+- [Phase 3]: Plan 03-02: Pattern 69 — Per-test inline react-native shim for visual + service-heavy tests that need RN system modules (Alert, Linking, Animated.View) NOT in the canonical vitest.setup.ts surface. Cannot use `vi.importActual('react-native')` because the real react-native index.js uses Flow's `import typeof * as ReactNativePublicAPI from "..."` syntax which Vite's esbuild transform can't parse (Pattern 52 from Phase 2). Per-test inline factories must replicate the host-component shapes from scratch.
+- [Phase 3]: Plan 03-02: Pattern 70 — Local ambient .d.ts pair for the visual-snapshot stack. apps/mobile/**tests**/visual/\_utils/pngjs.d.ts (no top-level imports → ambient module decl works) + apps/mobile/**tests**/visual/\_utils/types.d.ts (imports `vitest` to interface-merge `toMatchImageSnapshot`). Re-declares the runtime augmentation in vitest.setup.ts so tsc + editor LSPs see the matcher type from any test file. The setup file is not in tsconfig.include so its augmentation is invisible to the type-checker.
+- [Phase 3]: Plan 03-02: Animated mock fix in vitest.setup.ts retired Plan 03-01's deferred-items.md handoff. Root cause was a missing `Animated.View` / `Animated.Text` / `Animated.Image` / `Animated.ScrollView` host-component-shim sibling in the canonical Animated mock object — SplashScreen's commits 5fe1443 + 5b9629c added `<Animated.View>` consumers but the mock only stubbed the imperative API surface (Value, timing, parallel, ...). Fix retires all 7 pre-existing failures (4 SplashScreen + 3 RootNativeStack).
+- [Phase 3]: Plan 03-02: 02-OPEN-QUESTIONS.md OQ-1 RESOLVED to `support@humynlabs.ai`. 4 of 5 occurrences swapped (RigTutorialScreen.tsx, HelpCenterScreen.tsx, content.json via `npm run build:help`, help-center-content.md tracked into git). 5th occurrence (CompatRecoveryScreen.tsx) deferred to Plan 03-03's Compat-fail merge per the plan body's explicit deferral.
+- [Phase 3]: Plan 03-02: HomeSkeletonScreen NOT modified for the logo wiring per plan body — the wordmark lives in TopBar as a `<Text variant="title28">Humyn Labs</Text>` typographic stub. The plan explicitly forbade touching TopBar; HOME-side logo upgrade is implicitly deferred to a future plan that also takes ownership of TopBar refactoring (likely Phase 6 HOME plans, not Phase 3 Wave 1).
 
 ### Quick Tasks Completed
 
@@ -233,9 +241,9 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-10T13:30:00.000Z
+Last session: 2026-05-10T19:32:00.000Z
 Last activity: 2026-05-10
-Stopped at: Phase 3 Wave 1 in flight — Plan 03-01 (cosmetic-asset-prep) COMPLETE on 2026-05-10. Density-bucketed orange_logo PNGs (320x73 / 640x146 / 960x220) + transparent rig illustration placeholders + jest-image-snapshot adapter wired into Vitest. Empty baseline directory committed. Pre-existing SplashScreen + RootNativeStack render-time failures (7 tests) documented in `.planning/phases/03-humyn-capture-native-module/deferred-items.md` for Plan 03-02 to root-cause inside its commit boundary. Plan 03-02 (cosmetic-screen-fixup) is unblocked.
+Stopped at: Phase 3 Wave 1 in flight — Plans 03-01 + 03-02 COMPLETE on 2026-05-10. Plan 03-02 wired the density-bucketed assets into 4 logo-consuming screens, fixed CTA position/width on Sign-up + Permissions, swapped 4 of 5 [EMAIL_ADDRESS] occurrences for support@humynlabs.ai, wired direct lucide-react-native imports + ≥48 dp touch targets in BottomNav, hardened RethinkSans on-device dispatch via stripFontWeight() defense in Text primitive, and committed 6 jest-image-snapshot visual baselines. Animated.View/Text/Image/ScrollView mock siblings added to vitest.setup.ts retire all 7 pre-existing SplashScreen + RootNativeStack render-time failures from deferred-items.md. Plan 03-03 (cosmetic-functional-regressions) is unblocked — owns the navigator-touching changes (CompatFail+CompatRecovery merge, CompatPass auto-advance, useTabTopBarProps hook, useForegroundUserRehydrate hook, route-registry update, 5th [EMAIL_ADDRESS] substitution, 03-WAVE1-SMOKE.md operator runbook).
 
 - 01-10 (terraform apply): Tasks 1+2+3 complete + committed (430e17a, 9e52db8, ad93d17). Operator runs `terraform fmt -check` + `terraform validate` + `terraform plan` + `terraform apply` against real AWS staging.
 - 01-11 (counsel engagement): code-ready-counsel-deferred. Three commits ship the canonical consent text + boot-time hash guard, takedown SOP runbook, dsr-export CLI, and counsel-engagement checklist. Real attorney review queued for legal-ops backlog.
