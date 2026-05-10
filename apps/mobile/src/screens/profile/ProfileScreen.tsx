@@ -17,7 +17,7 @@
 // `Alert.alert('Could not update', ...)` on failure.
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, ScrollView, StyleSheet, Image, Alert } from 'react-native';
+import { View, ScrollView, StyleSheet, Image, Alert, TextInput } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Text } from '../../ui/primitives/Text';
 import { Pressable } from '../../ui/primitives/Pressable';
@@ -56,6 +56,11 @@ export function ProfileScreen(): React.JSX.Element {
     null,
   );
   const [error, setError] = useState<string | null>(null);
+  // Head-level inline edit (Task 1 of quick-260510-005). Mirrors the
+  // InlineEditField pattern but lives directly in the head so the user can
+  // tap the displayed name (which has the "tap to edit" caption).
+  const [headEditing, setHeadEditing] = useState(false);
+  const [headDraft, setHeadDraft] = useState('');
 
   // PROF-05 — build identifier footer. getFlavorContext() throws if the native
   // module isn't registered (web / unmocked unit tests); guard with a try so a
@@ -121,6 +126,14 @@ export function ProfileScreen(): React.JSX.Element {
     [me],
   );
 
+  const commitHead = useCallback(async () => {
+    if (!me) return;
+    const trimmed = headDraft.trim();
+    setHeadEditing(false);
+    if (trimmed === '' || trimmed === me.name) return;
+    await saveField('name', trimmed);
+  }, [headDraft, me, saveField]);
+
   if (error) {
     return (
       <ScreenContainer accessibilityLabel="Profile screen">
@@ -174,14 +187,34 @@ export function ProfileScreen(): React.JSX.Element {
             </Text>
           </View>
         )}
-        <View style={styles.nameBlock}>
-          <Text variant="bodyLg" style={styles.nameText}>
-            {me.name}
-          </Text>
-          <Text variant="caption" tone="tertiary">
-            tap to edit
-          </Text>
-        </View>
+        {headEditing ? (
+          <View style={styles.nameBlock} accessibilityLabel="profile-head-name-editing">
+            <TextInput
+              autoFocus
+              value={headDraft}
+              onChangeText={setHeadDraft}
+              onBlur={commitHead}
+              style={styles.nameInput}
+              accessibilityLabel="profile-head-name-input"
+            />
+          </View>
+        ) : (
+          <Pressable
+            style={styles.nameBlock}
+            onPress={() => {
+              setHeadDraft(me.name);
+              setHeadEditing(true);
+            }}
+            accessibilityLabel="profile-head-name"
+          >
+            <Text variant="bodyLg" style={styles.nameText}>
+              {me.name}
+            </Text>
+            <Text variant="caption" tone="tertiary">
+              tap to edit
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       {/* Lifetime block — PROF-03 (44 px / 700 mono numeric + caption) */}
@@ -308,6 +341,15 @@ const styles = StyleSheet.create({
   avatarInitial: { color: colors.accent },
   nameBlock: { marginLeft: spacing.mdl },
   nameText: {},
+  nameInput: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: colors.text,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.text,
+    minWidth: 160,
+    paddingVertical: 2,
+  },
   lifetime: { marginVertical: spacing.ll, paddingVertical: spacing.md },
   // PROF-03 — explicit fontSize: 44 reaffirms the design-spec §15 lifetime
   // number size on top of the typography token so a literal grep can verify
