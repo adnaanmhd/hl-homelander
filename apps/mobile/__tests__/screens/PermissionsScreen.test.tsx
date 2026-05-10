@@ -24,10 +24,12 @@ import { render, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   request as rnpRequest,
+  check as rnpCheck,
   openSettings as rnpOpenSettings,
   RESULTS,
   PERMISSIONS,
 } from 'react-native-permissions';
+import { AppState } from 'react-native';
 
 // ---------------------------------------------------------------------------
 // Module-level mocks: navigation hook, app store action, analytics logger.
@@ -70,6 +72,7 @@ vi.mock('../../src/util/analytics', () => ({
 import PermissionsScreen from '../../src/screens/permissions/PermissionsScreen';
 
 const requestMock = vi.mocked(rnpRequest);
+const checkMock = vi.mocked(rnpCheck);
 const openSettingsMock = vi.mocked(rnpOpenSettings);
 
 beforeEach(() => {
@@ -78,6 +81,11 @@ beforeEach(() => {
   mockLogEvent.mockReset();
   requestMock.mockReset();
   openSettingsMock.mockReset();
+  // quick-260510-007 — useEffect calls check() on mount + on AppState
+  // 'change'. Default to DENIED so existing tests (which never grant via
+  // Settings) don't trigger the auto-advance path; tests that exercise the
+  // Settings-round-trip override per-test with mockResolvedValueOnce.
+  checkMock.mockReset().mockResolvedValue(RESULTS.DENIED);
 });
 
 afterEach(() => {
@@ -223,5 +231,91 @@ describe('PermissionsScreen', () => {
     expect(denyEventNames).toContain('permission_mic_denied');
     expect(denyEventNames).not.toContain('permission_camera_granted');
     expect(denyEventNames).not.toContain('permission_mic_granted');
+  });
+
+  // quick-260510-007 — Settings round-trip re-check.
+  //
+  // The original bug: handlePress called openSettings() and returned without
+  // any path back. Once the user came back from Android Settings (where they
+  // granted what they had previously denied), the screen stayed in 'denied'
+  // / 'partial' state with the "Open Settings" button — they never advanced
+  // to Compat. Fix: AppState 'change' listener re-checks both perms via
+  // check() and auto-advances on both-granted.
+  //
+  // Test asserts:
+  //   - Initial mount also calls check() (covers Path B/C cold-start gates
+  //     where the user lands here with perms already granted from a prior
+  //     Settings round-trip).
+  //   - On 'active' AppState transition, check() runs again.
+  //   - When both perms read GRANTED post-foreground, setPermsGranted +
+  //     navigation.replace('Compat') fire — the same advance contract as
+  //     the happy-path flow.
+  it('Test 7 (quick-260510-007): foreground re-check after Settings round-trip auto-advances when both perms now granted', async () => {
+    // Capture the AppState listener so we can fire 'active' synthetically.
+    // Use `unknown` then narrow at the call site — RN's AppState typing is
+    // strict (AppStateStatus type), but we only need the runtime contract:
+    // `addEventListener('change', cb)` returns an object with `.remove()`.
+    let appStateListener: ((next: string) => void) | undefined;
+    const addEventListenerSpy = vi.spyOn(AppState, 'addEventListener').mockImplementation(((
+      event: unknown,
+      listener: unknown,
+    ) => {
+      if (event === 'change') appStateListener = listener as (n: string) => void;
+      return { remove: () => undefined };
+    }) as unknown as typeof AppState.addEventListener);
+
+    // Step 1: user lands on screen, taps Allow, denies both → 'denied' state.
+    requestMock.mockResolvedValueOnce(RESULTS.DENIED).mockResolvedValueOnce(RESULTS.DENIED);
+    // First check (mount) returns DENIED for both — user really hasn't
+    // granted yet, so no auto-advance, screen stays mounted.
+    const { getByLabelText, findByLabelText } = render(<PermissionsScreen />);
+    fireEvent.click(getByLabelText('Allow access'));
+    await findByLabelText('Open Settings');
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    // Step 2: user taps Open Settings → openSettings() fires.
+    fireEvent.click(getByLabelText('Open Settings'));
+    await waitFor(() => expect(openSettingsMock).toHaveBeenCalledTimes(1));
+
+    // Reset call counts to scope the assertion to the specific bug we are
+    // fixing — the foreground re-check after the Settings round-trip. Mount-
+    // time check + any strict-mode double-mount artifacts are irrelevant to
+    // the property under test here.
+    mockSetPermsGranted.mockClear();
+    mockReplace.mockClear();
+
+    // Step 3: user grants Camera + Mic via Android Settings, returns to app.
+    // AppState fires 'change' → 'active'. The mocked check() now returns
+    // GRANTED for both. The listener re-checks, both granted → setPermsGranted
+    // + navigation.replace('Compat'). This is the exact path that was broken
+    // pre-fix (where openSettings() returned and the screen stayed locked).
+    checkMock.mockResolvedValue(RESULTS.GRANTED);
+    expect(appStateListener).toBeDefined();
+    appStateListener?.('active');
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('Compat'));
+    expect(mockSetPermsGranted).toHaveBeenCalled();
+    const arg = mockSetPermsGranted.mock.calls[0]?.[0] as {
+      camera: boolean;
+      mic: boolean;
+    };
+    expect(arg.camera).toBe(true);
+    expect(arg.mic).toBe(true);
+
+    addEventListenerSpy.mockRestore();
+  });
+
+  it('Test 8 (quick-260510-007): initial mount auto-advances when perms are already granted (cold-start gate B/C)', async () => {
+    // Cold-start path: user previously granted both via Settings, killed
+    // the app, then re-launched. Splash routed them here (e.g. permsGranted
+    // MMKV key was never set on the original deny). useEffect on mount
+    // re-checks; both granted → auto-advance to Compat without requiring
+    // another button tap.
+    checkMock.mockResolvedValue(RESULTS.GRANTED);
+    render(<PermissionsScreen />);
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('Compat'));
+    expect(mockSetPermsGranted).toHaveBeenCalledTimes(1);
+    // request() was NOT called — auto-advance bypasses the OS prompt
+    // entirely since the perms are already granted.
+    expect(requestMock).not.toHaveBeenCalled();
   });
 });

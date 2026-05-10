@@ -159,6 +159,15 @@ vi.mock('react-native', () => {
       openURL: () => Promise.resolve(),
       canOpenURL: () => Promise.resolve(true),
     },
+    // Plan 02-10 / quick-260510-007 — PermissionsScreen subscribes to
+    // AppState 'change' to re-check permission status when the user returns
+    // from the Settings deep-link. Default stub returns a no-op subscription;
+    // per-test files override via `vi.mocked(...)` or per-test mocks to
+    // capture the listener and fire 'active' synthetically.
+    AppState: {
+      currentState: 'active' as const,
+      addEventListener: () => ({ remove: () => undefined }),
+    },
     // Animated — minimal stub so that CompatRing (plan 02-15 Task 2) can
     // call `Animated.createAnimatedComponent(Circle)` and
     // `Animated.timing(...).start()` at module-init time. JSDOM never
