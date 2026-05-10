@@ -69,4 +69,17 @@ describe('Phase 2 source-manifest invariants (D-UPG-03 / PERM-04 / PERM-03)', ()
   it('main manifest does NOT declare POST_NOTIFICATIONS (PROJECT.md no-notifications hard rule)', () => {
     expect(strip(basePath)).not.toMatch(/android\.permission\.POST_NOTIFICATIONS/);
   });
+
+  // Plan 03-07 — Phase 3 D-FGS-01.
+  // Two-sided lock for Pitfall 6 (manifest bitmask drift): the runtime
+  // bitmask `HumynForegroundService.FGS_TYPE_RECORDING` is asserted in
+  // `HumynForegroundServiceTest.kt` (Robolectric); this static gate asserts
+  // the manifest string. The two MUST stay in lock-step or Android 14 strict
+  // mode throws `MissingForegroundServiceTypeException` at startForeground.
+  it('declares HumynForegroundService with foregroundServiceType="camera|microphone|dataSync" (Pitfall 6)', () => {
+    const main = strip(basePath);
+    expect(main).toMatch(/<service[\s\S]*?android:name="\.fgs\.HumynForegroundService"/);
+    expect(main).toMatch(/android:foregroundServiceType="camera\|microphone\|dataSync"/);
+    expect(main).toMatch(/<service[\s\S]*?android:exported="false"/);
+  });
 });
