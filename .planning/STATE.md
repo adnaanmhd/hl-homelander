@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: 'Phase 3 Wave 1 polish COMPLETE — Plan 03-11 landed 2026-05-10, all six amendments (A1–A6) closed: A1 Permissions copy tightened to "Used only while you hit record"; A3 BottomNav lifts above gesture bar via useSafeAreaInsets paddingBottom: insets.bottom + 12; A4 TopBar wordmark Image replaces "Humyn Labs" Text node, propagates to Home/Tasks/History via Pattern 71; A5 CompatFail "What Now" 3-bullet recovery block deleted; A6 Splash + Sign-up logos shrunk ~20% to 256×58 dp. A2 originally escalated for missing source artwork; resolved in a follow-up step the same day by rasterizing the canonical rig SVG from prototype.html:1224-1235 (the locked design source per CLAUDE.md "Designs LOCKED" rule) via sharp into 280/280/560/840 dp — final byte sizes 11611/11611/24678/38633 all ≥4096. 4 visual baselines refreshed (Home, Tasks, History, CompatFail); Splash/Signup/Permissions/RigTutorial baselines unchanged (encoder is shape-only — A1/A6/A2 are text/style/asset-replacement; source-level grep + byte-threshold gates verify). Full visual suite 10/10; TS clean. Wave 2 plan-phase (Plan 03-04 capture-foundation-muxer-bridge) gated on (a) operator re-walk Pixel 10a per 03-WAVE1-SMOKE.md to verify A1–A6 closures + stamp re-walked-on, (b) runbook line 113 misalignment fix ("typographic stub still renders Humyn Labs").'
-last_updated: '2026-05-10T16:33:00.000Z'
+stopped_at: 'Phase 3 Wave 1 polish COMPLETE + post-Plan-03-11 re-re-walk PASSED on Pixel 10a — Wave 2 UNBLOCKED. All six amendments (A1–A6) verified closed on-device: A1 Permissions body reads "Used only while you hit record" verbatim; A2 RigTutorial renders rasterized prototype-SVG illustration (real PNG, not transparent placeholder); A3 BottomNav measured 91.8 dp tall + 35.4 dp gap below tab content (matches insets.bottom + 12); A4 TopBar wordmark is android.widget.ImageView 122.7×28.2 dp (NOT TextView "Humyn Labs"), propagates identically to Tasks + History via Pattern 71; A5 CompatFail "What Now" block deletion verified by source grep + visual baseline refresh; A6 Sign-up wordmark measured 256×57.9 dp on Pixel 10a (matches explicit style 256×58 dp). Additional verifications: §2 consent-gate alert fires; §3 auto-advances to Compat post-grant (no manual Continue — runbook §3 line 66 was stale, fixed in same commit); §5 CompatPass auto-advances 1.5s; §10 Profile Phase 2 surface intact; §11 Pattern 72 avatar self-heals within ~2.7s after force-stop. New candidate amendment A7 filed (NOT closed): SignupScreen consent checkbox defaults to useState(true) — Phase 2 02-09 explicit choice but regulatory exposure under GDPR Art. 4(11) / DPDP §6 / LGPD Art. 5(XII) (pre-ticked boxes do not constitute "clear affirmative action"). A7 disposition: pending legal review BEFORE Wave 2 plan-phase; NOT blocking Wave 2 entry. D-WAVE-08 entry gate fully satisfied; Plan 03-04 capture-foundation-muxer-bridge plan-phase is UNBLOCKED.'
+last_updated: '2026-05-10T17:25:00.000Z'
 last_activity: 2026-05-10
 progress:
   total_phases: 7
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 03 (humyn-capture-native-module) — EXECUTING
-Plan: 4 of 11 (Plans 03-01 + 03-02 + 03-03 + 03-11 COMPLETE on 2026-05-10 — Wave 1 polish fully closed, all six amendments A1–A6 landed)
-Status: Executing Phase 03 — Wave 1 source fully closed; Wave 2 (Plan 03-04 capture-foundation-muxer-bridge) gated on Pixel 10a re-walk + runbook line 113 fix
+Plan: 4 of 11 (Plans 03-01 + 03-02 + 03-03 + 03-11 COMPLETE on 2026-05-10 — Wave 1 polish fully closed, all six amendments A1–A6 verified on-device)
+Status: Executing Phase 03 — Wave 1 closed end-to-end (source + on-device verification); Wave 2 (Plan 03-04 capture-foundation-muxer-bridge) UNBLOCKED. Candidate amendment A7 filed (consent-checkbox default — pending legal review, not blocking Wave 2)
 
 - §1 Cold-start gate decision tree — PASSED (Path A, fresh install)
 - §2 Sign-up + Terms-of-Use modal — PASSED (after 4 auth-stack provisioning fixes, see commits below)
