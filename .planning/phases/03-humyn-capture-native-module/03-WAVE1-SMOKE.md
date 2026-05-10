@@ -4,7 +4,7 @@
 **Wave:** 1 (cosmetic + functional regressions; closes the post-Phase-2-soak gap inventory)
 **Authored:** 2026-05-10 (Plan 03-03 Task 4)
 **Operator:** Adnaan Mohammed
-**Date walked:** _(operator fills in — `re-walked-on: 2026-MM-DD`)_
+**Date walked:** 2026-05-10 (re-walked-on: 2026-05-10)
 **Devices used:** Pixel 10a (`5C161JEA304304`, Android 16 / API 36) — same device as Phase 2 smoke; broadening to Pixel 7a + non-Pixel happens in Phase 4 thermal walk per memory `feedback_functionality_first_during_smoke.md`.
 **Backend:** dev (`tsx watch src/index.ts` on `http://localhost:8080`) reachable from device via `adb reverse tcp:8080 tcp:8080`.
 
@@ -178,15 +178,42 @@
 - [ ] Any new gaps surfaced during this re-walk are filed in `.planning/phases/03-humyn-capture-native-module/03-W1-AMENDMENTS.md` (D-WAVE-09) — NOT in `02-COSMETIC-GAPS.md` (frozen).
 - [ ] Wave 2 acceptance gate (D-WAVE-08) satisfied: both Wave 1 plans (03-01, 03-02, 03-03) commits landed + this re-walk passed.
 
-**Operator signature:** _(operator fills in)_
+**Operator signature:** Adnaan Mohammed (interactive walk with Claude Opus 4.7 driving adb)
 
-**Approved? [YES / NO]**
+**Approved? YES — functionally** (all 12 sections pass behaviorally; 6 cosmetic/UX amendments filed for follow-up)
 
-`re-walked-on: ` _(operator fills in: 2026-MM-DD)_
+`re-walked-on: 2026-05-10`
 
-| Failed section | Failure summary | 03-W1-AMENDMENTS.md entry | Logcat ref |
-| -------------- | --------------- | ------------------------- | ---------- |
-| _(none)_       | —               | —                         | —          |
+**Walk summary:**
+
+- §1 Splash + animation — pass; **A6** filed (logo too large, shrink ~20%)
+- §2 Sign-up — pass; **A6** filed (logo too large, shrink ~20%)
+- §3 Permissions — pass; **A1** filed (copy: replace with "Used only while you hit record")
+- §4 Compat-fail merge — pass (force-fail toggle on `imuSustained100Hz` reverted post-walk); **A5** filed (drop "What Now" section entirely — keep only failure reason + supplementary copy + Contact Support)
+- §5 Compat-pass auto-advance — pass (no taps required, transient confirmation works)
+- §6 Rig Tutorial — pass functionally; **A2** filed (rig illustration is invisible — Plan 03-01 transparent placeholder; needs real artwork PNG)
+- §7 Home — pass functionally; **A3** filed (BottomNav too low; lift like Instagram), **A4** filed (TopBar wordmark is text stub; should be orange logo Image)
+- §8 Tasks — pass functionally; **A4** filed (same TopBar wordmark issue)
+- §9 History — pass functionally; **A4** filed (same TopBar wordmark issue)
+- §10 Profile — skipped (unchanged from Phase 2 per runbook; no Plan 03-03 regression expected)
+- §11 Foreground rehydrate — **PASS — Pattern 72 verified.** Force-stop via adb → relaunch → 'U' fallback flashed briefly → Google avatar repopulated within 1-2s without manual Profile detour. Hook fired as designed.
+- §12 Visual snapshot CI ≥1h soak — skipped (no GitHub Actions workflow running locally; deferred to first CI cycle after merge)
+
+**Pre-flight notes:**
+
+- Pre-flight #5 (manifest verify): apkRollout half manually verified inline (REQUEST_INSTALL_PACKAGES present; no POST_NOTIFICATIONS; no ACCESS_FINE_LOCATION; only ACCESS_COARSE_LOCATION; all required base perms present). playStore half blocked on missing `playStore/google-services.json` — pre-existing infrastructure gap unrelated to Wave 1; defer to Phase 4 Play Store onboarding plan.
+- Pre-flight #8 (vitest): exits 0 with 344/344 passing, but 3 unhandled rejections from pre-existing `1b4b06d` (`setPermsGranted` not in `RootNativeStack.test.tsx` mock state). Test-mock cleanup deferred per "functionality first during smoke walks" memory.
+
+**Amendments filed:** see `.planning/phases/03-humyn-capture-native-module/03-W1-AMENDMENTS.md` (A1–A6).
+
+| Failed section | Failure summary                                      | 03-W1-AMENDMENTS.md entry | Logcat ref |
+| -------------- | ---------------------------------------------------- | ------------------------- | ---------- |
+| §1 / §2        | Splash + Sign-up logos too large                     | A6                        | —          |
+| §3             | Permissions copy too long                            | A1                        | —          |
+| §4             | "What Now" section feels like filler                 | A5                        | —          |
+| §6             | Rig illustration invisible (transparent placeholder) | A2                        | —          |
+| §7 / §8 / §9   | TopBar wordmark is text stub, should be orange logo  | A4                        | —          |
+| §7             | BottomNav too low, lift like Instagram               | A3                        | —          |
 
 ---
 
