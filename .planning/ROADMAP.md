@@ -121,9 +121,9 @@ Plans:
 
 **Wave 3** _(parallel — pure-fn primitives + metadata + FGS; depend only on Plan 03-04)_
 
-- [ ] 03-05-pure-fn-primitives-PLAN.md — DriftCalculator (CAP-08), ImuRateObserver (CAP-19), FilenameGenerator (CAP-17 with filename_seq_exhausted guard at NNN=999), UlidGenerator (io.azam.ulidj wrapper per checker issue #15), HashStreamer (CAP-15), SidecarManager (D-FS-05) — flips 6 Wave 0 stubs to GREEN
-- [ ] 03-06-metadata-composer-PLAN.md — MetadataComposer (CAP-16, schema_version → 1.1.0 with imu_min_rate_hz_observed_p1) — flips 1 stub
-- [ ] 03-07-foreground-service-thermal-PLAN.md — HumynForegroundService + Notification + AndroidManifest entry + ThermalGate (CAP-11/12/14) — flips 2 stubs
+- [x] 03-05-pure-fn-primitives-PLAN.md — DriftCalculator (CAP-08), ImuRateObserver (CAP-19), FilenameGenerator (CAP-17 with filename_seq_exhausted guard at NNN=999), UlidGenerator (io.azam.ulidj wrapper per checker issue #15), HashStreamer (CAP-15), SidecarManager (D-FS-05) — flips 6 Wave 0 stubs to GREEN
+- [x] 03-06-metadata-composer-PLAN.md — MetadataComposer (CAP-16, schema_version → 1.1.0 with imu_min_rate_hz_observed_p1) — flips 1 stub
+- [x] 03-07-foreground-service-thermal-PLAN.md — HumynForegroundService + Notification + AndroidManifest entry + ThermalGate (CAP-11/12/14) — flips 2 stubs
 
 **Wave 4** _(encoder/audio/IMU wrappers + segment timer; depend on 03-04 + 03-05)_
 
