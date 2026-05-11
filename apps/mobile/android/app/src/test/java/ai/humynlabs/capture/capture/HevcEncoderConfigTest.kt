@@ -48,6 +48,14 @@ class HevcEncoderConfigTest {
             MediaCodecInfo.CodecProfileLevel.HEVCProfileMain,
             f.getInteger(MediaFormat.KEY_PROFILE),
         )
+        // WR-04 fix — KEY_LEVEL must be Main Tier Level 4 (1080p30 / 8 Mbps
+        // capable). The previous config omitted KEY_LEVEL entirely and let
+        // the encoder pick — which on some OEM codecs defaults to L3
+        // (max 720p / 6 Mbps), silently violating the locked spec.
+        assertEquals(
+            MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel4,
+            f.getInteger(MediaFormat.KEY_LEVEL),
+        )
         assertEquals(
             MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface,
             f.getInteger(MediaFormat.KEY_COLOR_FORMAT),
