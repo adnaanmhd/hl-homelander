@@ -183,11 +183,25 @@ class CaptureSession private constructor(
             thermalSubscription?.close()
         } catch (_: Throwable) { /* best-effort */ }
         thermalSubscription = null
-        try {
-            currentSegment?.let { closeSegmentResources(it) }
-        } catch (_: Throwable) { /* best-effort */ }
+        // CR-05 fix — null `currentSegment` BEFORE invoking closeSegmentResources.
+        // The previous ordering left currentSegment set during close; the pump's
+        // `currentSegment === seg` defense-in-depth check would stay true while
+        // the encoder/muxer/Surface were being released. closeSegmentResources
+        // (post CR-04 fix) now sets pumpShouldStop and awaits the pumpExitLatch,
+        // then `quitSafely`s the pump thread — so each segment's pump is fully
+        // joined before its encoder/muxer/Surface get released.
+        val partial = currentSegment
         currentSegment = null
+        try {
+            partial?.let { closeSegmentResources(it) }
+        } catch (_: Throwable) { /* best-effort */ }
         try { segmentTimer.release() } catch (_: Throwable) { /* best-effort */ }
+        // CR-05 fix — the loop below is defensive cleanup for the narrow
+        // window where openSegment threw AFTER `pumpThreads.add(pumpThread)`
+        // but BEFORE the pump Runnable was posted (so the thread exists but
+        // never ran a pump body). closeSegmentResources's quitSafely covers
+        // every segment that was actually constructed; this loop catches the
+        // partially-allocated case. Best-effort by definition.
         for (t in pumpThreads) try { t.quitSafely() } catch (_: Throwable) { /* best-effort */ }
         pumpThreads.clear()
         try { sessionThread.quitSafely() } catch (_: Throwable) { /* best-effort */ }
@@ -343,6 +357,7 @@ class CaptureSession private constructor(
             imuWriter = imuWriter!!,
             videoFrameTimestamps = java.util.concurrent.CopyOnWriteArrayList(),
             pumpThread = pumpThread,
+            pumpExitLatch = CountDownLatch(1),
         )
 
         // 6. Kick off the pump. The Runnable owns the dequeue → write loop;
@@ -452,60 +467,74 @@ class CaptureSession private constructor(
      */
     @VisibleForTesting
     internal fun runPumpLoop(seg: Segment) {
-        val info = MediaCodec.BufferInfo()
-        var videoTrackId = -1
-        var muxerStarted = false
-        while (!Thread.interrupted() && currentSegment === seg) {
-            val outIdx = try {
-                seg.hevc.dequeueOutputBuffer(info, 10_000L)
-            } catch (_: IllegalStateException) {
-                // Encoder has been stopped/released by closeSegmentResources.
-                break
-            }
-            when {
-                outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
-                    if (!muxerStarted) {
-                        videoTrackId = seg.muxer.addTrack(seg.hevc.outputFormat)
-                        seg.muxer.start()
-                        muxerStarted = true
-                    }
+        try {
+            val info = MediaCodec.BufferInfo()
+            var videoTrackId = -1
+            var muxerStarted = false
+            // CR-04 fix — `pumpShouldStop` is the explicit, ordering-stable
+            // exit signal that closeSegmentResources sets BEFORE tearing
+            // down resources and BEFORE awaiting `pumpExitLatch`. The
+            // `currentSegment === seg` check is retained as defense-in-depth
+            // (eg. if a future code path swaps segments without going
+            // through closeSegmentResources).
+            while (!Thread.interrupted() && !seg.pumpShouldStop && currentSegment === seg) {
+                val outIdx = try {
+                    seg.hevc.dequeueOutputBuffer(info, 10_000L)
+                } catch (_: IllegalStateException) {
+                    // Encoder has been stopped/released by closeSegmentResources.
+                    break
                 }
-                outIdx == MediaCodec.INFO_TRY_AGAIN_LATER -> {
-                    // No buffer this tick; keep polling.
-                }
-                outIdx >= 0 -> {
-                    val buf: ByteBuffer? = try {
-                        seg.hevc.getOutputBuffer(outIdx)
-                    } catch (_: IllegalStateException) {
-                        null
-                    }
-                    if (buf == null) {
-                        try { seg.hevc.releaseOutputBuffer(outIdx, false) } catch (_: Throwable) {}
-                    } else if ((info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
-                        // Codec config buffer — no presentation timestamp;
-                        // muxer consumes csd from the output format change.
-                        try { seg.hevc.releaseOutputBuffer(outIdx, false) } catch (_: Throwable) {}
-                    } else {
-                        if (info.size > 0 && muxerStarted) {
-                            // === CAP-08 timestamp collection (checker issue #2) ===
-                            // Append physical presentation time in ns BEFORE writing
-                            // the buffer. bufferInfo.presentationTimeUs is on the
-                            // same elapsedRealtimeNanos domain as Camera2
-                            // SENSOR_INFO_TIMESTAMP_SOURCE = REALTIME (verified by
-                            // RealtimeGate at session start; Pattern 1 invariant).
-                            seg.videoFrameTimestamps.add(info.presentationTimeUs * 1_000L)
-                            buf.position(info.offset)
-                            buf.limit(info.offset + info.size)
-                            try {
-                                seg.muxer.writeSampleData(videoTrackId, buf, info)
-                            } catch (_: Throwable) { /* muxer closed mid-write */ }
+                when {
+                    outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                        if (!muxerStarted) {
+                            videoTrackId = seg.muxer.addTrack(seg.hevc.outputFormat)
+                            seg.muxer.start()
+                            muxerStarted = true
                         }
-                        try { seg.hevc.releaseOutputBuffer(outIdx, false) } catch (_: Throwable) {}
                     }
-                    if ((info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) break
+                    outIdx == MediaCodec.INFO_TRY_AGAIN_LATER -> {
+                        // No buffer this tick; keep polling.
+                    }
+                    outIdx >= 0 -> {
+                        val buf: ByteBuffer? = try {
+                            seg.hevc.getOutputBuffer(outIdx)
+                        } catch (_: IllegalStateException) {
+                            null
+                        }
+                        if (buf == null) {
+                            try { seg.hevc.releaseOutputBuffer(outIdx, false) } catch (_: Throwable) {}
+                        } else if ((info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
+                            // Codec config buffer — no presentation timestamp;
+                            // muxer consumes csd from the output format change.
+                            try { seg.hevc.releaseOutputBuffer(outIdx, false) } catch (_: Throwable) {}
+                        } else {
+                            if (info.size > 0 && muxerStarted) {
+                                // === CAP-08 timestamp collection (checker issue #2) ===
+                                // Append physical presentation time in ns BEFORE writing
+                                // the buffer. bufferInfo.presentationTimeUs is on the
+                                // same elapsedRealtimeNanos domain as Camera2
+                                // SENSOR_INFO_TIMESTAMP_SOURCE = REALTIME (verified by
+                                // RealtimeGate at session start; Pattern 1 invariant).
+                                seg.videoFrameTimestamps.add(info.presentationTimeUs * 1_000L)
+                                buf.position(info.offset)
+                                buf.limit(info.offset + info.size)
+                                try {
+                                    seg.muxer.writeSampleData(videoTrackId, buf, info)
+                                } catch (_: Throwable) { /* muxer closed mid-write */ }
+                            }
+                            try { seg.hevc.releaseOutputBuffer(outIdx, false) } catch (_: Throwable) {}
+                        }
+                        if ((info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) break
+                    }
+                    else -> { /* other negative codes — ignore */ }
                 }
-                else -> { /* other negative codes — ignore */ }
             }
+        } finally {
+            // CR-04 fix — count down unconditionally so closeSegmentResources's
+            // `pumpExitLatch.await(...)` returns even if the pump throws or
+            // is interrupted. Without this, closeSegmentResources would block
+            // for the full timeout on any pump exception path.
+            seg.pumpExitLatch.countDown()
         }
     }
 
@@ -518,31 +547,61 @@ class CaptureSession private constructor(
     private fun rotateSegment() {
         if (stopping) return
         val segN = currentSegment ?: return
-        closeSegmentResources(segN)
+        // CR-04 fix — null `currentSegment` BEFORE calling
+        // closeSegmentResources, matching `stop()`'s ordering. The pump
+        // loop's `currentSegment === seg` defense-in-depth check then
+        // returns false immediately, even before pumpShouldStop is set
+        // inside closeSegmentResources. With the previous ordering
+        // (close first, null second), the pump kept dequeue/writeSampleData
+        // running for the entire close duration.
         currentSegment = null
+        try {
+            closeSegmentResources(segN)
 
-        try { Thread.sleep(SEGMENT_ROTATE_GAP_MS) } catch (_: InterruptedException) {
-            Thread.currentThread().interrupt()
-            return
-        }
+            try { Thread.sleep(SEGMENT_ROTATE_GAP_MS) } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                return
+            }
 
-        // Hand N off to finalize on the separate executor (Pattern 2 —
-        // concurrent finalize). We do this BEFORE allocating N+1 so the
-        // FinalizeWorker thread overlaps with N+1's pre-flight & open;
-        // SHA streaming will run concurrent with N+1's encoder.
-        finalizeExecutor.execute { FinalizeWorker.finalize(segN, emit) }
-        segmentsCompleted++
+            // Hand N off to finalize on the separate executor (Pattern 2 —
+            // concurrent finalize). We do this BEFORE allocating N+1 so the
+            // FinalizeWorker thread overlaps with N+1's pre-flight & open;
+            // SHA streaming will run concurrent with N+1's encoder.
+            finalizeExecutor.execute { FinalizeWorker.finalize(segN, emit) }
+            segmentsCompleted++
 
-        val mgr = ctx.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        val pick = BackUltrawidePicker.pick(mgr)
-            ?: throw IllegalStateException("no_back_ultrawide")
-        // CAP-09: each segment owns its OWN recording_id; no parent linkage.
-        val newRecordingId = UlidGenerator.next()
-        val segNPlus1 = openSegment(newRecordingId, pick)
-        currentSegment = segNPlus1
-        emitSegmentStart(segNPlus1)
-        segmentTimer.scheduleNext(segmentDurationMs) {
-            sessionHandler.post { rotateSegment() }
+            val mgr = ctx.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+            val pick = BackUltrawidePicker.pick(mgr)
+                ?: throw IllegalStateException("no_back_ultrawide")
+            // CAP-09: each segment owns its OWN recording_id; no parent linkage.
+            val newRecordingId = UlidGenerator.next()
+            val segNPlus1 = openSegment(newRecordingId, pick)
+            currentSegment = segNPlus1
+            emitSegmentStart(segNPlus1)
+            segmentTimer.scheduleNext(segmentDurationMs) {
+                sessionHandler.post { rotateSegment() }
+            }
+        } catch (t: Throwable) {
+            // CR-03 fix — without this catch, any throw inside rotateSegment
+            // (BackUltrawidePicker.pick, openSegment, segmentTimer.scheduleNext,
+            // Camera2 hot-disconnect, MediaCodec init failure, etc.) propagates
+            // up through the Runnable to Handler.dispatchMessage and is
+            // logged-and-swallowed. The session would be silently dead:
+            // currentSegment = null, no scheduled timer, no onError event,
+            // and stop() later has nothing to close. Surface the error to
+            // JS so RecordingScreen can show a recoverable error and
+            // ensure stop() can still run cleanly.
+            val payload = Arguments.createMap().apply {
+                putString("code", "rotate_failed")
+                putString("message", t.message ?: "")
+                putBoolean("recoverable", false)
+                putString("segmentId", segN.segmentId)
+            }
+            emit("onError", payload)
+            // Mark stopping so subsequent timer callbacks short-circuit; cancel
+            // the timer so a stale scheduled cut doesn't fire post-error.
+            stopping = true
+            try { segmentTimer.cancel() } catch (_: Throwable) {}
         }
     }
 
@@ -600,15 +659,44 @@ class CaptureSession private constructor(
      * (endedAtNs - startedAtNs) / 1_000_000 without re-reading the clock.
      */
     private fun closeSegmentResources(seg: Segment) {
-        // Order matters: stop capture session → stop encoders → flush muxer →
-        // close cam → release input surface → release audio → stop IMU writer.
+        // CR-04 fix — drain the encoder pipeline AND wait for the pump to
+        // exit BEFORE tearing down the encoder / muxer / Surface. The
+        // previous code called `Thread.sleep(50)` and relied on the pump's
+        // `currentSegment !== seg` check, which:
+        //   1. did not actually exit the pump in the rotateSegment path
+        //      (currentSegment was nulled AFTER closeSegmentResources, so
+        //      `currentSegment === seg` stayed true while close was running);
+        //   2. assumed the pump would drain in 50 ms — not a contract Android
+        //      guarantees;
+        //   3. left getOutputBuffer / writeSampleData / Surface mid-call when
+        //      the muxer / hevc.release / inputSurface.release ran, which on
+        //      some Pixel firmware crashes the encoder native layer (SIGSEGV)
+        //      rather than throwing IllegalStateException.
+        //
+        // New order:
+        //   1. stop the capture session (no new frames to encoder).
+        //   2. signalEndOfInputStream (encoder will emit EOS, pump will see
+        //      BUFFER_FLAG_END_OF_STREAM and return).
+        //   3. set pumpShouldStop = true and await pumpExitLatch — pump is
+        //      provably out of all dequeue/getOutputBuffer/writeSampleData
+        //      calls when the latch fires.
+        //   4. quit the pump HandlerThread so it doesn't leak.
+        //   5. NOW it's safe to release the encoder / surface / muxer.
         try { seg.captureSession.stopRepeating() } catch (_: Throwable) {}
         try { seg.captureSession.close() } catch (_: Throwable) {}
         try { seg.hevc.signalEndOfInputStream() } catch (_: Throwable) {}
-        // Give the pump loop a brief window to drain the in-flight buffers
-        // before we yank the muxer out from under it. The pump-loop body
-        // self-cancels when `currentSegment !== seg`.
-        try { Thread.sleep(50) } catch (_: InterruptedException) { Thread.currentThread().interrupt() }
+        seg.pumpShouldStop = true
+        try {
+            // 2 s budget: well above the encoder's typical drain time
+            // (~tens of ms on Pixel-class). If the pump fails to exit in
+            // this window, we proceed with teardown anyway — the catch
+            // blocks below absorb whatever exception the racing pump
+            // surfaces — but we've at least eliminated the common case.
+            seg.pumpExitLatch.await(2L, TimeUnit.SECONDS)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
+        try { seg.pumpThread.quitSafely() } catch (_: Throwable) {}
         try { seg.hevc.stop() } catch (_: Throwable) {}
         try { seg.hevc.release() } catch (_: Throwable) {}
         try { seg.inputSurface.release() } catch (_: Throwable) {}
@@ -701,6 +789,26 @@ internal data class Segment(
      */
     val videoFrameTimestamps: java.util.concurrent.CopyOnWriteArrayList<Long>,
     val pumpThread: HandlerThread,
+    /**
+     * CR-04 fix — pump-loop exit signal. The pump runnable (runPumpLoop)
+     * counts this down in a `finally` block when it returns; closeSegmentResources
+     * awaits it BEFORE tearing down the encoder / muxer / Surface so the pump
+     * is provably out of the dequeue/getOutputBuffer/writeSampleData calls
+     * at teardown time. This eliminates the race where Surface.release() or
+     * muxer.close() ran concurrent with the pump's getOutputBuffer/writeSampleData,
+     * which on some Pixel firmware crashes the encoder native layer (SIGSEGV)
+     * rather than throwing IllegalStateException.
+     */
+    val pumpExitLatch: java.util.concurrent.CountDownLatch,
+    /**
+     * CR-04 fix — explicit pump-stop signal. Set to true by closeSegmentResources
+     * BEFORE awaiting the pump-exit latch. The pump observes this on every
+     * loop iteration (via the @Volatile load) and returns promptly without
+     * waiting for `currentSegment !== seg` (which is set later in the
+     * close path and was previously the sole exit signal — ordering
+     * inconsistent between rotate and stop paths).
+     */
+    @Volatile var pumpShouldStop: Boolean = false,
 )
 
 /**
