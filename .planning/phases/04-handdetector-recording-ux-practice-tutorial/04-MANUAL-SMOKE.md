@@ -1,6 +1,6 @@
 # Phase 4 Manual Smoke — HandDetector + Recording UX + Practice Tutorial (on-hardware acceptance, D-WAVE-04)
 
-**Status:** OPEN — fill in the checkboxes during the manual smoke; commit the file when complete.
+**Status:** WALKED 2026-05-12 (operator Adnaan Mohammed, Pixel 10a / Android 16) — **verdict NO**: core capture/UX works, but a set of on-hardware findings (sub-60 s recordings not deleted; <5 % battery start-guard doesn't fire; force-quit recover-toast missing + orphan not re-finalized; mid-record thermal abort unverified) need a fix round before Phase 4 is done. §4 phone-calls/alarm/storage edges not walked (owner call). See §6 for the full record + findings.
 
 > Per `04-RESEARCH.md` § "Validation Architecture — Wave 0" + `04-CONTEXT.md` D-WAVE-04: **Phase 4 acceptance is module-ready (vitest suite green) + the practice E2E passing + the `idea-brief.md §10` lifecycle edges manually verified + the §5b drift figures measured & recorded.** The seven Phase 3 hardware-UAT items (`.planning/STATE.md` "Phase 3 hardware UAT pending") effectively RETIRE during this walk — the verifier should not separately re-block on them after Phase 4 closes.
 >
@@ -137,25 +137,49 @@ Requires `adb shell cmd thermalservice override-status` (available on userdebug 
 
 ## §6 Sign-off
 
-- [ ] All §1 boxes ticked (pre-flight).
-- [ ] All §2 boxes ticked (practice E2E — transitions, `files/practice/`, `is_practice:true`, not-in-History, tutorial-once, clean `cache/hand-gate/`).
-- [ ] All §3 boxes ticked (non-practice via dev affordance — silent 10-min cut + preserved `start_gate`, Stop-button-direct vs X-modal, sub-60 s discard, spec-compliance, IMU ≥100 Hz, FGS type + KEEP_SCREEN_ON, on-disk SHA, session start/stop events).
-- [ ] All §4 boxes ticked (lifecycle edges — answered-call/alarm/rotation/force-quit → stop; force-quit → recover-toast + sidecar re-finalize; declined-call → continue; battery 15% → alert+continue; battery 5% → end; storage <5 GB / battery <5% → refuse; DND untouched).
-- [ ] All §5 boxes ticked (thermal — mid-record SEVERE graceful stop ~2.5 s + multimodal alert; pre-record SEVERE → `start()` rejects `thermal_throttling`).
-- [ ] §5b — the drift table above is filled in (measure & record only; **not** a gate — owner 2026-05-12, see `ULTRAWIDE-DRIFT-FINDINGS.md`). The Phase-4 ultrawide path runs ~1.7–6.2 ms; that's accepted.
-- [ ] Phase-3 hardware-UAT items #1–#7 are considered RETIRED by this walk (the verifier should not separately re-block on them after Phase 4 closes — per D-WAVE-04).
+> **WALK NOTES — 2026-05-12, Pixel 10a (5C161JEA304304), Android 16, operator Adnaan Mohammed.** Walked post the `handgate-never-passes` debug-session fix (native Camera2 gate + ultrawide HEVC recording + VisionCamera removed). Two bugs found mid-walk in §2 were fixed in-walk (X-close nav, landscape-stick) + a PracticeIntro copy change; the rest are filed below. §4 was wrapped after the rotation/battery/force-quit edges (phone-calls/alarm/storage-fill NOT walked — owner call; the unit-test policy table + Phase-3 walks cover those). **Verdict: NO — Phase 4 needs a follow-up fix round (the filed findings) before it's done.** Core capture/UX works (see the ✓ list).
 
-**Recorded §5b drift figures (copy from the §5b table):** seg1 max **\_** / mean **\_** / p99 **\_** · seg2 max **\_** / mean **\_** / p99 **\_** · seg3 max **\_** / mean **\_** / p99 **\_**
+**What PASSED:**
 
-Operator signature: **\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_**
+- [x] §1 pre-flight (device, debug build w/ `__DEV__`, DND off, charged, backend up, ffprobe/python).
+- [x] §2 practice E2E — fresh install → onboarding → RigTutorial → PracticeIntro → Start practice → RecordingScreen → **physical rotate → ready** → record → **gate-PASS** (`passed:true`, 2 hits / 250 ms) → ~60 s auto-stop → PracticeComplete (confetti/pop/haptic — exercises reanimated 4 at runtime) → Continue → Home; `files/practice/` has the triple; `cache/hand-gate/` clean; `dfov_degrees` 115.4 (ultrawide). NOTE: no `is_practice` field in the metadata — practice is segregated by the `files/practice/` directory + `task_id:__practice__` (the old "verify `is_practice:true`" assertion is stale).
+- [x] §3 non-practice — long-press dev affordance → RecordingScreen (`isPractice:false`, "Practice — Chop vegetables"); auto-segment cut (2-min, **silent**, `start_gate` block **identical** across the cut — CAP-10); Stop button stops **directly** (no modal); X button → **"Stop recording?"** modal w/ "Recordings under 1 minute are discarded." + Keep/Stop; X-close pre-record → Home, **no red error** (Bug-1 fix verified); landscape un-sticks after stop (Bug-2 fix verified). Spec-compliance on the ~2-min segment: `hevc`/`Main`/`1920×1080`/`r_frame_rate 179/6`(~29.83 fps)/`~7.78 Mbps` CBR/GOP 30/**0 B-frames**; IMU ~798 Hz (`imu_min_rate_hz_observed_p1:798`); on-disk mp4+csv SHAs **match** the metadata `file_sha256`/`imu_sha256` (CAP-18).
+- [x] §3/§4 — FGS while recording: `HumynForegroundService` `isForeground=true`, `types=0x000000C1` = **`camera|microphone|dataSync`** ✓; `mHoldingDisplaySuspendBlocker=true` (screen won't sleep mid-capture).
+- [x] §4(d) rotate-to-portrait mid-record → recording stops + toast "Recording stopped — keep the phone in landscape." + voice "Recording stopped".
+- [x] §4(f) battery 15% → alert pill "Battery 15%" + 520 Hz beep + [100,50,100] ms haptic + voice "Battery low. Consider charging soon." → continues.
+- [x] §4(g) battery 5% → recording ends immediately.
+- [x] §4 DND untouched — `settings get global zen_mode` = 0 before AND after the walk (REC-09 ✓).
+- [x] §5 pre-record thermal refuse — `cmd thermalservice override-status 3` (SEVERE) → tap record → refused, voice "Phone too warm", stays in Ready (no gate/recording).
+- [x] §5b drift table filled in (below) — measure-only, **not a gate** (owner 2026-05-12; ultrawide-recording path; `ULTRAWIDE-DRIFT-FINDINGS.md`).
+- [x] Phase-3 hardware-UAT #1/#2/#5/#6/#7 retire here (auto-segment integrity, spec-compliance, FGS+KEEP_SCREEN_ON, SHA round-trip — verified above). #3 (drift residual) retires here as telemetry. #4 (thermal abort) — see the finding below (unverified this walk).
 
-Smoke-walked-on: **\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_** on Pixel 10a (5C161JEA304304).
+**FINDINGS — Phase 4 needs a fix round for these (the §6 = NO reason):**
 
-re-walked-on: **\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_** (post-amendments verification walk, if any §7 amendments were filed.)
+1. **Sub-60 s recordings are NOT deleted from disk.** The "Recording too short — discarded." path shows the toast + RESET_FOR_FRESH, but the segment files persist (`files/recordings/` accumulated `_002` 6 s, `_004` 22 s, `_005` ~4 s, `_006` ~6 s during the walk). Phase 5's upload queue would push sub-60 s junk. REC-07 ("HumynCapture owns the file deletion at finalize") isn't happening — RecordingScreen calls `HumynCapture.stop()` then decides the toast from `durationMs`, but nothing actually deletes the <60 s segment(s). **Data-integrity bug — should fix.**
+2. **<5 % battery start-guard doesn't fire.** `dumpsys battery unplug && set level 4` → tap record → recording **started anyway** (the 15 % alert _listener_ works, but `checkStartGuards`' battery check didn't block at 4 %). Either a guard bug or `dumpsys battery set` not reaching whatever API the guard reads — needs a look.
+3. **Force-quit recover-on-launch: event fires, but the toast doesn't show and the orphan isn't re-finalized.** After `am force-stop` mid-record + relaunch: logcat shows `CaptureLaunchSweep: orphan_with_sidecar=…009 — Phase 4 re-finalize candidate` + `HumynCapture: onCrashRecovery emitted — recovered=1`, BUT (a) **no** Home toast "Recording recovered after force-quit — uploading." appeared (D-LIFE-04 `bootRecoveryListener → showToast` — the toast surface is broken), (b) the orphan `_009.mp4` stays a **778-byte stub** (no metadata JSON written, sidecar not deleted — not actually re-finalized into a usable triple), (c) the older `_021403_004.session.json` orphan wasn't swept (`recovered=1`, not `2`).
+4. **Mid-record thermal abort unverified / possibly broken.** `cmd thermalservice override-status 4` (CRITICAL) mid-record → **nothing** (no pill/tones/vibrate/voice/auto-stop; recording kept going). The mid-record thermal-abort listener doesn't pick up the test override on this Android-16 build (might still trigger on a real HAL escalation — couldn't confirm). The _pre_-record thermal refuse works (finding above #ok), so the synchronous start-time read is fine; the async listener path is the gap.
+5. **Cosmetic / metadata nits** (→ `04-COSMETIC-GAPS.md`): `start_gate.duration_ms` is occasionally bogus (a gate-pass run stamped `59929` ms); `ViewManagerPropertyUpdater: Could not find generated setter for class HumynGateCameraViewManager` warning in logcat (gate-camera native view's prop setters not fully declared — benign so far); the rotate-prompt phone glyph (cosmetic — see if it reads well). `onSessionStart/Stop` aren't in `adb logcat` (RN-bridge events, not logcat lines) — runbook's "grep logcat for them" expectation is off.
 
-Approved? **YES / NO**
+**NOT walked this session** (owner call — wrap §4 early; Phase-3 walks + the unit-test policy table cover them): §4(a)/(b) phone-call answered/declined → stop/continue; §4(c) alarm → stop; §4(h) storage <5 GB → refuse-to-start. To be picked up in a re-walk after the fix round.
 
-If NO: describe the failure mode and link to the bug ticket / debug-session below. (§5b drift is not a gate — a high drift figure is recorded, not a NO.)
+**Recorded §5b drift figures** (post-fresh-install ≥60 s segments; ALL >±1 ms — ultrawide-recording path, not a gate): seg1 (`_021201_003`, 120.7 s, skip) max **2.603** / mean **2.384** / p99 **2.427** ms · seg2 (`_022525_007`, 111.3 s, skip) max **63.59** / mean **22.27** / p99 **60.65** ms _(anomalous — likely a glitch on that recording; the ~2 ms ones are typical)_ · seg3 (`_022811_008`, 61.0 s, skip) max **2.081** / mean **1.758** / p99 **1.781** ms. (Also: debug-session 10-min gate-pass segment earlier ran 6.16 / 5.58 / 5.63 ms; the §2 60-s practice gate-pass ran 12.63 / 3.05 / 12.58 ms.) Per `idea-brief.md §2.1` the LOCKED target is ±1 ms; relaxed to measure-and-record 2026-05-12 (`CLAUDE.md` drift banner / `ULTRAWIDE-DRIFT-FINDINGS.md`).
+
+| Segment                        | `imu_video_drift_max_ms` | `imu_video_drift_mean_ms` | `imu_video_drift_p99_ms` |
+| ------------------------------ | ------------------------ | ------------------------- | ------------------------ |
+| seg 1 (`_021201_003`, 120.7 s) | 2.603                    | 2.384                     | 2.427                    |
+| seg 2 (`_022525_007`, 111.3 s) | 63.593                   | 22.267                    | 60.652                   |
+| seg 3 (`_022811_008`, 61.0 s)  | 2.081                    | 1.758                     | 1.781                    |
+
+Operator signature: **Adnaan Mohammed**
+
+Smoke-walked-on: **2026-05-12** on Pixel 10a (5C161JEA304304), Android 16.
+
+re-walked-on: **\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_** (after the fix round + the deferred §4 edges).
+
+Approved? **NO** — core capture/UX works (the ✓ list above), but the FINDINGS above need a fix round before Phase 4 is done. Recommended follow-up: a `/gsd-quick` or focused fix-pass for findings 1–4 (the cosmetic ones → `04-COSMETIC-GAPS.md`), then a re-walk of the affected bits + the deferred §4(a)/(b)/(c)/(h) edges. The debug session that this walk resumed (`handgate-never-passes`) is itself resolved — these are _new_ findings from the on-hardware walk.
+
+If NO: describe the failure mode and link to the bug ticket / debug-session below. (§5b drift is not a gate — a high drift figure is recorded, not a NO.) → See the FINDINGS block above; no separate ticket yet — open a `/gsd-quick` (or `/gsd-debug` for #1/#3) for the fix round.
 
 ---
 
