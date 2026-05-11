@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation, Backend & Distribution Recon** - Monorepo, Fastify + Postgres + S3 backend with all 17 endpoints, build flavors, compat-recon APK to chiefs, S3 lifecycle policy, legal-review track (completed 2026-05-08)
 - [ ] **Phase 2: Mobile Shell, Onboarding, Permissions, Compat & Profile** - RN app shell with Splash → Sign-up → Permissions → Compat → Tutorial chrome → Profile → Help Center → Forced Upgrade gate per locked designs
-- [ ] **Phase 3: HumynCapture Native Module (Bytes-on-disk)** - Custom Camera2 + MediaCodec native module producing the locked HEVC / IMU / audio / metadata-JSON spec with timestamp alignment, drift, hashing, and segmentation
+- [x] **Phase 3: HumynCapture Native Module (Bytes-on-disk)** - Custom Camera2 + MediaCodec native module producing the locked HEVC / IMU / audio / metadata-JSON spec with timestamp alignment, drift, hashing, and segmentation (completed 2026-05-11)
 - [ ] **Phase 4: HandDetector, Recording UX & Practice Tutorial** - MediaPipe hand-gate + landscape recording surface state machine + thermal / battery / TTS / lifecycle edges + practice-recording integration
 - [ ] **Phase 5: Upload Pipeline, Hash-Verify Worker & Anti-fraud** - S3 multipart with UIDT JobService + URLSession bg, hash-verify worker on BullMQ, server-side IMU liveness fraud check (promoted from v2)
 - [ ] **Phase 6: Tasks, History, Home Tiles & Hybrid Search** - 65-task catalog with semantic + lexical RRF search, History grouped by day with in-app player, Home dynamic tiles with time-range filters
@@ -105,7 +105,7 @@ Plans:
 4. Pre-record thermal check refuses to start when `getCurrentThermalStatus() ≥ THROTTLING` with the documented toast, mid-record `≥ THROTTLING_SEVERE` ends the segment cleanly within ~2.5 s, the foreground service runs as `camera | microphone | dataSync` with `KEEP_SCREEN_ON`, and in-flight uploads pause on record start and resume on stop
 5. SHA-256 of the MP4 and SHA-256 of the IMU CSV are computed at finalize and stamped into the metadata JSON as `file_sha256` / `imu_sha256`, and the resulting MP4 / CSV / JSON files are NEVER decoded, re-encoded, transcoded, or stripped between device and S3
 
-**Plans:** 4/11 plans executed
+**Plans:** 11/11 plans complete
 
 Plans:
 **Wave 1** _(Phase 2 cosmetic fix-up — D-WAVE-04..05; lands first per memory `project_phase3_wave1_cosmetic_fixup.md`; parallel-OK among the three since file ownership doesn't overlap)_
@@ -207,7 +207,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | ---------------------------------------------------------- | -------------- | ------------------------------------------------ | ---------- |
 | 1. Foundation, Backend & Distribution Recon                | 13/13          | Complete                                         | 2026-05-08 |
 | 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 22/22          | Authoring complete · operator-smoke gate pending | -          |
-| 3. HumynCapture Native Module (Bytes-on-disk)              | 11/11          | Authoring complete · hardware UAT pending (7/9)  |            |
+| 3. HumynCapture Native Module (Bytes-on-disk)              | 11/11          | Complete                                         | 2026-05-11 |
 | 4. HandDetector, Recording UX & Practice Tutorial          | 0/TBD          | Not started                                      | -          |
 | 5. Upload Pipeline, Hash-Verify Worker & Anti-fraud        | 0/TBD          | Not started                                      | -          |
 | 6. Tasks, History, Home Tiles & Hybrid Search              | 0/TBD          | Not started                                      | -          |
