@@ -74,6 +74,43 @@ class HumynHandDetectorModuleTest {
         assertNotNull("reject should carry the underlying throwable", promise.rejectThrowable)
     }
 
+    // ── (c) cleanup is serialised on bgExecutor & doesn't wedge the module ──
+    //        WR-03 — RecordingScreen calls cleanup() on every unmount; the
+    //        close() now runs on the same single-thread executor detect()
+    //        runs on. This exercises the `bgExecutor.execute { … resolve(null) }`
+    //        path and confirms a cleanup leaves the module usable.
+
+    @Test
+    fun `cleanup resolves and the module still works afterwards`() {
+        val module = HumynHandDetectorModule(ReactApplicationContext(ctx))
+
+        val cleanupPromise = RecordingPromise()
+        module.cleanup(cleanupPromise)
+        assertTrue(
+            "cleanup should settle within the timeout",
+            cleanupPromise.await(5, TimeUnit.SECONDS),
+        )
+        assertTrue(
+            "expected resolve(null), got reject(${cleanupPromise.rejectCode})",
+            !cleanupPromise.rejected,
+        )
+        assertEquals(null, cleanupPromise.resolvedValue)
+
+        // The module survives a cleanup — a subsequent detectHands on a bad
+        // path still rejects gracefully (it does not wedge on a closed pool).
+        val detectPromise = RecordingPromise()
+        module.detectHands("/no/such/file-${System.nanoTime()}.jpg", 0.5, detectPromise)
+        assertTrue(
+            "detectHands should settle within the timeout after cleanup",
+            detectPromise.await(5, TimeUnit.SECONDS),
+        )
+        assertTrue(
+            "expected reject after cleanup, got resolve(${detectPromise.resolvedValue})",
+            detectPromise.rejected,
+        )
+        assertEquals("HAND_DETECT_FAILED", detectPromise.rejectCode)
+    }
+
     /**
      * Minimal `Promise` test double — no mocking framework on the test
      * classpath (junit + robolectric only). Captures the first settlement and
