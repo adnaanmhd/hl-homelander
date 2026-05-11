@@ -2,7 +2,7 @@
 
 ## Overview
 
-Homelander ships in seven phases organised as horizontal technical layers that culminate in a working three-channel rollout (signed APK to clan chiefs → Play Store → iOS App Store) within a single MVP milestone. Phase 1 lays the monorepo, the Fastify + Postgres + S3 backend skeleton, every REST endpoint in the spec, build flavors, S3 day-zero lifecycle, the legal-review track, and ships a standalone compat-recon APK to ~50 chiefs to harvest device-class coverage data before any user-facing app rollout. Phase 2 stands up the React Native mobile shell — the entire non-recording surface (Splash → Sign-up → Permissions → behavioral Compat-check → Tutorial chrome → Profile → Help Center → Forced Upgrade gate) — locked to the existing `prototype.html` + `design-spec.md` source of truth. Phase 3 builds the riskiest critical-path module: the `HumynCapture` Camera2 + MediaCodec native module that actually produces the spec-compliant HEVC + IMU CSV + metadata JSON bytes. Phase 4 layers `HumynHandDetector` + the recording-surface UX state machine on top of capture, integrates the practice-recording onboarding step, and lights up TTS / thermal / battery / lifecycle edges. Phase 5 ships `HumynUpload` (multipart S3 with the Android 14/15 foreground-service-type-downgrade + UIDT JobService architecture) plus the BullMQ hash-verify worker plus the promoted-from-v2 server-side IMU liveness fraud check. Phase 6 fills in the remaining client surfaces — Tasks / History / Home tile filters — backed by pgvector + tsvector RRF hybrid search and the `/contributions` aggregates. Phase 7 hardens observability dashboards, ports every Android native module to its iOS analogue, and runs the staged Play Store rollout (1% → 5% → 25% → 100%) followed by App Store submission within two weeks.
+Homelander ships in seven phases organised as horizontal technical layers that culminate in a signed-APK rollout direct to users within a single MVP milestone. (The staged Play Store rollout and the iOS App Store channel — along with the iOS native-module analogues — are descoped from this MVP to a follow-on milestone; see REQUIREMENTS.md §v2: DIST-05, DIST-06, IOS-01..07.) Phase 1 lays the monorepo, the Fastify + Postgres + S3 backend skeleton, every REST endpoint in the spec, build flavors, S3 day-zero lifecycle, the legal-review track, and ships a standalone compat-recon APK to ~50 chiefs to harvest device-class coverage data before any user-facing app rollout. Phase 2 stands up the React Native mobile shell — the entire non-recording surface (Splash → Sign-up → Permissions → behavioral Compat-check → Tutorial chrome → Profile → Help Center → Forced Upgrade gate) — locked to the existing `prototype.html` + `design-spec.md` source of truth. Phase 3 builds the riskiest critical-path module: the `HumynCapture` Camera2 + MediaCodec native module that actually produces the spec-compliant HEVC + IMU CSV + metadata JSON bytes. Phase 4 layers `HumynHandDetector` + the recording-surface UX state machine on top of capture, integrates the practice-recording onboarding step, and lights up TTS / thermal / battery / lifecycle edges. Phase 5 ships `HumynUpload` (multipart S3 with the Android 14/15 foreground-service-type-downgrade + UIDT JobService architecture) plus the BullMQ hash-verify worker plus the promoted-from-v2 server-side IMU liveness fraud check. Phase 6 fills in the remaining client surfaces — Tasks / History / Home tile filters — backed by server-side lexical (`ts_vector` + GIN) task search and the `/contributions` aggregates. Phase 7 hardens the observability stack — Firebase Analytics funnel, Crashlytics, structured CloudWatch logs, and the Bull-Board hash-verify dashboard — and production-hardens the signed-APK distribution pipeline (build flavors, release signing, in-app update channel). The semantic/pgvector + RRF hybrid-search layer (backend shipped in Phase 1) and the iOS / Play-Store-rollout work are parked in REQUIREMENTS.md §v2.
 
 ## Phases
 
@@ -18,8 +18,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: HumynCapture Native Module (Bytes-on-disk)** - Custom Camera2 + MediaCodec native module producing the locked HEVC / IMU / metadata-JSON spec with timestamp alignment, drift, hashing, and segmentation (completed 2026-05-11; audio dropped 2026-05-11 to preserve ±1 ms drift target — see CLAUDE.md / idea-brief.md / 03-HUMAN-UAT.md GAP-3)
 - [ ] **Phase 4: HandDetector, Recording UX & Practice Tutorial** - MediaPipe hand-gate + landscape recording surface state machine + thermal / battery / TTS / lifecycle edges + practice-recording integration
 - [ ] **Phase 5: Upload Pipeline, Hash-Verify Worker & Anti-fraud** - S3 multipart with UIDT JobService + URLSession bg, hash-verify worker on BullMQ, server-side IMU liveness fraud check (promoted from v2)
-- [ ] **Phase 6: Tasks, History, Home Tiles & Hybrid Search** - 65-task catalog with semantic + lexical RRF search, History grouped by day with in-app player, Home dynamic tiles with time-range filters
-- [ ] **Phase 7: Observability, iOS Parity & Staged Rollout** - CloudWatch dashboards, Bull-Board, full iOS analogues for every native module, staged Play Store rollout, App Store submission
+- [ ] **Phase 6: Tasks, History, Home Tiles & Lexical Search** - 65-task catalog with server-side lexical (`ts_vector` + GIN) task search, History grouped by day with in-app player, Home dynamic tiles with time-range filters
+- [ ] **Phase 7: Observability & APK Distribution Hardening** - Firebase Analytics funnel, Crashlytics, structured CloudWatch logs, Bull-Board hash-verify dashboard, signed-APK distribution pipeline production-hardened (iOS parity + staged Play Store / App Store rollout deferred — see REQUIREMENTS.md §v2)
 
 ## Phase Details
 
@@ -30,7 +30,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Requirements**: AUTH-06, API-01, API-02, API-03, API-04, API-05, API-06, API-07, API-08, API-09, API-10, API-11, API-12, API-13, API-14, API-15, API-16, API-17, DIST-01, DIST-02, DIST-03, DIST-04, DIST-07, FRAUD-01, FRAUD-02, LEGAL-01, LEGAL-02, LEGAL-03, LEGAL-04, LEGAL-05
 **Success Criteria** (what must be TRUE):
 
-1. The Fastify backend runs against LocalStack S3 + Postgres 17 + pgvector locally, exposes every REST endpoint in the spec (`/auth/google`, `/me` CRUD + restore, `/tasks` + `/task-requests`, `/recordings` lifecycle, `/contributions` + timeseries, `/events`, `/feedback`, `/app/version`), enforces RFC 7807 errors + Idempotency-Key headers + per-user/IP rate limits, and serves task-search results via the pgvector + tsvector RRF (k=60) hybrid pipeline seeded from `mapping.json`
+1. The Fastify backend runs against LocalStack S3 + Postgres 17 + pgvector locally, exposes every REST endpoint in the spec (`/auth/google`, `/me` CRUD + restore, `/tasks` + `/task-requests`, `/recordings` lifecycle, `/contributions` + timeseries, `/events`, `/feedback`, `/app/version`), enforces RFC 7807 errors + Idempotency-Key headers + per-user/IP rate limits, and serves task-search results via the `ts_vector` lexical pipeline seeded from `mapping.json` _(the pgvector + RRF k=60 hybrid layer shipped in this phase's backend but was descoped from the MVP client search surface 2026-05-11 — Phase 6 consumes the lexical path only; semantic/RRF parked in REQUIREMENTS.md §v2 as SEARCH-V2-01)_
 2. The backend rejects sign-in for rooted / emulator / non-Play-Store install verdicts via Play Integrity Standard, with the `apkRollout` build flavor opting into the install-source bypass via Remote Config keyed by `applicationId` and the `playStore` flavor structurally unable to opt in
 3. The standalone `compatRecon` APK has been distributed to ~50 KGeN clan chiefs and the device-model coverage harvest produces a documented go/no-go on capture-fleet addressability before APK rollout begins
 4. Three signed-APK build flavors (`apkRollout`, `playStore`, `iosAppStore`) coexist with distinct `applicationId`s, and `/auth/google` validates the supplied build-flavor field against the matching install-source policy
@@ -166,14 +166,14 @@ Plans:
 5. The backend produces a `liveness_score ∈ [0, 1]` per uploaded segment via the IMU-liveness check (stillness gate, gravity-axis check, saccade density, optional walking-segment FFT, vision-motion correlation per `imu-liveness-check.md` §4) with tunable thresholds, enforces a per-account daily upload-rate cap as a coarse fraud heuristic, and the pre-payout fraud monitoring dashboard surfaces liveness-score distribution + hash-mismatch rate + account-fingerprint clustering + OEM/region anomalies
    **Plans**: TBD
 
-### Phase 6: Tasks, History, Home Tiles & Hybrid Search
+### Phase 6: Tasks, History, Home Tiles & Lexical Search
 
 **Goal**: A user can browse and search the 65-task catalog, view dynamic Home contribution tiles with time-range filters, and review every recording in History with in-app playback while local copies exist.
 **Depends on**: Phase 2
 **Requirements**: TASK-01, TASK-02, TASK-03, TASK-04, TASK-05, TASK-06, TASK-07, TASK-08, TASK-09, TASK-10, HOME-01, HOME-02, HOME-03, HOME-04, HOME-05, HOME-06, HOME-09, HOME-10, HIST-01, HIST-02, HIST-03, HIST-04, HIST-05, HIST-06, HIST-07, HIST-08, HIST-09, HIST-10, HIST-11
 **Success Criteria** (what must be TRUE):
 
-1. A user can browse all 65 tasks across 10 categories (Cooking, Dishwashing, Kitchen, Cleaning, Tidying, Laundry, Gardening, Pet Care, Home Maintenance, Hobby) sourced from `task-taxonomy.md`, filter by horizontally-scrollable per-category pills, and search via the always-visible 200 ms-debounced server-side semantic + lexical RRF query — task cards show lucide-react icons (28 px stroke 1.75) via `<TaskIcon task={slug} />`, names verbatim, category eyebrow, 1-2 line description, and a non-prototype "no results" empty state with `SearchX` icon + send-request link
+1. A user can browse all 65 tasks across 10 categories (Cooking, Dishwashing, Kitchen, Cleaning, Tidying, Laundry, Gardening, Pet Care, Home Maintenance, Hobby) sourced from `task-taxonomy.md`, filter by horizontally-scrollable per-category pills, and search via the always-visible 200 ms-debounced server-side lexical (`ts_vector` + GIN, fuzzy fallback) query — task cards show lucide-react icons (28 px stroke 1.75) via `<TaskIcon task={slug} />`, names verbatim, category eyebrow, 1-2 line description, and a non-prototype "no results" empty state with `SearchX` icon + send-request link
 2. Tapping a task opens the details sheet with category chip + optional outdoor chip + verbatim name and description + the 4-rule Universal block (`front_hand` / `videocam` / `lightbulb` / `apps`) + max-3-bullet "For this task" instructions (server-validated against duplicate universal-rule strings) + Start Recording CTA; users can submit a Send Request form (3-80 char name / 10-240 char description / category + Other / Indoor/Outdoor / optional ≤30 s ≤50 MB sample video) and never see request status
 3. The Home screen shows the first-time empty hero ("Record your first task") + zero-state tiles for new users and the dynamic hero (lifetime contribution numeric + task count + Start Recording CTA) + real-data tiles for returning users; recording-duration and tasks-recorded tiles toggle across today / yesterday / this week / this month / all time / custom range using the canonical duration formatter (`<1m → Xs`, `<1h → Xm`, `≥1h → Xh Ym` floored to previous minute), Pending Uploads tile is visible only when count > 0 and tapping opens the upload-queue screen, pull-to-refresh on tiles fetches fresh `/contributions` data, and a non-blocking offline banner appears in the Pending Uploads tile when network is unreachable
 4. Every successful recording (≥60 s) appears in History grouped by day newest-first, filterable across the same six time-range options, with rows showing filename + duration + task name + recorded-at timestamp (`May 4, 2026 | 15:49`) + upload-state chip (Uploaded at / In progress / Paused due to network / Failed-with-retry) + first-frame thumbnail + disabled "Feedback (coming soon)" slot
@@ -181,27 +181,23 @@ Plans:
    **Plans**: TBD
    **UI hint**: yes
 
-### Phase 7: Observability, iOS Parity & Staged Rollout
+### Phase 7: Observability & APK Distribution Hardening
 
-**Goal**: Every Android subsystem has a working iOS analogue shipping in TestFlight ≤2 weeks after the staged Play Store rollout completes, and the operational observability stack visible to ops can detect a regression before users complain.
+**Goal**: The operational observability stack visible to ops can detect a regression before users complain, and the signed-APK distribution pipeline (build flavors, release signing, in-app update channel) is production-hardened. (iOS parity and the staged Play Store → App Store rollout are descoped from this MVP to a follow-on milestone — see REQUIREMENTS.md §v2: DIST-05, DIST-06, IOS-01..07.)
 **Depends on**: Phase 6
-**Requirements**: OBS-01, OBS-02, OBS-03, OBS-04, OBS-05, IOS-01, IOS-02, IOS-03, IOS-04, IOS-05, IOS-06, IOS-07, DIST-05, DIST-06
+**Requirements**: OBS-01, OBS-02, OBS-03, OBS-04, OBS-05
 **Success Criteria** (what must be TRUE):
 
 1. The full event funnel from `engineering-handoff.md` §11 (signup*\*, permission*\_, compat\__, recording*\*, gate*_, upload\__, history*\*, profile*_, help\_\_) emits via Firebase Analytics, native + JVM crashes + ANRs report via Firebase Crashlytics, the backend emits structured CloudWatch logs with per-device-model + per-OS-version + per-locale cohorting, the Bull-Board dashboard surfaces queue depth + retry counts + DLQ for the hash-verify worker, and Sentry / Datadog / third-party RUM are explicitly absent at MVP
-2. The iOS app captures 1080p / 30 FPS / HEVC / 8 Mbps CBR / no-B-frames / no-HDR / no-OIS recordings via the `HumynCapture` AVCaptureSession + AVAssetWriter + CMMotionManager ~~+ AVAudioRecorder~~ analogue (with `AVVideoAllowFrameReorderingKey: false` — AVAudioRecorder dropped 2026-05-11 to match Android audio-drop decision; see CLAUDE.md / idea-brief.md banner), runs the same `hand_landmarker.task` bundle through the `HumynHandDetector` MediaPipe iOS Tasks Vision pod 0.10.21 analogue, and uploads via the `HumynUpload` URLSession background config analogue with the documented post-completion handoff pattern
-3. The iOS app passes sign-in via the `HumynIntegrity` DeviceCheck / App Attest analogue, ships TTS via `AVSpeechSynthesisVoice(language: "en-IN")` filtered to female with the documented fallback chain, and targets iOS 15.1 deployment
-4. The Play Store rollout completes the staged sequence 1% → 5% → 25% → 100% with a k6 load-test gate at each stage and no thermal cut-out / hash-mismatch / liveness-score anomaly triggering rollback
-5. The iOS App Store submission ships ≤2 weeks after Play Store rollout reaches 100% (within the same MVP milestone)
+2. The signed-APK distribution pipeline is production-hardened — the `apkRollout` flavor builds a release-signed APK with its distinct `applicationId`, `HumynUpdater` downloads + SHA-256-verifies + installs the next APK via `PackageInstaller`, `GET /app/version` drives the force-upgrade gate against `min_supported` plus the dismissible banner below `latest`, and a release / signing / key-rotation runbook is documented (Play Store + iOS App Store distribution channels deferred — see REQUIREMENTS.md §v2: DIST-05, DIST-06, IOS-01..07)
    **Plans**: TBD
-   **UI hint**: yes
 
 ## Progress
 
 **Execution Order:**
 Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
-(Per research SUMMARY.md, parallelization opportunities exist where indicated — Phase 2 with Phase 3, Phase 4 (HandDetector portion) with Phase 5 (Upload portion), iOS analogues in Phase 7 with Phase 6 if a second engineer is dedicated. Numeric order is the default execution order; parallelization is a planning-time choice.)
+(Per research SUMMARY.md, parallelization opportunities exist where indicated — Phase 2 with Phase 3, Phase 4 (HandDetector portion) with Phase 5 (Upload portion). Numeric order is the default execution order; parallelization is a planning-time choice.)
 
 | Phase                                                      | Plans Complete | Status      | Completed  |
 | ---------------------------------------------------------- | -------------- | ----------- | ---------- |
@@ -210,5 +206,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 3. HumynCapture Native Module (Bytes-on-disk)              | 11/11          | Complete    | 2026-05-11 |
 | 4. HandDetector, Recording UX & Practice Tutorial          | 0/TBD          | Not started | -          |
 | 5. Upload Pipeline, Hash-Verify Worker & Anti-fraud        | 0/TBD          | Not started | -          |
-| 6. Tasks, History, Home Tiles & Hybrid Search              | 0/TBD          | Not started | -          |
-| 7. Observability, iOS Parity & Staged Rollout              | 0/TBD          | Not started | -          |
+| 6. Tasks, History, Home Tiles & Lexical Search             | 0/TBD          | Not started | -          |
+| 7. Observability & APK Distribution Hardening              | 0/TBD          | Not started | -          |
