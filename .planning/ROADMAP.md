@@ -156,7 +156,7 @@ Plans:
 **Wave 1**
 
 - [x] 04-01-PLAN.md — RN deps install (VisionCamera 4.7.3 / tts / fs / orientation-locker / worklets-core / reanimated / firebase-analytics + crashlytics) + vitest mocks + orientation-locker Android manifest/activity wiring (completed 2026-05-11)
-- [ ] 04-02-PLAN.md — 5 native module shells (HumynHandDetector / HumynPhoneState / HumynBattery / HumynScreenBrightness / HumynBeep) + JS bindings + MediaPipe `tasks-vision:0.10.21` gradle dep + `hand_landmarker.task` asset + MainApplication registration + native-binding tests
+- [x] 04-02-PLAN.md — 5 native module shells (HumynHandDetector / HumynPhoneState / HumynBattery / HumynScreenBrightness / HumynBeep) + JS bindings + MediaPipe `tasks-vision:0.10.21` gradle dep + `hand_landmarker.task` asset + MainApplication registration + native-binding tests
 - [ ] 04-03-PLAN.md — `practiceDoneKey(sub)` MMKV helper + `decodeGoogleSubFromJwt` util extraction + `setPracticeDone` action + `computeInitialRoute` per-account tutorial gate + RigTutorial Next-CTA retarget
       **Wave 2** _(blocked on Wave 1)_
 - [ ] 04-04-PLAN.md — HumynHandDetectorModule.kt MediaPipe HandLandmarker body (IMAGE mode, numHands=2, CPU delegate, RGB_565/320×240/recycle — HAND-13)
