@@ -174,6 +174,10 @@ vi.mock('react-native', () => {
     Modal: makeComponent('Modal'),
     StatusBar: () => null,
     Image: makeComponent('Image'),
+    // Plan 04-07 — GateRing renders an <ActivityIndicator> inside the ring
+    // well while the camera is loading (HAND-06). Host-component shim: a
+    // pass-through <div> like View; JSDOM never spins it.
+    ActivityIndicator: makeComponent('ActivityIndicator'),
     StyleSheet: {
       create: <T extends Record<string, unknown>>(s: T): T => s,
       flatten: <T>(s: T): T => s,
@@ -546,6 +550,9 @@ vi.mock('lucide-react-native', () => {
     // Phase 2 plan 02-10 — PermissionsScreen denied/partial state uses `Ban`
     // (Lucide equivalent of the design-spec §4.1.1 `block` icon).
     'Ban',
+    // Plan 04-07 — RecordingScreen close button reuses `X` (above); the
+    // RotatePrompt body shows a phone-rotate glyph (`RotateCw`).
+    'RotateCw',
   ] as const;
   const exports: Record<string, unknown> = {};
   for (const name of ICONS) {

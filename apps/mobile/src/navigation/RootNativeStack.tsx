@@ -3,6 +3,10 @@
 // Sibling routes:
 //   - OnboardingStack   (the pre-MainTabs flow)
 //   - MainTabs          (the 3-tab post-onboarding shell)
+//   - Recording         (full-bleed dark recording surface, plan 04-07 —
+//                        gestureEnabled:false / headerShown:false / animation:fade;
+//                        reached from PracticeIntro.Start-practice with practice
+//                        route params and (plan 04-08) the __DEV__ task affordance)
 //   - Profile           (RootNativeStack sibling — HOME-08 structural)
 //   - HelpCenter        (sibling)
 //   - ForceUpgrade      (modal-presentation sibling)
@@ -26,6 +30,7 @@ import { computeInitialRoute } from '../state/initialRoute';
 import { computeCompatSignatureSync } from '../services/compatSignature';
 import OnboardingStack from './OnboardingStack';
 import MainTabs from './MainTabs';
+import RecordingScreen from '../screens/recording/RecordingScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import HelpCenterScreen from '../screens/help/HelpCenterScreen';
 import ForceUpgradeScreen from '../screens/force-upgrade/ForceUpgradeScreen';
@@ -62,6 +67,11 @@ export default function RootNativeStack() {
     <Root.Navigator initialRouteName={initial} screenOptions={{ headerShown: false }}>
       <Root.Screen name="OnboardingStack" component={OnboardingStack} />
       <Root.Screen name="MainTabs" component={MainTabs} />
+      <Root.Screen
+        name="Recording"
+        component={RecordingScreen}
+        options={{ gestureEnabled: false, headerShown: false, animation: 'fade' }}
+      />
       <Root.Screen
         name="Profile"
         component={ProfileScreen}
