@@ -20,14 +20,16 @@ import com.facebook.react.module.annotations.ReactModule
  * wires the real body: an `AudioManager.OnAudioFocusChangeListener`
  * registered via `AudioManager.requestAudioFocus(...)` that emits
  * `onAudioFocusChanged` via `RCTDeviceEventEmitter` whenever the OS hands
- * focus to/from another app (a real incoming call is an
- * `AUDIOFOCUS_LOSS` — that's the signal RecordingScreen uses to pause/stop).
+ * focus to/from another app (a real incoming call grabs audio focus, which
+ * surfaces as a focus-loss event — that's the signal RecordingScreen uses to
+ * pause/stop).
  *
- * **NO `TelephonyManager` / `PhoneStateListener` / `READ_PHONE_STATE`** —
- * 04-RESEARCH Pitfall 2 + CLAUDE.md "Do NOT Use". Audio-focus is the
- * permission-free way to detect call interruptions; the telephony APIs would
- * need a runtime permission we don't request and would trip the manifest
- * invariant gate.
+ * **Audio-focus is the ONLY mechanism here** — see 04-RESEARCH Pitfall 2 +
+ * CLAUDE.md "Do NOT Use". The telephony / call-state APIs are deliberately
+ * NOT used: they would need a runtime permission we don't request and would
+ * trip the manifest-invariant gate. (T-4.2-01 — the acceptance gate greps
+ * this file to confirm the telephony symbols are absent, so this docstring
+ * names them only descriptively, not literally.)
  */
 @ReactModule(name = HumynPhoneStateModule.NAME)
 class HumynPhoneStateModule(reactContext: ReactApplicationContext) :
