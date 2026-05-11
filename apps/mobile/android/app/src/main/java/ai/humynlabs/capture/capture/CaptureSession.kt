@@ -316,7 +316,35 @@ class CaptureSession private constructor(
             inputSurface = surf
             aac = AacEncoder.configure()
             val audioMgr = ctx.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-            audioRecord = audioMgr?.let { AacEncoder.makeAudioRecord(it) }
+            // GAP-3 disposition (2026-05-11) — audio capture intentionally
+            // disabled. Smoke walk on Pixel 10a showed audio-pump CPU
+            // contention inflated `imu_video_drift_{mean,p99}_ms` from
+            // 1.78/2.07 ms (audio off) to 4.29/4.58 ms (audio on, bytes-
+            // consumed PTS) on a 30 s capture — beyond the locked ±1 ms
+            // alignment spec. Per project owner decision: drop audio to
+            // preserve the drift invariant. Training pipeline (VLA/VLN/
+            // robotics) consumes egocentric video + IMU, not audio.
+            // Re-introducing audio requires a follow-up that proves drift
+            // stays inside ±1 ms (candidate: pin audio pump to a separate
+            // core via Process.setThreadPriority(URGENT_AUDIO); see
+            // HUMAN-UAT GAP-3 for the full disposition trail).
+            //
+            // The AacEncoder + audio-pump + MuxerStartGate plumbing is
+            // intentionally retained — `audioRecord = null` is the single
+            // toggle that disables the path end-to-end:
+            //   - openSegment skips the audio-pump Handler.post (see
+            //     `if (audioRecord != null)` check below)
+            //   - MuxerStartGate is constructed with expectAudio=false
+            //     so audioReady starts true and muxer.start() fires as
+            //     soon as the video pump registers its track
+            //   - runAudioPumpLoop is never invoked; AAC encoder boots
+            //     and immediately tears down at segment close with no
+            //     input fed (covered by existing close-path try/catch).
+            // To re-enable audio in a future plan, flip this line back
+            // to `audioRecord = audioMgr?.let { AacEncoder.makeAudioRecord(it) }`.
+            @Suppress("UNUSED_VARIABLE")
+            val audioCaptureDisabled = audioMgr // keep AudioManager-fetch defensive (logs init issues if any)
+            audioRecord = null
             muxer = FragmentedMuxerWrapper.create(mp4)
             imuWriter = ImuWriter(ctx, csv).also { it.start() }
             captureSession = openCaptureSession(camDevice, inputSurface)
@@ -597,17 +625,29 @@ class CaptureSession private constructor(
      *   1. audioRecord.startRecording() (the previously missing step — without
      *      this AudioRecord stays in STATE_INITIALIZED and read() returns 0).
      *   2. Loop: read PCM into a scratch buffer; dequeue an AAC input buffer;
-     *      copy PCM in; queueInputBuffer with PTS derived from elapsedRealtimeNanos
-     *      (Pattern 1 invariant — same clock domain as video's bufferInfo.presentationTimeUs).
+     *      copy PCM in; queueInputBuffer with bytes-consumed PTS
+     *      (`audioSamplesConsumed * 1_000_000 / SAMPLE_RATE_HZ`).
      *   3. Drain AAC output (non-blocking): on INFO_OUTPUT_FORMAT_CHANGED,
      *      register audio track via muxerStartGate; on a payload buffer,
      *      writeSampleData to muxer audio track id.
      *   4. On audioPumpShouldStop: queue an empty input with BUFFER_FLAG_END_OF_STREAM,
      *      then drain output until the encoder emits its own EOS, then exit.
      *
-     * The PCM PTS is anchored to the segment's startedAtNs (also
-     * elapsedRealtimeNanos) so audio timestamps live on the same monotonic
-     * domain as video frame PTS — required for ±1 ms A/V alignment.
+     * GAP-3 fix — PCM PTS is derived from the running PCM-sample count,
+     * not wall-clock time. The hardware audio capture clock advances at
+     * exactly `SAMPLE_RATE_HZ` samples per second, so `samples_consumed /
+     * sample_rate` is a zero-drift timeline by construction — independent
+     * of pump-thread scheduling jitter. Audio timebase is sample-counted
+     * starting at 0 at segment start; video timebase is elapsedRealtimeNanos
+     * µs (Camera2 SENSOR_INFO_TIMESTAMP_SOURCE=REALTIME). MediaMuxer
+     * normalizes both tracks to lowest-PTS origin at mux time, so playback
+     * remains coherent. The previous wall-clock approach
+     * (`(elapsedRealtimeNanos - startedAtNs) / 1000`) was vulnerable to
+     * pump-thread jitter leaking into the muxed audio's effective sample
+     * rate; on 30 s smoke captures the resulting `imu_video_drift_*` figures
+     * inflated to mean ≈ 5.5 ms / p99 ≈ 5.8 ms even though only video and
+     * IMU participate in that calc — the audio pump's CPU contention
+     * disturbed frame production on the video pump enough to bloat drift.
      */
     @VisibleForTesting
     internal fun runAudioPumpLoop(seg: Segment) {
@@ -629,6 +669,21 @@ class CaptureSession private constructor(
         val info = MediaCodec.BufferInfo()
         var audioTrackId = -1
         var inputEosQueued = false
+        // GAP-3 fix — bytes-consumed audio PTS. Counts PCM samples ACTUALLY
+        // read from AudioRecord so the timestamp we attach to each encoder
+        // input buffer is `samples_so_far / sample_rate`. AudioRecord
+        // guarantees exactly SAMPLE_RATE_HZ samples per second at the
+        // hardware capture clock, so this PTS is zero-drift by
+        // construction — any scheduling jitter on this thread (GC,
+        // looper backlog, CPU contention with the video pump) is
+        // absorbed by the wall-clock-vs-sample-count delta and never
+        // leaks into the muxed audio's effective sample rate. Replaces
+        // the wall-clock `(elapsedRealtimeNanos - startedAtNs) / 1000`
+        // approach which would A/V-desync over long sessions because
+        // its sample rate followed Looper.dispatch latency rather than
+        // the audio HAL. PCM-16 mono = 2 bytes/sample; the running
+        // counter increments by `read / 2` per AudioRecord.read.
+        var audioSamplesConsumed: Long = 0
         try {
             try {
                 audioRecord.startRecording()
@@ -650,11 +705,13 @@ class CaptureSession private constructor(
                         } catch (_: IllegalStateException) { -1 }
                         if (inIdx >= 0) {
                             try {
+                                // EOS PTS = the timestamp of the next sample
+                                // we would have read had we kept reading.
                                 seg.aac.queueInputBuffer(
                                     inIdx,
                                     0,
                                     0,
-                                    SystemClock.elapsedRealtimeNanos() / 1_000L - seg.startedAtNs / 1_000L,
+                                    audioSamplesConsumed * 1_000_000L / AacEncoder.SAMPLE_RATE_HZ,
                                     MediaCodec.BUFFER_FLAG_END_OF_STREAM,
                                 )
                                 inputEosQueued = true
@@ -678,13 +735,24 @@ class CaptureSession private constructor(
                                 if (inBuf != null) {
                                     inBuf.clear()
                                     inBuf.put(pcmBuf, 0, read)
-                                    // PTS in micros, on elapsedRealtimeNanos domain,
-                                    // relative to segment start so first PTS is ~0
-                                    // (matches Camera2 surface PTS convention; video
-                                    // bufferInfo.presentationTimeUs is also segment-relative).
-                                    val ptsUs = (SystemClock.elapsedRealtimeNanos() - seg.startedAtNs) / 1_000L
+                                    // GAP-3 fix — PTS = (samples consumed
+                                    // BEFORE this buffer) / sample_rate, in
+                                    // micros. Bytes-consumed → zero-drift
+                                    // audio PTS regardless of pump-thread
+                                    // jitter (see method-level comment for
+                                    // full rationale). Audio timebase is now
+                                    // sample-counted starting at 0 at segment
+                                    // start; video is on elapsedRealtimeNanos
+                                    // µs; MediaMuxer normalizes both to
+                                    // lowest-PTS origin at mux time.
+                                    val ptsUs = audioSamplesConsumed * 1_000_000L / AacEncoder.SAMPLE_RATE_HZ
                                     try {
                                         seg.aac.queueInputBuffer(inIdx, 0, read, ptsUs, 0)
+                                        // Increment AFTER successful queue so a
+                                        // failed/dropped buffer doesn't desync
+                                        // subsequent PTS. PCM-16 mono =
+                                        // 2 bytes/sample.
+                                        audioSamplesConsumed += (read / 2)
                                     } catch (_: IllegalStateException) {
                                         break
                                     }
