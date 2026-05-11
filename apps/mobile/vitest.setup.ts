@@ -184,6 +184,23 @@ vi.mock('react-native', () => {
       absoluteFillObject: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
     },
     NativeModules: {},
+    // Plan 04-09 — RecordingScreen mounts useRecordingLifecycle (plan 04-08),
+    // whose HumynPhoneState / HumynBattery bindings construct a
+    // NativeEventEmitter on first subscribe. The canonical react-native shim
+    // didn't expose it; a tiny no-op emitter is enough for jsdom (no native
+    // events fire). `addListener` returns the EmitterSubscription handle the
+    // T-3.3-04 leak-mitigation contract expects.
+    NativeEventEmitter: class {
+      addListener() {
+        return { remove: () => undefined };
+      }
+      removeAllListeners() {
+        /* no-op */
+      }
+      removeSubscription() {
+        /* no-op */
+      }
+    },
     Platform: {
       OS: 'android',
       select: <T>(o: { android?: T; ios?: T; default?: T }) => o.android ?? o.default,
@@ -803,3 +820,21 @@ vi.mock('react-native-orientation-locker', () => {
 // must return the EmitterSubscription (`{ remove }`) so callers can unsubscribe
 // (the T-3.3-04 leak-mitigation contract — mirrored from HumynCapture).
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// @react-native-firebase/remote-config — Plan 04-09's HAND-11 gate-config
+// reads (`readGateConfig`). The package's lib/index.js is a native-codegen
+// module vitest cannot transform under jsdom; stub the surface readGateConfig
+// touches: `remoteConfig().{setDefaults,fetchAndActivate,getValue(...).asNumber()}`.
+// Default returns 0 from asNumber() so readGateConfig falls back to its
+// hard-coded Android defaults (5/400/0.5). Per-test files override via
+// `vi.mock('@react-native-firebase/remote-config', …)` for branch coverage.
+// ---------------------------------------------------------------------------
+vi.mock('@react-native-firebase/remote-config', () => {
+  const instance = {
+    setDefaults: vi.fn().mockResolvedValue(true),
+    fetchAndActivate: vi.fn().mockResolvedValue(true),
+    getValue: (_key: string) => ({ asNumber: (): number => 0 }),
+  };
+  return { default: () => instance };
+});

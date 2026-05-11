@@ -1,157 +1,507 @@
-// RecordingScreen shell — render test (plan 04-07).
+// RecordingScreen — the live recording surface (plan 04-09; was plan 04-07's
+// chrome-only shell test).
 //
-// The shell is substate-driven; this test exercises each substate via the
-// `__test_initialState` escape hatch (the same prop the visual baselines use)
-// and asserts the dark-theme chrome renders the verbatim copy + the
-// substate-specific affordances. Tapping Skip dispatches GATE_SKIP — the
-// reducer transitions gate→confirmed(skipped) — so the rendered state changes
-// (the Skip link disappears, the gate ring stays mounted at full).
-//
-// Mocks: @react-navigation/native (useNavigation + useRoute), analytics
-// logEvent. The Phase-4 RN libs are mocked globally by plan 04-01 (vitest.setup.ts).
+// The screen is substate-driven; this test exercises each substate via the
+// `__test_initialState` escape hatch and asserts:
+//   - the dark-theme chrome renders the verbatim copy + substate affordances
+//   - REC-01: Orientation.lockToLandscape() on mount; unlockAllOrientations() +
+//     HumynScreenBrightness.set(-1) on unmount (REC-08)
+//   - the gate-pass → active transition (passed): Vibration.vibrate(80) +
+//     speakCue('Recording started') + HumynScreenBrightness.set(0.05) +
+//     HumynCapture.start(<opts that parse>) → CAPTURE_STARTED → 'active'
+//   - HumynCapture.start reject {code:'thermal_throttling'} → set(-1) + toast +
+//     back to 'ready'
+//   - gate confirmed via Skip → NO vibrate, NO 'Recording started' cue, but
+//     set(0.05) STILL called + HumynCapture.start STILL called (HAND-07)
+//   - practice recording stopped → HumynCapture.stop() + nav toward PracticeComplete
+//   - real recording stopped ≥60s → showToast(…added to your contribution.) + nav toward MainTabs
+//   - real recording stopped <60s → showToast('Recording too short — discarded.') + RESET_FOR_FRESH
+//   - checkStartGuards blocked → showToast(toast) + back to 'ready' (REC-16)
 
 import React from 'react';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, act, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { Vibration } from 'react-native';
 
-const { mockGoBack, mockNavigate } = vi.hoisted(() => ({
+// The global react-native mock (vitest.setup.ts) ships Vibration as a no-op
+// object; spy on it so the gate-pass haptic is assertable without re-mocking
+// react-native (whose real index.js is Flow and can't be transformed).
+const vibrateSpy = vi.spyOn(Vibration, 'vibrate');
+
+const {
+  mockLogEvent,
+  mockSpeakCue,
+  mockPickVoice,
+  mockBrightnessSet,
+  mockHcStart,
+  mockHcStop,
+  mockHcEvtSub,
+  mockDetectAvailable,
+  mockCleanupHandDetector,
+  mockOrientationLock,
+  mockOrientationUnlock,
+  mockReadDir,
+  mockUnlink,
+  mockCheckStartGuards,
+  mockGoBack,
+  mockNavigate,
+  mockParentNavigate,
+  mockParentReset,
+} = vi.hoisted(() => ({
+  mockLogEvent: vi.fn(),
+  mockSpeakCue: vi.fn(),
+  mockPickVoice: vi.fn().mockResolvedValue(undefined),
+  mockBrightnessSet: vi.fn().mockResolvedValue(undefined),
+  mockHcStart: vi.fn().mockResolvedValue({
+    sessionId: 's',
+    segmentId: 'seg',
+    recordingId: 'rec',
+    filenameBase: '20260511_120000_001',
+  }),
+  mockHcStop: vi.fn().mockResolvedValue(undefined),
+  mockHcEvtSub: vi.fn(() => ({ remove: vi.fn() })),
+  mockDetectAvailable: vi.fn().mockReturnValue(true),
+  mockCleanupHandDetector: vi.fn().mockResolvedValue(undefined),
+  mockOrientationLock: vi.fn(),
+  mockOrientationUnlock: vi.fn(),
+  mockReadDir: vi.fn().mockResolvedValue([]),
+  mockUnlink: vi.fn().mockResolvedValue(undefined),
+  mockCheckStartGuards: vi.fn().mockResolvedValue({ blocked: false }),
   mockGoBack: vi.fn(),
   mockNavigate: vi.fn(),
+  mockParentNavigate: vi.fn(),
+  mockParentReset: vi.fn(),
 }));
+
+vi.mock('../../../src/util/analytics', () => ({ logEvent: mockLogEvent }));
+
+vi.mock('../../../src/lib/ttsVoice', () => ({
+  speakCue: mockSpeakCue,
+  pickAndSetEnInVoice: mockPickVoice,
+}));
+
+vi.mock('../../../src/native/HumynScreenBrightness', () => ({ set: mockBrightnessSet }));
+
+vi.mock('../../../src/native/HumynCapture', () => ({
+  start: mockHcStart,
+  stop: mockHcStop,
+  onSegmentStart: mockHcEvtSub,
+  onSegmentComplete: mockHcEvtSub,
+  onSessionStop: mockHcEvtSub,
+  onThermalAbort: mockHcEvtSub,
+  onError: mockHcEvtSub,
+}));
+
+vi.mock('../../../src/native/HumynHandDetector', () => ({
+  isHandDetectorAvailable: mockDetectAvailable,
+  detectHands: vi.fn().mockResolvedValue(0),
+  cleanup: mockCleanupHandDetector,
+}));
+
+vi.mock('react-native-orientation-locker', () => {
+  const ENUM = {
+    PORTRAIT: 'PORTRAIT',
+    'LANDSCAPE-LEFT': 'LANDSCAPE-LEFT',
+    'LANDSCAPE-RIGHT': 'LANDSCAPE-RIGHT',
+    'PORTRAIT-UPSIDEDOWN': 'PORTRAIT-UPSIDEDOWN',
+    UNKNOWN: 'UNKNOWN',
+  };
+  const Orientation = {
+    lockToLandscape: mockOrientationLock,
+    unlockAllOrientations: mockOrientationUnlock,
+    addDeviceOrientationListener: vi.fn(),
+    removeDeviceOrientationListener: vi.fn(),
+    addOrientationListener: vi.fn(),
+    removeOrientationListener: vi.fn(),
+  };
+  return { default: Orientation, OrientationType: ENUM, OrientationLocker: () => null };
+});
+
+vi.mock('react-native-fs', () => {
+  const RNFS = {
+    CachesDirectoryPath: '/tmp/mock-caches',
+    DocumentDirectoryPath: '/tmp/mock-docs',
+    TemporaryDirectoryPath: '/tmp/mock-tmp',
+    mkdir: vi.fn().mockResolvedValue(undefined),
+    moveFile: vi.fn().mockResolvedValue(undefined),
+    unlink: mockUnlink,
+    readDir: mockReadDir,
+    exists: vi.fn().mockResolvedValue(false),
+    getFSInfo: vi.fn().mockResolvedValue({ totalSpace: 64e9, freeSpace: 32e9 }),
+  };
+  return { default: RNFS, ...RNFS };
+});
+
+vi.mock('../../../src/screens/recording/useRecordingLifecycle', () => ({
+  useRecordingLifecycle: () => ({ checkStartGuards: mockCheckStartGuards }),
+  default: () => ({ checkStartGuards: mockCheckStartGuards }),
+}));
+
+vi.mock('../../../src/native/AppFlavor', () => ({
+  getFlavorContext: () => ({
+    flavor: 'apkRollout',
+    applicationId: 'ai.humynlabs.capture.apk',
+    versionName: '1.0.0-apk',
+    versionCode: 1,
+    deviceModel: 'TestDevice',
+  }),
+  getOrMintInstallationId: vi.fn().mockResolvedValue('iid'),
+}));
+
+vi.mock('../../../src/state/appStore', () => {
+  const state = {
+    user: { id: 'u', email: 'u@example.com', name: 'U', avatarUrl: null },
+    consent: { acceptedAt: '2026-05-01T00:00:00Z', consentVersion: 'v1' },
+  };
+  function useAppStore<T>(selector: (s: typeof state) => T): T {
+    return selector(state);
+  }
+  (useAppStore as unknown as { getState: () => typeof state }).getState = () => state;
+  return { useAppStore };
+});
 
 vi.mock('@react-navigation/native', () => ({
   useNavigation: () => ({
     goBack: mockGoBack,
     navigate: mockNavigate,
+    replace: vi.fn(),
     reset: vi.fn(),
     push: vi.fn(),
+    getParent: () => ({ navigate: mockParentNavigate, reset: mockParentReset }),
   }),
-  useRoute: () => ({
-    key: 'Recording-1',
-    name: 'Recording',
-    params: { taskId: '__practice__', taskName: 'Practice — 60 sec', isPractice: true },
-  }),
+  useRoute: () => mockRoute(),
 }));
 
-vi.mock('../../../src/util/analytics', () => ({ logEvent: () => undefined }));
+let _routeParams: Record<string, unknown> = {
+  taskId: '__practice__',
+  taskName: 'Practice — 60 sec',
+  isPractice: true,
+};
+function mockRoute() {
+  return { key: 'Recording-1', name: 'Recording', params: _routeParams };
+}
 
 import RecordingScreen from '../../../src/screens/recording/RecordingScreen';
 import { initialRecState, type RecState } from '../../../src/screens/recording/recState';
+import { CaptureSessionOptsSchema } from '@humyn/shared-types';
 
 function stateIn(substate: RecState['substate'], overrides: Partial<RecState> = {}): RecState {
   const s = initialRecState({
-    taskId: '__practice__',
-    taskName: 'Practice — 60 sec',
-    isPractice: true,
+    taskId: (_routeParams.taskId as string) ?? '__practice__',
+    taskName: (_routeParams.taskName as string) ?? 'Practice — 60 sec',
+    isPractice: (_routeParams.isPractice as boolean) ?? false,
   });
   return { ...s, ...overrides, substate, gate: { ...s.gate, ...(overrides.gate ?? {}) } };
 }
 
-beforeEach(() => vi.clearAllMocks());
+function confirmedGate(kind: 'passed' | 'skipped' | 'bypassed'): RecState {
+  const base = stateIn('gate', {
+    gate: {
+      ...stateIn('gate').gate,
+      phase: 'confirmed',
+      startedAt: 0,
+      confirmedAt: 1500,
+      skipped: kind === 'skipped',
+      bypassed: kind === 'bypassed',
+      consecutiveHits: kind === 'passed' ? stateIn('gate').gate.targetHits : 0,
+    },
+  });
+  return base;
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockHcStart.mockResolvedValue({
+    sessionId: 's',
+    segmentId: 'seg',
+    recordingId: 'rec',
+    filenameBase: '20260511_120000_001',
+  });
+  mockCheckStartGuards.mockResolvedValue({ blocked: false });
+  mockDetectAvailable.mockReturnValue(true);
+  _routeParams = { taskId: '__practice__', taskName: 'Practice — 60 sec', isPractice: true };
+});
 afterEach(() => cleanup());
 
-describe('RecordingScreen shell (plan 04-07)', () => {
-  it('renders the dark recording surface with the task name + close button', () => {
-    render(<RecordingScreen __test_initialState={stateIn('ready')} />);
+describe('RecordingScreen chrome (substate-driven)', () => {
+  it('renders the dark surface with the task name + close button + overlay tip', async () => {
+    await act(async () => {
+      render(<RecordingScreen __test_initialState={stateIn('ready')} />);
+    });
     expect(screen.getByLabelText('Recording screen')).toBeTruthy();
     expect(screen.getByText('Practice — 60 sec')).toBeTruthy();
     expect(screen.getByLabelText('recording-close')).toBeTruthy();
-    // 3s overlay tip renders on mount.
     expect(screen.getByText("Don't exit while recording.")).toBeTruthy();
   });
 
-  it('rotate-prompt substate renders the rotate-prompt label', () => {
-    render(<RecordingScreen __test_initialState={stateIn('rotate-prompt')} />);
+  it('rotate-prompt / ready / gate substates render their chrome', async () => {
+    await act(async () => {
+      render(<RecordingScreen __test_initialState={stateIn('rotate-prompt')} />);
+    });
     expect(screen.getByLabelText('rotate-prompt')).toBeTruthy();
-    expect(screen.getByText('Rotate to landscape and mount on rig')).toBeTruthy();
-  });
-
-  it('ready substate renders the record button + "Start Recording" label', () => {
-    render(<RecordingScreen __test_initialState={stateIn('ready')} />);
+    cleanup();
+    await act(async () => {
+      render(<RecordingScreen __test_initialState={stateIn('ready')} />);
+    });
     expect(screen.getByLabelText('recording-record-button')).toBeTruthy();
     expect(screen.getByText('Start Recording')).toBeTruthy();
-  });
-
-  it('gate substate renders the GateRing + the verbatim gate prompt + the Skip link', () => {
-    render(
-      <RecordingScreen
-        __test_initialState={stateIn('gate', {
-          gate: { ...stateIn('gate').gate, phase: 'waiting' },
-        })}
-      />,
-    );
+    cleanup();
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('gate', {
+            gate: { ...stateIn('gate').gate, phase: 'waiting' },
+          })}
+        />,
+      );
+    });
     expect(screen.getByLabelText('gate-ring')).toBeTruthy();
     expect(
       screen.getByText('Mount the phone on your head and bring your hands in frame for 2 secs'),
     ).toBeTruthy();
     expect(screen.getByLabelText('recording-skip')).toBeTruthy();
-    expect(screen.getByText('Skip')).toBeTruthy();
   });
 
-  it('gate.loading substate renders the "Preparing camera…" caption (HAND-06)', () => {
-    render(
-      <RecordingScreen
-        __test_initialState={stateIn('gate', {
-          gate: { ...stateIn('gate').gate, phase: 'loading' },
-        })}
-      />,
-    );
+  it('gate.loading shows "Preparing camera…" when the detector IS available', async () => {
+    mockDetectAvailable.mockReturnValue(true);
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('gate', {
+            gate: { ...stateIn('gate').gate, phase: 'loading' },
+          })}
+        />,
+      );
+    });
     expect(screen.getByText('Preparing camera…')).toBeTruthy();
   });
 
-  it('active substate renders the HH:MM:SS timer + the stop button', () => {
-    render(
-      <RecordingScreen
-        __test_initialState={stateIn('active', { startedAt: 0, durationMs: 332_000 })}
-      />,
-    );
-    expect(screen.getByLabelText('recording-timer')).toBeTruthy();
-    // 332_000 ms = 00:05:32
+  it('gate.loading + detector UNAVAILABLE → GATE_BYPASS (HAND-08) — bypassed event fired', async () => {
+    mockDetectAvailable.mockReturnValue(false);
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('gate', {
+            gate: { ...stateIn('gate').gate, phase: 'loading' },
+          })}
+        />,
+      );
+    });
+    expect(mockLogEvent).toHaveBeenCalledWith('recording_gate_bypassed', expect.any(Object));
+  });
+
+  it('active substate renders the HH:MM:SS timer + stop button', async () => {
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('active', { startedAt: 0, durationMs: 332_000 })}
+        />,
+      );
+    });
     expect(screen.getByText('00:05:32')).toBeTruthy();
     expect(screen.getByLabelText('recording-stop')).toBeTruthy();
   });
 
-  it('stop-confirm substate renders the StopConfirmModal with the LOCKED body copy', () => {
-    render(
-      <RecordingScreen
-        __test_initialState={stateIn('stop-confirm', { startedAt: 0, durationMs: 5000 })}
-      />,
-    );
-    expect(screen.getByLabelText('stop-confirm-modal')).toBeTruthy();
+  it('stop-confirm renders the StopConfirmModal with the LOCKED body copy', async () => {
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('stop-confirm', { startedAt: 0, durationMs: 5000 })}
+        />,
+      );
+    });
     expect(screen.getByText('Stop recording?')).toBeTruthy();
     expect(screen.getByText('Recordings under 1 minute are discarded.')).toBeTruthy();
-    expect(screen.getByLabelText('stop-confirm-keep')).toBeTruthy();
-    expect(screen.getByLabelText('stop-confirm-stop')).toBeTruthy();
+  });
+});
+
+describe('RecordingScreen — orientation + brightness lifecycle (REC-01 / REC-08)', () => {
+  it('locks landscape on mount; unlocks + restores brightness on unmount', async () => {
+    let unmount: (() => void) | undefined;
+    await act(async () => {
+      const r = render(<RecordingScreen __test_initialState={stateIn('ready')} />);
+      unmount = r.unmount;
+    });
+    expect(mockOrientationLock).toHaveBeenCalled();
+    await act(async () => {
+      unmount?.();
+    });
+    expect(mockOrientationUnlock).toHaveBeenCalled();
+    expect(mockBrightnessSet).toHaveBeenCalledWith(-1);
   });
 
-  it('tapping Skip in the gate substate dispatches GATE_SKIP — the Skip link disappears, the ring stays mounted', () => {
-    render(
-      <RecordingScreen
-        __test_initialState={stateIn('gate', {
-          gate: { ...stateIn('gate').gate, phase: 'waiting' },
-        })}
-      />,
-    );
-    fireEvent.click(screen.getByLabelText('recording-skip'));
-    // gate → confirmed(skipped): the Skip link is gone, the gate ring still mounted.
-    expect(screen.queryByLabelText('recording-skip')).toBeNull();
-    expect(screen.getByLabelText('gate-ring')).toBeTruthy();
+  it('close pre-record (ready) → goBack() (HAND-10 silent dismiss)', async () => {
+    await act(async () => {
+      render(<RecordingScreen __test_initialState={stateIn('ready')} />);
+    });
+    fireEvent.click(screen.getByLabelText('recording-close'));
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
   });
 
-  it('tapping the close button while active dispatches X_PRESSED → the stop-confirm modal appears', () => {
-    render(
-      <RecordingScreen
-        __test_initialState={stateIn('active', { startedAt: 0, durationMs: 5000 })}
-      />,
-    );
+  it('close while active → X_PRESSED → stop-confirm modal', async () => {
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('active', { startedAt: 0, durationMs: 5000 })}
+        />,
+      );
+    });
     expect(screen.queryByLabelText('stop-confirm-modal')).toBeNull();
     fireEvent.click(screen.getByLabelText('recording-close'));
     expect(screen.getByLabelText('stop-confirm-modal')).toBeTruthy();
   });
+});
 
-  it('tapping the close button pre-record (ready) calls navigation.goBack() (HAND-10 — silent dismiss)', () => {
-    render(<RecordingScreen __test_initialState={stateIn('ready')} />);
-    fireEvent.click(screen.getByLabelText('recording-close'));
-    expect(mockGoBack).toHaveBeenCalledTimes(1);
+describe('RecordingScreen — gate-pass → active transition (HAND-09)', () => {
+  it('passed: Vibration.vibrate(80) + speakCue("Recording started") + set(0.05) + HumynCapture.start(<parseable opts>) → active', async () => {
+    _routeParams = {
+      taskId: 'cooking_chop',
+      taskName: 'Chop vegetables',
+      taskCategory: 'cooking',
+      taskSetting: 'indoor',
+      isPractice: false,
+    };
+    await act(async () => {
+      render(<RecordingScreen __test_initialState={confirmedGate('passed')} />);
+    });
+    await waitFor(() => expect(mockHcStart).toHaveBeenCalledTimes(1));
+    expect(vibrateSpy).toHaveBeenCalledWith(80);
+    expect(mockSpeakCue).toHaveBeenCalledWith('Recording started');
+    expect(mockBrightnessSet).toHaveBeenCalledWith(0.05);
+    const opts = mockHcStart.mock.calls[0]![0] as {
+      startGate: { skipped: boolean; passed: boolean };
+    };
+    expect(() => CaptureSessionOptsSchema.parse(opts)).not.toThrow();
+    // CAPTURE_STARTED → substate 'active' (the HH:MM:SS timer appears).
+    await waitFor(() => expect(screen.getByLabelText('recording-timer')).toBeTruthy());
+  });
+
+  it('HumynCapture.start reject {code:thermal_throttling} → set(-1) + toast + back to ready', async () => {
+    _routeParams = {
+      taskId: 'cooking_chop',
+      taskName: 'Chop vegetables',
+      taskCategory: 'cooking',
+      taskSetting: 'indoor',
+      isPractice: false,
+    };
+    mockHcStart.mockRejectedValue(
+      Object.assign(new Error('thermal'), { code: 'thermal_throttling' }),
+    );
+    await act(async () => {
+      render(<RecordingScreen __test_initialState={confirmedGate('passed')} />);
+    });
+    await waitFor(() => expect(mockHcStart).toHaveBeenCalled());
+    await waitFor(() => expect(mockBrightnessSet).toHaveBeenCalledWith(-1));
+    await waitFor(() => expect(screen.getByLabelText('recording-record-button')).toBeTruthy());
+  });
+
+  it('Skip: NO vibrate(80), NO "Recording started" cue, but set(0.05) STILL called + HumynCapture.start STILL called (HAND-07)', async () => {
+    _routeParams = {
+      taskId: 'cooking_chop',
+      taskName: 'Chop vegetables',
+      taskCategory: 'cooking',
+      taskSetting: 'indoor',
+      isPractice: false,
+    };
+    await act(async () => {
+      render(<RecordingScreen __test_initialState={confirmedGate('skipped')} />);
+    });
+    await waitFor(() => expect(mockHcStart).toHaveBeenCalledTimes(1));
+    expect(vibrateSpy).not.toHaveBeenCalledWith(80);
+    expect(mockSpeakCue).not.toHaveBeenCalledWith('Recording started');
+    expect(mockBrightnessSet).toHaveBeenCalledWith(0.05);
+    const opts = mockHcStart.mock.calls[0]![0] as {
+      startGate: { skipped: boolean; passed: boolean };
+    };
+    expect(opts.startGate.skipped).toBe(true);
+    expect(opts.startGate.passed).toBe(false);
+  });
+});
+
+describe('RecordingScreen — §7h post-stop routing', () => {
+  it('practice recording stopped → HumynCapture.stop() + nav toward PracticeComplete', async () => {
+    _routeParams = { taskId: '__practice__', taskName: 'Practice — 60 sec', isPractice: true };
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('active', { startedAt: 0, durationMs: 12_000 })}
+        />,
+      );
+    });
+    fireEvent.click(screen.getByLabelText('recording-stop'));
+    await waitFor(() => expect(mockHcStop).toHaveBeenCalled());
+    await waitFor(() => {
+      const wentTo =
+        mockParentReset.mock.calls.length > 0 ||
+        mockParentNavigate.mock.calls.some((c) => c[0] === 'PracticeComplete') ||
+        mockNavigate.mock.calls.some((c) => c[0] === 'PracticeComplete');
+      expect(wentTo).toBe(true);
+    });
+  });
+
+  it('real recording ≥60s stopped → showToast(…added to your contribution.) + nav toward MainTabs', async () => {
+    _routeParams = {
+      taskId: 'cooking_chop',
+      taskName: 'Chop vegetables',
+      taskCategory: 'cooking',
+      taskSetting: 'indoor',
+      isPractice: false,
+    };
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('active', { startedAt: 0, durationMs: 75_000 })}
+        />,
+      );
+    });
+    fireEvent.click(screen.getByLabelText('recording-stop'));
+    await waitFor(() => expect(mockHcStop).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByLabelText('recording-toast')).toBeTruthy());
+    expect(screen.getByText(/added to your contribution\.$/)).toBeTruthy();
+    await waitFor(() =>
+      expect(mockParentNavigate.mock.calls.some((c) => c[0] === 'MainTabs')).toBe(true),
+    );
+  });
+
+  it('real recording <60s stopped → showToast("Recording too short — discarded.") + RESET_FOR_FRESH (back to ready)', async () => {
+    _routeParams = {
+      taskId: 'cooking_chop',
+      taskName: 'Chop vegetables',
+      taskCategory: 'cooking',
+      taskSetting: 'indoor',
+      isPractice: false,
+    };
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('active', { startedAt: 0, durationMs: 30_000 })}
+        />,
+      );
+    });
+    fireEvent.click(screen.getByLabelText('recording-stop'));
+    await waitFor(() => expect(screen.getByText('Recording too short — discarded.')).toBeTruthy());
+    await waitFor(() => expect(screen.getByLabelText('recording-record-button')).toBeTruthy());
+  });
+});
+
+describe('RecordingScreen — start guards (REC-16)', () => {
+  it('checkStartGuards blocked → showToast(toast) + back to ready', async () => {
+    mockCheckStartGuards.mockResolvedValue({
+      blocked: true,
+      toast: 'Not enough storage to record.',
+    });
+    await act(async () => {
+      render(<RecordingScreen __test_initialState={stateIn('pre-flight')} />);
+    });
+    await waitFor(() => expect(screen.getByText('Not enough storage to record.')).toBeTruthy());
+    await waitFor(() => expect(screen.getByLabelText('recording-record-button')).toBeTruthy());
+  });
+
+  it('checkStartGuards OK → PRE_FLIGHT_OK → gate substate', async () => {
+    mockCheckStartGuards.mockResolvedValue({ blocked: false });
+    await act(async () => {
+      render(<RecordingScreen __test_initialState={stateIn('pre-flight')} />);
+    });
+    await waitFor(() => expect(screen.getByLabelText('gate-ring')).toBeTruthy());
   });
 });
