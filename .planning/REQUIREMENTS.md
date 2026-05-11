@@ -52,11 +52,11 @@
 
 - [ ] **ONB-01**: First-time user sees the Rig screen ("You'll need a head rig" + body copy verbatim from spec) before practice
 - [ ] **ONB-02**: Rig screen offers a "Don't have a rig yet" off-ramp (recovery info + contact link) so users without rigs aren't soft-locked **[research]**
-- [ ] **ONB-03**: First-time user goes through a 60-second practice recording with `practice = true` propagated through capture, metadata, and upload-queue exclusion
+- [x] **ONB-03**: First-time user goes through a 60-second practice recording with `practice = true` propagated through capture, metadata, and upload-queue exclusion
 - [ ] **ONB-04**: Practice recording is captured locally but NEVER uploaded, NEVER appears in History, NEVER counts toward contribution
 - [ ] **ONB-05**: Practice recording auto-stops at exactly 60 seconds (hard cap) regardless of any other lifecycle event
 - [ ] **ONB-06**: All multimodal alerts (battery / storage / thermal) remain active during practice so users experience them
-- [ ] **ONB-07**: After practice, user sees the Practice-complete screen with success badge, confetti animation, light haptic `[40, 80, 40]` ms, and `Continue` CTA
+- [x] **ONB-07**: After practice, user sees the Practice-complete screen with success badge, confetti animation, light haptic `[40, 80, 40]` ms, and `Continue` CTA
 - [x] **ONB-08**: Tutorial runs **only once per install per Google account**; reinstalls trigger it again; there is no re-entry path from within the app
 
 ### Home Screen
@@ -404,11 +404,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | COMPAT-08   | Phase 2 | Pending               |
 | ONB-01      | Phase 2 | Pending               |
 | ONB-02      | Phase 2 | Pending               |
-| ONB-03      | Phase 4 | Pending               |
+| ONB-03      | Phase 4 | Complete              |
 | ONB-04      | Phase 4 | Pending               |
 | ONB-05      | Phase 4 | Pending               |
 | ONB-06      | Phase 4 | Pending               |
-| ONB-07      | Phase 4 | Pending               |
+| ONB-07      | Phase 4 | Complete              |
 | ONB-08      | Phase 4 | Done (plan 04-03)     |
 | HOME-01     | Phase 6 | Pending               |
 | HOME-02     | Phase 6 | Pending               |
