@@ -114,10 +114,22 @@ class FragmentedMuxerWrapper private constructor(
 
     /**
      * Closes the muxer and its underlying file handles. Idempotent: calling
-     * [stop] then [release] (or vice versa) is safe — the second call is a
-     * no-op because [muxer] and [output] are already closed.
+     * [stop] then [release] (or vice versa) is safe — the wrapper guards
+     * against re-entering muxer.close() / output.close().
+     *
+     * **WR-09 fix.** media3 1.10.0's `Muxer.close()` is NOT documented as
+     * idempotent — a second call throws `IllegalStateException` per the
+     * upstream contract. Callers in CaptureSession.closeSegmentResources
+     * already wrapped the call in try/catch so the bug never surfaced as
+     * a user-visible crash, but the wrapper docstring claimed safety it
+     * did not actually provide. Add an explicit @Volatile closed guard
+     * so the second call is a true no-op.
      */
+    @Volatile private var closed = false
+
     fun close() {
+        if (closed) return
+        closed = true
         try {
             muxer.close()
         } finally {
