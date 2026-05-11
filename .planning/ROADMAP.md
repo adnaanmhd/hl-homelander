@@ -14,8 +14,8 @@ Homelander ships in seven phases organised as horizontal technical layers that c
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation, Backend & Distribution Recon** - Monorepo, Fastify + Postgres + S3 backend with all 17 endpoints, build flavors, compat-recon APK to chiefs, S3 lifecycle policy, legal-review track (completed 2026-05-08)
-- [ ] **Phase 2: Mobile Shell, Onboarding, Permissions, Compat & Profile** - RN app shell with Splash → Sign-up → Permissions → Compat → Tutorial chrome → Profile → Help Center → Forced Upgrade gate per locked designs
-- [x] **Phase 3: HumynCapture Native Module (Bytes-on-disk)** - Custom Camera2 + MediaCodec native module producing the locked HEVC / IMU / audio / metadata-JSON spec with timestamp alignment, drift, hashing, and segmentation (completed 2026-05-11)
+- [x] **Phase 2: Mobile Shell, Onboarding, Permissions, Compat & Profile** - RN app shell with Splash → Sign-up → Permissions → Compat → Tutorial chrome → Profile → Help Center → Forced Upgrade gate per locked designs (completed 2026-05-10)
+- [x] **Phase 3: HumynCapture Native Module (Bytes-on-disk)** - Custom Camera2 + MediaCodec native module producing the locked HEVC / IMU / metadata-JSON spec with timestamp alignment, drift, hashing, and segmentation (completed 2026-05-11; audio dropped 2026-05-11 to preserve ±1 ms drift target — see CLAUDE.md / idea-brief.md / 03-HUMAN-UAT.md GAP-3)
 - [ ] **Phase 4: HandDetector, Recording UX & Practice Tutorial** - MediaPipe hand-gate + landscape recording surface state machine + thermal / battery / TTS / lifecycle edges + practice-recording integration
 - [ ] **Phase 5: Upload Pipeline, Hash-Verify Worker & Anti-fraud** - S3 multipart with UIDT JobService + URLSession bg, hash-verify worker on BullMQ, server-side IMU liveness fraud check (promoted from v2)
 - [ ] **Phase 6: Tasks, History, Home Tiles & Hybrid Search** - 65-task catalog with semantic + lexical RRF search, History grouped by day with in-app player, Home dynamic tiles with time-range filters
@@ -203,12 +203,12 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 (Per research SUMMARY.md, parallelization opportunities exist where indicated — Phase 2 with Phase 3, Phase 4 (HandDetector portion) with Phase 5 (Upload portion), iOS analogues in Phase 7 with Phase 6 if a second engineer is dedicated. Numeric order is the default execution order; parallelization is a planning-time choice.)
 
-| Phase                                                      | Plans Complete | Status                                           | Completed  |
-| ---------------------------------------------------------- | -------------- | ------------------------------------------------ | ---------- |
-| 1. Foundation, Backend & Distribution Recon                | 13/13          | Complete                                         | 2026-05-08 |
-| 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 22/22          | Authoring complete · operator-smoke gate pending | -          |
-| 3. HumynCapture Native Module (Bytes-on-disk)              | 11/11          | Complete                                         | 2026-05-11 |
-| 4. HandDetector, Recording UX & Practice Tutorial          | 0/TBD          | Not started                                      | -          |
-| 5. Upload Pipeline, Hash-Verify Worker & Anti-fraud        | 0/TBD          | Not started                                      | -          |
-| 6. Tasks, History, Home Tiles & Hybrid Search              | 0/TBD          | Not started                                      | -          |
-| 7. Observability, iOS Parity & Staged Rollout              | 0/TBD          | Not started                                      | -          |
+| Phase                                                      | Plans Complete | Status      | Completed  |
+| ---------------------------------------------------------- | -------------- | ----------- | ---------- |
+| 1. Foundation, Backend & Distribution Recon                | 13/13          | Complete    | 2026-05-08 |
+| 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 22/22          | Complete    | 2026-05-10 |
+| 3. HumynCapture Native Module (Bytes-on-disk)              | 11/11          | Complete    | 2026-05-11 |
+| 4. HandDetector, Recording UX & Practice Tutorial          | 0/TBD          | Not started | -          |
+| 5. Upload Pipeline, Hash-Verify Worker & Anti-fraud        | 0/TBD          | Not started | -          |
+| 6. Tasks, History, Home Tiles & Hybrid Search              | 0/TBD          | Not started | -          |
+| 7. Observability, iOS Parity & Staged Rollout              | 0/TBD          | Not started | -          |
