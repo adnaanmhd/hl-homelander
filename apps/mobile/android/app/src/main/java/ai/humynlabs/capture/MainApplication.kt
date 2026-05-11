@@ -12,11 +12,17 @@ import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.react.soloader.OpenSourceMergedSoMapping
 import com.facebook.soloader.SoLoader
 import io.humyn.app.PlayIntegrityPackage
+import org.wonday.orientation.OrientationActivityLifecycle
+import ai.humynlabs.capture.battery.HumynBatteryPackage
+import ai.humynlabs.capture.beep.HumynBeepPackage
 import ai.humynlabs.capture.capture.CaptureLaunchSweep
 import ai.humynlabs.capture.capture.HumynCapturePackage
 import ai.humynlabs.capture.capture.SegmentDurationConfig
 import ai.humynlabs.capture.compat.HumynCompatPackage
 import ai.humynlabs.capture.fgs.HumynForegroundNotification
+import ai.humynlabs.capture.handdetector.HumynHandDetectorPackage
+import ai.humynlabs.capture.phonestate.HumynPhoneStatePackage
+import ai.humynlabs.capture.screenbrightness.HumynScreenBrightnessPackage
 import ai.humynlabs.capture.updater.HumynUpdaterPackage
 
 /**
@@ -36,6 +42,11 @@ class MainApplication : Application(), ReactApplication {
                 packages.add(HumynCompatPackage())    // Plan 02-06 — Phase 2 compat probe shell
                 packages.add(HumynUpdaterPackage())   // Plan 02-07 — Phase 2 force-upgrade APK installer (apkRollout flavor)
                 packages.add(HumynCapturePackage())   // Plan 03-09 — Phase 3 capture pipeline entry
+                packages.add(HumynHandDetectorPackage())     // Plan 04-02 — HAND-01 pre-record hand gate (MediaPipe; body in 04-04)
+                packages.add(HumynPhoneStatePackage())       // Plan 04-02 — AudioManager focus-loss interruption signal (body in 04-05)
+                packages.add(HumynBatteryPackage())          // Plan 04-02 — battery level/charging signal (body in 04-05)
+                packages.add(HumynScreenBrightnessPackage()) // Plan 04-02 — REC-08 per-window brightness (body in 04-05)
+                packages.add(HumynBeepPackage())             // Plan 04-02 — REC-10 pre-baked alert tones (body in 04-05)
                 return packages
             }
 
@@ -86,5 +97,13 @@ class MainApplication : Application(), ReactApplication {
         // Phase 3 — ensure FGS notification channel exists for the next start().
         // Plan 03-07 ships the helper; channel creation is idempotent.
         HumynForegroundNotification.ensureChannel(this)
+
+        // Plan 04-02 — react-native-orientation-locker activity-lifecycle hook
+        // (per the library README). lockToLandscape() on the (only)
+        // landscape-locked RecordingScreen needs this registered so the
+        // OrientationActivityLifecycle singleton sees the activity lifecycle;
+        // plan 04-01 already added MainActivity.onConfigurationChanged + the
+        // AndroidManifest android:configChanges orientation|screenSize flags.
+        registerActivityLifecycleCallbacks(OrientationActivityLifecycle.getInstance())
     }
 }
