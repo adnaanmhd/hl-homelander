@@ -1,6 +1,8 @@
 package ai.humynlabs.capture.capture
 
+import android.app.Activity
 import android.content.Intent
+import android.view.WindowManager
 import androidx.core.content.ContextCompat
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -141,6 +143,13 @@ class HumynCaptureModule(reactContext: ReactApplicationContext) :
                     reactApplicationContext,
                     Intent(reactApplicationContext, HumynForegroundService::class.java),
                 )
+                // GAP-1 fix — UAT #5 KEEP_SCREEN_ON requirement. Hold the
+                // activity window awake while a session is active so the
+                // display does not sleep mid-capture (clear path in stop()).
+                // Wrapped in null-safe + UI-thread dispatch because window
+                // flags must be touched from main thread; capture executor
+                // is a worker thread.
+                applyKeepScreenOn(true)
                 // Step 5: resolve with the D-API-01 start response shape.
                 promise.resolve(sessionInst.toStartResponse())
             } catch (t: Throwable) {
@@ -165,9 +174,38 @@ class HumynCaptureModule(reactContext: ReactApplicationContext) :
                 reactApplicationContext.stopService(
                     Intent(reactApplicationContext, HumynForegroundService::class.java),
                 )
+                // GAP-1 fix — release the KEEP_SCREEN_ON flag the start() path
+                // set, so the device can resume normal idle-sleep behavior.
+                applyKeepScreenOn(false)
                 promise.resolve(null)
             } catch (t: Throwable) {
                 promise.reject(errorCodeFor(t), t.message ?: "capture_stop_failed", t)
+            }
+        }
+    }
+
+    /**
+     * GAP-1 fix — toggle FLAG_KEEP_SCREEN_ON on the foreground activity
+     * window from the capture-executor thread. Window flags must be touched
+     * from the UI thread, so this dispatches via Activity.runOnUiThread.
+     * Null-safe: if the user has backgrounded the app there is no window to
+     * mutate; the FGS already keeps the process alive so silent no-op is
+     * correct. Idempotent — addFlags / clearFlags are both safe to call
+     * when the flag is already in the desired state.
+     */
+    private fun applyKeepScreenOn(enabled: Boolean) {
+        // RN 0.83 deprecated `currentActivity` (the protected accessor on
+        // ReactContextBaseJavaModule) with ERROR level — use the
+        // reactApplicationContext getter the @Deprecated.ReplaceWith
+        // hint points to. Preserves the original GAP-1 intent (toggle
+        // FLAG_KEEP_SCREEN_ON on the foreground window from the
+        // UI thread, null-safe when backgrounded).
+        val activity: Activity = reactApplicationContext.currentActivity ?: return
+        activity.runOnUiThread {
+            if (enabled) {
+                activity.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            } else {
+                activity.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
         }
     }
