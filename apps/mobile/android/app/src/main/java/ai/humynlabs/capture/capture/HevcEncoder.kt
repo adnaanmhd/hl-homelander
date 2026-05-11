@@ -50,6 +50,15 @@ object HevcEncoder {
         setInteger(MediaFormat.KEY_FRAME_RATE, FRAME_RATE)
         setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, GOP_INTERVAL_SEC)
         setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.HEVCProfileMain)
+        // WR-04 fix — pin KEY_LEVEL = Main Tier Level 4. Without an
+        // explicit level, the encoder may select Main@L3 (max 1280×720,
+        // 6 Mbps) on some OEM codecs (Samsung Exynos, MediaTek Helio),
+        // failing to honor the 1080p / 8 Mbps requirement. The HEVC spec
+        // requires Main@L4 for 1080p30 / 8 Mbps. CAP-01 demands a
+        // deterministic encoder configuration across the OEM matrix; a
+        // missing level lock invites silent regressions on devices we
+        // haven't tested.
+        setInteger(MediaFormat.KEY_LEVEL, MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel4)
         // KEY_LATENCY=1 is the canonical "no B-frames" hint (API 24+).
         if (Build.VERSION.SDK_INT >= 24) setInteger(MediaFormat.KEY_LATENCY, 1)
         // KEY_MAX_B_FRAMES=0 is the explicit lock (API 25+ — older
