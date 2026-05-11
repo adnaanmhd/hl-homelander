@@ -47,7 +47,7 @@ Phase 3 hardware UAT pending (7 items, all on real Pixel 7a/8a) — these RETIRE
 - #6 CAP-18 byte-for-byte SHA round-trip (device → S3)
 - #7 CAP-13 onSessionStart/Stop upload-pause seam
 
-Last activity: 2026-05-11
+Last activity: 2026-05-11 — Completed quick task 260511-kfs: descoped server-side IMU-liveness check (FRAUD-03/04) to v2
 
 Progress: Phase 4 — 5/10 plans complete (Wave 2 in progress)
 
@@ -239,13 +239,14 @@ Recent decisions affecting current work:
 
 ### Quick Tasks Completed
 
-| #          | Description                                                                                 | Date       | Commit                  | Directory                                                                                       |
-| ---------- | ------------------------------------------------------------------------------------------- | ---------- | ----------------------- | ----------------------------------------------------------------------------------------------- |
-| 260510-001 | Declare HIGH_SAMPLING_RATE_SENSORS for IMU probe (Android 12+)                              | 2026-05-10 | cc867b7                 | [260510-001-imu-high-sampling-rate-perm](./quick/260510-001-imu-high-sampling-rate-perm/)       |
-| 260510-002 | Drive CompatRunningScreen rows from real probe progress (Pattern 59)                        | 2026-05-10 | 629d2be                 | [260510-002-compat-running-progress-events](./quick/260510-002-compat-running-progress-events/) |
-| 260510-003 | Attach Authorization Bearer header in apiClient (Pattern 60)                                | 2026-05-10 | ae90541                 | [260510-003-api-client-bearer-auth-header](./quick/260510-003-api-client-bearer-auth-header/)   |
-| 260510-004 | LogoutModal reset target + Help Center markdown renderer (Patterns 61, 62)                  | 2026-05-10 | 7ac0ee7,720c738         | [260510-004-logout-reset-and-help-markdown](./quick/260510-004-logout-reset-and-help-markdown/) |
-| 260510-005 | Profile UX cluster: head tap-to-edit + Gender enum + TopBar Google avatar (Patterns 63, 64) | 2026-05-10 | cf98090,d3b6a45,1a831c0 | [260510-005-profile-ux-cluster](./quick/260510-005-profile-ux-cluster/)                         |
+| #          | Description                                                                                 | Date       | Commit                  | Directory                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------- | ---------- | ----------------------- | --------------------------------------------------------------------------------------------------- |
+| 260510-001 | Declare HIGH_SAMPLING_RATE_SENSORS for IMU probe (Android 12+)                              | 2026-05-10 | cc867b7                 | [260510-001-imu-high-sampling-rate-perm](./quick/260510-001-imu-high-sampling-rate-perm/)           |
+| 260510-002 | Drive CompatRunningScreen rows from real probe progress (Pattern 59)                        | 2026-05-10 | 629d2be                 | [260510-002-compat-running-progress-events](./quick/260510-002-compat-running-progress-events/)     |
+| 260510-003 | Attach Authorization Bearer header in apiClient (Pattern 60)                                | 2026-05-10 | ae90541                 | [260510-003-api-client-bearer-auth-header](./quick/260510-003-api-client-bearer-auth-header/)       |
+| 260510-004 | LogoutModal reset target + Help Center markdown renderer (Patterns 61, 62)                  | 2026-05-10 | 7ac0ee7,720c738         | [260510-004-logout-reset-and-help-markdown](./quick/260510-004-logout-reset-and-help-markdown/)     |
+| 260510-005 | Profile UX cluster: head tap-to-edit + Gender enum + TopBar Google avatar (Patterns 63, 64) | 2026-05-10 | cf98090,d3b6a45,1a831c0 | [260510-005-profile-ux-cluster](./quick/260510-005-profile-ux-cluster/)                             |
+| 260511-kfs | Descope server-side IMU-liveness check (FRAUD-03/04) to v2 — docs/planning only             | 2026-05-11 | de09bcf                 | [260511-kfs-descope-imu-liveness-check-to-v2](./quick/260511-kfs-descope-imu-liveness-check-to-v2/) |
 
 ### Phase 2 Smoke-Walk Fix-Forward Commits (2026-05-10)
 
@@ -293,7 +294,7 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 ## Session Continuity
 
 Last session: 2026-05-11T09:14:10.949Z
-Last activity: 2026-05-11
+Last activity: 2026-05-11 — Completed quick task 260511-kfs: descoped server-side IMU-liveness check (FRAUD-03/04) to v2
 Stopped at: Completed 04-05-PLAN.md
 
 - 01-10 (terraform apply): Tasks 1+2+3 complete + committed (430e17a, 9e52db8, ad93d17). Operator runs `terraform fmt -check` + `terraform validate` + `terraform plan` + `terraform apply` against real AWS staging.
