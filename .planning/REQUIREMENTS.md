@@ -54,8 +54,8 @@
 - [ ] **ONB-02**: Rig screen offers a "Don't have a rig yet" off-ramp (recovery info + contact link) so users without rigs aren't soft-locked **[research]**
 - [x] **ONB-03**: First-time user goes through a 60-second practice recording with `practice = true` propagated through capture, metadata, and upload-queue exclusion
 - [ ] **ONB-04**: Practice recording is captured locally but NEVER uploaded, NEVER appears in History, NEVER counts toward contribution
-- [ ] **ONB-05**: Practice recording auto-stops at exactly 60 seconds (hard cap) regardless of any other lifecycle event
-- [ ] **ONB-06**: All multimodal alerts (battery / storage / thermal) remain active during practice so users experience them
+- [x] **ONB-05**: Practice recording auto-stops at exactly 60 seconds (hard cap) regardless of any other lifecycle event
+- [x] **ONB-06**: All multimodal alerts (battery / storage / thermal) remain active during practice so users experience them
 - [x] **ONB-07**: After practice, user sees the Practice-complete screen with success badge, confetti animation, light haptic `[40, 80, 40]` ms, and `Continue` CTA
 - [x] **ONB-08**: Tutorial runs **only once per install per Google account**; reinstalls trigger it again; there is no re-entry path from within the app
 
@@ -129,19 +129,19 @@
 - [x] **REC-01**: Recording surface auto-rotates to landscape, locks orientation, and shows the rotate-prompt animation until landscape is detected
 - [x] **REC-02**: Recording surface displays a 3-second top-anchored disappearing overlay "Don't exit while recording." on entry
 - [x] **REC-03**: After gate exit, recording surface shows minute-bar timer, mono HH:MM:SS counter, and floating stop button
-- [ ] **REC-04**: Stop tap fires voice cue "Recording stopped." + 2-second toast `{Hh Mm} added to your contribution.` (formatter matches HOME-06)
+- [x] **REC-04**: Stop tap fires voice cue "Recording stopped." + 2-second toast `{Hh Mm} added to your contribution.` (formatter matches HOME-06)
 - [x] **REC-05**: Re-pressing record after stop starts a **fresh recording** under the same task; switching tasks requires exiting the recording screen
 - [x] **REC-06**: Tapping X during active recording shows the Stop confirmation modal (`Keep recording` / `Stop`); pre-record exit is silent
-- [ ] **REC-07**: Recordings shorter than 60 seconds are discarded with toast `Recording too short — discarded.`; not uploaded, not in History, not counted
+- [x] **REC-07**: Recordings shorter than 60 seconds are discarded with toast `Recording too short — discarded.`; not uploaded, not in History, not counted
 - [x] **REC-08**: Display behavior during recording: `KEEP_SCREEN_ON`, brightness auto-dimmed to 5% (restored on stop or exit)
-- [ ] **REC-09**: System does **NOT** programmatically toggle DND during recording (no `ACCESS_NOTIFICATION_POLICY` use, no Settings deep-link, no in-app DND nudge)
+- [x] **REC-09**: System does **NOT** programmatically toggle DND during recording (no `ACCESS_NOTIFICATION_POLICY` use, no Settings deep-link, no in-app DND nudge)
 - [x] **REC-10**: Battery drop to ≤15% fires alert pill + 520 Hz beep (200 ms) + `[100, 50, 100]` ms haptic + voice "Battery low. Consider charging soon." Recording continues; new recordings refused below 5% until charged ≥15%
 - [x] **REC-11**: Battery drop to ≤5% ends the current segment immediately
 - [x] **REC-12**: Phone-call answered, alarm rings, rotation out of landscape, force-quit, OS-evict, or storage-full mid-record stops the recording per `idea-brief.md` §10 lifecycle table (upload if ≥60 s; discard if not)
 - [x] **REC-13**: Phone-call declined → recording continues
-- [ ] **REC-14**: TTS uses Indian English female voice (en-IN) with the documented fallback chain (en-IN female → en-IN neutral → en-US female → first available en-\*); rate 1.0, pitch 0.95, volume 0.85
+- [x] **REC-14**: TTS uses Indian English female voice (en-IN) with the documented fallback chain (en-IN female → en-IN neutral → en-US female → first available en-\*); rate 1.0, pitch 0.95, volume 0.85
 - [x] **REC-15**: Voice cues are duplicated as the centered VoiceCue overlay text for accessibility
-- [ ] **REC-16**: System runs a recurring storage check before each recording start (compat-time check is one-time only) **[research]**
+- [x] **REC-16**: System runs a recurring storage check before each recording start (compat-time check is one-time only) **[research]**
 
 ### Upload Pipeline
 
@@ -408,8 +408,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ONB-02      | Phase 2 | Pending               |
 | ONB-03      | Phase 4 | Complete              |
 | ONB-04      | Phase 4 | Pending               |
-| ONB-05      | Phase 4 | Pending               |
-| ONB-06      | Phase 4 | Pending               |
+| ONB-05      | Phase 4 | Done (04-08)          |
+| ONB-06      | Phase 4 | Done (04-08)          |
 | ONB-07      | Phase 4 | Complete              |
 | ONB-08      | Phase 4 | Done (plan 04-03)     |
 | HOME-01     | Phase 6 | Pending               |
@@ -468,19 +468,19 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REC-01      | Phase 4 | Done (04-07)          |
 | REC-02      | Phase 4 | Done (04-07)          |
 | REC-03      | Phase 4 | Done (04-07)          |
-| REC-04      | Phase 4 | Pending               |
+| REC-04      | Phase 4 | Done (04-08)          |
 | REC-05      | Phase 4 | Done (04-07)          |
 | REC-06      | Phase 4 | Done (04-07)          |
-| REC-07      | Phase 4 | Pending               |
+| REC-07      | Phase 4 | Done (04-08)          |
 | REC-08      | Phase 4 | Complete              |
-| REC-09      | Phase 4 | Pending               |
+| REC-09      | Phase 4 | Done (04-08)          |
 | REC-10      | Phase 4 | Complete              |
 | REC-11      | Phase 4 | Complete              |
 | REC-12      | Phase 4 | Complete              |
 | REC-13      | Phase 4 | Complete              |
-| REC-14      | Phase 4 | Pending               |
+| REC-14      | Phase 4 | Done (04-08)          |
 | REC-15      | Phase 4 | Done (04-07)          |
-| REC-16      | Phase 4 | Pending               |
+| REC-16      | Phase 4 | Done (04-08)          |
 | UP-01       | Phase 5 | Pending               |
 | UP-02       | Phase 5 | Pending               |
 | UP-03       | Phase 5 | Pending               |

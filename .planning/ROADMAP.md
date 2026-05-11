@@ -165,7 +165,7 @@ Plans:
 - [x] 04-06-PLAN.md — PracticeIntroScreen (§6) + PracticeCompleteScreen (§8 — confetti + scale-pop + [40,80,40]ms haptic, writes ONB-08 flag) + OnboardingStack routes + analytics events + practiceFlow test + 2 visual baselines
 - [x] 04-07-PLAN.md — recState.ts state machine (§4.3) + 5 recording components (GateRing/VoiceCuePill/StopConfirmModal/AlertPill/RotatePrompt) + RecordingScreen shell + RootNativeStack Recording route + route-registry.test.ts update (Pattern 54 — adds a `REQUIRED_PHASE_4_ROUTES = ['Recording']` block; `PracticeIntro`/`PracticeComplete` get added to it by plan 04-09 since 04-06 registers them in the same wave) + 8 visual baselines (completed 2026-05-11)
       **Wave 4** _(blocked on Waves 2+3)_
-- [ ] 04-08-PLAN.md — useRecordingLifecycle hook (idea-brief §10 policy table + practice 60s hard cap + checkStartGuards) + ttsVoice.ts (REC-14 fallback) + durationFormat.ts (REC-04) + `__DEV__`-gated dev affordance on TasksPlaceholder
+- [x] 04-08-PLAN.md — useRecordingLifecycle hook (idea-brief §10 policy table + practice 60s hard cap + checkStartGuards) + ttsVoice.ts (REC-14 fallback + speakCue) + durationFormat.ts (REC-04 / HOME-06) + `__DEV__`-gated dev affordance on TasksPlaceholder (completed 2026-05-11)
       **Wave 5** _(blocked on Wave 4)_
 - [ ] 04-09-PLAN.md — RecordingScreen live wiring: VC `<Camera>` on the compat ultrawide lens + HAND-12 pre-warm + useHandGate poll loop + gate-pass→active TTS-masked transition + buildCaptureOpts + RemoteConfig gate reads + useRecordingLifecycle mount + §7h post-stop routing + HAND-14 analytics + brightness/orientation + route-registry.test.ts `PracticeIntro`/`PracticeComplete` additions (depends on 04-06 + 04-07)
       **Wave 6** _(blocked on Wave 5)_
@@ -225,7 +225,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation, Backend & Distribution Recon                | 13/13          | Complete    | 2026-05-08 |
 | 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 22/22          | Complete    | 2026-05-10 |
 | 3. HumynCapture Native Module (Bytes-on-disk)              | 11/11          | Complete    | 2026-05-11 |
-| 4. HandDetector, Recording UX & Practice Tutorial          | 3/10           | In progress | -          |
+| 4. HandDetector, Recording UX & Practice Tutorial          | 8/10           | In progress | -          |
 | 5. Upload Pipeline, Hash-Verify Worker & Anti-fraud        | 0/TBD          | Not started | -          |
 | 6. Tasks, History, Home Tiles & Lexical Search             | 0/TBD          | Not started | -          |
 | 7. Observability & APK Distribution Hardening              | 0/TBD          | Not started | -          |
