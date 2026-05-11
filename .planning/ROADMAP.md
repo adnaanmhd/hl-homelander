@@ -171,8 +171,8 @@ Plans:
       **Wave 6** _(blocked on Wave 5)_
 - [x] 04-10-PLAN.md — onCrashRecovery event (Phase-3 sweep emit + JS binding) + Toast host + bootRecoveryListener + `04-MANUAL-SMOKE.md` on-hardware acceptance runbook (incl. the **[BLOCKING] ±1ms drift re-measurement** on the gate→record handoff) + ROADMAP/STATE refresh (completed 2026-05-11)
       **Wave 7 — gap closure** _(addresses 04-VERIFICATION.md gaps: CR-01 blocker + WR-01..07 + IN-01/02/09; parallel — no file overlap between 04-11 and 04-12)_
-- [ ] 04-11-PLAN.md — CR-01 (recording surface reachable in a release build — production orientation→LANDSCAPE_DETECTED path + no-`__test_initialState` render test + `04-MANUAL-SMOKE.md` §2 amendment) + WR-01 (RemoteConfig gate cadence/target reach the reducer via SET_GATE_CONFIG) + WR-02 (no orphaned native capture session on a gate→record exit) + WR-07 (practice 60s cap survives the stop-confirm modal) + WR-06/IN-01/IN-02/IN-09 in-file polish
-- [ ] 04-12-PLAN.md — WR-03 (HumynHandDetectorModule.cleanup() serialised with detect() on bgExecutor — no MediaPipe crash on unmount-during-gate-poll) + WR-04 (HumynBeepModule first playTone() audible — pre-load + OnLoadCompleteListener + pending-play queue + play()-return-value check)
+- [x] 04-11-PLAN.md — CR-01 (recording surface reachable in a release build — production orientation→LANDSCAPE_DETECTED path + no-`__test_initialState` render test + `04-MANUAL-SMOKE.md` §2 amendment) + WR-01 (RemoteConfig gate cadence/target reach the reducer via SET_GATE_CONFIG) + WR-02 (no orphaned native capture session on a gate→record exit) + WR-07 (practice 60s cap survives the stop-confirm modal) + WR-06/IN-01/IN-02/IN-09 in-file polish
+- [x] 04-12-PLAN.md — WR-03 (HumynHandDetectorModule.cleanup() serialised with detect() on bgExecutor — no MediaPipe crash on unmount-during-gate-poll) + WR-04 (HumynBeepModule first playTone() audible — pre-load + OnLoadCompleteListener + pending-play queue + play()-return-value check)
 
   **UI hint**: yes
 
