@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 4 context gathered
-last_updated: '2026-05-11T07:58:20.982Z'
-last_activity: 2026-05-11 -- Phase 04 planning complete
+stopped_at: Completed 04-01-PLAN.md
+last_updated: '2026-05-11T08:18:00.000Z'
+last_activity: 2026-05-11 -- Phase 04 plan 01 complete (RN deps + jsdom mocks + orientation-locker Android wiring)
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 56
-  completed_plans: 46
-  percent: 82
+  completed_plans: 47
+  percent: 84
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-07)
 
 **Core value:** On-device capture quality is non-negotiable — every uploaded segment must hit the locked spec (1080p / 30 FPS / ≥110° dFOV / IMU sustained ≥100 Hz / ±1 ms timestamp alignment) or the bytes are worthless for training.
-**Current focus:** Phase 03 — humyn-capture-native-module
+**Current focus:** Phase 04 — handdetector-recording-ux-practice-tutorial
 
 ## Current Position
 
-Phase: 4
-Plan: Not started
-Status: Ready to execute
+Phase: 04 (handdetector-recording-ux-practice-tutorial) — EXECUTING
+Plan: 2 of 10 (01 complete)
+Status: Executing Phase 04 — Wave 1
 
 Phase 2 operator smoke-walk history (carried forward):
 
@@ -47,9 +47,9 @@ Phase 3 hardware UAT pending (7 items, all on real Pixel 7a/8a) — these RETIRE
 - #6 CAP-18 byte-for-byte SHA round-trip (device → S3)
 - #7 CAP-13 onSessionStart/Stop upload-pause seam
 
-Last activity: 2026-05-11 -- Phase 04 planning complete
+Last activity: 2026-05-11 -- Phase 04 plan 01 complete
 
-Progress: [██████████] 100% (authoring + code-review + automated verify) · 2/9 UAT cleared on paper · 7/9 awaiting hardware
+Progress: Phase 4 — 1/10 plans complete (Wave 1 in progress)
 
 ## Resume Path (set before pause)
 
@@ -69,17 +69,18 @@ To resume Phase 1:
 
 **Velocity:**
 
-- Total plans completed: 39
-- Average duration: ~9.9 min
-- Total execution time: ~2.38 hours
+- Total plans completed: 40
+- Average duration: ~10.1 min
+- Total execution time: ~2.68 hours
 
 **By Phase:**
 
-| Phase    | Plans  | Total  | Avg/Plan  |
-| -------- | ------ | ------ | --------- |
-| Phase 01 | 9 / 13 | 94 min | ~10.4 min |
-| 1        | 13     | -      | -         |
-| 3        | 11     | -      | -         |
+| Phase    | Plans  | Total   | Avg/Plan  |
+| -------- | ------ | ------- | --------- |
+| Phase 01 | 9 / 13 | 94 min  | ~10.4 min |
+| 1        | 13     | -       | -         |
+| 3        | 11     | -       | -         |
+| 4        | 1 / 10 | ~18 min | ~18 min   |
 
 **Recent Trend:**
 
@@ -100,6 +101,7 @@ _Updated after each plan completion_
 | Phase 03 P01 | 12min | 2 tasks | 13 files |
 | Phase 03 P02 | 25min | 3 tasks | 26 files |
 | Phase 03 P03 | ~25min (split across 2 sessions) | 4 tasks | 24 files |
+| Phase 04 P01 | ~18min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -218,6 +220,7 @@ Recent decisions affecting current work:
 - [Phase 3]: Plan 03-03: CompatPass auto-advance — replace the manual "Next" CTA with a 1.5 s setTimeout firing `navigation.replace('RigTutorial')`. 40 ms haptic preserved on mount; storage warning banner (COMPAT-03) still renders inline during the window; setTimeout cleanup in useEffect cleanup function cancels the pending route call on unmount (T-3.2-05 mitigation — same behavior as pre-merge "didn't tap Continue" path). Pass state is now a transient confirmation, not a gate. The 1500ms is hardcoded inside the screen with a Plan 03-03 comment so a future plan that wants RC-gating knows where to look (Remote Config keys cost a startup fetch + stale-cache window — UX decision, not a runtime knob).
 - [Phase 3]: Plan 03-03: 03-WAVE1-SMOKE.md operator re-walk runbook authored at `.planning/phases/03-humyn-capture-native-module/03-WAVE1-SMOKE.md`. Mirrors apps/mobile/02-MANUAL-SMOKE.md Pattern 56 shape: numbered checkbox sections + per-step Inputs/Assertions blocks + Pre-flight + Sign-off bookends + per-section Acceptance criteria. 12 sections covering Splash + Sign-up + Permissions + Compat-fail merge + Compat-pass auto-advance + RigTutorial + Home + Tasks + History + Profile + foreground rehydrate (§11 — directly targets Pattern 72's regression fix) + visual snapshot CI ≥1h soak gate (§12 — T-3.2-01 lineage). D-WAVE-09 amendment protocol on every walk reminds operator that new gaps go to 03-W1-AMENDMENTS.md, NEVER back into 02-COSMETIC-GAPS.md (frozen-2026-05-10).
 - [Phase 3]: Plan 03-03: Wave 1 authoring closes. Both navigation-graph-touching plans (03-01, 03-02, 03-03) committed; full mobile test suite stays green at 344/344 across 61 test files (was 320/320 after Plan 03-02; +24 new tests across Wave 1). 10 jest-image-snapshot baselines committed (6 from Plan 03-02 + 1 from this plan's Task 3 + 3 from this plan's Task 4). Wave 2 plan-phase (Plan 03-04 capture-foundation-muxer-bridge) is unblocked from authoring standpoint; conditions (3) operator re-walk on Pixel 10a + (4) re-walked-on: stamp of D-WAVE-08 remain operator-driven hard gates before Wave 2 plan-phase starts.
+- [Phase 4]: Plan 04-01: Phase 4 foundation landed — 8 RN library deps at CLAUDE.md pins (react-native-vision-camera 4.7.3 pinned exact = preview + takePhoto/takeSnapshot ONLY, NOT the HEVC pipeline; react-native-worklets-core 1.6.3, react-native-reanimated ~3.16.7, react-native-tts 4.1.1, react-native-fs 2.20.0, react-native-orientation-locker 1.7.0 all pinned exact; @react-native-firebase/{analytics,crashlytics} 24.0.0 unified minor, pinned exact). **@shopify/react-native-skia NOT installed** — it is an OPTIONAL VisionCamera peer (`peerDependenciesMeta` marks it optional), and takePhoto-only usage doesn't need it; avoids a heavy native binding on a preview-only surface. Forbidden libs confirmed absent: `react-native-worklets` (non-core), Skia 2.x, react-native-sound, react-native-track-player. `vitest.setup.ts` gained vi.mock blocks for the four new libs (VisionCamera = forwardRef Camera returning null + `useImperativeHandle` exposing `takePhoto`/`takeSnapshot` on the ref + `useCameraDevice`/`useCameraDevices`/`getCameraDevice` stub back ultra-wide device + `getAvailableCameraDevices`; react-native-tts/-fs/-orientation-locker mocked as `{ default: X, ...X }` so default+named consumers both resolve; Tts mock mirrors idea-brief §13 voice chain), plus a documented (NOT globally-injected) comment block listing the canonical Phase 4 native-module stub shapes (HumynHandDetector/HumynPhoneState/HumynBattery/HumynScreenBrightness/HumynBeep) — the per-file `vi.doMock('react-native', ...)` NativeModules contract (HumynCapture.test.ts pattern) is preserved. **`globalThis.__DEV__ = true` shim added to vitest.setup.ts** (Rule 1/3) — jsdom never defines Metro's `__DEV__`; the Phase-3 `15d8a16` smoke seam in `HomeSkeletonScreen.tsx` (slated for removal in Phase 4 per its own commit msg) reads it and crashed 10 pre-existing tests; shim unblocks them, suite 364→371 tests / 12→2 failed. The remaining 2 reds (hex literals + stale visual baseline in `HomeSkeletonScreen.tsx`) + 3 `setPermsGranted` unhandled rejections in `RootNativeStack.test.tsx` are inherent to that seam and logged in `.planning/phases/04-handdetector-recording-ux-practice-tutorial/deferred-items.md` D4-01 — the Phase 4 RecordingScreen plan (04-04/04-05) removes the seam. `react-native-orientation-locker` Android wiring: `MainActivity.onConfigurationChanged` override broadcasts the `"onConfigurationChanged"` Intent (OrientationActivityLifecycle contract); `AndroidManifest.xml` already declared `android:configChanges` with `orientation|screenSize` (plan 02 base manifest — no edit needed); companion `MainApplication.onCreate()` `OrientationActivityLifecycle.getInstance(...)` registration is owned by plan 04-02. New `__tests__/native/phase4-deps.test.ts` (7 tests) grep-asserts the mocks + manifest/MainActivity invariants. **Note for downstream plans:** the repo root is a pnpm workspace, not an npm workspace — `npm install -w apps/mobile ... from repo root` is a no-op; run `npm install` from inside `apps/mobile/` (it has its own `package-lock.json`; the `mobile:install` script does `cd apps/mobile && npm ci`).
 
 ### Quick Tasks Completed
 
