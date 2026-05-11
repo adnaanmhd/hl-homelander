@@ -27,11 +27,14 @@ import java.io.FileWriter
  * thread-confined `BufferedWriter` flushes only on close (kernel page-
  * cache holds the in-flight bytes; OS write-back keeps disk current).
  *
- * CSV row format (idea-brief.md §8.2):
+ * CSV format (idea-brief.md §8.2): line 1 is the column-name header
+ *   `timestamp_ns,sensor_type,x,y,z`
+ * (written verbatim at construction); every subsequent line is one sample
  *   `${timestamp_ns},${type},${x},${y},${z}\n`
  * where `type` is "gyro" or "accel"; values are native sensor units
  * (rad/s for gyro, m/s² for accel); both sensors interleaved by
- * timestamp in one file.
+ * timestamp in one file. Per-column units live in the schema doc, not
+ * inline in the CSV.
  *
  * Construction tolerates a missing gyro/accelerometer (Robolectric
  * default + headless test runners). `start()` is a no-op if either
@@ -40,7 +43,7 @@ import java.io.FileWriter
  * gates the user out before we ever construct an ImuWriter.
  *
  * Lifecycle:
- *   - construct: open BufferedWriter, start HandlerThread.
+ *   - construct: open BufferedWriter, write the CSV header line, start HandlerThread.
  *   - start():   register gyro + accel listeners.
  *   - stop():    unregister listeners; return collected timestamps.
  *   - close():   flush + close writer; quitSafely the HandlerThread.
@@ -63,9 +66,25 @@ class ImuWriter(
          * either way (Pitfall 3 invariant).
          */
         const val DEFAULT_MAX_REPORT_LATENCY_US = 200_000
+
+        /**
+         * Column-name header line written verbatim as line 1 of every IMU
+         * CSV (idea-brief.md §8.2). The schema is the long / interleaved
+         * form: one row per sample, `sensor_type` ∈ {"gyro", "accel"}.
+         * Any CSV consumer must skip this first line before parsing.
+         */
+        const val CSV_HEADER = "timestamp_ns,sensor_type,x,y,z\n"
     }
 
     private val csv: BufferedWriter = BufferedWriter(FileWriter(csvFile), 8192)
+
+    init {
+        // Header line written at construction — single-threaded (no sensor
+        // listener registered yet, so no csvLock needed). FileWriter has no
+        // append mode here, so this is always line 1 of a fresh file.
+        csv.write(CSV_HEADER)
+    }
+
     private val sm: SensorManager? =
         ctx.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
     private val gyro: Sensor? = sm?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
