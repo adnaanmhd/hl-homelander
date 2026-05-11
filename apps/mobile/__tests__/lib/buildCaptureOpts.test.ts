@@ -168,7 +168,7 @@ describe('readGateConfig (HAND-11 — RemoteConfig with hard-coded fallbacks)', 
     });
     const cfg = await readGateConfig();
     expect(cfg).toEqual(GATE_DEFAULTS);
-    expect(cfg).toEqual({ targetHits: 5, cadenceMs: 400, minHandDetectionConfidence: 0.5 });
+    expect(cfg).toEqual({ targetHits: 2, cadenceMs: 250, minHandDetectionConfidence: 0.5 });
   });
 
   it('still returns usable values when fetchAndActivate rejects (offline)', async () => {
@@ -176,6 +176,6 @@ describe('readGateConfig (HAND-11 — RemoteConfig with hard-coded fallbacks)', 
     rcGetValue.mockImplementation((_key: string) => ({ asNumber: (): number => 0 }));
     const cfg = await readGateConfig();
     // getValue returns 0 → the `|| default` fallback applies.
-    expect(cfg).toEqual({ targetHits: 5, cadenceMs: 400, minHandDetectionConfidence: 0.5 });
+    expect(cfg).toEqual({ targetHits: 2, cadenceMs: 250, minHandDetectionConfidence: 0.5 });
   });
 });

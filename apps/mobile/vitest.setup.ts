@@ -184,6 +184,12 @@ vi.mock('react-native', () => {
       absoluteFillObject: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
     },
     NativeModules: {},
+    // debug handgate-never-passes — RecordingScreen mounts the native
+    // <HumynGateCameraView> (a Camera2-backed TextureView) via
+    // `requireNativeComponent('HumynGateCameraView')`. Under jsdom there's no
+    // native view registry, so this returns a pass-through host-component shim
+    // (a <div> like View) keyed by name; JSDOM never renders a camera feed.
+    requireNativeComponent: (name: string) => makeComponent(name),
     // Plan 04-09 — RecordingScreen mounts useRecordingLifecycle (plan 04-08),
     // whose HumynPhoneState / HumynBattery bindings construct a
     // NativeEventEmitter on first subscribe. The canonical react-native shim
@@ -262,7 +268,7 @@ vi.mock('react-native', () => {
       Text: makeComponent('AnimatedText'),
       Image: makeComponent('AnimatedImage'),
       ScrollView: makeComponent('AnimatedScrollView'),
-      Value: class {
+      Value: class AnimatedValueShim {
         _v: number;
         constructor(v: number) {
           this._v = v;
@@ -270,16 +276,41 @@ vi.mock('react-native', () => {
         setValue(v: number) {
           this._v = v;
         }
+        addListener() {
+          return 'shim-id';
+        }
+        removeListener() {
+          /* no-op */
+        }
+        removeAllListeners() {
+          /* no-op */
+        }
+        stopAnimation() {
+          /* no-op */
+        }
+        // RotatePrompt et al. do `value.interpolate({...})` then feed the result
+        // into a style transform — return a fresh shim so the chain doesn't
+        // throw; JSDOM never runs the actual interpolation.
+        interpolate() {
+          return new AnimatedValueShim(0);
+        }
       },
-      timing: () => ({ start: () => undefined }),
-      spring: () => ({ start: () => undefined }),
-      sequence: () => ({ start: () => undefined }),
-      parallel: () => ({ start: () => undefined }),
+      timing: () => ({ start: (cb?: () => void) => cb?.(), stop: () => undefined }),
+      spring: () => ({ start: (cb?: () => void) => cb?.(), stop: () => undefined }),
+      decay: () => ({ start: (cb?: () => void) => cb?.(), stop: () => undefined }),
+      sequence: () => ({ start: (cb?: () => void) => cb?.(), stop: () => undefined }),
+      parallel: () => ({ start: (cb?: () => void) => cb?.(), stop: () => undefined }),
+      stagger: () => ({ start: (cb?: () => void) => cb?.(), stop: () => undefined }),
+      loop: () => ({ start: () => undefined, stop: () => undefined }),
+      delay: () => ({ start: (cb?: () => void) => cb?.(), stop: () => undefined }),
       createAnimatedComponent: <T>(c: T) => c,
     },
     Easing: {
       bezier: () => () => 0,
       linear: () => 0,
+      ease: () => 0,
+      quad: () => 0,
+      cubic: () => 0,
       inOut: () => () => 0,
       out: () => () => 0,
       in: () => () => 0,
@@ -633,65 +664,21 @@ vi.mock('react-native-keychain', () => ({
 // ===========================================================================
 // Phase 4 — handdetector / recording-UX / practice / tutorial.
 //
-// Plan 04-01 adds the locked Phase 4 RN library deps (CLAUDE.md pins) plus
-// jsdom mocks for them so Wave 2/3/4 plans can `import` + unit-test the
-// recording surface without invoking any native bridge. VisionCamera here is
-// preview + `takePhoto()`/`takeSnapshot()` ONLY — the HEVC video pipeline is
-// the hand-rolled HumynCapture native module (CLAUDE.md "Do NOT Use"). The
-// transitive VC peers (react-native-worklets-core, @shopify/react-native-skia)
-// are NOT mocked here — Phase 4 JS never imports them directly; add a vi.mock
-// only if a downstream import surfaces them.
+// Plan 04-01 added the locked Phase 4 RN library deps plus jsdom mocks so the
+// Wave 2/3/4 plans can `import` + unit-test the recording surface without
+// invoking any native bridge. The pre-record hand-gate originally ran on
+// `react-native-vision-camera` (preview + `takePhoto()`); the debug session
+// `handgate-never-passes` (2026-05) replaced it with the hand-rolled native
+// Camera2 gate camera (`HumynGateCamera` / `<HumynGateCameraView>`), and
+// `react-native-vision-camera` + its `react-native-worklets-core` peer were
+// dropped from package.json. So there is no VisionCamera mock here anymore —
+// the gate-camera native module is mocked via `vi.doMock('react-native', …)`
+// in the recording-screen tests (the same per-file convention HumynCapture /
+// HumynHandDetector use), and `<HumynGateCameraView>` is stubbed where
+// `requireNativeComponent` is mocked (see above). The HEVC video pipeline is
+// the hand-rolled HumynCapture native module (CLAUDE.md "Do NOT Use" — never
+// VisionCamera for video).
 // ===========================================================================
-
-// ---------------------------------------------------------------------------
-// react-native-vision-camera — preview component + still-capture only.
-// `Camera` is a forwardRef host component that returns null; its ref instance
-// exposes `takePhoto` / `takeSnapshot` (the hand-gate frame source). The
-// device hooks return a stub back ultra-wide device so `useCameraDevice`
-// consumers render the happy path. `Camera.getAvailableCameraDevices` is the
-// imperative analogue used by the compat probe / device-selection code.
-// ---------------------------------------------------------------------------
-vi.mock('react-native-vision-camera', () => {
-  const STUB_DEVICE = {
-    id: 'mock-cam-0',
-    position: 'back' as const,
-    physicalDevices: ['ultra-wide-angle-camera'] as const,
-    formats: [] as unknown[],
-  };
-  const Camera = React.forwardRef<
-    unknown,
-    Record<string, unknown> & { children?: React.ReactNode }
-  >(function CameraMock(_props, ref) {
-    // Expose the imperative still-capture surface on the ref so consumers
-    // doing `cameraRef.current?.takePhoto()` get a resolved photo object.
-    React.useImperativeHandle(ref, () => ({
-      takePhoto: vi.fn().mockResolvedValue({
-        path: '/tmp/mock-photo.jpg',
-        width: 320,
-        height: 240,
-        orientation: 'landscape-right',
-        isRawPhoto: false,
-      }),
-      takeSnapshot: vi.fn().mockResolvedValue({ path: '/tmp/mock-snap.jpg' }),
-    }));
-    return null;
-  });
-  (Camera as unknown as { getAvailableCameraDevices: unknown }).getAvailableCameraDevices = vi
-    .fn()
-    .mockResolvedValue([
-      { id: 'mock-cam-0', position: 'back', physicalDevices: ['ultra-wide-angle-camera'] },
-    ]);
-  return {
-    Camera,
-    useCameraDevice: (_position?: unknown, _filter?: unknown) => STUB_DEVICE,
-    useCameraDevices: () => [STUB_DEVICE],
-    getCameraDevice: (_devices?: unknown, _position?: unknown, _filter?: unknown) => STUB_DEVICE,
-    useCameraPermission: () => ({
-      hasPermission: true,
-      requestPermission: vi.fn().mockResolvedValue(true),
-    }),
-  };
-});
 
 // ---------------------------------------------------------------------------
 // react-native-tts — default export object; mirrors the idea-brief §13 voice

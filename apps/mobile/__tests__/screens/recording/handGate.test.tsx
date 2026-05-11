@@ -1,21 +1,24 @@
-// useHandGate poll loop + RecordingScreen's gate-substate wiring — plan 04-09
-// Task 2.
+// useHandGate poll loop + RecordingScreen's gate-substate wiring.
+// (Rewritten for the native Camera2 gate camera — debug session
+// handgate-never-passes, 2026-05-11; the VisionCamera `<Camera>` is gone.)
 //
 // Coverage:
 //   useHandGate (in isolation, fake timers):
-//     - advancing the clock by cadenceMs runs one tick: takePhoto → RNFS.moveFile
-//       to a cacheDir/hand-gate/*.jpg dest → detectHands(dest, minConf) →
+//     - advancing the clock by cadenceMs runs one tick: HumynGateCamera.captureFrame
+//       writes a cacheDir/hand-gate/*.jpg → detectHands(dest, minConf) →
 //       RNFS.unlink(dest) in finally
 //     - detectHands → 2 → GATE_HIT; → 1 → GATE_MISS; rejects → GATE_MISS (count 0)
+//     - captureFrame rejecting → GATE_MISS (count 0)
 //     - the loop stops when `active` flips false
 //   RecordingScreen gate substate:
-//     - isHandDetectorAvailable() === false → GATE_BYPASS dispatched +
-//       logEvent('recording_gate_bypassed', …) (HAND-08)
+//     - !isHandDetectorAvailable() → GATE_BYPASS + logEvent('recording_gate_bypassed', …) (HAND-08)
+//     - !isGateCameraAvailable() → GATE_BYPASS + logEvent('recording_gate_bypassed', …) (HAND-08)
+//     - gate loading + both modules available → startGate() called, no bypass
 //     - on mount the cacheDir/hand-gate sweep (RNFS.readDir → unlink per file) runs
-//     - Skip tap → GATE_SKIP + logEvent('recording_gate_skipped', …) with NO
-//       image-data prop (HAND-14 — locale only)
+//     - Skip tap → GATE_SKIP + logEvent('recording_gate_skipped', …) with NO image-data prop (HAND-14)
+//     - locks landscape on mount, restores brightness on unmount (REC-01 / REC-08)
 
-import React, { useRef } from 'react';
+import React from 'react';
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -23,13 +26,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // Shared spies (hoisted so the mock factories + the test bodies see the same).
 // ---------------------------------------------------------------------------
 const {
-  mockMoveFile,
   mockMkdir,
   mockUnlink,
   mockReadDir,
   mockDetectHands,
   mockIsHandDetectorAvailable,
   mockCleanupHandDetector,
+  mockStartGate,
+  mockCaptureFrame,
+  mockStopGate,
+  mockIsGateCameraAvailable,
   mockLogEvent,
   mockBrightnessSet,
   mockHcStart,
@@ -40,13 +46,16 @@ const {
   mockHcOnThermalAbort,
   mockHcOnError,
 } = vi.hoisted(() => ({
-  mockMoveFile: vi.fn().mockResolvedValue(undefined),
   mockMkdir: vi.fn().mockResolvedValue(undefined),
   mockUnlink: vi.fn().mockResolvedValue(undefined),
   mockReadDir: vi.fn().mockResolvedValue([{ path: '/tmp/mock-caches/hand-gate/stale-1.jpg' }]),
   mockDetectHands: vi.fn().mockResolvedValue(2),
   mockIsHandDetectorAvailable: vi.fn().mockReturnValue(true),
   mockCleanupHandDetector: vi.fn().mockResolvedValue(undefined),
+  mockStartGate: vi.fn().mockResolvedValue(undefined),
+  mockCaptureFrame: vi.fn().mockResolvedValue(undefined),
+  mockStopGate: vi.fn().mockResolvedValue(undefined),
+  mockIsGateCameraAvailable: vi.fn().mockReturnValue(true),
   mockLogEvent: vi.fn(),
   mockBrightnessSet: vi.fn().mockResolvedValue(undefined),
   mockHcStart: vi.fn().mockResolvedValue({
@@ -69,7 +78,6 @@ vi.mock('react-native-fs', () => {
     DocumentDirectoryPath: '/tmp/mock-docs',
     TemporaryDirectoryPath: '/tmp/mock-tmp',
     mkdir: mockMkdir,
-    moveFile: mockMoveFile,
     unlink: mockUnlink,
     readDir: mockReadDir,
     exists: vi.fn().mockResolvedValue(false),
@@ -87,6 +95,14 @@ vi.mock('../../../src/native/HumynHandDetector', () => ({
   detectHands: mockDetectHands,
   isHandDetectorAvailable: mockIsHandDetectorAvailable,
   cleanup: mockCleanupHandDetector,
+}));
+
+vi.mock('../../../src/native/HumynGateCamera', () => ({
+  startGate: mockStartGate,
+  captureFrame: mockCaptureFrame,
+  stopGate: mockStopGate,
+  isGateCameraAvailable: mockIsGateCameraAvailable,
+  HumynGateCameraView: () => null,
 }));
 
 vi.mock('../../../src/util/analytics', () => ({ logEvent: mockLogEvent }));
@@ -149,9 +165,8 @@ vi.mock('../../../src/lib/ttsVoice', () => ({
   speakCue: vi.fn(),
 }));
 
-// useRecordingLifecycle has its own test (useRecordingLifecycle.test.tsx); here
-// we stub it so RecordingScreen's gate wiring is testable without the §10
-// NativeEventEmitter subscriptions (HumynPhoneState/HumynBattery).
+// useRecordingLifecycle has its own test; here we stub it so RecordingScreen's
+// gate wiring is testable without the §10 NativeEventEmitter subscriptions.
 vi.mock('../../../src/screens/recording/useRecordingLifecycle', () => ({
   useRecordingLifecycle: () => ({
     checkStartGuards: vi.fn().mockResolvedValue({ blocked: false }),
@@ -178,25 +193,8 @@ import { initialRecState, type RecState } from '../../../src/screens/recording/r
 
 // --- a tiny harness component for useHandGate -------------------------------
 type GateAction = { type: 'GATE_HIT'; now: number } | { type: 'GATE_MISS' };
-function GateHarness({
-  active,
-  onAction,
-  takePhoto,
-}: {
-  active: boolean;
-  onAction: (a: GateAction) => void;
-  takePhoto: () => Promise<{ path: string }>;
-}) {
-  const camRef = useRef<{ takePhoto: typeof takePhoto } | null>({ takePhoto });
-  useHandGate({
-    active,
-    cadenceMs: 400,
-    minConfidence: 0.5,
-    camRef: camRef as unknown as React.RefObject<{
-      takePhoto(opts: { flash: 'off'; enableShutterSound: boolean }): Promise<{ path: string }>;
-    } | null>,
-    dispatch: onAction,
-  });
+function GateHarness({ active, onAction }: { active: boolean; onAction: (a: GateAction) => void }) {
+  useHandGate({ active, cadenceMs: 400, minConfidence: 0.5, dispatch: onAction });
   return null;
 }
 
@@ -213,6 +211,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockDetectHands.mockResolvedValue(2);
   mockIsHandDetectorAvailable.mockReturnValue(true);
+  mockIsGateCameraAvailable.mockReturnValue(true);
+  mockStartGate.mockResolvedValue(undefined);
+  mockCaptureFrame.mockResolvedValue(undefined);
+  mockStopGate.mockResolvedValue(undefined);
   mockReadDir.mockResolvedValue([{ path: '/tmp/mock-caches/hand-gate/stale-1.jpg' }]);
 });
 afterEach(() => {
@@ -221,17 +223,15 @@ afterEach(() => {
 });
 
 describe('useHandGate poll loop', () => {
-  it('runs one tick per cadence: takePhoto → moveFile to cacheDir/hand-gate/*.jpg → detectHands → unlink', async () => {
+  it('runs one tick per cadence: captureFrame → cacheDir/hand-gate/*.jpg → detectHands → unlink', async () => {
     vi.useFakeTimers();
-    const takePhoto = vi.fn().mockResolvedValue({ path: '/tmp/vc-photo.jpg' });
     const onAction = vi.fn();
-    render(<GateHarness active onAction={onAction} takePhoto={takePhoto} />);
+    render(<GateHarness active onAction={onAction} />);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(400);
     });
-    expect(takePhoto).toHaveBeenCalledWith({ flash: 'off', enableShutterSound: false });
-    expect(mockMoveFile).toHaveBeenCalledTimes(1);
-    const dest = mockMoveFile.mock.calls[0]![1] as string;
+    expect(mockCaptureFrame).toHaveBeenCalledTimes(1);
+    const dest = mockCaptureFrame.mock.calls[0]![0] as string;
     expect(dest.startsWith(`${HAND_GATE_DIR}/`)).toBe(true);
     expect(dest.endsWith('.jpg')).toBe(true);
     expect(mockDetectHands).toHaveBeenCalledWith(dest, 0.5);
@@ -242,13 +242,7 @@ describe('useHandGate poll loop', () => {
     vi.useFakeTimers();
     mockDetectHands.mockResolvedValue(2);
     const onAction = vi.fn();
-    render(
-      <GateHarness
-        active
-        onAction={onAction}
-        takePhoto={vi.fn().mockResolvedValue({ path: '/tmp/p.jpg' })}
-      />,
-    );
+    render(<GateHarness active onAction={onAction} />);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(400);
     });
@@ -259,13 +253,7 @@ describe('useHandGate poll loop', () => {
     vi.useFakeTimers();
     mockDetectHands.mockResolvedValue(1);
     const onAction = vi.fn();
-    render(
-      <GateHarness
-        active
-        onAction={onAction}
-        takePhoto={vi.fn().mockResolvedValue({ path: '/tmp/p.jpg' })}
-      />,
-    );
+    render(<GateHarness active onAction={onAction} />);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(400);
     });
@@ -276,32 +264,37 @@ describe('useHandGate poll loop', () => {
     vi.useFakeTimers();
     mockDetectHands.mockRejectedValue(new Error('HAND_DETECT_FAILED'));
     const onAction = vi.fn();
-    render(
-      <GateHarness
-        active
-        onAction={onAction}
-        takePhoto={vi.fn().mockResolvedValue({ path: '/tmp/p.jpg' })}
-      />,
-    );
+    render(<GateHarness active onAction={onAction} />);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(400);
     });
     expect(onAction).toHaveBeenCalledWith({ type: 'GATE_MISS' });
   });
 
+  it('captureFrame rejecting is treated as a miss (count 0)', async () => {
+    vi.useFakeTimers();
+    mockCaptureFrame.mockRejectedValue(new Error('GATE_CAMERA_CAPTURE_FAILED'));
+    const onAction = vi.fn();
+    render(<GateHarness active onAction={onAction} />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    expect(onAction).toHaveBeenCalledWith({ type: 'GATE_MISS' });
+    expect(mockDetectHands).not.toHaveBeenCalled();
+  });
+
   it('does not tick when inactive', async () => {
     vi.useFakeTimers();
-    const takePhoto = vi.fn().mockResolvedValue({ path: '/tmp/p.jpg' });
-    render(<GateHarness active={false} onAction={vi.fn()} takePhoto={takePhoto} />);
+    render(<GateHarness active={false} onAction={vi.fn()} />);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2000);
     });
-    expect(takePhoto).not.toHaveBeenCalled();
+    expect(mockCaptureFrame).not.toHaveBeenCalled();
   });
 });
 
 describe('RecordingScreen — gate substate wiring', () => {
-  it('isHandDetectorAvailable() === false → GATE_BYPASS + recording_gate_bypassed (HAND-08)', async () => {
+  it('!isHandDetectorAvailable() → GATE_BYPASS + recording_gate_bypassed (HAND-08)', async () => {
     mockIsHandDetectorAvailable.mockReturnValue(false);
     await act(async () => {
       render(
@@ -314,6 +307,40 @@ describe('RecordingScreen — gate substate wiring', () => {
     });
     expect(mockLogEvent).toHaveBeenCalledWith('recording_gate_started', expect.any(Object));
     expect(mockLogEvent).toHaveBeenCalledWith('recording_gate_bypassed', expect.any(Object));
+    // The gate camera still opens for the live framing preview (it's mounted
+    // across 'ready'|'pre-flight'|'gate'); HAND-08 bypasses hand DETECTION, not
+    // the preview. (When the gate camera module ITSELF is missing — the next
+    // test — startGate is not called.)
+    expect(mockStartGate).toHaveBeenCalled();
+  });
+
+  it('!isGateCameraAvailable() → GATE_BYPASS + recording_gate_bypassed (HAND-08)', async () => {
+    mockIsGateCameraAvailable.mockReturnValue(false);
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('gate', {
+            gate: { ...stateIn('gate').gate, phase: 'loading' },
+          })}
+        />,
+      );
+    });
+    expect(mockLogEvent).toHaveBeenCalledWith('recording_gate_bypassed', expect.any(Object));
+    expect(mockStartGate).not.toHaveBeenCalled();
+  });
+
+  it('gate loading + both modules available → startGate() called (no bypass)', async () => {
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('gate', {
+            gate: { ...stateIn('gate').gate, phase: 'loading' },
+          })}
+        />,
+      );
+    });
+    expect(mockStartGate).toHaveBeenCalledTimes(1);
+    expect(mockLogEvent).not.toHaveBeenCalledWith('recording_gate_bypassed', expect.anything());
   });
 
   it('on mount, sweeps the cacheDir/hand-gate dir (readDir → unlink per file)', async () => {
@@ -352,7 +379,6 @@ describe('RecordingScreen — gate substate wiring', () => {
       const r = render(<RecordingScreen __test_initialState={stateIn('ready')} />);
       unmount = r.unmount;
     });
-    // HumynScreenBrightness.set(-1) fires on unmount.
     await act(async () => {
       unmount?.();
     });

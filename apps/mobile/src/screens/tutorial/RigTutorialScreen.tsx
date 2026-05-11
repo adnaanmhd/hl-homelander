@@ -12,6 +12,13 @@
 //   Button  (btn-primary) "Next" → PracticeIntro (Phase 4 spliced Practice
 //                                  between this and MainTabs)
 //
+// OWNER-DIRECTED DEVIATION from "verbatim §5" (debug session
+// handgate-never-passes, 2026-05-12): a one-line framing-check tip is added
+// under the body — now that the recording surface shows a live ultrawide
+// camera preview from 'ready' onward, contributors are told to use it (and to
+// have a helper sanity-check the frame) before each take. Treated like the
+// en-US-voice override — flag in the commit; reflect back into design-spec §5.
+//
 // ONB-02 off-ramp ("Don't have a rig yet?") opens a Sheet with the support
 // mailto target but does NOT block the user — they can still tap Next from
 // either before or after viewing the off-ramp (the CONTEXT.md "must NOT
@@ -127,6 +134,16 @@ export default function RigTutorialScreen() {
           accessibilityLabel="rig tutorial body"
         >
           Mount your phone on the head rig and make sure it is steady while recording.
+        </Text>
+        <View style={{ height: spacing.m }} />
+        <Text
+          variant="caption"
+          tone="tertiary"
+          style={styles.body}
+          accessibilityLabel="rig tutorial framing tip"
+        >
+          Before each take, use the on-screen camera preview to check your hands are in frame — ask
+          someone to verify if you can.
         </Text>
         <View style={{ height: spacing.l }} />
         <Pressable

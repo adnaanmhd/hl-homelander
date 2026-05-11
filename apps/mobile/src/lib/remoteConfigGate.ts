@@ -4,12 +4,10 @@
 // if the Skip-rate climbs above ~30% in a locale (Pitfall 8/12), or shorten the
 // cadence on faster hardware. MUST degrade gracefully to the hard-coded Android
 // defaults on a fetch failure or a missing/invalid key (Security V14 — a
-// RemoteConfig outage can never block the gate). The keys are cross-platform-
-// aware (the iOS defaults are 3 / 600 / 0.5 per SC#1) even though iOS is
-// descoped from this MVP.
+// RemoteConfig outage can never block the gate).
 //
-//   gate.consecutive_hits_required  → targetHits                 (Android default 5)
-//   gate.cadence_ms                 → cadenceMs                   (Android default 400)
+//   gate.consecutive_hits_required  → targetHits                 (Android default 2 — 2×250 ms ≈ 0.5 s "hands in frame")
+//   gate.cadence_ms                 → cadenceMs                   (Android default 250)
 //   gate.min_hand_detection_confidence → minHandDetectionConfidence (Android default 0.5)
 //
 // Values are clamped to sane ranges: targetHits ≥ 1, cadenceMs ≥ 100,
@@ -26,8 +24,8 @@ export interface GateConfig {
 // Android hard-coded defaults — the unconditional fallback if RemoteConfig is
 // unreachable or returns garbage (Security V14).
 export const GATE_DEFAULTS: GateConfig = {
-  targetHits: 5,
-  cadenceMs: 400,
+  targetHits: 2,
+  cadenceMs: 250,
   minHandDetectionConfidence: 0.5,
 };
 

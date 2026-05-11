@@ -5,10 +5,12 @@
  * plan can `import` + unit-test the recording surface:
  *
  *   1. The new RN libraries resolve under jsdom via the vitest.setup.ts mocks:
- *      react-native-vision-camera (preview + still-capture only),
  *      react-native-tts (idea-brief §13 voice fallback chain),
  *      react-native-fs (flat recordings/ + practice/ storage), and
  *      react-native-orientation-locker (RecordingScreen landscape lock).
+ *      (react-native-vision-camera + react-native-worklets-core were dropped —
+ *      the hand-gate runs on the native Camera2 gate camera now; debug session
+ *      handgate-never-passes.)
  *   2. The canonical Phase 4 native-module stub shapes can be injected via the
  *      per-file `vi.doMock('react-native', ...)` convention (the same pattern
  *      __tests__/native/HumynCapture.test.ts uses) — HumynHandDetector +
@@ -30,7 +32,6 @@ import { fileURLToPath } from 'node:url';
 
 // Static imports — the runtime values come from the vitest.setup.ts mocks;
 // the *types* come from each package's bundled .d.ts (no casting needed).
-import * as VisionCamera from 'react-native-vision-camera';
 import Tts from 'react-native-tts';
 import RNFS from 'react-native-fs';
 import Orientation, { OrientationType } from 'react-native-orientation-locker';
@@ -43,20 +44,6 @@ const MOBILE_ROOT = resolve(__dirname, '../../');
 // 1. New RN libraries resolve via the vitest.setup.ts mocks.
 // ---------------------------------------------------------------------------
 describe('Phase 4 RN library mocks resolve under jsdom', () => {
-  it('react-native-vision-camera exposes Camera + the device hooks (preview + takePhoto only)', () => {
-    expect(VisionCamera.Camera).toBeDefined();
-    expect(typeof VisionCamera.useCameraDevice).toBe('function');
-    expect(typeof VisionCamera.useCameraDevices).toBe('function');
-    expect(typeof VisionCamera.getCameraDevice).toBe('function');
-    // imperative still-capture surface — the hand-gate frame source.
-    expect(
-      typeof (VisionCamera.Camera as unknown as { getAvailableCameraDevices?: unknown })
-        .getAvailableCameraDevices,
-    ).toBe('function');
-    const dev = VisionCamera.useCameraDevice('back');
-    expect(dev).toBeTruthy();
-  });
-
   it('react-native-tts default export exposes getInitStatus + voices + speak (idea-brief §13 chain)', async () => {
     expect(typeof Tts.getInitStatus).toBe('function');
     expect(typeof Tts.voices).toBe('function');

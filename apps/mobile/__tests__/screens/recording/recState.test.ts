@@ -47,11 +47,11 @@ describe('initialRecState', () => {
     expect(initialRecState({ taskId: 'r', taskName: 'r', isPractice: false }).cap).toBe(1_200_000);
   });
 
-  it('default gate config — targetHits 5 / cadenceMs 400, phase idle', () => {
+  it('default gate config — targetHits 2 / cadenceMs 250, phase idle', () => {
     const g = initialRecState({ taskId: 'r', taskName: 'r', isPractice: false }).gate;
     expect(g.phase).toBe('idle');
-    expect(g.targetHits).toBe(5);
-    expect(g.cadenceMs).toBe(400);
+    expect(g.targetHits).toBe(2);
+    expect(g.cadenceMs).toBe(250);
     expect(g.consecutiveHits).toBe(0);
     expect(g.skipped).toBe(false);
     expect(g.bypassed).toBe(false);
@@ -123,14 +123,14 @@ describe('recReducer — substate transitions', () => {
         targetHits: 9,
         cadenceMs: 900,
       }).gate.targetHits,
-    ).toBe(5);
+    ).toBe(2);
     expect(
       recReducer(baseState({ substate: 'stop-confirm', startedAt: 0 }), {
         type: 'SET_GATE_CONFIG',
         targetHits: 9,
         cadenceMs: 900,
       }).gate.cadenceMs,
-    ).toBe(400);
+    ).toBe(250);
   });
 
   it('SET_GATE_CONFIG clamps a garbage RemoteConfig value (targetHits 0 → 1, cadenceMs 10 → 100)', () => {
@@ -368,7 +368,7 @@ describe('recReducer — substate transitions', () => {
     expect(second).toBe(stopped);
   });
 
-  it('RESET_FOR_FRESH on stopped → ready, gate idle, durationMs 0, ended false, alerts {} (REC-05)', () => {
+  it('RESET_FOR_FRESH on stopped → rotate-prompt (re-gate landscape), gate idle, durationMs 0, ended false, alerts {} (REC-05)', () => {
     const s = baseState({
       substate: 'stopped',
       ended: true,
@@ -378,7 +378,7 @@ describe('recReducer — substate transitions', () => {
       gate: { ...baseState().gate, phase: 'confirmed', consecutiveHits: 5 },
     });
     const next = recReducer(s, { type: 'RESET_FOR_FRESH' });
-    expect(next.substate).toBe('ready');
+    expect(next.substate).toBe('rotate-prompt');
     expect(next.gate.phase).toBe('idle');
     expect(next.gate.consecutiveHits).toBe(0);
     expect(next.durationMs).toBe(0);
@@ -393,6 +393,30 @@ describe('recReducer — substate transitions', () => {
         .substate,
     ).toBe('active');
   });
+});
+
+describe('recReducer — ORIENTATION_LOST (device left landscape mid-pre-record)', () => {
+  it.each(['ready', 'pre-flight', 'gate'] as const)(
+    'ORIENTATION_LOST on %s → rotate-prompt, gate reset to idle',
+    (substate) => {
+      const s = baseState({
+        substate,
+        gate: { ...baseState().gate, phase: 'waiting', consecutiveHits: 1 },
+      });
+      const next = recReducer(s, { type: 'ORIENTATION_LOST' });
+      expect(next.substate).toBe('rotate-prompt');
+      expect(next.gate.phase).toBe('idle');
+      expect(next.gate.consecutiveHits).toBe(0);
+    },
+  );
+
+  it.each(['rotate-prompt', 'active', 'stop-confirm', 'stopped'] as const)(
+    'ORIENTATION_LOST on %s → no-op',
+    (substate) => {
+      const s = baseState({ substate, startedAt: substate === 'rotate-prompt' ? null : 0 });
+      expect(recReducer(s, { type: 'ORIENTATION_LOST' }).substate).toBe(substate);
+    },
+  );
 });
 
 describe('recReducer — overlay alerts (do not change substate)', () => {
