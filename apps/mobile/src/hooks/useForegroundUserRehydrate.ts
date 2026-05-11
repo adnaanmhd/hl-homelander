@@ -26,6 +26,7 @@ import { useEffect } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { useAppStore } from '../state/appStore';
 import { fetchMe } from '../services/profileService';
+import { logEvent } from '../util/analytics';
 
 export function useForegroundUserRehydrate(): void {
   useEffect(() => {
@@ -40,8 +41,16 @@ export function useForegroundUserRehydrate(): void {
             name: me.name,
             avatarUrl: me.avatarUrl,
           });
-        } catch {
-          /* swallow — next ProfileScreen mount retries */
+        } catch (e) {
+          // WR-10 fix — silent swallow stripped the diagnostic signal for
+          // a permanently-failing rehydrate (network down, server-side
+          // revoked JWT, hours-suspended JS context). Emit a telemetry
+          // event so the help-pull diagnostic snapshot shows why the
+          // user-side avatar stayed at 'U'. Next ProfileScreen mount
+          // still retries; the catch remains non-throwing.
+          logEvent('rehydrate_user_failed', {
+            reason: e instanceof Error ? e.name : 'unknown',
+          });
         }
       }
     };
