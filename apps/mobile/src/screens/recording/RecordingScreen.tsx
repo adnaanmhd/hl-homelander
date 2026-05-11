@@ -40,12 +40,12 @@ import {
   useCameraDevices,
   type CameraDevice,
 } from 'react-native-vision-camera';
-import Orientation from 'react-native-orientation-locker';
+import Orientation, { type OrientationType } from 'react-native-orientation-locker';
 import RNFS from 'react-native-fs';
 import { Text } from '../../ui/primitives/Text';
 import { Icon } from '../../ui/primitives/Icon';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
-import { colors, spacing } from '../../ui/tokens';
+import { colors, radii, spacing } from '../../ui/tokens';
 import { recReducer, initialRecState, type RecState } from './recState';
 import { GateRing } from './components/GateRing';
 import { VoiceCuePill } from './components/VoiceCuePill';
@@ -219,11 +219,20 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
   }, [devices, fallbackDevice]);
 
   // --- gate config (HAND-11 — RemoteConfig, defaulted-then-updated) ---------
+  // The reducer starts the gate at the hard-coded 5/400 (DEFAULT_TARGET_HITS /
+  // DEFAULT_CADENCE_MS); when RemoteConfig resolves we both keep the local
+  // `gateCfg` (for `minHandDetectionConfidence`, which lives only here) AND
+  // push targetHits/cadenceMs into the reducer via SET_GATE_CONFIG so the
+  // GateRing target, the poll cadence, and the per-segment metadata all reflect
+  // the live values (WR-01). SET_GATE_CONFIG's own substate guard means a late
+  // resolve after the user already pressed record is a harmless no-op.
   const [gateCfg, setGateCfg] = useState<GateConfig>(GATE_DEFAULTS);
   useEffect(() => {
     let cancelled = false;
     readGateConfig().then((cfg) => {
-      if (!cancelled) setGateCfg(cfg);
+      if (cancelled) return;
+      setGateCfg(cfg);
+      dispatch({ type: 'SET_GATE_CONFIG', targetHits: cfg.targetHits, cadenceMs: cfg.cadenceMs });
     });
     return () => {
       cancelled = true;
@@ -248,8 +257,39 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
       Orientation.unlockAllOrientations();
       HumynScreenBrightness.set(-1).catch(() => undefined);
       cleanupHandDetector().catch(() => undefined);
+      // WR-02 — unconditionally recall any native capture session
+      // (camera/encoders/IMU/FGS) that a HumynCapture.start() already in flight
+      // (or just-resolved during the gate→record handoff) brought up. Rejects
+      // 'no_active_session' harmlessly when nothing is running, so it's safe to
+      // fire on every unmount — this is the single chokepoint that prevents an
+      // orphaned session / stuck "recording" foreground-service notification
+      // when the user exits during the handoff (T-4.11-01).
+      HumynCapture.stop().catch(() => undefined);
     };
   }, []);
+
+  // ===========================================================================
+  // CR-01 — the PRODUCTION rotate-prompt → ready path. Without this the
+  // recording surface is a dead-end in any non-__DEV__ build: initialRecState()
+  // always starts at 'rotate-prompt' and the only other production exit (the
+  // RotatePrompt "Pretend I rotated →" pill) is __DEV__-only and dead-code-
+  // eliminated in release. Use the device-orientation (PHYSICAL) listener so it
+  // works regardless of the landscape lock, plus a fire-once read for the
+  // device-already-in-landscape-on-mount case. The reducer's LANDSCAPE_DETECTED
+  // case no-ops outside 'rotate-prompt' and this effect tears down once substate
+  // changes, so a late listener fire is harmless either way (T-4.11-03).
+  // ===========================================================================
+  useEffect(() => {
+    if (state.substate !== 'rotate-prompt') return;
+    const onOrient = (o: OrientationType) => {
+      if (o === 'LANDSCAPE-LEFT' || o === 'LANDSCAPE-RIGHT') {
+        dispatch({ type: 'LANDSCAPE_DETECTED' });
+      }
+    };
+    Orientation.getDeviceOrientation((o) => onOrient(o as OrientationType));
+    Orientation.addDeviceOrientationListener(onOrient);
+    return () => Orientation.removeDeviceOrientationListener(onOrient);
+  }, [state.substate]);
 
   // --- 3s "Don't exit while recording." overlay tip -------------------------
   const [tipVisible, setTipVisible] = useState(true);
@@ -282,7 +322,19 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
       const practice = stateRef.current.isPractice;
       // End the reducer state first so the chrome stops the timer immediately.
       dispatch({ type: 'STOP' });
-      await HumynCapture.stop().catch(() => undefined);
+      // IN-09 — capture the stop() rejection rather than swallowing it. A
+      // 'no_active_session' reject is harmless (the gate→record handoff hasn't
+      // brought up a session yet); a real reject means the segment may not have
+      // finalized — we log it and, on the real-recording ≥60s path, surface a
+      // "finalizing failed" toast instead of claiming a clean save.
+      const stopErr = await HumynCapture.stop()
+        .then(() => null)
+        .catch((e: unknown) => e);
+      if (stopErr) {
+        logEvent('recording_stop_failed', {
+          code: (stopErr as { code?: string } | undefined)?.code ?? 'unknown',
+        });
+      }
       await HumynScreenBrightness.set(-1).catch(() => undefined);
       Orientation.unlockAllOrientations();
       if (practice) {
@@ -294,7 +346,11 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
       if (durationMs >= 60_000) {
         logEvent('recording_stopped');
         speakCue('Recording stopped');
-        showToast(`${formatContributionDuration(durationMs)} added to your contribution.`);
+        showToast(
+          stopErr
+            ? 'Recording saved, but finalizing failed — it may not upload.'
+            : `${formatContributionDuration(durationMs)} added to your contribution.`,
+        );
         navigateToHome(navigation);
         return;
       }
@@ -309,10 +365,18 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
     [navigation, showToast],
   );
 
+  // WR-06 — `loggedOut` wired to the auth-token signal: the §10 "logout while
+  // active → onStop('logout')" policy fires when `appStore.jwt` flips to null
+  // (signOut()). Selector returns a boolean so the screen only re-renders on
+  // the actual login/logout transition.
+  const loggedOut = useAppStore((s) => s.jwt == null);
+
   const { checkStartGuards } = useRecordingLifecycle({
     substate: state.substate,
     isPractice,
     durationMs: state.durationMs,
+    startedAt: state.startedAt,
+    loggedOut,
     callbacks: {
       onStop: (reason) => {
         handleStop(reason).catch(() => undefined);
@@ -459,7 +523,13 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
           appVersion: appVersionRef.current,
         });
         const r = await HumynCapture.start(opts);
-        if (cancelled) return;
+        if (cancelled) {
+          // WR-02 — the screen unmounted (or the gate re-ran) while start() was
+          // in flight; recall the session immediately rather than waiting for
+          // the mount-effect cleanup, so the FGS notification doesn't linger.
+          HumynCapture.stop().catch(() => undefined);
+          return;
+        }
         segMetaRef.current = { recordingId: r.recordingId, filenameBase: r.filenameBase };
         dispatch({ type: 'CAPTURE_STARTED', now: nowMs() });
       } catch (e) {
@@ -751,7 +821,7 @@ const styles = StyleSheet.create({
     top: 88,
     alignSelf: 'center',
     backgroundColor: colors.recOverlayTip,
-    borderRadius: 999,
+    borderRadius: radii.pill,
     paddingVertical: spacing.s,
     paddingHorizontal: spacing.l,
   },
@@ -782,7 +852,7 @@ const styles = StyleSheet.create({
     bottom: 40,
     alignSelf: 'center',
     backgroundColor: colors.recToastBg,
-    borderRadius: 999,
+    borderRadius: radii.pill,
     paddingVertical: spacing.s,
     paddingHorizontal: spacing.l,
     maxWidth: '90%',

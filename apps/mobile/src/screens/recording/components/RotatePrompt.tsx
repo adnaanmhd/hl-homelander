@@ -9,6 +9,12 @@
  * threat T-4.7-04) — an accent "Pretend I rotated →" debug pill that
  * force-advances the surface (the screen dispatches LANDSCAPE_DETECTED).
  *
+ * The PRODUCTION rotate-prompt → ready exit is NOT this pill — it is the
+ * `RecordingScreen` device-orientation effect (CR-01 fix): a physical rotation
+ * to landscape (or the device already being in landscape on mount) dispatches
+ * LANDSCAPE_DETECTED. The `__DEV__` pill below is a *supplementary* dev
+ * shortcut, not the only exit.
+ *
  * NO hex literals — colors from `colors.*`.
  */
 import React from 'react';

@@ -14,6 +14,7 @@
 // Substate transition table (engineering-handoff §4.3 diagram):
 //   initialRecState(params, gateConfig?) → substate 'rotate-prompt'
 //   LANDSCAPE_DETECTED   on 'rotate-prompt'        → 'ready'           (no-op elsewhere)
+//   SET_GATE_CONFIG      on a pre-gate substate    → gate.{targetHits,cadenceMs} updated, clamped (no-op once 'gate' entered) — HAND-11 RemoteConfig late resolve
 //   START_PRESSED        on 'ready'                → 'pre-flight'
 //   PRE_FLIGHT_OK        on 'pre-flight'           → 'gate' (phase 'loading', startedAt=now)
 //   PRE_FLIGHT_FAILED    on 'pre-flight'           → 'ready'           (thermal/storage/battery start-guard)
@@ -76,6 +77,7 @@ export type RecState = {
 
 export type RecAction =
   | { type: 'LANDSCAPE_DETECTED' }
+  | { type: 'SET_GATE_CONFIG'; targetHits: number; cadenceMs: number }
   | { type: 'START_PRESSED' }
   | { type: 'PRE_FLIGHT_OK'; now: number }
   | { type: 'PRE_FLIGHT_FAILED' }
@@ -149,6 +151,27 @@ export function recReducer(state: RecState, action: RecAction): RecState {
     // ---- rotate-prompt → ready ----
     case 'LANDSCAPE_DETECTED':
       return state.substate === 'rotate-prompt' ? { ...state, substate: 'ready' } : state;
+
+    // ---- RemoteConfig gate config (HAND-11) — only valid on a pre-gate
+    //      substate; a no-op once the gate has been entered so it can't perturb
+    //      an in-progress gate. targetHits floored at 1, cadenceMs at 100
+    //      (mirrors remoteConfigGate's clamps — T-4.11-02). ----
+    case 'SET_GATE_CONFIG':
+      if (
+        state.substate === 'rotate-prompt' ||
+        state.substate === 'ready' ||
+        state.substate === 'pre-flight'
+      ) {
+        return {
+          ...state,
+          gate: {
+            ...state.gate,
+            targetHits: Math.max(1, Math.round(action.targetHits)),
+            cadenceMs: Math.max(100, Math.round(action.cadenceMs)),
+          },
+        };
+      }
+      return state;
 
     // ---- ready → pre-flight ----
     case 'START_PRESSED':
