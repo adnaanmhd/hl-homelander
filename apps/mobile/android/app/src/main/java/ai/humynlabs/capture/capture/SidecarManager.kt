@@ -136,7 +136,33 @@ object SidecarManager {
                     .put("location", payload.captureDeviceInfoPartial.location ?: JSONObject.NULL),
             )
 
-        file.writeText(json.toString(2))
+        // WR-11 fix — sidecar write uses the same `.partial → ATOMIC_MOVE`
+        // pattern as MetadataComposer.writeAtomic. The previous direct
+        // `file.writeText` was non-atomic; a process kill mid-write left
+        // a half-formatted JSON that the parser might or might not throw
+        // on (truncated string mid-key parses as garbage values rather
+        // than a clean parse failure). The CaptureLaunchSweep T-3.4-01
+        // mitigation only triggers on a FULL parse exception; garbage-but-
+        // parseable content silently propagates into Phase 5's QA pipeline.
+        val parent = file.parentFile
+            ?: throw IllegalArgumentException("sidecar.write: file has no parent: ${file.path}")
+        val partial = File(parent, "${file.name}.partial")
+        try {
+            partial.writeText(json.toString(2))
+            try {
+                java.nio.file.Files.move(
+                    partial.toPath(),
+                    file.toPath(),
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                )
+            } catch (e: java.nio.file.AtomicMoveNotSupportedException) {
+                throw java.io.IOException("sidecar_atomic_move_unsupported", e)
+            }
+        } catch (e: Throwable) {
+            partial.delete()
+            throw e
+        }
     }
 
     /**
