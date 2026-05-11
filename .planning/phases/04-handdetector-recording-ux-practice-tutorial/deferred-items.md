@@ -8,6 +8,14 @@ in files outside that plan's `files_modified` set.
 
 ## D4-01 — Pre-existing failures: the Phase-3 `__DEV__`-gated smoke seam in `HomeSkeletonScreen.tsx`
 
+- **RESOLVED in plan 04-09** (the designated RecordingScreen-wave owner). The
+  `__DEV__` smoke seam was deleted from `HomeSkeletonScreen.tsx`, the
+  `home-skeleton-screen` visual baseline now passes cleanly (it never reflected
+  the seam — the block crashed pre-04-01's `__DEV__` shim), and the
+  `setPermsGranted is not a function` rejections in `RootNativeStack.test.tsx`
+  were fixed by adding store-action stubs to that test's `freshState()`. Full
+  mobile suite: **0 failed / 0 errors**. Trail: commit `fix(04-09): remove
+Phase-3 __DEV__ smoke seam per 15d8a16 + D4-01`.
 - **Discovered during:** Plan 04-01 (full-suite verification)
 - **Status:** PRE-EXISTING — present on the plan 04-01 Task-1 commit baseline
   (`e716b51`) with zero Phase 4 source changes. `npx vitest run` at that commit:
