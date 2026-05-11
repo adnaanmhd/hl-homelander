@@ -90,6 +90,11 @@ const REQUIRED_PHASE_2_ROUTES = [
   'CompatPass',
   'CompatFail',
   'RigTutorial',
+  // Phase 4 plan 04-06 — the two light tutorial screens spliced between
+  // RigTutorial and MainTabs (RigTutorial → PracticeIntro → Recording →
+  // PracticeComplete → MainTabs). Registered in OnboardingStack.tsx.
+  'PracticeIntro',
+  'PracticeComplete',
 ];
 
 /**
