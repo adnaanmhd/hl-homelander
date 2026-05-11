@@ -57,7 +57,7 @@
 - [ ] **ONB-05**: Practice recording auto-stops at exactly 60 seconds (hard cap) regardless of any other lifecycle event
 - [ ] **ONB-06**: All multimodal alerts (battery / storage / thermal) remain active during practice so users experience them
 - [ ] **ONB-07**: After practice, user sees the Practice-complete screen with success badge, confetti animation, light haptic `[40, 80, 40]` ms, and `Continue` CTA
-- [ ] **ONB-08**: Tutorial runs **only once per install per Google account**; reinstalls trigger it again; there is no re-entry path from within the app
+- [x] **ONB-08**: Tutorial runs **only once per install per Google account**; reinstalls trigger it again; there is no re-entry path from within the app
 
 ### Home Screen
 
@@ -409,7 +409,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ONB-05      | Phase 4 | Pending               |
 | ONB-06      | Phase 4 | Pending               |
 | ONB-07      | Phase 4 | Pending               |
-| ONB-08      | Phase 4 | Pending               |
+| ONB-08      | Phase 4 | Done (plan 04-03)     |
 | HOME-01     | Phase 6 | Pending               |
 | HOME-02     | Phase 6 | Pending               |
 | HOME-03     | Phase 6 | Pending               |
@@ -449,14 +449,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CAP-17      | Phase 3 | Complete              |
 | CAP-18      | Phase 3 | Complete              |
 | CAP-19      | Phase 3 | Complete              |
-| HAND-01     | Phase 4 | Complete |
+| HAND-01     | Phase 4 | Complete              |
 | HAND-02     | Phase 4 | Pending               |
 | HAND-03     | Phase 4 | Pending               |
 | HAND-04     | Phase 4 | Pending               |
 | HAND-05     | Phase 4 | Pending               |
 | HAND-06     | Phase 4 | Pending               |
 | HAND-07     | Phase 4 | Pending               |
-| HAND-08     | Phase 4 | Complete |
+| HAND-08     | Phase 4 | Complete              |
 | HAND-09     | Phase 4 | Pending               |
 | HAND-10     | Phase 4 | Pending               |
 | HAND-11     | Phase 4 | Pending               |
@@ -470,9 +470,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REC-05      | Phase 4 | Pending               |
 | REC-06      | Phase 4 | Pending               |
 | REC-07      | Phase 4 | Pending               |
-| REC-08      | Phase 4 | Complete |
+| REC-08      | Phase 4 | Complete              |
 | REC-09      | Phase 4 | Pending               |
-| REC-10      | Phase 4 | Complete |
+| REC-10      | Phase 4 | Complete              |
 | REC-11      | Phase 4 | Pending               |
 | REC-12      | Phase 4 | Pending               |
 | REC-13      | Phase 4 | Pending               |
