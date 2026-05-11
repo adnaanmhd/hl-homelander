@@ -2,7 +2,9 @@
 
 **Status:** OPEN — fill in the checkboxes during the manual smoke; commit the file when complete.
 
-> Per `04-RESEARCH.md` § "Validation Architecture — Wave 0" + `04-CONTEXT.md` D-WAVE-04: **Phase 4 acceptance is module-ready (vitest suite green) + the practice E2E passing + the `idea-brief.md §10` lifecycle edges manually verified + the §5b drift figures within ±1 ms.** The seven Phase 3 hardware-UAT items (`.planning/STATE.md` "Phase 3 hardware UAT pending") effectively RETIRE during this walk — the verifier should not separately re-block on them after Phase 4 closes. §5b — the ±1 ms video↔IMU drift re-measurement on the new gate→record camera handoff — is **`[BLOCKING]`**: a Phase-4 blocker (not a Phase-5 deferral) if it regresses past Phase 3 smoke 7's mean 0.594 ms / p99 0.728 ms.
+> Per `04-RESEARCH.md` § "Validation Architecture — Wave 0" + `04-CONTEXT.md` D-WAVE-04: **Phase 4 acceptance is module-ready (vitest suite green) + the practice E2E passing + the `idea-brief.md §10` lifecycle edges manually verified + the §5b drift figures measured & recorded.** The seven Phase 3 hardware-UAT items (`.planning/STATE.md` "Phase 3 hardware UAT pending") effectively RETIRE during this walk — the verifier should not separately re-block on them after Phase 4 closes.
+>
+> **§5b drift gate relaxed (owner, 2026-05-12).** §5b — the video↔IMU drift on the gate→record handoff / ultrawide recording path — is **no longer `[BLOCKING]`**. On-hardware it regressed badly (clean 10-min gate-pass segment: max 6.16 / mean 5.58 / p99 5.63 ms vs the Phase-3 smoke-7 baseline of 0.594 / 0.728 ms), almost certainly because the HEVC stream now records on the ultrawide via `CONTROL_ZOOM_RATIO` (heavy distortion-correction / fusion → CPU contention). Decision: keep computing & recording `imu_video_drift_{max,mean,p99}_ms` in every segment's metadata (fleet-health telemetry), don't gate anything on it, and don't change the ultrawide lens code. Full write-up: `ULTRAWIDE-DRIFT-FINDINGS.md` (repo root); the `CLAUDE.md` Core-Value line carries a banner.
 
 **Operator:** **\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_** **Date:** **\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_** **Device:** Pixel 10a (5C161JEA304304) **Android version:** **\_\_\_\_**
 (Secondary device, if walked: Pixel 7a / 8a — **\_\_\_\_** — `idea-brief.md` battery/thermal budget is the 7a-class baseline.)
@@ -106,9 +108,9 @@ Requires `adb shell cmd thermalservice override-status` (available on userdebug 
 
 ---
 
-## §5b ±1 ms video↔IMU drift re-measurement on the gate→record handoff — `[BLOCKING]`
+## §5b video↔IMU drift re-measurement on the gate→record handoff / ultrawide recording — measure & record (NOT blocking)
 
-**This is the section that satisfies the capture-quality invariant for the new Phase-4 camera handoff.** Phase 4 introduced a VisionCamera `<Camera>` (preview + `takePhoto()` for the hand-gate) that must be released before `HumynCapture.start()` opens Camera2 — the `RecordingScreen.tsx` `SETTLE_MS = 80` tunable (plan 04-09) is the delay between `isActive=false` on the VC camera and `HumynCapture.start()`. If that delay is too short, Camera2 opens before VC fully released the device, which (per `04-RESEARCH.md` Pitfall 1) can perturb the timestamp alignment.
+**This section measures the video↔IMU drift on the Phase-4 capture path and records it; it does not pass/fail anything (owner, 2026-05-12 — see `ULTRAWIDE-DRIFT-FINDINGS.md`).** The pre-record hand-gate now runs on a native Camera2 path (the debug session `handgate-never-passes` replaced the original VisionCamera `<Camera>`); `RecordingScreen.tsx`'s `stopGate()` awaits a full session+device close before `HumynCapture.start()` opens Camera2 for the HEVC pipeline (the `SETTLE_MS = 80` margin sits on top of that). The bigger drift contributor turned out to be the recording stream itself running on the ultrawide via `CONTROL_ZOOM_RATIO` (not the handoff timing).
 
 **Procedure:**
 
@@ -127,15 +129,9 @@ Requires `adb shell cmd thermalservice override-status` (available on userdebug 
 | seg 2   |                          |                           |                          |
 | seg 3   |                          |                           |                          |
 
-**Pass criterion (`[BLOCKING]`):** every figure on every segment is within **±1 ms**, AND specifically **does not regress past Phase 3 smoke 7's mean 0.594 ms / p99 0.728 ms** (post-audio-unwire baseline — see `CLAUDE.md` audio-drop banner + `.planning/phases/03-humyn-capture-native-module/03-HUMAN-UAT.md` GAP-3).
+**Reference (not a gate):** the Phase-3 smoke-7 post-audio-unwire baseline was mean 0.594 ms / p99 0.728 ms; the LOCKED spec target is ±1 ms (`idea-brief.md` §2.1). On the Phase-4 ultrawide-recording path these figures regressed to the ~1.7–6.2 ms range — that is **expected and accepted** for now (owner, 2026-05-12). Just record what you measure; do not re-walk or escalate on the number. If we ever decide to drive drift back down, `ULTRAWIDE-DRIFT-FINDINGS.md` §3 lists the options (open the physical ultrawide by id; disable distortion correction; etc.) — all out of scope here, and audio is **NOT** re-introduced regardless.
 
-**If any segment exceeds ±1 ms (or regresses past the smoke-7 baseline):** this is a **Phase-4 BLOCKER** — do NOT close Phase 4.
-
-1. First remedy: increase `SETTLE_MS` in `apps/mobile/src/screens/recording/RecordingScreen.tsx` (it has a drift-re-measurement comment pointing here) and re-walk this section.
-2. If bumping `SETTLE_MS` doesn't bring it back inside ±1 ms: escalate a surgical change to Phase 3 — `HumynCapture.start()` should poll for camera availability (Camera2 device fully released) before opening Camera2, rather than relying on a fixed JS-side delay. Use the surgical-stage protocol (a focused Phase-3 follow-up plan).
-3. Audio is **NOT** re-introduced under any circumstance (`CLAUDE.md` banner — re-introducing audio requires its own on-hardware proof that drift stays inside ±1 ms; that is out of scope here).
-
-**Note:** Phase 3's hardware-UAT item #3 (`imu_video_drift_{max,mean,p99}_ms` residual) retires here — these figures, recorded above, are the canonical Phase-4 drift evidence.
+**Note:** Phase 3's hardware-UAT item #3 (`imu_video_drift_{max,mean,p99}_ms` residual) retires here — these figures, recorded above, are the canonical Phase-4 drift evidence (telemetry, not a gate).
 
 ---
 
@@ -146,7 +142,7 @@ Requires `adb shell cmd thermalservice override-status` (available on userdebug 
 - [ ] All §3 boxes ticked (non-practice via dev affordance — silent 10-min cut + preserved `start_gate`, Stop-button-direct vs X-modal, sub-60 s discard, spec-compliance, IMU ≥100 Hz, FGS type + KEEP_SCREEN_ON, on-disk SHA, session start/stop events).
 - [ ] All §4 boxes ticked (lifecycle edges — answered-call/alarm/rotation/force-quit → stop; force-quit → recover-toast + sidecar re-finalize; declined-call → continue; battery 15% → alert+continue; battery 5% → end; storage <5 GB / battery <5% → refuse; DND untouched).
 - [ ] All §5 boxes ticked (thermal — mid-record SEVERE graceful stop ~2.5 s + multimodal alert; pre-record SEVERE → `start()` rejects `thermal_throttling`).
-- [ ] **§5b `[BLOCKING]` — the drift table above is filled in and every figure is within ±1 ms (and does not regress past mean 0.594 / p99 0.728 ms).**
+- [ ] §5b — the drift table above is filled in (measure & record only; **not** a gate — owner 2026-05-12, see `ULTRAWIDE-DRIFT-FINDINGS.md`). The Phase-4 ultrawide path runs ~1.7–6.2 ms; that's accepted.
 - [ ] Phase-3 hardware-UAT items #1–#7 are considered RETIRED by this walk (the verifier should not separately re-block on them after Phase 4 closes — per D-WAVE-04).
 
 **Recorded §5b drift figures (copy from the §5b table):** seg1 max **\_** / mean **\_** / p99 **\_** · seg2 max **\_** / mean **\_** / p99 **\_** · seg3 max **\_** / mean **\_** / p99 **\_**
@@ -159,7 +155,7 @@ re-walked-on: **\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_** (post-amendments verification
 
 Approved? **YES / NO**
 
-If NO: describe the failure mode and link to the bug ticket / debug-session below. If the §5b drift gate failed, note the `SETTLE_MS` value tried and whether a Phase-3 escalation was opened.
+If NO: describe the failure mode and link to the bug ticket / debug-session below. (§5b drift is not a gate — a high drift figure is recorded, not a NO.)
 
 ---
 
