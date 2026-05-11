@@ -57,6 +57,19 @@ class HumynForegroundService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        // WR-01 fix — Phase 5 will dispatch a "set upload active" intent
+        // via startService(Intent(...).setAction(ACTION_SET_UPLOAD_ACTIVE).
+        // putExtra(EXTRA_UPLOAD_ACTIVE, true|false)). The previous
+        // setUploadActive(boolean) instance method was unreachable from
+        // outside the service (onBind returns null, no Intent dispatch);
+        // routing through the intent surface keeps the existing
+        // start-foreground path untouched while exposing a real seam.
+        if (intent.action == ACTION_SET_UPLOAD_ACTIVE) {
+            uploadActive.set(intent.getBooleanExtra(EXTRA_UPLOAD_ACTIVE, false))
+            // Do NOT call startForeground here; this is a config-only
+            // intent for an already-running service.
+            return START_NOT_STICKY
+        }
         val notif = HumynForegroundNotification.build(this, "Recording in progress")
         ServiceCompat.startForeground(this, NOTIF_ID, notif, FGS_TYPE_RECORDING)
         // START_NOT_STICKY: the JS bridge owns the lifecycle. After a
@@ -67,8 +80,11 @@ class HumynForegroundService : Service() {
     }
 
     /**
-     * Phase 5 seam. Phase 3 never calls this; Plan 03-09's
-     * `HumynCaptureModule` only manages the recording lifecycle.
+     * Phase 5 seam (WR-01 fix — now reachable via [ACTION_SET_UPLOAD_ACTIVE]
+     * intent dispatch). Phase 3 never calls this directly; Plan 03-09's
+     * `HumynCaptureModule` only manages the recording lifecycle. Kept
+     * `internal`-friendly so a same-package test can still flip the flag
+     * without round-tripping through the intent surface.
      */
     fun setUploadActive(active: Boolean) {
         uploadActive.set(active)
@@ -92,5 +108,17 @@ class HumynForegroundService : Service() {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA or
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+
+        /**
+         * WR-01 fix — Phase 5 dispatches this intent action via
+         * `startService(Intent(ctx, HumynForegroundService::class.java)
+         *     .setAction(ACTION_SET_UPLOAD_ACTIVE)
+         *     .putExtra(EXTRA_UPLOAD_ACTIVE, true|false))` to toggle the
+         * upload-active flag without unbinding/re-binding the service.
+         * The intent does NOT trigger a `startForeground` call — the
+         * service is already in the foreground when this intent arrives.
+         */
+        const val ACTION_SET_UPLOAD_ACTIVE = "ai.humynlabs.capture.fgs.SET_UPLOAD_ACTIVE"
+        const val EXTRA_UPLOAD_ACTIVE = "uploadActive"
     }
 }
