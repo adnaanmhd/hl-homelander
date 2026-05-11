@@ -6,8 +6,6 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
-import android.media.AudioManager
-import android.media.AudioRecord
 import android.media.MediaCodec
 import android.os.Build
 import android.os.Handler
@@ -297,14 +295,27 @@ class CaptureSession private constructor(
         SidecarManager.write(sidecarFile, sidecar)
 
         // 4. Allocate primitives in the order Phase 2 EncoderProbe verified.
-        //    Camera2 OPEN -> HEVC encoder + Surface -> AAC encoder + AudioRecord ->
-        //    muxer -> IMU writer + start. Each step is wrapped so partial
-        //    allocation tears down cleanly on failure.
+        //    Camera2 OPEN -> HEVC encoder + Surface -> muxer -> IMU writer
+        //    + start. Each step is wrapped so partial allocation tears
+        //    down cleanly on failure.
+        //
+        //    Audio is intentionally NOT allocated here. Pre-2026-05-11 the
+        //    capture spec included a 48 kHz mono AAC-LC 128 kbps audio
+        //    track; smoke walks on Pixel 10a (sessionId 01KRAJ7YP3...)
+        //    showed audio-pump CPU contention with the video pump pushed
+        //    imu_video_drift_{mean,p99}_ms from 1.78/2.07 ms (audio off)
+        //    to 4.29/4.58 ms (audio on, bytes-consumed PTS) — beyond the
+        //    locked ±1 ms alignment spec. Project owner decision: drop
+        //    audio entirely to preserve the drift invariant. Training
+        //    pipeline (VLA/VLN/robotics) consumes egocentric video + IMU.
+        //    To re-introduce audio: restore `aac = AacEncoder.configure()`
+        //    + `audioRecord = ...` allocations, the audioPumpThread, the
+        //    MuxerStartGate, and `runAudioPumpLoop` from git history (see
+        //    commit a99cdfb for the full audio path) — and prove drift
+        //    stays inside ±1 ms before merging. See HUMAN-UAT GAP-3.
         var camDevice: CameraDevice? = null
         var hevc: MediaCodec? = null
         var inputSurface: Surface? = null
-        var aac: MediaCodec? = null
-        var audioRecord: AudioRecord? = null
         var muxer: FragmentedMuxerWrapper? = null
         var imuWriter: ImuWriter? = null
         var captureSession: CameraCaptureSession? = null
@@ -314,37 +325,6 @@ class CaptureSession private constructor(
             val (codec, surf) = HevcEncoder.configure()
             hevc = codec
             inputSurface = surf
-            aac = AacEncoder.configure()
-            val audioMgr = ctx.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-            // GAP-3 disposition (2026-05-11) — audio capture intentionally
-            // disabled. Smoke walk on Pixel 10a showed audio-pump CPU
-            // contention inflated `imu_video_drift_{mean,p99}_ms` from
-            // 1.78/2.07 ms (audio off) to 4.29/4.58 ms (audio on, bytes-
-            // consumed PTS) on a 30 s capture — beyond the locked ±1 ms
-            // alignment spec. Per project owner decision: drop audio to
-            // preserve the drift invariant. Training pipeline (VLA/VLN/
-            // robotics) consumes egocentric video + IMU, not audio.
-            // Re-introducing audio requires a follow-up that proves drift
-            // stays inside ±1 ms (candidate: pin audio pump to a separate
-            // core via Process.setThreadPriority(URGENT_AUDIO); see
-            // HUMAN-UAT GAP-3 for the full disposition trail).
-            //
-            // The AacEncoder + audio-pump + MuxerStartGate plumbing is
-            // intentionally retained — `audioRecord = null` is the single
-            // toggle that disables the path end-to-end:
-            //   - openSegment skips the audio-pump Handler.post (see
-            //     `if (audioRecord != null)` check below)
-            //   - MuxerStartGate is constructed with expectAudio=false
-            //     so audioReady starts true and muxer.start() fires as
-            //     soon as the video pump registers its track
-            //   - runAudioPumpLoop is never invoked; AAC encoder boots
-            //     and immediately tears down at segment close with no
-            //     input fed (covered by existing close-path try/catch).
-            // To re-enable audio in a future plan, flip this line back
-            // to `audioRecord = audioMgr?.let { AacEncoder.makeAudioRecord(it) }`.
-            @Suppress("UNUSED_VARIABLE")
-            val audioCaptureDisabled = audioMgr // keep AudioManager-fetch defensive (logs init issues if any)
-            audioRecord = null
             muxer = FragmentedMuxerWrapper.create(mp4)
             imuWriter = ImuWriter(ctx, csv).also { it.start() }
             captureSession = openCaptureSession(camDevice, inputSurface)
@@ -353,8 +333,6 @@ class CaptureSession private constructor(
             try { captureSession?.close() } catch (_: Throwable) {}
             try { imuWriter?.close() } catch (_: Throwable) {}
             try { muxer?.close() } catch (_: Throwable) {}
-            try { audioRecord?.release() } catch (_: Throwable) {}
-            try { aac?.stop(); aac?.release() } catch (_: Throwable) {}
             try { inputSurface?.release() } catch (_: Throwable) {}
             try { hevc?.stop(); hevc?.release() } catch (_: Throwable) {}
             try { camDevice?.close() } catch (_: Throwable) {}
@@ -376,16 +354,6 @@ class CaptureSession private constructor(
         val pumpThread = HandlerThread("HumynCapture-Pump-${sidecar.segmentId}").apply { start() }
         pumpThreads.add(pumpThread)
 
-        // WR-15 — separate HandlerThread for the audio pump (AudioRecord
-        // read + AAC encoder feed/drain). Kept independent of the video pump
-        // so that AudioRecord.read() blocking on the mic does not delay
-        // video frame dispatch to the muxer, and so the video and audio
-        // INFO_OUTPUT_FORMAT_CHANGED events arrive without serializing.
-        val audioPumpThread = HandlerThread("HumynCapture-AudioPump-${sidecar.segmentId}").apply { start() }
-        pumpThreads.add(audioPumpThread)
-
-        val muxerStartGate = MuxerStartGate(muxer!!, expectAudio = audioRecord != null)
-
         val seg = Segment(
             segmentId = sidecar.segmentId,
             recordingId = recordingId,
@@ -401,48 +369,32 @@ class CaptureSession private constructor(
             captureSession = captureSession!!,
             inputSurface = inputSurface!!,
             hevc = hevc!!,
-            aac = aac!!,
-            audioRecord = audioRecord,
             muxer = muxer!!,
             imuWriter = imuWriter!!,
             videoFrameTimestamps = java.util.concurrent.CopyOnWriteArrayList(),
             pumpThread = pumpThread,
             pumpExitLatch = CountDownLatch(1),
-            audioPumpThread = audioPumpThread,
-            audioPumpExitLatch = CountDownLatch(1),
-            muxerStartGate = muxerStartGate,
         )
 
-        // 6. Publish `currentSegment` BEFORE posting the pump runnables.
-        //    Both pumps' while-conditions check `currentSegment === seg` as
+        // 6. Publish `currentSegment` BEFORE posting the pump runnable.
+        //    The pump's while-condition checks `currentSegment === seg` as
         //    defense-in-depth (CR-04 ordering contract — the field is the
         //    single source of truth for "is this segment still the active
         //    one"). If the assignment happens AFTER Handler.post, the
-        //    looper can dispatch the pump runnable before currentSegment
-        //    is set; the first while-condition evaluation then sees
+        //    looper can dispatch the runnable before currentSegment is
+        //    set; the first while-condition evaluation then sees
         //    currentSegment == null and the loop exits immediately —
-        //    neither pump ever calls markVideoTrackReady /
-        //    markAudioTrackReady, the MuxerStartGate never opens, and
-        //    the MP4 stays empty. Publishing before the posts closes
+        //    the pump never calls muxer.addTrack/start, and the MP4
+        //    stays empty (0 bytes). Publishing before the post closes
         //    that window. The caller (preFlightAndStartFirstSegment /
         //    rotateSegment) re-assigns the same reference on the return
         //    path — harmless tautology.
         currentSegment = seg
 
-        // 7. Kick off the pumps. Video pump owns dequeue from seg.hevc and
-        //    writes to the muxer's video track. Audio pump (WR-15) owns
-        //    AudioRecord → seg.aac feed AND seg.aac → muxer audio track
-        //    drain. Both coordinate muxer.start() via seg.muxerStartGate.
+        // 7. Kick off the pump. Video pump owns dequeue from seg.hevc,
+        //    calls muxer.addTrack + muxer.start on INFO_OUTPUT_FORMAT_CHANGED,
+        //    then writes encoded HEVC samples to the muxer's video track.
         Handler(pumpThread.looper).post { runPumpLoop(seg) }
-        if (audioRecord != null) {
-            Handler(audioPumpThread.looper).post { runAudioPumpLoop(seg) }
-        } else {
-            // Defense-in-depth: gate already pre-armed for audio when
-            // expectAudio=false, but log path simply lets the video pump
-            // start the muxer alone. Latch the audio pump so close
-            // doesn't await it indefinitely.
-            seg.audioPumpExitLatch.countDown()
-        }
 
         return seg
     }
@@ -549,6 +501,7 @@ class CaptureSession private constructor(
         try {
             val info = MediaCodec.BufferInfo()
             var videoTrackId = -1
+            var muxerStarted = false
             // CR-04 fix — `pumpShouldStop` is the explicit, ordering-stable
             // exit signal that closeSegmentResources sets BEFORE tearing
             // down resources and BEFORE awaiting `pumpExitLatch`. The
@@ -564,11 +517,10 @@ class CaptureSession private constructor(
                 }
                 when {
                     outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
-                        // WR-15 — register video track via the shared gate.
-                        // muxer.start() fires only after BOTH this and the
-                        // audio pump's matching call land (or audio is absent).
-                        if (videoTrackId == -1) {
-                            videoTrackId = seg.muxerStartGate.markVideoTrackReady(seg.hevc.outputFormat)
+                        if (!muxerStarted) {
+                            videoTrackId = seg.muxer.addTrack(seg.hevc.outputFormat)
+                            seg.muxer.start()
+                            muxerStarted = true
                         }
                     }
                     outIdx == MediaCodec.INFO_TRY_AGAIN_LATER -> {
@@ -587,7 +539,7 @@ class CaptureSession private constructor(
                             // muxer consumes csd from the output format change.
                             try { seg.hevc.releaseOutputBuffer(outIdx, false) } catch (_: Throwable) {}
                         } else {
-                            if (info.size > 0 && seg.muxerStartGate.isStarted() && videoTrackId >= 0) {
+                            if (info.size > 0 && muxerStarted) {
                                 // === CAP-08 timestamp collection (checker issue #2) ===
                                 // Append physical presentation time in ns BEFORE writing
                                 // the buffer. bufferInfo.presentationTimeUs is on the
@@ -617,203 +569,6 @@ class CaptureSession private constructor(
         }
     }
 
-    /**
-     * WR-15 — audio pump loop. Owns the AudioRecord → AAC-encoder input
-     * feed AND the AAC-encoder → muxer audio-track drain.
-     *
-     * Lifecycle:
-     *   1. audioRecord.startRecording() (the previously missing step — without
-     *      this AudioRecord stays in STATE_INITIALIZED and read() returns 0).
-     *   2. Loop: read PCM into a scratch buffer; dequeue an AAC input buffer;
-     *      copy PCM in; queueInputBuffer with bytes-consumed PTS
-     *      (`audioSamplesConsumed * 1_000_000 / SAMPLE_RATE_HZ`).
-     *   3. Drain AAC output (non-blocking): on INFO_OUTPUT_FORMAT_CHANGED,
-     *      register audio track via muxerStartGate; on a payload buffer,
-     *      writeSampleData to muxer audio track id.
-     *   4. On audioPumpShouldStop: queue an empty input with BUFFER_FLAG_END_OF_STREAM,
-     *      then drain output until the encoder emits its own EOS, then exit.
-     *
-     * GAP-3 fix — PCM PTS is derived from the running PCM-sample count,
-     * not wall-clock time. The hardware audio capture clock advances at
-     * exactly `SAMPLE_RATE_HZ` samples per second, so `samples_consumed /
-     * sample_rate` is a zero-drift timeline by construction — independent
-     * of pump-thread scheduling jitter. Audio timebase is sample-counted
-     * starting at 0 at segment start; video timebase is elapsedRealtimeNanos
-     * µs (Camera2 SENSOR_INFO_TIMESTAMP_SOURCE=REALTIME). MediaMuxer
-     * normalizes both tracks to lowest-PTS origin at mux time, so playback
-     * remains coherent. The previous wall-clock approach
-     * (`(elapsedRealtimeNanos - startedAtNs) / 1000`) was vulnerable to
-     * pump-thread jitter leaking into the muxed audio's effective sample
-     * rate; on 30 s smoke captures the resulting `imu_video_drift_*` figures
-     * inflated to mean ≈ 5.5 ms / p99 ≈ 5.8 ms even though only video and
-     * IMU participate in that calc — the audio pump's CPU contention
-     * disturbed frame production on the video pump enough to bloat drift.
-     */
-    @VisibleForTesting
-    internal fun runAudioPumpLoop(seg: Segment) {
-        val audioRecord = seg.audioRecord
-        if (audioRecord == null) {
-            // Should never happen — openSegment only posts this runnable when
-            // audioRecord != null — but be defensive: release the gate so the
-            // video pump can still start the muxer, and exit.
-            seg.muxerStartGate.abandonAudio()
-            seg.audioPumpExitLatch.countDown()
-            return
-        }
-        // PCM read scratch — sized to one AAC frame (1024 samples) at
-        // 48 kHz mono PCM-16 = 2 KiB. Match this to KEY_MAX_INPUT_SIZE so
-        // each AudioRecord.read fills one encoder input buffer per loop
-        // iteration (avoids fragmentation and back-pressure).
-        val pcmFrameBytes = AacEncoder.MAX_INPUT_SIZE / 8 // 2048 bytes = 1024 samples PCM16 mono
-        val pcmBuf = ByteArray(pcmFrameBytes)
-        val info = MediaCodec.BufferInfo()
-        var audioTrackId = -1
-        var inputEosQueued = false
-        // GAP-3 fix — bytes-consumed audio PTS. Counts PCM samples ACTUALLY
-        // read from AudioRecord so the timestamp we attach to each encoder
-        // input buffer is `samples_so_far / sample_rate`. AudioRecord
-        // guarantees exactly SAMPLE_RATE_HZ samples per second at the
-        // hardware capture clock, so this PTS is zero-drift by
-        // construction — any scheduling jitter on this thread (GC,
-        // looper backlog, CPU contention with the video pump) is
-        // absorbed by the wall-clock-vs-sample-count delta and never
-        // leaks into the muxed audio's effective sample rate. Replaces
-        // the wall-clock `(elapsedRealtimeNanos - startedAtNs) / 1000`
-        // approach which would A/V-desync over long sessions because
-        // its sample rate followed Looper.dispatch latency rather than
-        // the audio HAL. PCM-16 mono = 2 bytes/sample; the running
-        // counter increments by `read / 2` per AudioRecord.read.
-        var audioSamplesConsumed: Long = 0
-        try {
-            try {
-                audioRecord.startRecording()
-            } catch (t: Throwable) {
-                // Mic permission revoked mid-session / hardware unavailable.
-                // Release the muxer gate so the video pump can still produce a
-                // (video-only) MP4 rather than silently stall.
-                seg.muxerStartGate.abandonAudio()
-                return
-            }
-
-            while (!Thread.interrupted() && currentSegment === seg) {
-                // ===== INPUT SIDE: PCM → encoder =====
-                if (!inputEosQueued) {
-                    if (seg.audioPumpShouldStop) {
-                        // Drain by signaling end-of-stream on the input.
-                        val inIdx = try {
-                            seg.aac.dequeueInputBuffer(10_000L)
-                        } catch (_: IllegalStateException) { -1 }
-                        if (inIdx >= 0) {
-                            try {
-                                // EOS PTS = the timestamp of the next sample
-                                // we would have read had we kept reading.
-                                seg.aac.queueInputBuffer(
-                                    inIdx,
-                                    0,
-                                    0,
-                                    audioSamplesConsumed * 1_000_000L / AacEncoder.SAMPLE_RATE_HZ,
-                                    MediaCodec.BUFFER_FLAG_END_OF_STREAM,
-                                )
-                                inputEosQueued = true
-                            } catch (_: IllegalStateException) {
-                                // Encoder torn down concurrent with stop.
-                                break
-                            }
-                        }
-                    } else {
-                        val read = try {
-                            audioRecord.read(pcmBuf, 0, pcmBuf.size)
-                        } catch (_: IllegalStateException) { 0 }
-                        if (read > 0) {
-                            val inIdx = try {
-                                seg.aac.dequeueInputBuffer(10_000L)
-                            } catch (_: IllegalStateException) { -1 }
-                            if (inIdx >= 0) {
-                                val inBuf = try {
-                                    seg.aac.getInputBuffer(inIdx)
-                                } catch (_: IllegalStateException) { null }
-                                if (inBuf != null) {
-                                    inBuf.clear()
-                                    inBuf.put(pcmBuf, 0, read)
-                                    // GAP-3 fix — PTS = (samples consumed
-                                    // BEFORE this buffer) / sample_rate, in
-                                    // micros. Bytes-consumed → zero-drift
-                                    // audio PTS regardless of pump-thread
-                                    // jitter (see method-level comment for
-                                    // full rationale). Audio timebase is now
-                                    // sample-counted starting at 0 at segment
-                                    // start; video is on elapsedRealtimeNanos
-                                    // µs; MediaMuxer normalizes both to
-                                    // lowest-PTS origin at mux time.
-                                    val ptsUs = audioSamplesConsumed * 1_000_000L / AacEncoder.SAMPLE_RATE_HZ
-                                    try {
-                                        seg.aac.queueInputBuffer(inIdx, 0, read, ptsUs, 0)
-                                        // Increment AFTER successful queue so a
-                                        // failed/dropped buffer doesn't desync
-                                        // subsequent PTS. PCM-16 mono =
-                                        // 2 bytes/sample.
-                                        audioSamplesConsumed += (read / 2)
-                                    } catch (_: IllegalStateException) {
-                                        break
-                                    }
-                                } else {
-                                    // Release the input buffer back to the codec
-                                    // by queueing 0-size — no public "abandon"
-                                    // exists; safest is to skip and let the
-                                    // next iteration retry.
-                                }
-                            }
-                        }
-                        // read <= 0 (transient): just retry on next loop iter.
-                    }
-                }
-
-                // ===== OUTPUT SIDE: encoder → muxer =====
-                val outIdx = try {
-                    seg.aac.dequeueOutputBuffer(info, 10_000L)
-                } catch (_: IllegalStateException) {
-                    break
-                }
-                when {
-                    outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
-                        if (audioTrackId == -1) {
-                            audioTrackId = seg.muxerStartGate.markAudioTrackReady(seg.aac.outputFormat)
-                        }
-                    }
-                    outIdx == MediaCodec.INFO_TRY_AGAIN_LATER -> {
-                        // No output this tick; loop will refill input next iter.
-                    }
-                    outIdx >= 0 -> {
-                        val outBuf: ByteBuffer? = try {
-                            seg.aac.getOutputBuffer(outIdx)
-                        } catch (_: IllegalStateException) { null }
-                        if (outBuf == null) {
-                            try { seg.aac.releaseOutputBuffer(outIdx, false) } catch (_: Throwable) {}
-                        } else if ((info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
-                            // AAC csd — muxer consumes via outputFormat; release.
-                            try { seg.aac.releaseOutputBuffer(outIdx, false) } catch (_: Throwable) {}
-                        } else {
-                            if (info.size > 0 && seg.muxerStartGate.isStarted() && audioTrackId >= 0) {
-                                outBuf.position(info.offset)
-                                outBuf.limit(info.offset + info.size)
-                                try {
-                                    seg.muxer.writeSampleData(audioTrackId, outBuf, info)
-                                } catch (_: Throwable) { /* muxer closed mid-write */ }
-                            }
-                            try { seg.aac.releaseOutputBuffer(outIdx, false) } catch (_: Throwable) {}
-                        }
-                        if ((info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) break
-                    }
-                    else -> { /* other negative codes — ignore */ }
-                }
-            }
-        } finally {
-            // Always release the muxer gate on exit so we don't deadlock the
-            // video pump if the audio pump errored before adding its track.
-            try { seg.muxerStartGate.abandonAudio() } catch (_: Throwable) {}
-            seg.audioPumpExitLatch.countDown()
-        }
-    }
 
     // === Rotate ===
 
@@ -963,14 +718,6 @@ class CaptureSession private constructor(
         try { seg.captureSession.close() } catch (_: Throwable) {}
         try { seg.hevc.signalEndOfInputStream() } catch (_: Throwable) {}
         seg.pumpShouldStop = true
-        // WR-15 — flip the audio pump's stop flag IN PARALLEL with the video
-        // pump's. The audio pump will queue BUFFER_FLAG_END_OF_STREAM into
-        // the AAC encoder on its next loop iteration, then drain remaining
-        // output frames into the muxer, then exit. AudioRecord is stopped
-        // by the audio pump's exit — not here — so the final PCM read can
-        // complete cleanly. Doing them concurrently keeps total drain time
-        // under the 2 s budget for both pipelines.
-        seg.audioPumpShouldStop = true
         try {
             // 2 s budget: well above the encoder's typical drain time
             // (~tens of ms on Pixel-class). If the pump fails to exit in
@@ -981,28 +728,10 @@ class CaptureSession private constructor(
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
         }
-        try {
-            // Audio pump drain budget — same 2 s window. The audio pump's
-            // EOS-then-drain path is bounded by how fast the AAC encoder can
-            // emit the last ~10 ms of buffered PCM (sub-second on every
-            // Pixel-class codec we've probed).
-            seg.audioPumpExitLatch.await(2L, TimeUnit.SECONDS)
-        } catch (_: InterruptedException) {
-            Thread.currentThread().interrupt()
-        }
         try { seg.pumpThread.quitSafely() } catch (_: Throwable) {}
-        try { seg.audioPumpThread.quitSafely() } catch (_: Throwable) {}
         try { seg.hevc.stop() } catch (_: Throwable) {}
         try { seg.hevc.release() } catch (_: Throwable) {}
         try { seg.inputSurface.release() } catch (_: Throwable) {}
-        // WR-15 — AudioRecord.stop/release MUST come after the audio pump
-        // has exited (audioPumpExitLatch above) so the pump's final
-        // audioRecord.read() does not race a concurrent stop(). Same
-        // ordering reasoning as hevc/inputSurface above the CR-04 fix.
-        try { seg.audioRecord?.stop() } catch (_: Throwable) {}
-        try { seg.audioRecord?.release() } catch (_: Throwable) {}
-        try { seg.aac.stop() } catch (_: Throwable) {}
-        try { seg.aac.release() } catch (_: Throwable) {}
         try { seg.muxer.close() } catch (_: Throwable) {}
         try { seg.cam.close() } catch (_: Throwable) {}
         try {
@@ -1065,8 +794,6 @@ internal data class Segment(
     val captureSession: CameraCaptureSession,
     val inputSurface: Surface,
     val hevc: MediaCodec,
-    val aac: MediaCodec,
-    val audioRecord: AudioRecord?,
     val muxer: FragmentedMuxerWrapper,
     val imuWriter: ImuWriter,
     /**
@@ -1108,107 +835,7 @@ internal data class Segment(
      * inconsistent between rotate and stop paths).
      */
     @Volatile var pumpShouldStop: Boolean = false,
-    // === WR-15 audio plumbing ===
-    /**
-     * Audio-pump HandlerThread. Owns the AudioRecord.read → aac input feed
-     * AND the aac output → muxer.writeSampleData drain. Lives for the
-     * lifetime of the segment; quit-safely'd in closeSegmentResources after
-     * `audioPumpExitLatch` fires.
-     */
-    val audioPumpThread: HandlerThread,
-    /**
-     * Counted down in the audio-pump runnable's `finally` so closeSegmentResources's
-     * `audioPumpExitLatch.await(...)` returns even on exception/interrupt.
-     */
-    val audioPumpExitLatch: java.util.concurrent.CountDownLatch,
-    /**
-     * Explicit stop signal observed by the audio pump on every loop iteration.
-     * Set BEFORE awaiting `audioPumpExitLatch`. The audio pump translates this
-     * to: queue an empty input with BUFFER_FLAG_END_OF_STREAM into the AAC
-     * encoder, then drain output until the encoder emits its own EOS, then
-     * exit.
-     */
-    @Volatile var audioPumpShouldStop: Boolean = false,
-    /**
-     * Per-segment muxer-start coordination. Video and audio pumps each call
-     * `markVideoTrackReady` / `markAudioTrackReady` after they see
-     * INFO_OUTPUT_FORMAT_CHANGED and successfully `addTrack`; the first call
-     * stores the track id, the second call additionally invokes `muxer.start()`
-     * exactly once. If `audioRecord` is null (defense-in-depth — should never
-     * happen in production), the gate is pre-armed for the audio side so the
-     * video side starts the muxer alone (video-only fallback rather than
-     * silent stall).
-     */
-    val muxerStartGate: MuxerStartGate,
 )
-
-/**
- * Coordinates muxer.start() across the two encoder pumps. media3's
- * FragmentedMp4Muxer (like the framework MediaMuxer) requires every track
- * to be `addTrack`'d BEFORE the first `writeSampleData`. Wrapping
- * FragmentedMuxerWrapper.start() is a no-op for media3, but the wrapper's
- * contract is "start() must precede writeSampleData". The video pump used
- * to call addTrack(video) + muxer.start() in one step; with audio added,
- * BOTH addTrack calls must complete first, then exactly one start().
- *
- * This gate is intentionally minimal — no Lock, just a @Synchronized block
- * around the two flag writes — because the two pumps each contribute one
- * call apiece across the segment lifetime. `awaitStarted` is the shared
- * "may I writeSampleData yet?" predicate; if a pump dequeues an encoded
- * sample BEFORE its own INFO_OUTPUT_FORMAT_CHANGED arrives (impossible in
- * MediaCodec's documented contract, but defense-in-depth) it spins on this.
- */
-internal class MuxerStartGate(
-    private val muxer: FragmentedMuxerWrapper,
-    private val expectAudio: Boolean,
-) {
-    @Volatile private var videoTrackId: Int = -1
-    @Volatile private var audioTrackId: Int = -1
-    @Volatile private var started: Boolean = false
-    @Volatile private var videoReady: Boolean = false
-    @Volatile private var audioReady: Boolean = !expectAudio
-
-    @Synchronized
-    fun markVideoTrackReady(format: android.media.MediaFormat): Int {
-        if (videoReady) return videoTrackId
-        videoTrackId = muxer.addTrack(format)
-        videoReady = true
-        maybeStart()
-        return videoTrackId
-    }
-
-    @Synchronized
-    fun markAudioTrackReady(format: android.media.MediaFormat): Int {
-        if (audioReady && expectAudio.not()) return -1
-        if (audioTrackId != -1) return audioTrackId
-        audioTrackId = muxer.addTrack(format)
-        audioReady = true
-        maybeStart()
-        return audioTrackId
-    }
-
-    /**
-     * Audio pump bails out (e.g., AudioRecord init failed) — release the
-     * gate so the video pump can still start the muxer in video-only mode.
-     * Idempotent.
-     */
-    @Synchronized
-    fun abandonAudio() {
-        audioReady = true
-        maybeStart()
-    }
-
-    private fun maybeStart() {
-        if (!started && videoReady && audioReady) {
-            muxer.start()
-            started = true
-        }
-    }
-
-    fun isStarted(): Boolean = started
-    fun videoTrackIdOrMinus1(): Int = videoTrackId
-    fun audioTrackIdOrMinus1(): Int = audioTrackId
-}
 
 /**
  * CAP-07 — REALTIME-source pre-flight gate.
