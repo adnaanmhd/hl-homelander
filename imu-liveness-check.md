@@ -58,6 +58,8 @@ Real first-person head motion has signatures that are difficult to fake without 
 
 Run these on the uploaded IMU CSV (`<filename>.csv`) after upload completes. The capture spec already guarantees gyro + accel at ≥100 Hz with `SystemClock.elapsedRealtimeNanos` timestamps — use those directly.
 
+> **Implementer note (2026-05-11):** the CSV's first line is the `timestamp_ns,sensor_type,x,y,z` column-name header (`ImuWriter` emits it verbatim — see `idea-brief.md` §8.2). Skip line 1 before parsing rows. This doc is v2-deferred, so this is just a breadcrumb for whoever builds the gate — no code here yet.
+
 ### 4.1 Stillness gate
 
 For every non-overlapping 5-second window across the segment:
