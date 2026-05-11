@@ -59,6 +59,15 @@ import java.util.concurrent.Executors
  * Both methods dispatch to a single-thread background executor (never block
  * the JS thread — BitmapFactory.decodeFile + MediaPipe inference on JS would
  * freeze the gate UI).
+ *
+ * WR-03 — `cleanup()` runs `landmarker.close()` on `bgExecutor`, not on the
+ * bridge thread, so the close is serialised behind any in-flight `detect()` on
+ * the same single-thread executor (the `synchronized` in [getOrCreate] guards
+ * construction only). If an `override fun invalidate()` is ever added that
+ * closes the landmarker, it MUST wrap the `close()` in `bgExecutor.execute { }`
+ * for the same reason — closing the native MediaPipe handle out from under an
+ * active detection is undefined behaviour / a native crash, and RecordingScreen
+ * calls `cleanup()` on every unmount while the gate poll fires every ~400 ms.
  */
 @ReactModule(name = HumynHandDetectorModule.NAME)
 class HumynHandDetectorModule(reactContext: ReactApplicationContext) :
@@ -121,6 +130,13 @@ class HumynHandDetectorModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun detectHands(path: String, minConfidence: Double, promise: Promise) {
         bgExecutor.execute {
+            // WR-03 — this runs on the single-thread `bgExecutor`, the same
+            // executor `cleanup()` now closes the landmarker on, so the
+            // `getOrCreate(mc).detect(...)` pair below can never race a
+            // concurrent `cleanup()`: a `cleanup()` enqueued before this task
+            // closes first, one enqueued after re-creates the landmarker via
+            // `getOrCreate`. Any native exception from a half-torn-down state is
+            // already caught and converted to a graceful `HAND_DETECT_FAILED`.
             var decoded: Bitmap? = null
             var scaled: Bitmap? = null
             try {
@@ -160,10 +176,21 @@ class HumynHandDetectorModule(reactContext: ReactApplicationContext) :
 
     @ReactMethod
     fun cleanup(promise: Promise) {
-        synchronized(this) {
-            landmarker?.close()
-            landmarker = null
+        // WR-03 — close() must run on `bgExecutor` so it can never race an
+        // in-flight `detect()` on the same single-thread executor (the
+        // `synchronized` in `getOrCreate` guards construction only).
+        // RecordingScreen calls `cleanup()` on every unmount (X button,
+        // post-stop nav, …) and the gate poll fires every ~400 ms during
+        // `gate.waiting`, so an unmount-during-poll is routine. The
+        // `synchronized(this)` block stays so it pairs with `getOrCreate`'s
+        // construction lock — a `detectHands` enqueued after this `cleanup`
+        // re-creates the landmarker cleanly.
+        bgExecutor.execute {
+            synchronized(this) {
+                landmarker?.close()
+                landmarker = null
+            }
+            promise.resolve(null)
         }
-        promise.resolve(null)
     }
 }
