@@ -110,6 +110,23 @@ object DriftCalculator {
      * residual respectively) — same semantics the canonical idea-brief.md
      * §6.5 algorithm assumes for video frames at or beyond the IMU coverage
      * window.
+     *
+     * **WR-06 caveat — drift is conservatively under-reported at segment edges.**
+     * The endpoint clamp means video frames whose timestamps fall outside
+     * the IMU coverage window get a residual close to 0 instead of the true
+     * extrapolated drift. In practice IMU registration takes ~tens of ms
+     * at segment start, and closeSegmentResources stops the IMU writer
+     * AFTER the muxer in step 7 — so up to ~6 frames at each edge of a
+     * 10-min segment (12 frames out of 18 000 = 0.067%) compute drift
+     * against a clamped value rather than a true residual. p99 is
+     * unaffected (well below the 1% threshold). max may under-report when
+     * the worst real drift happens to occur in the underrun window. The
+     * Phase 5 server-side QA pipeline should treat drift figures < 0.5 ms
+     * as "could be true zero, could be edge-clamp under-report" rather
+     * than as a hard guarantee. A future v2 change can drop edge frames
+     * outside the IMU coverage window from the drift array; doing so now
+     * would shrink the per-segment drift sample count and require Phase 5
+     * to relax its statistical floor.
      */
     private fun interpolate(xs: LongArray, ys: DoubleArray, x: Long): Double {
         require(xs.size == ys.size && xs.size >= 2) { "interpolate_size_mismatch" }
