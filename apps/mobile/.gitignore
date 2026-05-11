@@ -19,6 +19,9 @@ android/local.properties
 ios/build/
 ios/Pods/
 
+# Test artifacts — jest-image-snapshot writes failure diffs here on a mismatch.
+__tests__/visual/__image_snapshots__/__diff_output__/
+
 # Misc
 .DS_Store
 *.log
