@@ -72,6 +72,10 @@ export const EVENT_NAMES = [
   'recording_started',
   'recording_stopped',
   'recording_too_short',
+  // IN-09 — fires when HumynCapture.stop() rejects (the segment may not have
+  // finalized cleanly); the user gets a "finalizing failed" toast on the
+  // real-recording ≥60s path instead of the clean-save toast.
+  'recording_stop_failed',
   // Profile
   'profile_viewed',
   'profile_edited',
