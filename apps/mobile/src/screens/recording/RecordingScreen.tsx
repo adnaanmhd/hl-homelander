@@ -40,7 +40,7 @@ import {
   useCameraDevices,
   type CameraDevice,
 } from 'react-native-vision-camera';
-import Orientation from 'react-native-orientation-locker';
+import Orientation, { type OrientationType } from 'react-native-orientation-locker';
 import RNFS from 'react-native-fs';
 import { Text } from '../../ui/primitives/Text';
 import { Icon } from '../../ui/primitives/Icon';
@@ -250,6 +250,29 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
       cleanupHandDetector().catch(() => undefined);
     };
   }, []);
+
+  // ===========================================================================
+  // CR-01 — the PRODUCTION rotate-prompt → ready path. Without this the
+  // recording surface is a dead-end in any non-__DEV__ build: initialRecState()
+  // always starts at 'rotate-prompt' and the only other production exit (the
+  // RotatePrompt "Pretend I rotated →" pill) is __DEV__-only and dead-code-
+  // eliminated in release. Use the device-orientation (PHYSICAL) listener so it
+  // works regardless of the landscape lock, plus a fire-once read for the
+  // device-already-in-landscape-on-mount case. The reducer's LANDSCAPE_DETECTED
+  // case no-ops outside 'rotate-prompt' and this effect tears down once substate
+  // changes, so a late listener fire is harmless either way (T-4.11-03).
+  // ===========================================================================
+  useEffect(() => {
+    if (state.substate !== 'rotate-prompt') return;
+    const onOrient = (o: OrientationType) => {
+      if (o === 'LANDSCAPE-LEFT' || o === 'LANDSCAPE-RIGHT') {
+        dispatch({ type: 'LANDSCAPE_DETECTED' });
+      }
+    };
+    Orientation.getDeviceOrientation((o) => onOrient(o as OrientationType));
+    Orientation.addDeviceOrientationListener(onOrient);
+    return () => Orientation.removeDeviceOrientationListener(onOrient);
+  }, [state.substate]);
 
   // --- 3s "Don't exit while recording." overlay tip -------------------------
   const [tipVisible, setTipVisible] = useState(true);

@@ -40,6 +40,10 @@ const {
   mockCleanupHandDetector,
   mockOrientationLock,
   mockOrientationUnlock,
+  mockGetDeviceOrientation,
+  mockAddDeviceOrientationListener,
+  mockRemoveDeviceOrientationListener,
+  deviceOrientationListeners,
   mockReadDir,
   mockUnlink,
   mockCheckStartGuards,
@@ -47,31 +51,48 @@ const {
   mockNavigate,
   mockParentNavigate,
   mockParentReset,
-} = vi.hoisted(() => ({
-  mockLogEvent: vi.fn(),
-  mockSpeakCue: vi.fn(),
-  mockPickVoice: vi.fn().mockResolvedValue(undefined),
-  mockBrightnessSet: vi.fn().mockResolvedValue(undefined),
-  mockHcStart: vi.fn().mockResolvedValue({
-    sessionId: 's',
-    segmentId: 'seg',
-    recordingId: 'rec',
-    filenameBase: '20260511_120000_001',
-  }),
-  mockHcStop: vi.fn().mockResolvedValue(undefined),
-  mockHcEvtSub: vi.fn(() => ({ remove: vi.fn() })),
-  mockDetectAvailable: vi.fn().mockReturnValue(true),
-  mockCleanupHandDetector: vi.fn().mockResolvedValue(undefined),
-  mockOrientationLock: vi.fn(),
-  mockOrientationUnlock: vi.fn(),
-  mockReadDir: vi.fn().mockResolvedValue([]),
-  mockUnlink: vi.fn().mockResolvedValue(undefined),
-  mockCheckStartGuards: vi.fn().mockResolvedValue({ blocked: false }),
-  mockGoBack: vi.fn(),
-  mockNavigate: vi.fn(),
-  mockParentNavigate: vi.fn(),
-  mockParentReset: vi.fn(),
-}));
+} = vi.hoisted(() => {
+  const deviceOrientationListeners: Array<(o: string) => void> = [];
+  return {
+    mockLogEvent: vi.fn(),
+    mockSpeakCue: vi.fn(),
+    mockPickVoice: vi.fn().mockResolvedValue(undefined),
+    mockBrightnessSet: vi.fn().mockResolvedValue(undefined),
+    mockHcStart: vi.fn().mockResolvedValue({
+      sessionId: 's',
+      segmentId: 'seg',
+      recordingId: 'rec',
+      filenameBase: '20260511_120000_001',
+    }),
+    mockHcStop: vi.fn().mockResolvedValue(undefined),
+    mockHcEvtSub: vi.fn(() => ({ remove: vi.fn() })),
+    mockDetectAvailable: vi.fn().mockReturnValue(true),
+    mockCleanupHandDetector: vi.fn().mockResolvedValue(undefined),
+    mockOrientationLock: vi.fn(),
+    mockOrientationUnlock: vi.fn(),
+    // CR-01 — the screen's new rotate-prompt → ready effect drives
+    // `getDeviceOrientation(cb)` (fire-once) + `addDeviceOrientationListener`.
+    // Default the fire-once read to PORTRAIT (a fresh mount stays in
+    // rotate-prompt unless a test overrides `getDeviceOrientation`); capture
+    // every registered listener so a test can drive it.
+    mockGetDeviceOrientation: vi.fn((cb: (o: string) => void) => cb('PORTRAIT')),
+    mockAddDeviceOrientationListener: vi.fn((fn: (o: string) => void) => {
+      deviceOrientationListeners.push(fn);
+    }),
+    mockRemoveDeviceOrientationListener: vi.fn((fn: (o: string) => void) => {
+      const i = deviceOrientationListeners.indexOf(fn);
+      if (i >= 0) deviceOrientationListeners.splice(i, 1);
+    }),
+    deviceOrientationListeners,
+    mockReadDir: vi.fn().mockResolvedValue([]),
+    mockUnlink: vi.fn().mockResolvedValue(undefined),
+    mockCheckStartGuards: vi.fn().mockResolvedValue({ blocked: false }),
+    mockGoBack: vi.fn(),
+    mockNavigate: vi.fn(),
+    mockParentNavigate: vi.fn(),
+    mockParentReset: vi.fn(),
+  };
+});
 
 vi.mock('../../../src/util/analytics', () => ({ logEvent: mockLogEvent }));
 
@@ -109,8 +130,10 @@ vi.mock('react-native-orientation-locker', () => {
   const Orientation = {
     lockToLandscape: mockOrientationLock,
     unlockAllOrientations: mockOrientationUnlock,
-    addDeviceOrientationListener: vi.fn(),
-    removeDeviceOrientationListener: vi.fn(),
+    getDeviceOrientation: mockGetDeviceOrientation,
+    getInitialOrientation: vi.fn(() => 'PORTRAIT'),
+    addDeviceOrientationListener: mockAddDeviceOrientationListener,
+    removeDeviceOrientationListener: mockRemoveDeviceOrientationListener,
     addOrientationListener: vi.fn(),
     removeOrientationListener: vi.fn(),
   };
@@ -219,6 +242,16 @@ beforeEach(() => {
   });
   mockCheckStartGuards.mockResolvedValue({ blocked: false });
   mockDetectAvailable.mockReturnValue(true);
+  // vi.clearAllMocks() drops the orientation-mock implementations — re-prime them.
+  mockGetDeviceOrientation.mockImplementation((cb: (o: string) => void) => cb('PORTRAIT'));
+  mockAddDeviceOrientationListener.mockImplementation((fn: (o: string) => void) => {
+    deviceOrientationListeners.push(fn);
+  });
+  mockRemoveDeviceOrientationListener.mockImplementation((fn: (o: string) => void) => {
+    const i = deviceOrientationListeners.indexOf(fn);
+    if (i >= 0) deviceOrientationListeners.splice(i, 1);
+  });
+  deviceOrientationListeners.length = 0;
   _routeParams = { taskId: '__practice__', taskName: 'Practice — 60 sec', isPractice: true };
 });
 afterEach(() => cleanup());
@@ -312,6 +345,51 @@ describe('RecordingScreen chrome (substate-driven)', () => {
     });
     expect(screen.getByText('Stop recording?')).toBeTruthy();
     expect(screen.getByText('Recordings under 1 minute are discarded.')).toBeTruthy();
+  });
+});
+
+describe('CR-01 — rotate-prompt is reachable in a non-__DEV__ build', () => {
+  // These tests deliberately mount RecordingScreen with the DEFAULT
+  // initialRecState — NO __test_initialState — so they exercise the production
+  // rotate-prompt → ready path (the device-orientation effect), the exact path
+  // every prior RecordingScreen.test.tsx case bypassed by injecting state.
+  it('default mount renders rotate-prompt, then the device-orientation listener reporting LANDSCAPE-LEFT advances the surface to ready', async () => {
+    await act(async () => {
+      render(<RecordingScreen />);
+    });
+    expect(screen.getByLabelText('rotate-prompt')).toBeTruthy();
+    expect(screen.queryByLabelText('recording-record-button')).toBeNull();
+    // Drive the captured device-orientation listener with a landscape value.
+    const listener = deviceOrientationListeners[0];
+    expect(listener).toBeTruthy();
+    await act(async () => {
+      listener!('LANDSCAPE-LEFT');
+    });
+    expect(screen.queryByLabelText('rotate-prompt')).toBeNull();
+    expect(screen.getByLabelText('recording-record-button')).toBeTruthy();
+  });
+
+  it('device already in landscape on mount → the fire-once getDeviceOrientation read lands the surface directly in ready (no rotate-prompt flash)', async () => {
+    mockGetDeviceOrientation.mockImplementation((cb: (o: string) => void) => cb('LANDSCAPE-RIGHT'));
+    await act(async () => {
+      render(<RecordingScreen />);
+    });
+    expect(screen.queryByLabelText('rotate-prompt')).toBeNull();
+    expect(screen.getByLabelText('recording-record-button')).toBeTruthy();
+  });
+
+  it('a PORTRAIT report while in rotate-prompt does NOT advance the surface', async () => {
+    await act(async () => {
+      render(<RecordingScreen />);
+    });
+    expect(screen.getByLabelText('rotate-prompt')).toBeTruthy();
+    const listener = deviceOrientationListeners[0];
+    expect(listener).toBeTruthy();
+    await act(async () => {
+      listener!('PORTRAIT');
+    });
+    expect(screen.getByLabelText('rotate-prompt')).toBeTruthy();
+    expect(screen.queryByLabelText('recording-record-button')).toBeNull();
   });
 });
 
