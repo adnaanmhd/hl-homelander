@@ -1,6 +1,7 @@
-// Initial-route gate-decision tree. Pure function over AppState — no MMKV
-// reads, no side-effects. Consumed once at App.tsx mount (after hydrate())
-// to pick the navigator's initialRouteName.
+// Initial-route gate-decision tree. Reads the per-account practice-tutorial
+// flag from MMKV (ONB-08); otherwise pure over AppState — no other
+// side-effects. Consumed once at App.tsx mount (after hydrate()) to pick the
+// navigator's initialRouteName.
 //
 // Decision order, top to bottom (RESEARCH § "Initial route gate-decision tree"):
 //   1. forceUpgradeBlocked        → ForceUpgrade (hardBlock)
@@ -9,7 +10,8 @@
 //   4. compatPassed missing OR
 //      stale (signature mismatch  → OnboardingStack/Compat   (AUTH-11)
 //      against currentCompatSignature)
-//   5. tutorialDone false         → OnboardingStack/RigTutorial
+//   5. per-account practice flag  → OnboardingStack/RigTutorial   (ONB-08, D-NAV-04)
+//      missing for the JWT's sub
 //   6. all green                  → MainTabs
 //
 // AUTH-11 satisfaction: a fresh install on a new device mints a new
@@ -26,6 +28,9 @@
 // known-good signature for that boot.
 
 import type { AppState } from './appStore';
+import { secureMmkv } from './mmkv';
+import { practiceDoneKey } from './keys';
+import { decodeGoogleSubFromJwt } from '../lib/jwtSub';
 
 export type InitialRoute =
   | { stack: 'ForceUpgrade'; params: { hardBlock: true } }
@@ -66,9 +71,17 @@ export function computeInitialRoute(
     return { stack: 'OnboardingStack', screen: 'Compat' };
   }
 
-  // 5. Tutorial gate (per-Google-sub, but persistence-side; the bool is
-  //    enough at this layer).
-  if (!s.tutorialDone) {
+  // 5. Practice-tutorial gate (ONB-08, D-NAV-04) — per Google account, keyed
+  //    by the JWT's `sub` claim. The legacy s.tutorialDone bool flips when the
+  //    user reaches RigTutorial (set in RigTutorialScreen.handleNext), but the
+  //    CANONICAL gate is the per-account MMKV flag written by
+  //    PracticeCompleteScreen.Continue (plan 04-06): a user must complete the
+  //    60-s practice before reaching MainTabs. Reinstall wipes MMKV → re-run.
+  //    Decode-without-verify is fine here — the JWT was already verified at
+  //    sign-in and `sub` is only a local cache key (never an authz decision).
+  const sub = decodeGoogleSubFromJwt(s.jwt);
+  const practiceDone = secureMmkv.getBoolean(practiceDoneKey(sub)) ?? false;
+  if (!practiceDone) {
     return { stack: 'OnboardingStack', screen: 'RigTutorial' };
   }
 
