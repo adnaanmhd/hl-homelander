@@ -1,9 +1,10 @@
 ---
-status: partial
+status: resolved
 phase: 03-humyn-capture-native-module
 source: [03-VERIFICATION.md]
 started: 2026-05-11T00:31:07Z
-updated: 2026-05-11T03:32:31Z
+updated: 2026-05-11T03:55:00Z
+resolution_notes: '5 passed + 4 deferred (per locked CONTEXT.md D-WAVE-01 — Phase 4 owns 10-min/25-min/drift/thermal real-device E2E). 3 gaps surfaced and RESOLVED: GAP-1 (KEEP_SCREEN_ON wired), GAP-2 (audio sub-pipeline initially fixed then fully unwired), GAP-3 (audio dropped from locked spec per project owner; drift mean/p99 = 0.594/0.728 ms, inside ±1 ms target).'
 ---
 
 ## Current Test

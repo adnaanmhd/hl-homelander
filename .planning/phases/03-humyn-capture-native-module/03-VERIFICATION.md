@@ -1,15 +1,22 @@
 ---
 phase: 03-humyn-capture-native-module
 verified: 2026-05-11T00:31:07Z
-status: human_needed
+status: passed
+status_resolved: 2026-05-11T03:55:00Z
 score: 5/5 must-haves verified (module-ready scope; real-device E2E deferred to Phase 4 per CONTEXT.md D-WAVE-01)
 overrides_applied: 0
 re_verification:
-  previous_status: none
-  previous_score: n/a
-  gaps_closed: []
+  previous_status: human_needed
+  previous_score: 5/5
+  gaps_closed:
+    [
+      'GAP-1 KEEP_SCREEN_ON wiring',
+      'GAP-2 audio track missing (root cause + fix)',
+      'GAP-3 audio dropped from spec to preserve ±1 ms drift target',
+    ]
   gaps_remaining: []
   regressions: []
+  closure_notes: 'Operator UAT walk 2026-05-11 (Pixel 10a) closed paper items #8/#9 and live items #5/#6/#7 (smoke 7 sessionId 01KRAJNVMZ6N5MVZVCZSY3CDRT). Items #1-#4 dispositioned as deferred-to-Phase-4 per locked CONTEXT.md D-WAVE-01. Three gaps surfaced during the walk all RESOLVED: GAP-1 (KEEP_SCREEN_ON wired in HumynCaptureModule.applyKeepScreenOn), GAP-2 (audio sub-pipeline fully unwound via gsd-debugger session at .planning/debug/no-audio-track-in-mp4.md), GAP-3 (audio dropped from locked capture spec per project owner decision; mean/p99 drift now 0.594/0.728 ms — inside ±1 ms target).'
 human_verification:
   - test: '10-min HEVC capture on real Pixel 7a/8a — verify output MP4 honors locked spec'
     expected: 'ffprobe + NAL parser confirm 1920x1080 / 30 FPS / HEVC Main / 8 Mbps CBR / GOP 30 / no B-frames / 8-bit YUV 4:2:0 / no HDR / no OIS; fragmented MP4 with moov flush every 30 s; sidecar IMU CSV sustains ≥100 Hz floor; 48 kHz mono AAC-LC 128 kbps audio track present; zero frame drops'

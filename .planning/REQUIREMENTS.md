@@ -87,25 +87,25 @@
 
 ### Recording — Capture Pipeline (Bytes-on-disk)
 
-- [ ] **CAP-01**: Capture pipeline records 1920×1080 video at 30 FPS in landscape with HEVC Main profile, CBR 8 Mbps, GOP 30, no B-frames (`KEY_LATENCY=1` + verified at NAL-unit level), 8-bit YUV 4:2:0, no HDR, no image stabilisation
-- [ ] **CAP-02**: System writes a fragmented MP4 with a periodic moov-flush every 30 seconds for crash resilience
-- [ ] **CAP-03**: Capture pipeline records audio at 48 kHz mono AAC-LC 128 kbps using `MediaRecorder.AudioSource.MIC` / equivalent
-- [ ] **CAP-04**: Capture pipeline records IMU (gyro + accel) at the device's maximum supported rate via `SensorManager.SENSOR_DELAY_FASTEST`, with sensor batching (`maxReportLatency`) to reduce wake-ups while preserving sample rate
-- [ ] **CAP-05**: System writes a sidecar IMU CSV per recording with columns `timestamp_ns,sensor_type,x,y,z` (sensor units: rad/s for gyro, m/s² for accel; both sensors interleaved by timestamp)
-- [ ] **CAP-06**: All three streams (video, audio, IMU) are timestamped against the same `SystemClock.elapsedRealtimeNanos` (Android) / `mach_absolute_time` (iOS) clock
-- [ ] **CAP-07**: Camera2 timestamp source is configured as `SENSOR_INFO_TIMESTAMP_SOURCE = REALTIME`; devices that only support `UNKNOWN` fail compatibility
-- [ ] **CAP-08**: Per-segment metadata records `imu_video_drift_max_ms`, `imu_video_drift_mean_ms`, `imu_video_drift_p99_ms` computed via least-squares residual-subtraction methodology defined in `idea-brief.md` §6.5
-- [ ] **CAP-09**: System auto-segments every 10 minutes (remote-config-driven default) with a 0.5-second silent gap; each segment is an independent recording (own MP4 / CSV / JSON / upload / QA decision; **no `parent_recording_id` linkage**)
-- [ ] **CAP-10**: Hand-detection gate does **NOT** re-run at 10-minute auto-segment cuts (only on a fresh tap of the record button after stop / re-entry)
-- [ ] **CAP-11**: Pre-record thermal check refuses to start when `PowerManager.getCurrentThermalStatus() ≥ THROTTLING` with toast `Phone is too warm. Let it cool before recording.`
-- [ ] **CAP-12**: Mid-record thermal escalation `≥ THROTTLING_SEVERE` plays the voice line "Phone too hot, stopping recording" then ends the segment cleanly within ~2.5 s; new recordings refused until cool
-- [ ] **CAP-13**: System pauses all in-flight uploads on record start and resumes on stop
-- [ ] **CAP-14**: System keeps the screen on (`KEEP_SCREEN_ON`) and runs as a foreground service of type `camera | microphone | dataSync` (Android) during active recording
-- [ ] **CAP-15**: System computes SHA-256 of the MP4 and SHA-256 of the IMU CSV at finalize time; both hashes go into the metadata JSON as `file_sha256` and `imu_sha256`
-- [ ] **CAP-16**: System generates a metadata JSON per segment matching the schema in `video_metadata.json` (schema_version, recording_id ULID, contributor_info, task_info, capture_device_info, metadata block with full capture spec + drift figures + hashes + sizes in bytes)
-- [ ] **CAP-17**: Filename convention is `YYYYMMDD_HHMMSS_NNN.<ext>` with `NNN` as the per-day sequence; same base name across MP4 / CSV / JSON
-- [ ] **CAP-18**: Files (MP4 / CSV / JSON) are NEVER decoded, re-encoded, transcoded, or stripped — they travel byte-for-byte from device to S3
-- [ ] **CAP-19**: System records a runtime IMU sample-rate observation (`imu_min_rate_hz_observed_p1`) and rejects segments client-side if sustained rate drops below 80 Hz **[research]**
+- [x] **CAP-01**: Capture pipeline records 1920×1080 video at 30 FPS in landscape with HEVC Main profile, CBR 8 Mbps, GOP 30, no B-frames (`KEY_LATENCY=1` + verified at NAL-unit level), 8-bit YUV 4:2:0, no HDR, no image stabilisation
+- [x] **CAP-02**: System writes a fragmented MP4 with a periodic moov-flush every 30 seconds for crash resilience
+- [x] **CAP-03**: Capture pipeline records audio at 48 kHz mono AAC-LC 128 kbps using `MediaRecorder.AudioSource.MIC` / equivalent
+- [x] **CAP-04**: Capture pipeline records IMU (gyro + accel) at the device's maximum supported rate via `SensorManager.SENSOR_DELAY_FASTEST`, with sensor batching (`maxReportLatency`) to reduce wake-ups while preserving sample rate
+- [x] **CAP-05**: System writes a sidecar IMU CSV per recording with columns `timestamp_ns,sensor_type,x,y,z` (sensor units: rad/s for gyro, m/s² for accel; both sensors interleaved by timestamp)
+- [x] **CAP-06**: All three streams (video, audio, IMU) are timestamped against the same `SystemClock.elapsedRealtimeNanos` (Android) / `mach_absolute_time` (iOS) clock
+- [x] **CAP-07**: Camera2 timestamp source is configured as `SENSOR_INFO_TIMESTAMP_SOURCE = REALTIME`; devices that only support `UNKNOWN` fail compatibility
+- [x] **CAP-08**: Per-segment metadata records `imu_video_drift_max_ms`, `imu_video_drift_mean_ms`, `imu_video_drift_p99_ms` computed via least-squares residual-subtraction methodology defined in `idea-brief.md` §6.5
+- [x] **CAP-09**: System auto-segments every 10 minutes (remote-config-driven default) with a 0.5-second silent gap; each segment is an independent recording (own MP4 / CSV / JSON / upload / QA decision; **no `parent_recording_id` linkage**)
+- [x] **CAP-10**: Hand-detection gate does **NOT** re-run at 10-minute auto-segment cuts (only on a fresh tap of the record button after stop / re-entry)
+- [x] **CAP-11**: Pre-record thermal check refuses to start when `PowerManager.getCurrentThermalStatus() ≥ THROTTLING` with toast `Phone is too warm. Let it cool before recording.`
+- [x] **CAP-12**: Mid-record thermal escalation `≥ THROTTLING_SEVERE` plays the voice line "Phone too hot, stopping recording" then ends the segment cleanly within ~2.5 s; new recordings refused until cool
+- [x] **CAP-13**: System pauses all in-flight uploads on record start and resumes on stop
+- [x] **CAP-14**: System keeps the screen on (`KEEP_SCREEN_ON`) and runs as a foreground service of type `camera | microphone | dataSync` (Android) during active recording
+- [x] **CAP-15**: System computes SHA-256 of the MP4 and SHA-256 of the IMU CSV at finalize time; both hashes go into the metadata JSON as `file_sha256` and `imu_sha256`
+- [x] **CAP-16**: System generates a metadata JSON per segment matching the schema in `video_metadata.json` (schema_version, recording_id ULID, contributor_info, task_info, capture_device_info, metadata block with full capture spec + drift figures + hashes + sizes in bytes)
+- [x] **CAP-17**: Filename convention is `YYYYMMDD_HHMMSS_NNN.<ext>` with `NNN` as the per-day sequence; same base name across MP4 / CSV / JSON
+- [x] **CAP-18**: Files (MP4 / CSV / JSON) are NEVER decoded, re-encoded, transcoded, or stripped — they travel byte-for-byte from device to S3
+- [x] **CAP-19**: System records a runtime IMU sample-rate observation (`imu_min_rate_hz_observed_p1`) and rejects segments client-side if sustained rate drops below 80 Hz **[research]**
 
 ### Recording — Hand-detection Gate
 
@@ -417,25 +417,25 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TASK-08     | Phase 6 | Pending               |
 | TASK-09     | Phase 6 | Pending               |
 | TASK-10     | Phase 6 | Pending               |
-| CAP-01      | Phase 3 | Pending               |
-| CAP-02      | Phase 3 | Pending               |
-| CAP-03      | Phase 3 | Pending               |
-| CAP-04      | Phase 3 | Pending               |
-| CAP-05      | Phase 3 | Pending               |
-| CAP-06      | Phase 3 | Pending               |
-| CAP-07      | Phase 3 | Pending               |
-| CAP-08      | Phase 3 | Pending               |
-| CAP-09      | Phase 3 | Pending               |
-| CAP-10      | Phase 3 | Pending               |
-| CAP-11      | Phase 3 | Pending               |
-| CAP-12      | Phase 3 | Pending               |
-| CAP-13      | Phase 3 | Pending               |
-| CAP-14      | Phase 3 | Pending               |
-| CAP-15      | Phase 3 | Pending               |
-| CAP-16      | Phase 3 | Pending               |
-| CAP-17      | Phase 3 | Pending               |
-| CAP-18      | Phase 3 | Pending               |
-| CAP-19      | Phase 3 | Pending               |
+| CAP-01      | Phase 3 | Complete              |
+| CAP-02      | Phase 3 | Complete              |
+| CAP-03      | Phase 3 | Complete              |
+| CAP-04      | Phase 3 | Complete              |
+| CAP-05      | Phase 3 | Complete              |
+| CAP-06      | Phase 3 | Complete              |
+| CAP-07      | Phase 3 | Complete              |
+| CAP-08      | Phase 3 | Complete              |
+| CAP-09      | Phase 3 | Complete              |
+| CAP-10      | Phase 3 | Complete              |
+| CAP-11      | Phase 3 | Complete              |
+| CAP-12      | Phase 3 | Complete              |
+| CAP-13      | Phase 3 | Complete              |
+| CAP-14      | Phase 3 | Complete              |
+| CAP-15      | Phase 3 | Complete              |
+| CAP-16      | Phase 3 | Complete              |
+| CAP-17      | Phase 3 | Complete              |
+| CAP-18      | Phase 3 | Complete              |
+| CAP-19      | Phase 3 | Complete              |
 | HAND-01     | Phase 4 | Pending               |
 | HAND-02     | Phase 4 | Pending               |
 | HAND-03     | Phase 4 | Pending               |
