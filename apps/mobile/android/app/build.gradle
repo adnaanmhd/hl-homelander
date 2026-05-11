@@ -171,6 +171,15 @@ dependencies {
     // https://dl.google.com/dl/android/maven2/androidx/media3/media3-muxer/1.10.0/media3-muxer-1.10.0.pom).
     implementation 'androidx.media3:media3-muxer:1.10.0'
 
+    // Plan 04-02 — HAND-01: MediaPipe HandLandmarker for the pre-record hand gate.
+    // Wrapped by ai.humynlabs.capture.handdetector.HumynHandDetectorModule (Kotlin
+    // TurboModule, body in plan 04-04). The model bundle ships at
+    // android/app/src/main/assets/hand_landmarker.task (~7.8 MB). Pinned at 0.10.21
+    // for iOS-pod parity per CLAUDE.md — the MediaPipeTasksVision iOS pod 0.10.33+
+    // has XCFramework linking issues (mediapipe #6258), so both sides stay at 0.10.21.
+    // Artifact lives on Google Maven (google()), released 2025-01-31 — NOT Maven Central.
+    implementation 'com.google.mediapipe:tasks-vision:0.10.21'
+
     // Plan 03-09 — D-SEG-01: read `capture.segment_minutes` from Firebase Remote Config
     // in Kotlin (`SegmentDurationConfig.kt`) + set defaults in `MainApplication.onCreate`.
     // The autolinked `:react-native-firebase_remote-config` module declares
