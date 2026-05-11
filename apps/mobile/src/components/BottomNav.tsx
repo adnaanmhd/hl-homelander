@@ -104,7 +104,22 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
             }}
           >
             <TabIcon size={24} color={tint} strokeWidth={focused ? 2.25 : 1.75} />
-            <Text variant="tabLabel" style={{ color: tint, marginTop: 2, ...typography.tabLabel }}>
+            <Text
+              variant="tabLabel"
+              style={{
+                color: tint,
+                marginTop: 2,
+                ...typography.tabLabel,
+                // WR-14 fix — WCAG 2.1 SC 1.4.1 (Use of Color) requires that
+                // color is not the only visual means of conveying state.
+                // The active/inactive distinction was previously color +
+                // strokeWidth (2.25 vs 1.75), both at the threshold of
+                // perceptibility on a small icon for users with color-vision
+                // deficiency. Bold weight on the active label adds a
+                // non-color cue that satisfies the SC.
+                fontWeight: focused ? '700' : '400',
+              }}
+            >
               {tab.label}
             </Text>
           </Pressable>
