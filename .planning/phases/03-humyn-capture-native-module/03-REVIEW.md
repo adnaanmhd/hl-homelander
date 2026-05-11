@@ -91,7 +91,7 @@ resolution_notes: 'All 7 BLOCKERs fixed in-Phase-3 per operator decision (03-HUM
 **Reviewed:** 2026-05-11
 **Depth:** standard
 **Files Reviewed:** 71
-**Status:** issues_found
+**Status:** resolved (2026-05-11 — all 7 BLOCKERs + 14 warnings fixed in-Phase-3; see frontmatter `resolution_notes`)
 
 ## Summary
 
