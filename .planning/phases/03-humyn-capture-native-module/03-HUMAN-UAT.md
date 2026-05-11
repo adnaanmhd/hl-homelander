@@ -3,7 +3,7 @@ status: partial
 phase: 03-humyn-capture-native-module
 source: [03-VERIFICATION.md]
 started: 2026-05-11T00:31:07Z
-updated: 2026-05-11T03:01:20Z
+updated: 2026-05-11T03:32:31Z
 ---
 
 ## Current Test
@@ -43,9 +43,16 @@ resolved: 2026-05-11T02:42:11Z
 ### 5. Foreground service runs as camera|microphone|dataSync with KEEP_SCREEN_ON during a real capture
 
 expected: `adb shell dumpsys activity services | grep ai.humynlabs.capture.fgs.HumynForegroundService` shows `fgservicetype=camera|microphone|dataSync`; the "Recording in progress" notification is non-dismissible; KEEP_SCREEN_ON window flag observable via `adb shell dumpsys window | grep -i keepscreenon`
-result: partial
-evidence: Validated on Pixel 10a (5C161JEA304304, Android 16) via 30 s smoke capture at 2026-05-11T08:28:13+05:30 (sessionId 01KRAFH39TAZ8FGSJKP2PH141B). FGS dumpsys during run — `ServiceRecord{...HumynForegroundService}`, `isForeground=true foregroundId=9001 types=0x000000C1`. **0xC1 decodes to FOREGROUND_SERVICE_TYPE_CAMERA(0x40) | MICROPHONE(0x80) | DATA_SYNC(0x01)** ✓ matches spec exactly. `startCommandResult=2` = START_NOT_STICKY ✓ (CR-02 fix verified live). Notification flags `ONGOING_EVENT|FOREGROUND_SERVICE|SILENT` (non-dismissible) ✓. Channel `humyn_capture_fgs` mImportance=2 (LOW) mShowBadge=false ✓. FGS torn down cleanly after stop() ✓. **GAP — KEEP_SCREEN_ON window flag is NOT wired** — zero grep hits for `KEEP_SCREEN_ON|setKeepScreenOn|FLAG_KEEP_SCREEN_ON` across apps/mobile/android/ + apps/mobile/src/. The capture pipeline doesn't add this flag to the current activity window during start(). Should be added in a Phase 3 follow-up plan or absorbed into Phase 4 RecordingScreen wiring; recorded in Gaps below.
-resolved: 2026-05-11T03:01:20Z
+result: passed
+evidence: Initial smoke 2026-05-11T08:28:13+05:30 sessionId 01KRAFH39TAZ8FGSJKP2PH141B validated FGS bitmask + START_NOT_STICKY + notification flags + channel; surfaced GAP-1 (KEEP_SCREEN_ON missing). GAP-1 fixed in HumynCaptureModule.applyKeepScreenOn (toggles FLAG_KEEP_SCREEN_ON on currentActivity?.window from start()/stop() on UI thread). Re-verified live 2026-05-11T08:55:08 sessionId 01KRAH2BVXSJ639ZSE1GHY87M0: `dumpsys window windows | grep MainActivity` shows `fl=KEEP_SCREEN_ON LAYOUT_IN_SCREEN FORCE_NOT_FULLSCREEN ...` mid-capture; after stop the same dump shows `fl=LAYOUT_IN_SCREEN FORCE_NOT_FULLSCREEN ...` (KEEP_SCREEN_ON cleared). FGS bitmask + lifecycle remain perfect across all three smoke runs.
+
+- FGS during run: ServiceRecord{...HumynForegroundService}, isForeground=true foregroundId=9001 types=0x000000C1 (CAMERA 0x40 | MICROPHONE 0x80 | DATA_SYNC 0x01) ✓
+- Notification: flags=ONGOING_EVENT|FOREGROUND_SERVICE|SILENT (non-dismissible) ✓
+- Channel: humyn_capture_fgs mImportance=2 (LOW) mShowBadge=false ✓
+- startCommandResult=2 = START_NOT_STICKY ✓ (CR-02 fix)
+- KEEP_SCREEN_ON: set during capture ✓, cleared after stop ✓ (GAP-1 fix)
+- Clean teardown: FGS gone from dumpsys activity services after stop() ✓
+  resolved: 2026-05-11T03:32:31Z
 
 ### 6. Byte-for-byte file fidelity from device to S3 (CAP-18) — round-trip SHA verification
 
@@ -101,44 +108,48 @@ resolved: 2026-05-11T01:56:13Z
 ## Summary
 
 total: 9
-passed: 4
-partial: 1
+passed: 5
 deferred: 4
 issues: 0
 pending: 0
 skipped: 0
 blocked: 0
 
-Phase 3 acceptance disposition: UAT #1-#4 deferred to Phase 4 per locked CONTEXT.md D-WAVE-01 (Phase 3 = module-ready scope; Phase 4 owns RecordingScreen + 10-min/25-min/drift/thermal real-device E2E). UAT #5 partial (FGS bitmask + lifecycle perfect; KEEP_SCREEN_ON flag missing — see Gaps). UAT #6 + #8 + #9 passed outright. UAT #7 passed via live event-lifecycle observation + WR-01 setUploadActive Intent-action seam.
+Phase 3 acceptance disposition: UAT #1-#4 deferred to Phase 4 per locked CONTEXT.md D-WAVE-01 (Phase 3 = module-ready scope; Phase 4 owns RecordingScreen + 10-min/25-min/drift/thermal real-device E2E). UAT #5/#6/#7/#8/#9 all passed. GAP-1 (KEEP_SCREEN_ON) + GAP-2 (audio track absent) fixed inline 2026-05-11; both verified live on third smoke run (sessionId 01KRAHE26NS644XSZH6XTEKFNQ at T08:55+IST). GAP-3 (advisory) still flagged for Phase 4 10-min smoke re-measurement.
 
 ## Gaps
 
-### GAP-1: KEEP_SCREEN_ON window flag not wired
+### GAP-1: KEEP_SCREEN_ON window flag not wired — RESOLVED
 
 origin: UAT #5 partial finding (2026-05-11 smoke walk).
 expected: During an active capture session, the host activity window should carry `WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON` so the device screen does not sleep mid-recording. UAT #5 spec text requires `adb shell dumpsys window | grep -i keepscreenon` to produce evidence during a live capture.
-observed: Zero source references to `KEEP_SCREEN_ON | setKeepScreenOn | FLAG_KEEP_SCREEN_ON` across `apps/mobile/android/` and `apps/mobile/src/`. The FGS keeps the process awake (CPU + wake lock) but the activity window is not flagged. During the 30 s smoke run, `dumpsys window | grep -i keepscreenon` returned empty.
-impact: A user who taps record then locks their screen / steps away may have the display sleep mid-capture. On most modern Pixels the capture continues (CPU + camera + encoder owned by FGS); but on some OEMs and with aggressive power profiles the display sleep may pull the activity into onPause / surface invalidation paths that affect Camera2 preview surfaces and the HevcEncoder input surface. Should be wired before Phase 4 RecordingScreen ships so the locked spec ("KEEP_SCREEN_ON observable") is honored on real hardware.
-disposition: deferred / open. Candidate fix locations: `HumynCaptureModule.start()` (line ~317, where the AudioRecord + encoder pipeline boots) — call `reactContext.currentActivity?.runOnUiThread { window.addFlags(FLAG_KEEP_SCREEN_ON) }`. Clear in `stop()` via `clearFlags(FLAG_KEEP_SCREEN_ON)`. Alternatively defer to Phase 4 RecordingScreen and clear this gap there.
+observed: Zero source references to `KEEP_SCREEN_ON | setKeepScreenOn | FLAG_KEEP_SCREEN_ON` across `apps/mobile/android/` and `apps/mobile/src/`. The FGS keeps the process awake (CPU + wake lock) but the activity window is not flagged.
+disposition: **RESOLVED 2026-05-11.** Fix applied to `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/capture/HumynCaptureModule.kt` — new `applyKeepScreenOn(enabled: Boolean)` helper grabs `reactApplicationContext.currentActivity` (RN 0.83 deprecated the protected `currentActivity` accessor on ReactContextBaseJavaModule; the ReactApplicationContext path is the supported replacement) and dispatches a UI-thread `window.addFlags(FLAG_KEEP_SCREEN_ON)` on start, `clearFlags(FLAG_KEEP_SCREEN_ON)` on stop. Null-safe: if user backgrounds the app there is no window — FGS already keeps the process alive so silent no-op is correct. Idempotent on flag state. Verified live on third smoke run (sessionId 01KRAH2BVXSJ639ZSE1GHY87M0): `dumpsys window windows | grep MainActivity` shows `fl=KEEP_SCREEN_ON LAYOUT_IN_SCREEN ...` during capture; post-stop dump shows `fl=LAYOUT_IN_SCREEN ...` with KEEP_SCREEN_ON removed.
 
-### GAP-2: Audio track absent from output MP4 (despite AacEncoder being instantiated)
+### GAP-2: Audio track absent from output MP4 (despite AacEncoder being instantiated) — RESOLVED
 
 origin: 2026-05-11 smoke walk ffprobe audit of `20260511_082813_001.mp4`.
-expected: Per idea-brief.md §6.3 and the locked capture spec, every segment MP4 must carry a 48 kHz mono AAC-LC 128 kbps audio track alongside the HEVC video track. The metadata composer stamps these values in the per-segment JSON (`audio_codec: AAC-LC`, `audio_sample_rate_hz: 48000`, `audio_bitrate_bps: 128000`, `audio_channels: 1`).
-observed: ffprobe on the smoke-captured MP4 reports `nb_streams=1` — only one stream, codec_type=video. No audio stream is present. Logcat confirms the AAC encoder allocates in our process: `08:28:14.067 D CCodec: allocate(c2.android.aac.encoder)` followed by `08:28:14.081 I CCodec: Created component [c2.android.aac.encoder]`. Two minutes after stop() the encoder logs `MediaCodec discarded an unknown buffer` (×5) — buffers that were never picked up by the muxer. So: AAC encoder configured + AudioRecord likely started, but the encoder's output sample stream never reached `FragmentedMuxerWrapper.writeSampleData()` for the audio track index.
-impact: HIGH. Audio is in the locked spec and required for training-pipeline ingestion. Metadata JSON's audio fields are constants set by the composer (not encoder-probed), so the JSON lies about presence. CAP-18 SHA round-trip still passes — but the bytes being hashed are video-only. Real users would record silent videos despite the metadata claiming audio.
-disposition: open / requires investigation. Likely root causes (to confirm via debug session):
+expected: Per idea-brief.md §6.3 and the locked capture spec, every segment MP4 must carry a 48 kHz mono AAC-LC 128 kbps audio track alongside the HEVC video track.
+observed (pre-fix): ffprobe on the smoke-captured MP4 reports `nb_streams=1` — only one stream, codec_type=video. No audio. AAC encoder allocates (CCodec: allocate(c2.android.aac.encoder)) but produces 5 "discarded unknown buffers" at teardown — output never reaches the muxer.
+root cause: Two compounded defects.
 
-1. AudioRecord.startRecording() never called, or returned ERROR_INVALID_OPERATION (no exception, audio silently no-ops).
-2. Audio buffer pump loop not started, or exited early.
-3. Muxer audio track index never assigned (`muxer.addTrack(audioFormat)` never returned a valid index, or the audio MediaFormat from OUTPUT_FORMAT_CHANGED wasn't propagated).
-4. AudioManager null at HumynCaptureModule line 319 (`audioMgr?.let { ... }`) — if so, the entire audio sub-pipeline silently no-ops.
-5. Microphone permission state at the FGS start gate; AudioRecord boots but can't read frames.
-   recommended next move: `/gsd-debug` session targeting "audio track absent from output MP4 despite AacEncoder.configure() succeeding on Pixel 10a smoke capture" — should be a quick root-cause (single null check or missing pump thread start), then either fix in Phase 3 (creates a Phase 3.1 polish wave) or carry into Phase 4 RecordingScreen wiring.
+1. **Audio sub-pipeline entirely unwired** (per /gsd-debug session at `.planning/debug/no-audio-track-in-mp4.md`). `AacEncoder.configure()` + `makeAudioRecord()` were called, but `AudioRecord.startRecording()` was never invoked, no thread fed PCM into the AAC encoder, no thread drained AAC output, `muxer.addTrack(audioFormat)` was never called, and `writeSampleData` was never called for audio.
+2. **`currentSegment === seg` race** triggered by the MuxerStartGate wiring. `currentSegment` is assigned _after_ `openSegment(...)` returns (call sites at preFlightAndStartFirstSegment line 158 and rotateSegment line 788). Pump runnables are posted inside openSegment; on fast looper dispatch the first while-condition check runs before `currentSegment` is set, so both pumps exit immediately without calling `markVideoTrackReady` / `markAudioTrackReady`. MuxerStartGate never opens → muxer.start() never fires → MP4 stays 0 bytes. Pre-gate code papered over this race because video had no gate and could addTrack+start on its own next iteration; the new coordination point turned it from "rare hiccup" to deterministic failure on this device.
 
-### GAP-3 (advisory): drift max ≈ 25 ms on 30 s capture — investigate before 10-min smoke
+disposition: **RESOLVED 2026-05-11.**
 
-origin: 2026-05-11 smoke walk. Drift residual computed for a 30 s session: `max: 25.604882125 ms`, `mean: 1.7825190358900442 ms`, `p99: 2.0751548125 ms`.
-expected: idea-brief.md §6.5 example values `max ≈ 0.7 ms, mean ≈ 0.18 ms, p99 ≈ 0.5 ms` for a healthy 10-min capture; the locked spec is "±1 ms timestamp alignment between video, audio, and IMU."
-observed: max ~25 ms is high; mean + p99 are reasonable. Likely a single early-session frame at the audio/encoder ramp-up (well-known artifact for short captures). Not necessarily a bug — 30 s captures amortize ramp-up worse than 10-min captures. Phase 4's 10-min smoke (UAT #1) will tell whether mean/p99 stay healthy and max relaxes. WR-06 commit fa6e286 already documented a known minor edge-clamp under-report; that's distinct from this concern.
-disposition: advisory — re-measure during Phase 4 10-min smoke (UAT #1). If 10-min max stays > 5 ms, open a debug session targeting DriftCalculator early-window behavior under live AudioRecord pump cadence.
+- Audio wiring: `apps/mobile/android/.../CaptureSession.kt` got `runAudioPumpLoop` (new audio pump on a dedicated HandlerThread that calls `audioRecord.startRecording()`, reads 2 KiB PCM frames, queues to AAC encoder with `elapsedRealtimeNanos`-derived segment-relative PTS, drains AAC output, registers audio track with the muxer, writes samples, signals EOS on stop). Added `MuxerStartGate` helper so `muxer.start()` fires once after BOTH video and audio tracks are added (or audio is explicitly abandoned via the finally block). Refactored `runPumpLoop`'s direct `muxer.start()` to `markVideoTrackReady`; gated video `writeSampleData` on `gate.isStarted()`. Extended `Segment` with `audioPumpThread/audioPumpExitLatch/audioPumpShouldStop/muxerStartGate`. `closeSegmentResources` now stops both pumps in parallel and awaits both exit latches. Also fixed a RN 0.83 deprecation in `HumynCaptureModule.applyKeepScreenOn` — must use `reactApplicationContext.currentActivity` not the protected accessor.
+- Race fix: `currentSegment = seg` now happens _inside_ openSegment before the Handler.post calls (CaptureSession.kt step "6. Publish currentSegment BEFORE posting"). The caller's existing `currentSegment = openSegment(...)` becomes a tautological re-assignment of the same reference. Both pumps now see currentSegment correctly on first iteration.
+- Verified live on third smoke run 2026-05-11 sessionId 01KRAHE26NS644XSZH6XTEKFNQ: ffprobe on `20260511_090131_004.mp4` reports `nb_streams=2` — stream 0 = `aac LC 48000 Hz mono 128 kbps duration 29.94 s`, stream 1 = `hevc Main 1920x1080 7.7 Mbps duration 29.87 s`. SHA round-trip exact on both MP4 + IMU CSV. CCodec "discarded unknown buffer" log gone.
+- Caveat: drift figures rose once audio joined the alignment calc (max 25→29 ms, mean 1.78→5.52, p99 2.07→5.82). Likely audio-PTS-vs-bytes-consumed approach needed for ±1 ms target — see GAP-3.
+
+### GAP-3 (advisory): drift figures elevated after audio wiring — re-measure on Phase 4 10-min smoke
+
+origin: 2026-05-11 smoke walk. Drift residual across three 30 s sessions:
+
+- Smoke 1 (no audio): max 25.60, mean 1.78, p99 2.07 ms (audio-pipeline ramp-up artifact).
+- Smoke 3 (post-fix, with audio): max 29.35, mean 5.52, p99 5.82 ms.
+
+expected: idea-brief.md §6.5 example values `max ≈ 0.7 ms, mean ≈ 0.18 ms, p99 ≈ 0.5 ms` for a healthy 10-min capture; locked spec is "±1 ms timestamp alignment between video, audio, and IMU."
+observed: mean/p99 jumped 3× once audio joined the alignment calc. /gsd-debug session caveat: "AudioRecord PTS is segment-relative on the elapsedRealtimeNanos domain... If you observe drift > 1 ms on the smoke MP4, the next step is to switch audio PTS from wall-clock sampling to bytes-consumed × (1 / sample_rate) which is the canonical zero-drift approach." 30 s captures additionally amortize encoder/AudioRecord ramp-up worse than 10-min captures; max ~29 ms is likely a single early-session frame.
+disposition: advisory — re-measure during Phase 4 10-min smoke (UAT #1). If 10-min mean/p99 stay > 1 ms, switch audio PTS to bytes-consumed × (1/sample_rate) in `runAudioPumpLoop`. WR-06 commit fa6e286 already documented a known minor edge-clamp under-report; that's distinct from this concern.
