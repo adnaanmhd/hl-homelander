@@ -10,6 +10,8 @@
 
 > **MVP descoped 2026-05-11.** (1) **Semantic search dropped from the MVP client surface** — the `ts_vector` lexical path is the MVP task search; the pgvector + RRF (k=60) hybrid layer shipped in the Phase 1 backend but is not surfaced. (2) **Play Store staged rollout, the iOS App Store channel, and all iOS native-module analogues are deferred** to a follow-on milestone — MVP is Android-only via the signed APK. Phase 7 narrowed to observability + APK-distribution hardening. Trail: `.planning/ROADMAP.md` (Phases 6 + 7), `.planning/REQUIREMENTS.md` §v2 (SEARCH-V2-01, DIST-05, DIST-06, IOS-01..07), `.planning/STATE.md` Roadmap Evolution + Deferred Items.
 
+> **IMU-liveness fraud check deferred 2026-05-11.** The server-side IMU-liveness gate in `imu-liveness-check.md` (stillness / gravity-axis / saccade-density / gait-FFT / vision–motion-correlation checks → `liveness_score ∈ [0,1]`) was briefly promoted into the Phase 5 MVP backend, then descoped back to v2/post-MVP. **MVP anti-fraud = Play Integrity at sign-in + per-account daily upload-rate cap + the on-device one-shot hand gate only.** The upload bundle still carries the IMU CSV (training consumes it); it is just not analysed server-side at MVP. Trail: `.planning/REQUIREMENTS.md` §v2 (FRAUD-03, FRAUD-04), `.planning/ROADMAP.md` Phase 5, `.planning/STATE.md` Deferred Items + Decisions, `deferred-decisions.md` (Fraud & integrity), quick task `.planning/quick/260511-kfs-descope-imu-liveness-check-to-v2/`.
+
 ### Constraints (LOCKED)
 
 - **Designs:** `prototype.html`, `design-spec.md`, `engineering-handoff.md` are the design source of truth. Task icons from `design-system/task-icons/`. No new design work — every screen, state, copy string, animation curve, token verbatim from those files.

@@ -119,6 +119,7 @@ _Updated after each plan completion_
   - Phase 7 retitled "**Observability & APK Distribution Hardening**"; iOS parity (IOS-01..07) and the staged Play Store → App Store rollout (DIST-05, DIST-06) removed — relocated to REQUIREMENTS.md §v2. Phase 7 requirements now OBS-01..05 only; SC#2 rewritten around APK signing / `HumynUpdater` / force-upgrade gate hardening. Phase 7 `UI hint` dropped.
   - Phase 1 SC#1 annotated: lexical pipeline is the MVP search surface; pgvector + RRF shipped but descoped from MVP client.
   - ROADMAP Overview + phase checklist + progress table + parallelization note updated to match.
+- 2026-05-11: **IMU-liveness fraud check descoped from MVP back to v2** (quick task 260511-kfs) — reversing the earlier "promoted from v2 to MVP" call. The server-side IMU-liveness gate (`imu-liveness-check.md` — stillness/gravity-axis/saccade/gait/vision-motion checks → `liveness_score`) leaves Phase 5; FRAUD-03 + FRAUD-04 relocated to `REQUIREMENTS.md` §v2 (Anti-fraud), FRAUD-06 reworded so its `liveness_score` panel rides with the deferred pair, ROADMAP Phase 5 entry/goal/SC#5 + Overview updated, `deferred-decisions.md` gains a "Server-side IMU-liveness check" entry, `CLAUDE.md` gains a descope banner. MVP anti-fraud is now Play Integrity at sign-in + per-account daily upload-rate cap (FRAUD-05) + the on-device one-shot hand gate; the upload bundle still carries the IMU CSV (training consumes it), it is just not analysed server-side at MVP. No code touched — FRAUD-03/04 were unstarted (Phase 5 not yet planned).
 
 ### Decisions
 
@@ -129,7 +130,7 @@ Recent decisions affecting current work:
 - Init: Backend included in MVP scope (Fastify + Postgres + S3) — hash-verify and presigned URLs are core to upload reliability
 - Init: Designs LOCKED to `prototype.html` + `design-spec.md` + `engineering-handoff.md` — no new design work
 - Init: Hand-detection gate (one-shot pre-record) moved into MVP, supersedes deferred entry
-- Init: Server-side IMU liveness fraud check **promoted from v2 to MVP** backend scope (Phase 5) — capture spec already collects the data; on-device hand-gate alone is trivially defeated by TV-replay
+- Init: Server-side IMU liveness fraud check **promoted from v2 to MVP** backend scope (Phase 5) — capture spec already collects the data; on-device hand-gate alone is trivially defeated by TV-replay — **REVERSED 2026-05-11 (quick 260511-kfs): descoped back to v2.** MVP anti-fraud = Play Integrity at sign-in + per-account upload-rate cap + on-device hand gate; the IMU CSV is uploaded but not analysed server-side at MVP. See `imu-liveness-check.md`, `deferred-decisions.md`, REQUIREMENTS.md §v2 (FRAUD-03/04).
 - Roadmap: Horizontal-layer phase structure (7 phases) compressed from research's 12-phase suggestion per granularity=standard
 - [Phase 1]: Plan 01-01: ESLint 9.16.0 forced flat-config migration; created eslint.config.mjs at root, deleted .eslintrc.json, added @eslint/js + typescript-eslint umbrella
 - [Phase 1]: Plan 01-01: @aws-sdk/cloudfront-signer pinned at 3.1036.0 (not 3.1044.0); cloudfront-signer is on a slower release cadence than other AWS SDK v3 modules
@@ -282,11 +283,12 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Deferred Items
 
-| Category               | Item                                                                                                                                                               | Status                          | Deferred At |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- | ----------- |
-| Search                 | Semantic + lexical RRF (k=60) hybrid task search (pgvector HNSW) — backend shipped Phase 1; client surface descoped (TASK-03 → lexical-only / SEARCH-V2-01)        | Deferred to follow-on milestone | 2026-05-11  |
-| Distribution / Rollout | Staged Play Store rollout 1%→5%→25%→100% with k6 gates (DIST-05); iOS App Store submission ≤2 wks after (DIST-06)                                                  | Deferred to follow-on milestone | 2026-05-11  |
-| iOS Parity             | iOS analogues — HumynCapture / HumynHandDetector / HumynUpload / HumynIntegrity, en-IN TTS, deployment target 15.1, no-B-frames (IOS-01..07). MVP is Android-only. | Deferred to follow-on milestone | 2026-05-11  |
+| Category               | Item                                                                                                                                                                                                                                                                   | Status                             | Deferred At |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ----------- |
+| Search                 | Semantic + lexical RRF (k=60) hybrid task search (pgvector HNSW) — backend shipped Phase 1; client surface descoped (TASK-03 → lexical-only / SEARCH-V2-01)                                                                                                            | Deferred to follow-on milestone    | 2026-05-11  |
+| Distribution / Rollout | Staged Play Store rollout 1%→5%→25%→100% with k6 gates (DIST-05); iOS App Store submission ≤2 wks after (DIST-06)                                                                                                                                                      | Deferred to follow-on milestone    | 2026-05-11  |
+| iOS Parity             | iOS analogues — HumynCapture / HumynHandDetector / HumynUpload / HumynIntegrity, en-IN TTS, deployment target 15.1, no-B-frames (IOS-01..07). MVP is Android-only.                                                                                                     | Deferred to follow-on milestone    | 2026-05-11  |
+| Anti-fraud             | Server-side IMU-liveness fraud check on the uploaded IMU CSV (stillness / gravity-axis / saccade / gait-FFT / vision–motion checks → `liveness_score`) — FRAUD-03, FRAUD-04. Briefly promoted to MVP Phase 5, descoped back. `imu-liveness-check.md` is the v2 design. | Deferred to v2 (anti-fraud sprint) | 2026-05-11  |
 
 ## Session Continuity
 
