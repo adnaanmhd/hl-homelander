@@ -2,6 +2,9 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 apply plugin: "com.google.gms.google-services"
+// Must come after com.google.gms.google-services. Injects the Crashlytics
+// build-id resource that @react-native-firebase/crashlytics reads on init.
+apply plugin: "com.google.firebase.crashlytics"
 
 // react-native-config flavor → env-file mapping. The plugin's `dotenv.gradle`
 // reads the chosen file and emits each KEY=VALUE pair as both a build-time
