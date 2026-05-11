@@ -48,6 +48,28 @@ vi.mock('../../src/services/installationId', () => ({
 
 import RootNativeStack from '../../src/navigation/RootNativeStack';
 
+// The native-stack mock renders EVERY registered Screen eagerly, so screens
+// that read store actions as selectors (e.g. PermissionsScreen reads
+// `useAppStore((s) => s.setPermsGranted)` and calls it in a useEffect) need the
+// action present even in the "fresh boot" state — otherwise the eager render of
+// PermissionsScreen throws an unhandled rejection. No-op stubs suffice (the
+// test only asserts which screen mounts for each gate-state).
+const NOOP_ACTIONS = {
+  setJwt: () => undefined,
+  signOut: () => undefined,
+  setConsent: () => undefined,
+  setPermsGranted: () => undefined,
+  setCompatResult: () => undefined,
+  clearCompatPassed: () => undefined,
+  setTutorialDone: () => undefined,
+  setPracticeDone: () => undefined,
+  setInstallationId: () => undefined,
+  setAppVersionCache: () => undefined,
+  setSoftUpgradeAvailable: () => undefined,
+  setForceUpgradeBlocked: () => undefined,
+  setUser: () => undefined,
+};
+
 function freshState() {
   return {
     jwt: null,
@@ -60,6 +82,8 @@ function freshState() {
     appVersionCache: null,
     softUpgradeAvailable: null,
     forceUpgradeBlocked: false,
+    user: null,
+    ...NOOP_ACTIONS,
   };
 }
 
