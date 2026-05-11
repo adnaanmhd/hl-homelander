@@ -219,11 +219,20 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
   }, [devices, fallbackDevice]);
 
   // --- gate config (HAND-11 — RemoteConfig, defaulted-then-updated) ---------
+  // The reducer starts the gate at the hard-coded 5/400 (DEFAULT_TARGET_HITS /
+  // DEFAULT_CADENCE_MS); when RemoteConfig resolves we both keep the local
+  // `gateCfg` (for `minHandDetectionConfidence`, which lives only here) AND
+  // push targetHits/cadenceMs into the reducer via SET_GATE_CONFIG so the
+  // GateRing target, the poll cadence, and the per-segment metadata all reflect
+  // the live values (WR-01). SET_GATE_CONFIG's own substate guard means a late
+  // resolve after the user already pressed record is a harmless no-op.
   const [gateCfg, setGateCfg] = useState<GateConfig>(GATE_DEFAULTS);
   useEffect(() => {
     let cancelled = false;
     readGateConfig().then((cfg) => {
-      if (!cancelled) setGateCfg(cfg);
+      if (cancelled) return;
+      setGateCfg(cfg);
+      dispatch({ type: 'SET_GATE_CONFIG', targetHits: cfg.targetHits, cadenceMs: cfg.cadenceMs });
     });
     return () => {
       cancelled = true;
@@ -248,6 +257,14 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
       Orientation.unlockAllOrientations();
       HumynScreenBrightness.set(-1).catch(() => undefined);
       cleanupHandDetector().catch(() => undefined);
+      // WR-02 — unconditionally recall any native capture session
+      // (camera/encoders/IMU/FGS) that a HumynCapture.start() already in flight
+      // (or just-resolved during the gate→record handoff) brought up. Rejects
+      // 'no_active_session' harmlessly when nothing is running, so it's safe to
+      // fire on every unmount — this is the single chokepoint that prevents an
+      // orphaned session / stuck "recording" foreground-service notification
+      // when the user exits during the handoff (T-4.11-01).
+      HumynCapture.stop().catch(() => undefined);
     };
   }, []);
 
@@ -336,6 +353,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
     substate: state.substate,
     isPractice,
     durationMs: state.durationMs,
+    startedAt: state.startedAt,
     callbacks: {
       onStop: (reason) => {
         handleStop(reason).catch(() => undefined);
@@ -482,7 +500,13 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
           appVersion: appVersionRef.current,
         });
         const r = await HumynCapture.start(opts);
-        if (cancelled) return;
+        if (cancelled) {
+          // WR-02 — the screen unmounted (or the gate re-ran) while start() was
+          // in flight; recall the session immediately rather than waiting for
+          // the mount-effect cleanup, so the FGS notification doesn't linger.
+          HumynCapture.stop().catch(() => undefined);
+          return;
+        }
         segMetaRef.current = { recordingId: r.recordingId, filenameBase: r.filenameBase };
         dispatch({ type: 'CAPTURE_STARTED', now: nowMs() });
       } catch (e) {

@@ -82,6 +82,67 @@ describe('recReducer — substate transitions', () => {
     ).toBe('ready');
   });
 
+  it('SET_GATE_CONFIG on ready → gate.targetHits / gate.cadenceMs updated, rest of gate untouched', () => {
+    const s = baseState({ substate: 'ready' });
+    const next = recReducer(s, { type: 'SET_GATE_CONFIG', targetHits: 7, cadenceMs: 500 });
+    expect(next.gate.targetHits).toBe(7);
+    expect(next.gate.cadenceMs).toBe(500);
+    expect(next.gate.phase).toBe('idle');
+    expect(next.gate.consecutiveHits).toBe(0);
+    expect(next.substate).toBe('ready');
+  });
+
+  it('SET_GATE_CONFIG on rotate-prompt / pre-flight → also updated', () => {
+    expect(
+      recReducer(baseState({ substate: 'rotate-prompt' }), {
+        type: 'SET_GATE_CONFIG',
+        targetHits: 3,
+        cadenceMs: 600,
+      }).gate.targetHits,
+    ).toBe(3);
+    expect(
+      recReducer(baseState({ substate: 'pre-flight' }), {
+        type: 'SET_GATE_CONFIG',
+        targetHits: 3,
+        cadenceMs: 600,
+      }).gate.cadenceMs,
+    ).toBe(600);
+  });
+
+  it('SET_GATE_CONFIG on gate / active / stop-confirm → no-op (cannot perturb an in-progress gate)', () => {
+    const inGate = baseState({ substate: 'gate', gate: { ...baseState().gate, phase: 'waiting' } });
+    const afterGate = recReducer(inGate, {
+      type: 'SET_GATE_CONFIG',
+      targetHits: 9,
+      cadenceMs: 900,
+    });
+    expect(afterGate).toBe(inGate);
+    expect(
+      recReducer(baseState({ substate: 'active', startedAt: 0 }), {
+        type: 'SET_GATE_CONFIG',
+        targetHits: 9,
+        cadenceMs: 900,
+      }).gate.targetHits,
+    ).toBe(5);
+    expect(
+      recReducer(baseState({ substate: 'stop-confirm', startedAt: 0 }), {
+        type: 'SET_GATE_CONFIG',
+        targetHits: 9,
+        cadenceMs: 900,
+      }).gate.cadenceMs,
+    ).toBe(400);
+  });
+
+  it('SET_GATE_CONFIG clamps a garbage RemoteConfig value (targetHits 0 → 1, cadenceMs 10 → 100)', () => {
+    const next = recReducer(baseState({ substate: 'ready' }), {
+      type: 'SET_GATE_CONFIG',
+      targetHits: 0,
+      cadenceMs: 10,
+    });
+    expect(next.gate.targetHits).toBe(1);
+    expect(next.gate.cadenceMs).toBe(100);
+  });
+
   it('START_PRESSED on ready → pre-flight', () => {
     expect(recReducer(baseState({ substate: 'ready' }), { type: 'START_PRESSED' }).substate).toBe(
       'pre-flight',
