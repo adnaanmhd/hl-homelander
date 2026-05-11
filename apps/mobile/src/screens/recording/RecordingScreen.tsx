@@ -1,21 +1,26 @@
 /**
  * RecordingScreen — the live recording surface (engineering-handoff §7 / §4.3 /
- * design-spec §7). Plan 04-09 wires the live VisionCamera mount onto the plan-
- * 04-07 shell.
+ * design-spec §7). Plan 04-09 wired the live camera mount onto the plan-04-07
+ * shell; the debug session handgate-never-passes (2026-05-11) replaced the
+ * VisionCamera `<Camera>` with the native Camera2 gate camera.
  *
  * What's live here:
- *   - the VisionCamera `<Camera>` mount (preview + `takePhoto()` ONLY — never
- *     the HEVC pipeline; that's HumynCapture) on the ultrawide lens, `isActive`
- *     only during the `gate` substate, `photoQualityBalance="speed"`,
- *     `onInitialized` → CAMERA_READY (gate.loading → waiting); the HAND-12
- *     throwaway pre-warm `takePhoto()` fires once after onInitialized
- *   - `useHandGate` poll loop (HAND-03/04/13 — takePhoto → cacheDir/hand-gate/
- *     {uuid}.jpg → HumynHandDetector.detectHands → GATE_HIT/GATE_MISS)
- *   - HAND-08 silent bypass (`isHandDetectorAvailable()===false` → GATE_BYPASS)
- *     / HAND-07 Skip (→ GATE_SKIP, no voice/haptic, brightness still drops)
- *   - the HAND-09 TTS-masked gate-pass → active transition (Vibration.vibrate(80)
+ *   - the native Camera2 gate camera (`HumynGateCamera` — back ULTRAWIDE,
+ *     `CONTROL_AF_MODE_OFF` + fixed focus, `CONTROL_ZOOM_RATIO` driven to the
+ *     ultrawide; replaces VisionCamera, which couldn't disable AF or reach the
+ *     ultrawide on a logical-multi-camera device). `<HumynGateCameraView>` is the
+ *     live preview (a native TextureView), mounted only during the `gate`
+ *     substate; `startGate()` on gate-enter → CAMERA_READY (gate.loading →
+ *     waiting); `stopGate()` on the gate→record handoff + on unmount.
+ *   - `useHandGate` poll loop (HAND-03/04/13 — HumynGateCamera.captureFrame →
+ *     cacheDir/hand-gate/{uuid}.jpg → HumynHandDetector.detectHands →
+ *     GATE_HIT/GATE_MISS)
+ *   - HAND-08 silent bypass (`!isHandDetectorAvailable() || !isGateCameraAvailable()`
+ *     → GATE_BYPASS) / HAND-07 Skip (→ GATE_SKIP, no voice/haptic, brightness
+ *     still drops)
+ *   - the HAND-09 TTS-masked gate-pass → active transition (Vibration.vibrate(120)
  *     → speakCue('Recording started') → VoiceCue pill 1.8s → set(0.05) →
- *     setCameraActive(false) → SETTLE_MS → HumynCapture.start(buildCaptureOpts(...))
+ *     stopGate() → SETTLE_MS → HumynCapture.start(buildCaptureOpts(...))
  *     → CAPTURE_STARTED, or on reject set(-1) + CAPTURE_START_FAILED + toast)
  *   - HAND-11 RemoteConfig gate reads (readGateConfig); HAND-14 analytics
  *   - REC-01 Orientation.lockToLandscape() on mount / unlockAllOrientations() on
@@ -31,15 +36,9 @@
  *
  * NO hex literals — colors from `colors.*`.
  */
-import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Vibration, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import {
-  Camera,
-  useCameraDevice,
-  useCameraDevices,
-  type CameraDevice,
-} from 'react-native-vision-camera';
 import Orientation, { type OrientationType } from 'react-native-orientation-locker';
 import RNFS from 'react-native-fs';
 import { Text } from '../../ui/primitives/Text';
@@ -59,6 +58,12 @@ import {
   isHandDetectorAvailable,
   cleanup as cleanupHandDetector,
 } from '../../native/HumynHandDetector';
+import {
+  isGateCameraAvailable,
+  startGate as startGateCamera,
+  stopGate as stopGateCamera,
+  HumynGateCameraView,
+} from '../../native/HumynGateCamera';
 import * as HumynScreenBrightness from '../../native/HumynScreenBrightness';
 import { pickAndSetEnInVoice, speakCue } from '../../lib/ttsVoice';
 import { formatContributionDuration } from '../../lib/durationFormat';
@@ -97,9 +102,12 @@ const TICK_MS = 250; // active-recording timer/minute-bar refresh.
 
 // [TUNABLE — re-measure the ±1ms video↔IMU drift on the gate→record camera
 //  handoff in plan 04-10's smoke runbook (the [BLOCKING] gate). Phase 3 smoke 7
-//  was mean 0.594 ms / p99 0.728 ms; if HumynCapture.start() stalls because VC
-//  hasn't fully released Camera2, bump this — or escalate a "HC.start() polls
-//  for camera availability" change to Phase 3. (T-4.9-01 / Pitfall 1.)]
+//  was mean 0.594 ms / p99 0.728 ms; if HumynCapture.start() stalls because the
+//  native gate Camera2 session hasn't fully released the back camera, bump this
+//  — or escalate a "HC.start() polls for camera availability" change to Phase 3.
+//  (T-4.9-01 / Pitfall 1.) NB: with the native gate camera, stopGate() awaits a
+//  full session+device close before resolving, so the back camera is genuinely
+//  free by the time SETTLE_MS starts — but keep the margin until §5b re-confirms.]
 const SETTLE_MS = 80;
 
 /** Format a duration as HH:MM:SS. */
@@ -201,22 +209,11 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
     );
   }, []);
 
-  // --- camera: the compat-chosen ultrawide lens -----------------------------
-  const camRef = useRef<Camera | null>(null);
-  const [cameraActive, setCameraActive] = useState(true);
-  // useCameraDevice is a hook — call it unconditionally. There is no stored
-  // cameraId in compat.lastResult (D-COMPAT-05 only persists measuredDeg), so
-  // the physicalDevices filter is the lens selector (Open Q 1 / Assumption A2).
-  const fallbackDevice = useCameraDevice('back', {
-    physicalDevices: ['ultra-wide-angle-camera'],
-  });
-  const devices = useCameraDevices();
-  const ultrawide = useMemo<CameraDevice | undefined>(() => {
-    const back = (devices ?? []).find(
-      (d) => d.position === 'back' && d.physicalDevices?.includes('ultra-wide-angle-camera'),
-    );
-    return back ?? fallbackDevice ?? undefined;
-  }, [devices, fallbackDevice]);
+  // --- gate camera: native Camera2 (back ultrawide, AF OFF) -----------------
+  // The lens is selected in Kotlin (BackUltrawidePicker.pick + CONTROL_ZOOM_RATIO
+  // → the ultrawide); JS just drives the lifecycle: startGate() on gate-enter →
+  // CAMERA_READY, stopGate() on the gate→record handoff + on unmount. There's no
+  // cameraId/device to pick from JS (D-COMPAT-05 only persists measuredDeg).
 
   // --- gate config (HAND-11 — RemoteConfig, defaulted-then-updated) ---------
   // The reducer starts the gate at the hard-coded 5/400 (DEFAULT_TARGET_HITS /
@@ -257,6 +254,9 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
       Orientation.unlockAllOrientations();
       HumynScreenBrightness.set(-1).catch(() => undefined);
       cleanupHandDetector().catch(() => undefined);
+      // Release the native Camera2 gate session if the screen unmounts mid-gate
+      // (idempotent — resolves harmlessly when nothing is running).
+      stopGateCamera().catch(() => undefined);
       // WR-02 — unconditionally recall any native capture session
       // (camera/encoders/IMU/FGS) that a HumynCapture.start() already in flight
       // (or just-resolved during the gate→record handoff) brought up. Rejects
@@ -269,26 +269,44 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
   }, []);
 
   // ===========================================================================
-  // CR-01 — the PRODUCTION rotate-prompt → ready path. Without this the
-  // recording surface is a dead-end in any non-__DEV__ build: initialRecState()
-  // always starts at 'rotate-prompt' and the only other production exit (the
-  // RotatePrompt "Pretend I rotated →" pill) is __DEV__-only and dead-code-
-  // eliminated in release. Use the device-orientation (PHYSICAL) listener so it
-  // works regardless of the landscape lock, plus a fire-once read for the
-  // device-already-in-landscape-on-mount case. The reducer's LANDSCAPE_DETECTED
-  // case no-ops outside 'rotate-prompt' and this effect tears down once substate
-  // changes, so a late listener fire is harmless either way (T-4.11-03).
+  // CR-01 — the PRODUCTION orientation gate. Active across ALL pre-record
+  // substates ('rotate-prompt' | 'ready' | 'pre-flight' | 'gate'), not just
+  // 'rotate-prompt': a device-orientation (PHYSICAL) listener (works regardless
+  // of the landscape lock) plus a fire-once read on (re)entry.
+  //   • LANDSCAPE → dispatch LANDSCAPE_DETECTED (advances 'rotate-prompt' → 'ready';
+  //     no-op on the others). Without this the surface is a dead-end in release
+  //     builds (initialRecState() starts at 'rotate-prompt').
+  //   • PORTRAIT  → dispatch ORIENTATION_LOST (kicks 'ready'/'pre-flight'/'gate'
+  //     back to 'rotate-prompt'; no-op on 'rotate-prompt'). So you can't stop a
+  //     take, rotate to portrait, and start a new one in portrait (debug session
+  //     handgate-never-passes). Mid-RECORD ('active') rotation is handled
+  //     separately by useRecordingLifecycle's onStop('orientation').
+  // The reducer guards each action by substate, so a late listener fire is
+  // harmless (T-4.11-03).
   // ===========================================================================
   useEffect(() => {
-    if (state.substate !== 'rotate-prompt') return;
-    const onOrient = (o: OrientationType) => {
+    const PRE_RECORD = ['rotate-prompt', 'ready', 'pre-flight', 'gate'];
+    if (!PRE_RECORD.includes(state.substate)) return;
+    // Ongoing rotation (the listener): landscape → advance; portrait → re-gate.
+    const onChange = (o: OrientationType) => {
       if (o === 'LANDSCAPE-LEFT' || o === 'LANDSCAPE-RIGHT') {
         dispatch({ type: 'LANDSCAPE_DETECTED' });
+      } else if (o === 'PORTRAIT' || o === 'PORTRAIT-UPSIDEDOWN') {
+        dispatch({ type: 'ORIENTATION_LOST' });
       }
     };
-    Orientation.getDeviceOrientation((o) => onOrient(o as OrientationType));
-    Orientation.addDeviceOrientationListener(onOrient);
-    return () => Orientation.removeDeviceOrientationListener(onOrient);
+    // Fire-once read for the "already in landscape on (re)entry" case — ONLY
+    // the advance, never ORIENTATION_LOST: a stale 'PORTRAIT' read here would
+    // bounce a take that just legitimately entered 'ready' in landscape (and a
+    // real later rotation is caught by the listener above).
+    Orientation.getDeviceOrientation((o) => {
+      const ot = o as OrientationType;
+      if (ot === 'LANDSCAPE-LEFT' || ot === 'LANDSCAPE-RIGHT') {
+        dispatch({ type: 'LANDSCAPE_DETECTED' });
+      }
+    });
+    Orientation.addDeviceOrientationListener(onChange);
+    return () => Orientation.removeDeviceOrientationListener(onChange);
   }, [state.substate]);
 
   // --- 3s "Don't exit while recording." overlay tip -------------------------
@@ -336,7 +354,12 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         });
       }
       await HumynScreenBrightness.set(-1).catch(() => undefined);
-      Orientation.unlockAllOrientations();
+      // NOTE: do NOT unlock orientation here. The navigate-away paths
+      // (practice → PracticeComplete, real ≥60s → Home) unlock via the mount
+      // effect's unmount cleanup. The real-<60s path stays on this screen and
+      // goes back to 'rotate-prompt' (RESET_FOR_FRESH) — it must STAY locked
+      // to landscape so the rotate-prompt UI is readable and a 2nd take can't
+      // start in portrait (debug session handgate-never-passes).
       if (practice) {
         logEvent('recording_stopped');
         speakCue('Recording stopped');
@@ -355,8 +378,8 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         return;
       }
       // Real recording under 1 minute — discarded (HumynCapture owns the file
-      // deletion at finalize per REC-07 / 03-CONTEXT D-FS-*; the screen only
-      // shows the toast + returns to ready for a fresh attempt — REC-05).
+      // deletion at finalize per REC-07 / 03-CONTEXT D-FS-*; the screen shows
+      // the toast then returns to the landscape gate for a fresh attempt — REC-05).
       logEvent('recording_too_short');
       showToast('Recording too short — discarded.');
       handlingStopRef.current = false;
@@ -411,7 +434,74 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
   }, [state.substate, checkStartGuards, showToast]);
 
   // ===========================================================================
-  // gate enter — analytics + HAND-08 silent bypass.
+  // Native Camera2 gate-camera lifecycle (back ULTRAWIDE, AF OFF, fixed focus;
+  // CONTROL_ZOOM_RATIO driven to the ultrawide so the operator sees the SAME
+  // FOV the HumynCapture HEVC recording will capture). The camera is open across
+  // ALL the camera pre-record substates — 'ready' | 'pre-flight' | 'gate' — not
+  // just 'gate': the operator (or a helper standing in front of them) can verify
+  // the head-rig placement / that their hands are in frame / that the scene is
+  // visible BEFORE pressing Start. It's closed by the gate→record handoff (one
+  // back-camera client — HumynCapture opens its own Camera2 session for the HEVC
+  // pipeline; see the SETTLE_MS dance in `run()`), and whenever the surface
+  // leaves the pre-record flow ('rotate-prompt' via ORIENTATION_LOST / 'active'
+  // / 'stopped' / unmount). `startGateCamera()` is fired at most ONCE per
+  // open-window (it is NOT idempotent — calling start() while running fails
+  // "gate_camera_busy"), tracked by `cameraStartedRef`.
+  // ===========================================================================
+  const cameraStartedRef = useRef(false); // startGateCamera() in flight or resolved
+  const cameraReadyRef = useRef(false); // startGateCamera() resolved OK
+  const cameraFailedRef = useRef(false); // startGateCamera() exhausted retries
+  const resetCameraState = () => {
+    cameraStartedRef.current = false;
+    cameraReadyRef.current = false;
+    cameraFailedRef.current = false;
+  };
+  useEffect(() => {
+    const wantsCamera =
+      state.substate === 'ready' || state.substate === 'pre-flight' || state.substate === 'gate';
+    if (!wantsCamera) {
+      if (cameraStartedRef.current) {
+        resetCameraState();
+        stopGateCamera().catch(() => undefined);
+      }
+      return;
+    }
+    if (!isGateCameraAvailable() || cameraStartedRef.current) return;
+    cameraStartedRef.current = true;
+    let cancelled = false;
+    const open = (attempt: number): void => {
+      startGateCamera()
+        .then(() => {
+          if (cancelled) return;
+          cameraReadyRef.current = true;
+          // No-op unless we're in 'gate' phase 'loading' (→ 'waiting'); if we're
+          // still in 'ready'/'pre-flight', the gate-enter effect re-dispatches
+          // CAMERA_READY once 'gate' is reached.
+          dispatch({ type: 'CAMERA_READY' });
+        })
+        .catch(() => {
+          if (cancelled) return;
+          if (attempt < 1) {
+            setTimeout(() => {
+              if (!cancelled) open(attempt + 1);
+            }, 250);
+          } else {
+            // Couldn't open the camera. Mark it; the gate-enter effect bypasses
+            // the gate (HAND-08-style) if/when we reach 'gate'. No CAMERA_READY.
+            cameraFailedRef.current = true;
+            dispatch({ type: 'GATE_BYPASS', now: nowMs() }); // no-op outside 'gate'
+          }
+        });
+    };
+    open(0);
+    return () => {
+      cancelled = true;
+    };
+  }, [state.substate]);
+
+  // ===========================================================================
+  // gate enter — analytics + HAND-08 silent bypass + advance the gate once the
+  // camera (opened on entering 'ready' above) is ready.
   // ===========================================================================
   const gateEnteredRef = useRef(false);
   useEffect(() => {
@@ -422,41 +512,31 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
     if (gateEnteredRef.current) return;
     gateEnteredRef.current = true;
     logEvent('recording_gate_started', { locale: deviceLocale() });
-    // HAND-08 — no native hand-gate → silent bypass (same UX as Skip). Only
-    // fires on the natural entry phase ('loading'); a screen rendered directly
-    // into a later phase (the __test_initialState escape hatch, or a hot-reload)
-    // is past this gate already.
-    if (state.gate.phase === 'loading' && !isHandDetectorAvailable()) {
+    // HAND-08 — no native hand-gate (HandLandmarker missing OR the gate camera
+    // module didn't register OR the camera failed to open) → silent bypass (same
+    // UX as Skip). Only on the natural entry phase ('loading'); a screen rendered
+    // directly into a later phase (__test_initialState / hot-reload) is past it.
+    if (
+      state.gate.phase === 'loading' &&
+      (!isHandDetectorAvailable() || !isGateCameraAvailable() || cameraFailedRef.current)
+    ) {
       logEvent('recording_gate_bypassed', { locale: deviceLocale() });
       dispatch({ type: 'GATE_BYPASS', now: nowMs() });
+      return;
     }
-    setCameraActive(true);
+    // The camera was opened on entering 'ready'. If it already resolved →
+    // advance the gate to 'waiting' now; otherwise the lifecycle effect's
+    // startGateCamera().then() above will dispatch CAMERA_READY when it does.
+    if (cameraReadyRef.current && state.gate.phase === 'loading') {
+      dispatch({ type: 'CAMERA_READY' });
+    }
   }, [state.substate]);
 
-  // onInitialized → CAMERA_READY (gate.loading → waiting) + the HAND-12 pre-warm.
-  const onCameraInitialized = useCallback(() => {
-    dispatch({ type: 'CAMERA_READY' });
-    // HAND-12 — fire a single throwaway takePhoto() to pre-warm the photo
-    // pipeline so the first real gate-poll capture isn't slow (Pitfall 9).
-    const cam = camRef.current as unknown as {
-      takePhoto?: (o: { flash: 'off'; enableShutterSound: boolean }) => Promise<{ path: string }>;
-    } | null;
-    cam
-      ?.takePhoto?.({ flash: 'off', enableShutterSound: false })
-      .then((p) => {
-        if (p?.path) RNFS.unlink(p.path).catch(() => undefined);
-      })
-      .catch(() => undefined);
-  }, []);
-
-  // The gate poll loop — only while gate.waiting.
+  // The gate poll loop — only while gate.waiting (i.e. after startGate() resolved).
   useHandGate({
     active: state.substate === 'gate' && state.gate.phase === 'waiting',
     cadenceMs: state.gate.cadenceMs,
     minConfidence: gateCfg.minHandDetectionConfidence,
-    camRef: camRef as unknown as React.RefObject<{
-      takePhoto(opts: { flash: 'off'; enableShutterSound: boolean }): Promise<{ path: string }>;
-    } | null>,
     dispatch,
   });
 
@@ -476,15 +556,22 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
     const run = async (): Promise<void> => {
       const passed = !state.gate.skipped && !state.gate.bypassed;
       if (passed) {
-        Vibration.vibrate(80);
+        Vibration.vibrate(120);
         showVoiceCue('Recording started');
         logEvent('recording_gate_passed', { locale: deviceLocale() });
         logEvent('recording_started');
       }
       // For ALL exit kinds (passed/skipped/bypassed): drop brightness, release
-      // the VC camera, settle, then start HumynCapture (REC-08 / HAND-07/09).
+      // the native gate Camera2 session, settle, then start HumynCapture
+      // (REC-08 / HAND-07/09). The gate camera MUST be closed before
+      // HumynCapture.start() opens Camera2 for the HEVC pipeline — one
+      // back-camera client at a time (the SETTLE_MS handoff).
       await HumynScreenBrightness.set(0.05).catch(() => undefined);
-      setCameraActive(false);
+      await stopGateCamera().catch(() => undefined);
+      // Mirror the close into the lifecycle-effect refs so that, if
+      // HumynCapture.start() rejects below (→ CAPTURE_START_FAILED → 'ready'),
+      // the lifecycle effect re-opens the camera for the post-fail preview.
+      resetCameraState();
       await new Promise<void>((r) => setTimeout(r, SETTLE_MS));
       if (cancelled) return;
       const gateDurationMs = (state.gate.confirmedAt ?? 0) - (state.gate.startedAt ?? 0);
@@ -618,20 +705,25 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
       noSafeArea
       padding={0}
     >
-      {/* Live camera mount — preview + takePhoto() only, NEVER the HEVC
-          pipeline. isActive only during the gate substate (releases Camera2
-          before HumynCapture.start opens it — T-4.9-06). photoQualityBalance
-          "speed" keeps the gate JPEG small (Pitfall 10). */}
-      {ultrawide && state.substate === 'gate' && cameraActive ? (
-        <Camera
-          ref={camRef}
-          device={ultrawide}
-          isActive={cameraActive}
-          photo
-          photoQualityBalance="speed"
-          onInitialized={onCameraInitialized}
-          style={StyleSheet.absoluteFill}
-        />
+      {/* Live gate-camera preview — a native TextureView fed by the Camera2
+          gate session (back ULTRAWIDE, AF OFF, fixed focus; CONTROL_ZOOM_RATIO
+          driven to the ultrawide so the operator sees the same FOV the
+          HumynCapture HEVC recording captures). Mounted across ALL the camera
+          pre-record substates ('ready' | 'pre-flight' | 'gate') so the operator
+          (or a helper) can check the rig placement / hands-in-frame / scene
+          before pressing Start — NOT during 'active' (the recording surface
+          dims to ~5% with no preview, design-spec §7 — the rig is head-mounted
+          and a preview would just burn battery/thermal). The Camera2 session
+          lifecycle (open on entering 'ready', close on the gate→record handoff
+          / leaving the pre-record flow / unmount) is driven by the effects
+          above, NOT by mount/unmount of this view. NEVER the HEVC pipeline —
+          that's HumynCapture (one back-camera client at a time; the gate
+          session is closed via stopGate() + SETTLE_MS before HumynCapture.start
+          opens Camera2 — T-4.9-06). */}
+      {state.substate === 'ready' ||
+      state.substate === 'pre-flight' ||
+      state.substate === 'gate' ? (
+        <HumynGateCameraView style={StyleSheet.absoluteFill} />
       ) : null}
 
       {/* Top 3px full-width minute-bar (only fills during active recording). */}
@@ -665,24 +757,28 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         </Animated.View>
       ) : null}
 
+      {/* 'ready' record button — bottom-anchored over the live preview. Owner
+          directive (debug session handgate-never-passes): now that the gate
+          camera's preview fills the screen from 'ready' onward, the "Start
+          Recording" button sits at the bottom of the screen over the preview,
+          not centered in the middle of it — mirrors the 'active' Stop button /
+          prototype.html's `.rec-bottom` placement. Label text unchanged. */}
+      {state.substate === 'ready' ? (
+        <View style={styles.recordButtonBottom}>
+          <Pressable
+            accessibilityLabel="recording-record-button"
+            onPress={() => dispatch({ type: 'START_PRESSED' })}
+            style={styles.recordButton}
+          />
+          <Text variant="pillLabel" style={styles.recordLabel}>
+            Start Recording
+          </Text>
+        </View>
+      ) : null}
+
       {/* Substate-driven chrome. */}
       <View style={styles.body}>
-        {state.substate === 'rotate-prompt' ? (
-          <RotatePrompt onPretendRotated={() => dispatch({ type: 'LANDSCAPE_DETECTED' })} />
-        ) : null}
-
-        {state.substate === 'ready' ? (
-          <View style={styles.centerStack}>
-            <Pressable
-              accessibilityLabel="recording-record-button"
-              onPress={() => dispatch({ type: 'START_PRESSED' })}
-              style={styles.recordButton}
-            />
-            <Text variant="pillLabel" style={styles.recordLabel}>
-              Start Recording
-            </Text>
-          </View>
-        ) : null}
+        {state.substate === 'rotate-prompt' ? <RotatePrompt /> : null}
 
         {state.substate === 'pre-flight' ? (
           <View style={styles.centerStack} accessibilityLabel="recording-preflight" />
@@ -762,14 +858,19 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
 }
 
 // --- §7h post-stop navigation helpers ---------------------------------------
-// PracticeComplete lives in OnboardingStack (D-NAV-04); the Recording route is
-// a RootNativeStack sibling — so we hop via the parent navigator. Real-recording
+// PracticeComplete lives in OnboardingStack (D-NAV-04); Recording is a sibling
+// route on the same root native stack — and PracticeIntro.replace('Recording')
+// pops OnboardingStack off the root stack on the way in, so PracticeComplete is
+// not reachable by name from here. Rebuild the root stack with OnboardingStack
+// focused on PracticeComplete (PracticeComplete's "Continue" then resets the
+// root to MainTabs). The `getParent() ?? navigation` idiom matches the rest of
+// the onboarding flow (PracticeCompleteScreen / RigTutorialScreen). Real-recording
 // stop lands the user back on the Home tab (MainTabs).
 
 function navigateToPracticeComplete(navigation: NavigationLike): void {
-  const parent = navigation.getParent?.();
-  if (parent?.reset) {
-    parent.reset({
+  const target = navigation.getParent?.() ?? navigation;
+  if (target.reset) {
+    target.reset({
       index: 0,
       routes: [
         {
@@ -780,12 +881,8 @@ function navigateToPracticeComplete(navigation: NavigationLike): void {
     });
     return;
   }
-  if (parent?.navigate) {
-    parent.navigate('PracticeComplete');
-    return;
-  }
-  if (navigation.replace) navigation.replace('PracticeComplete');
-  else navigation.navigate('PracticeComplete');
+  // Fallback for shallow nav stubs that lack `reset`.
+  target.navigate('OnboardingStack', { screen: 'PracticeComplete' });
 }
 
 function navigateToHome(navigation: NavigationLike): void {
@@ -828,6 +925,17 @@ const styles = StyleSheet.create({
   overlayTipText: { color: colors.recTextCaption },
   body: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   centerStack: { alignItems: 'center', justifyContent: 'center', gap: spacing.l },
+  // 'ready' substate only — pinned to the bottom of the screen over the live
+  // preview (prototype `.rec-bottom` sits ~24px off the bottom; +a touch for
+  // the gesture nav bar). `gap` matches the prototype's `.rec-btn-wrap` (14px).
+  recordButtonBottom: {
+    position: 'absolute',
+    bottom: spacing.hh,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    gap: spacing.mdl,
+  },
   recordButton: { width: 88, height: 88, borderRadius: 44, backgroundColor: colors.coral },
   recordLabel: { color: colors.recTextPrimary },
   gatePrompt: {

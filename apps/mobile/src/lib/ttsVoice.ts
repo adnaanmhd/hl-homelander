@@ -1,17 +1,27 @@
-// ttsVoice — REC-14 en-IN voice selection for the recording-surface TTS cues.
+// ttsVoice — voice selection for the recording-surface TTS cues.
 //
-// `pickAndSetEnInVoice()` applies the `engineering-handoff.md §6.3` /
-// `idea-brief.md §13` fallback chain ONCE (at RecordingScreen / app init):
+// ⚠ DEVIATION from the LOCKED design spec (2026-05-11, explicit project-owner
+// directive — debug session handgate-never-passes): `idea-brief.md §13` /
+// `engineering-handoff.md §6.3` / REQ REC-14 specify an *en-IN female* voice.
+// On the Pixel 10a test device the only installed voice is `en-us-x-tpf-local`
+// (Google US English, female) and the engine's en-IN fallback sounded bad to
+// the owner, so the cue voice is now **American English, female-leaning** —
+// en-US is preferred over en-IN. (Function/file names keep the `EnIn` spelling
+// only to avoid churning every import site; the behaviour is en-US-first.)
 //
-//   1. `language === 'en-IN'` AND the name/id looks female-leaning
-//   2. any `language === 'en-IN'`
-//   3. `language === 'en-US'` AND the name/id looks female-leaning
-//   4. the first `language` that starts with 'en'
+// `pickAndSetEnInVoice()` runs ONCE (at RecordingScreen / app init):
 //
-// `notInstalled` voices are filtered out first. If `Tts.voices()` returns []
-// (older Android, or no installed voices) the chain yields nothing and the TTS
-// engine default is left in place — `setDefaultRate` / `setDefaultPitch` are
-// still applied.
+//   0. `setDefaultLanguage('en-US')` as a baseline — so the cues are never an
+//      en-IN voice even if the specific-voice pick below doesn't take. (Best-
+//      effort; ignored if the engine has no en-US data.)
+//   1. an `en-US` voice whose name/id looks female-leaning → `setDefaultVoice`
+//   2. else any `en-US` voice → `setDefaultVoice` (on Pixel / Google TTS the
+//      bundled en-US voice — `en-us-x-tpf` — is the female one)
+//   3. else the first `language` that starts with 'en' → `setDefaultVoice`
+//   4. else leave the engine default (after the step-0 en-US language pin)
+//
+// `notInstalled` voices are filtered out first. `setDefaultRate` /
+// `setDefaultPitch` are always applied regardless of which branch hits.
 //
 // ⚠ rate-scale note (04-RESEARCH Pattern 4 CORRECTION): `react-native-tts`'s
 // `setDefaultRate(rate)` expects a cross-platform-translated value in
@@ -35,15 +45,17 @@ interface TtsVoice {
   notInstalled?: boolean;
 }
 
-const FEMALE_HEURISTIC = /female|woman|-fem|fenrir|salli|joanna|amy|raveena/i;
+// `-tpf-` / `-sfg-` are the female en-US Google WaveNet voice ids; the rest are
+// common female voice-name tokens (Amazon Polly etc.). No gender field exists.
+const FEMALE_HEURISTIC = /female|woman|-fem|-tpf-|-sfg-|fenrir|salli|joanna|amy|raveena/i;
 
 const looksFemale = (v: TtsVoice): boolean => FEMALE_HEURISTIC.test(`${v.name ?? ''}${v.id ?? ''}`);
 
 /**
- * Pick + set the en-IN female-leaning TTS voice per the REC-14 fallback chain,
- * then apply the §13 rate/pitch. Safe to call before the engine reports
- * voices (falls back to the engine default). Idempotent enough to call once at
- * RecordingScreen mount; calling it again just re-applies the same choice.
+ * Pick + set the recording-cue TTS voice (en-US female-leaning per the owner
+ * override — see file header), then apply the §13 rate/pitch. Safe to call
+ * before the engine reports voices (falls back to the engine default after the
+ * en-US language pin). Idempotent enough to call once at RecordingScreen mount.
  */
 export async function pickAndSetEnInVoice(): Promise<void> {
   await Tts.getInitStatus();
@@ -52,20 +64,33 @@ export async function pickAndSetEnInVoice(): Promise<void> {
   try {
     voices = ((await Tts.voices()) as TtsVoice[]) ?? [];
   } catch {
-    // Older Android / no TTS voices installed → fall through to engine default.
+    // Older Android / no TTS voices installed → keep the en-US language pin below.
     voices = [];
   }
   const usable = voices.filter((v) => !v.notInstalled);
 
   const id =
-    usable.find((v) => v.language === 'en-IN' && looksFemale(v))?.id ?? // 1. en-IN female-ish
-    usable.find((v) => v.language === 'en-IN')?.id ?? // 2. any en-IN
-    usable.find((v) => v.language === 'en-US' && looksFemale(v))?.id ?? // 3. en-US female-ish
-    usable.find((v) => (v.language ?? '').toLowerCase().startsWith('en'))?.id; // 4. first en-*
+    usable.find((v) => v.language === 'en-US' && looksFemale(v))?.id ?? // 1. en-US female-ish
+    usable.find((v) => v.language === 'en-US')?.id ?? // 2. any en-US (bundled Google en-US is female)
+    usable.find((v) => (v.language ?? '').toLowerCase().startsWith('en'))?.id; // 3. first en-*
 
-  if (id) {
-    await Tts.setDefaultVoice(id);
+  // 0. Baseline: pin the engine to en-US so the cues are never an en-IN voice
+  //    even if the specific-voice pin below doesn't stick. Best-effort — each
+  //    TTS call is individually guarded so `pickAndSetEnInVoice` never rejects.
+  try {
+    await Tts.setDefaultLanguage('en-US');
+  } catch {
+    /* best-effort — engine may lack en-US data */
   }
+  if (id) {
+    try {
+      await Tts.setDefaultVoice(id);
+    } catch {
+      /* best-effort — the step-0 en-US language pin stands */
+    }
+  }
+  // (no en-* voice at all) → the step-0 en-US language pin stands.
+
   // skipTransform=true → Android's raw 1.0 (== normal speed). See the note above.
   Tts.setDefaultRate(1.0, true);
   Tts.setDefaultPitch(0.95);

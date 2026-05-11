@@ -11,6 +11,11 @@
         },
         {
           "kind": "subsection",
+          "heading": "Check your framing first",
+          "body": "The moment you rotate to landscape, the screen shows a live camera preview — use it BEFORE you tap **Start Recording**. Confirm the head rig is sitting right: your hands should land inside the frame, and the scene you're about to record should be clearly visible. If you can, have someone stand in front of you and check the framing for you. A few seconds here saves a wasted recording — make it a habit."
+        },
+        {
+          "kind": "subsection",
           "heading": "Starting a recording",
           "body": "1. Open the task and tap **Start Recording**. The screen rotates to landscape and locks.\n2. Bring both hands into the camera frame and hold them there. The progress ring fills as your hands are detected — once it completes, recording starts automatically and you'll hear _\"Recording started.\"_\n3. You can also tap **Skip** under the record button to start manually."
         },

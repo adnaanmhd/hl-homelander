@@ -37,15 +37,20 @@ export function Icon({
   // Lucide icon components accept `size`, `color`, `strokeWidth`. The
   // index signature in `LucideIconMap` types each entry too loosely; cast
   // to a component and forward.
-  const Component = LucideIcons[name] as unknown as React.ComponentType<{
-    size?: number;
-    color?: string;
-    strokeWidth?: number;
-    accessibilityLabel?: string;
-  }>;
-  if (typeof Component !== 'function') {
-    // Defensive: returns null rather than throwing if a typo'd icon name
-    // slips past TypeScript (e.g., dynamic name lookup).
+  const Component = LucideIcons[name] as unknown as
+    | React.ComponentType<{
+        size?: number;
+        color?: string;
+        strokeWidth?: number;
+        accessibilityLabel?: string;
+      }>
+    | undefined;
+  // lucide-react-native icons are `React.forwardRef(...)` objects, NOT plain
+  // functions — a `typeof Component === 'function'` guard (wrongly) rejected
+  // every real icon and rendered nothing (debug session handgate-never-passes:
+  // the rotate-prompt and gate-"X" icons came up invisible on-device). Only
+  // bail when the name didn't resolve at all (e.g. a dynamic typo).
+  if (Component == null) {
     return null;
   }
   return (

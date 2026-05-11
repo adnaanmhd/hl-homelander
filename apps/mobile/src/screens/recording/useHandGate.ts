@@ -1,22 +1,26 @@
-// useHandGate — the HAND-03 / HAND-04 / HAND-13 photo-to-disk poll loop that
+// useHandGate — the HAND-03 / HAND-04 / HAND-13 frame-to-disk poll loop that
 // drives the pre-record hand gate (04-RESEARCH Pattern 1).
 //
 // While the gate is in its `waiting` phase, on every `cadenceMs`-ms tick:
-//   1. `camRef.current.takePhoto({ flash:'off', enableShutterSound:false })`
-//      → a small JPEG written to VisionCamera's temp dir (we use
-//      `photoQualityBalance="speed"` on the <Camera>, paired with the Kotlin
-//      RGB_565 / 320×240 / recycle hygiene — Pitfall 10).
-//   2. `RNFS.mkdir(cacheDir/hand-gate)` (best-effort) then
-//      `RNFS.moveFile(photo.path, cacheDir/hand-gate/{uuid}.jpg)` — internal
-//      storage only, never external, never in backup (Security V8/V12).
-//   3. `HumynHandDetector.detectHands(dest, minConfidence)` → the hand COUNT
+//   1. `HumynGateCamera.captureFrame(cacheDir/hand-gate/{uuid}.jpg)` — the
+//      native Camera2 gate camera (back ultrawide, AF OFF, fixed focus —
+//      debug session handgate-never-passes, 2026-05-11) writes a small JPEG
+//      straight to that app-internal path (never external, never in backup —
+//      Security V8/V12). [Was: VisionCamera `takePhoto()` → `RNFS.moveFile`,
+//      which ran on the main WIDE lens with continuous AF hunting → blurry
+//      frames → the 5-consecutive-2-hand streak never completed.]
+//   2. `HumynHandDetector.detectHands(dest, minConfidence)` → the hand COUNT
 //      (0 / 1 / 2). A rejection (corrupt file, MediaPipe error) is treated as
 //      0 hands ("no hands this poll").
-//   4. `dispatch(count === 2 ? GATE_HIT : GATE_MISS)` (the reducer owns the
+//   3. `dispatch(count === 2 ? GATE_HIT : GATE_MISS)` (the reducer owns the
 //      streak accumulation + the snap-to-0; HAND-04).
-//   5. `RNFS.unlink(dest)` in a `finally` — delete the frame on every resolve
+//   4. `RNFS.unlink(dest)` in a `finally` — delete the frame on every resolve
 //      so camera frames never linger (the mount-time + app-launch sweeps mop
 //      up stragglers from a crashed gate session).
+//
+// The native Camera2 session itself is opened (`startGate`) / closed
+// (`stopGate`) by RecordingScreen around the `gate` substate, not here — this
+// hook only does the poll while `args.active`.
 //
 // The recursive `setTimeout` (NOT `setInterval` — we want one tick to finish
 // before the next is scheduled) + a `cancelled` ref are cleared on transition
@@ -27,11 +31,7 @@ import { useEffect, useRef } from 'react';
 import uuid from 'react-native-uuid';
 import RNFS from 'react-native-fs';
 import { detectHands } from '../../native/HumynHandDetector';
-
-/** The subset of the VisionCamera ref the gate uses (still-capture only). */
-export interface HandGateCameraRef {
-  takePhoto(opts: { flash: 'off'; enableShutterSound: boolean }): Promise<{ path: string }>;
-}
+import { captureFrame } from '../../native/HumynGateCamera';
 
 export interface UseHandGateArgs {
   /** True iff substate==='gate' && gate.phase==='waiting' (the only window the loop runs). */
@@ -40,13 +40,11 @@ export interface UseHandGateArgs {
   cadenceMs: number;
   /** minHandDetectionConfidence (RemoteConfig HAND-11). */
   minConfidence: number;
-  /** The VisionCamera <Camera> ref. */
-  camRef: React.RefObject<HandGateCameraRef | null>;
   /** Dispatch onto recReducer — GATE_HIT (count===2) / GATE_MISS (else). */
   dispatch: (a: { type: 'GATE_HIT'; now: number } | { type: 'GATE_MISS' }) => void;
 }
 
-/** The cacheDir subfolder gate frames are moved through. */
+/** The cacheDir subfolder gate frames are written to / swept from. */
 export const HAND_GATE_DIR = `${RNFS.CachesDirectoryPath}/hand-gate`;
 
 /**
@@ -54,7 +52,7 @@ export const HAND_GATE_DIR = `${RNFS.CachesDirectoryPath}/hand-gate`;
  * deactivation / unmount.
  */
 export function useHandGate(args: UseHandGateArgs): void {
-  const { active, cadenceMs, minConfidence, camRef, dispatch } = args;
+  const { active, cadenceMs, minConfidence, dispatch } = args;
 
   // Stable refs so the effect closure always sees the latest values without
   // re-running the loop on every render.
@@ -71,23 +69,15 @@ export function useHandGate(args: UseHandGateArgs): void {
 
     const tick = async (): Promise<void> => {
       if (cancelled) return;
-      const cam = camRef.current;
-      if (cam == null) {
-        // Camera not yet bound — retry on the next cadence.
-        if (!cancelled) timer = setTimeout(tick, cadenceMs);
-        return;
-      }
-      let dest: string | null = null;
+      const startedAt = nowMs();
+      const dest = `${HAND_GATE_DIR}/${uuid.v4() as string}.jpg`;
       try {
-        const photo = await cam.takePhoto({ flash: 'off', enableShutterSound: false });
+        await RNFS.mkdir(HAND_GATE_DIR).catch(() => undefined);
+        await captureFrame(dest);
         if (cancelled) {
-          // Loop torn down while the photo was in flight — still clean up.
-          if (photo?.path) RNFS.unlink(photo.path).catch(() => undefined);
+          RNFS.unlink(dest).catch(() => undefined);
           return;
         }
-        await RNFS.mkdir(HAND_GATE_DIR).catch(() => undefined);
-        dest = `${HAND_GATE_DIR}/${uuid.v4() as string}.jpg`;
-        await RNFS.moveFile(photo.path, dest);
         const count = await detectHands(dest, minConfRef.current).catch(() => 0);
         if (!cancelled) {
           dispatchRef.current(
@@ -95,24 +85,38 @@ export function useHandGate(args: UseHandGateArgs): void {
           );
         }
       } catch {
-        // takePhoto / moveFile threw — treat as a miss; the next tick retries.
+        // captureFrame threw (camera not running, capture failed/timed out) —
+        // treat as a miss; the next tick retries.
         if (!cancelled) dispatchRef.current({ type: 'GATE_MISS' });
       } finally {
-        if (dest) RNFS.unlink(dest).catch(() => undefined);
-        if (!cancelled) timer = setTimeout(tick, cadenceMs);
+        // Delete the frame on every resolve so camera frames never linger
+        // (Security V8/V12 leak discipline; the mount-time + app-launch sweeps
+        // mop up stragglers from a crashed gate session).
+        RNFS.unlink(dest).catch(() => undefined);
+        // Honour the cadence as a STEADY period, not an extra idle gap on top
+        // of the (~150–250 ms) capture+detect work: if a tick took most/all of
+        // `cadenceMs`, the next one fires (almost) immediately, so the ring
+        // fills in ≈ `targetHits × cadenceMs` ("2 secs") rather than ≈ 2× that.
+        if (!cancelled) {
+          const remaining = Math.max(0, cadenceMs - (nowMs() - startedAt));
+          timer = setTimeout(tick, remaining);
+        }
       }
     };
 
-    // First tick fires after one cadence (the <Camera> needs onInitialized +
-    // the HAND-12 pre-warm to land first; the screen only flips `active` true
-    // once gate.phase==='waiting', which is the CAMERA_READY transition).
-    timer = setTimeout(tick, cadenceMs);
+    // First tick fires after a short warmup (not a full cadence) — RecordingScreen
+    // only flips `active` true once gate.phase==='waiting' (the CAMERA_READY
+    // transition, i.e. after `HumynGateCamera.startGate()` resolved AND the
+    // preview's repeating request has been converging AE), so the camera is
+    // already warm enough; ~100 ms just lets this render commit first.
+    const FIRST_TICK_DELAY_MS = 100;
+    timer = setTimeout(tick, FIRST_TICK_DELAY_MS);
 
     return () => {
       cancelled = true;
       if (timer != null) clearTimeout(timer);
     };
-  }, [active, cadenceMs, camRef]);
+  }, [active, cadenceMs]);
 }
 
 /** `performance.now()` with a `Date.now()` fallback (jsdom / older RN). */

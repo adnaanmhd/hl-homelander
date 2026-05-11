@@ -14,6 +14,7 @@
 // Substate transition table (engineering-handoff §4.3 diagram):
 //   initialRecState(params, gateConfig?) → substate 'rotate-prompt'
 //   LANDSCAPE_DETECTED   on 'rotate-prompt'        → 'ready'           (no-op elsewhere)
+//   ORIENTATION_LOST     on 'ready'|'pre-flight'|'gate' → 'rotate-prompt', gate reset to idle (device left landscape during a pre-record substate — re-gate so a take can't start in portrait; debug session handgate-never-passes. 'active' has its own mid-record stop in useRecordingLifecycle; 'rotate-prompt'/'stop-confirm'/'stopped' no-op)
 //   SET_GATE_CONFIG      on a pre-gate substate    → gate.{targetHits,cadenceMs} updated, clamped (no-op once 'gate' entered) — HAND-11 RemoteConfig late resolve
 //   START_PRESSED        on 'ready'                → 'pre-flight'
 //   PRE_FLIGHT_OK        on 'pre-flight'           → 'gate' (phase 'loading', startedAt=now)
@@ -33,7 +34,7 @@
 //   STOP                 on 'active'|'stop-confirm' → 'stopped', ended=true; if already ended → no-op (double-stop guard)
 //   BATTERY_ALERT        anywhere                  → alerts.battery=true (overlay only — does NOT change substate)
 //   THERMAL_ALERT        anywhere                  → alerts.thermal=true (overlay only)
-//   RESET_FOR_FRESH      on 'stopped'              → 'ready', gate reset to idle, durationMs=0, ended=false, alerts={} (REC-05 — fresh recording, no countdown)
+//   RESET_FOR_FRESH      on 'stopped'              → 'rotate-prompt', gate reset to idle, durationMs=0, ended=false, alerts={} (REC-05 — a fresh recording re-runs the orientation gate so a 2nd take can't start in portrait; debug session handgate-never-passes)
 //   (no timeout transition exists — HAND-05; the gate runs indefinitely until pass/skip)
 //
 // `gate.phase` is the sub-discriminant within substate==='gate'.
@@ -66,8 +67,8 @@ export type RecState = {
   gate: {
     phase: 'idle' | 'loading' | 'waiting' | 'confirmed';
     consecutiveHits: number; // count===2 streak; resets to 0 on any miss
-    targetHits: number; // 5 Android / 3 iOS (from RemoteConfig gate.consecutive_hits_required)
-    cadenceMs: number; // 400 Android / 600 iOS (from RemoteConfig gate.cadence_ms)
+    targetHits: number; // 2 Android (from RemoteConfig gate.consecutive_hits_required)
+    cadenceMs: number; // 250 Android (from RemoteConfig gate.cadence_ms)
     skipped: boolean; // user tapped Skip
     bypassed: boolean; // HandDetector native module unavailable
     startedAt: number | null; // performance.now() at gate enter
@@ -77,6 +78,7 @@ export type RecState = {
 
 export type RecAction =
   | { type: 'LANDSCAPE_DETECTED' }
+  | { type: 'ORIENTATION_LOST' }
   | { type: 'SET_GATE_CONFIG'; targetHits: number; cadenceMs: number }
   | { type: 'START_PRESSED' }
   | { type: 'PRE_FLIGHT_OK'; now: number }
@@ -98,8 +100,13 @@ export type RecAction =
   | { type: 'THERMAL_ALERT' }
   | { type: 'RESET_FOR_FRESH' };
 
-const DEFAULT_TARGET_HITS = 5; // Android default (RemoteConfig gate.consecutive_hits_required)
-const DEFAULT_CADENCE_MS = 400; // Android default (RemoteConfig gate.cadence_ms)
+// Android default (RemoteConfig gate.consecutive_hits_required). 2 hits × 250 ms
+// cadence ≈ 0.5 s of "hands in frame" — the displayed copy still says "for 2
+// secs"; the actual dwell was shortened (debug session handgate-never-passes,
+// 2026-05-11, on-hardware UX: 5×400 ms then 3×400 ms still felt sluggish given
+// the camera warmup; user directed 2×250 ms — still 2-hand, 2 consecutive frames).
+const DEFAULT_TARGET_HITS = 2;
+const DEFAULT_CADENCE_MS = 250; // Android default (RemoteConfig gate.cadence_ms)
 const PRACTICE_CAP_MS = 60_000 as const;
 const REAL_CAP_MS = 1_200_000 as const;
 
@@ -151,6 +158,24 @@ export function recReducer(state: RecState, action: RecAction): RecState {
     // ---- rotate-prompt → ready ----
     case 'LANDSCAPE_DETECTED':
       return state.substate === 'rotate-prompt' ? { ...state, substate: 'ready' } : state;
+
+    // ---- ready/pre-flight/gate → rotate-prompt (device left landscape) ----
+    //      Re-gate so a take can't START in portrait (debug session
+    //      handgate-never-passes). 'active' is handled by useRecordingLifecycle
+    //      (onStop('orientation')); 'rotate-prompt'/'stop-confirm'/'stopped' no-op.
+    case 'ORIENTATION_LOST':
+      if (
+        state.substate === 'ready' ||
+        state.substate === 'pre-flight' ||
+        state.substate === 'gate'
+      ) {
+        return {
+          ...state,
+          substate: 'rotate-prompt',
+          gate: idleGate(state.gate.targetHits, state.gate.cadenceMs),
+        };
+      }
+      return state;
 
     // ---- RemoteConfig gate config (HAND-11) — only valid on a pre-gate
     //      substate; a no-op once the gate has been entered so it can't perturb
@@ -285,12 +310,18 @@ export function recReducer(state: RecState, action: RecAction): RecState {
       }
       return state;
 
-    // ---- stopped → ready (real recording re-press) ----
+    // ---- stopped → rotate-prompt (real recording re-press) ----
+    //      Back to 'rotate-prompt', NOT 'ready', so a 2nd take re-runs the
+    //      landscape gate — otherwise stopping a take, rotating to portrait,
+    //      and tapping record again starts a portrait recording (debug session
+    //      handgate-never-passes). The screen also keeps the landscape lock
+    //      across this transition (handleStop no longer unlocks on the <60s
+    //      path — only the unmount cleanup / pre-record goBack unlocks).
     case 'RESET_FOR_FRESH':
       if (state.substate !== 'stopped') return state;
       return {
         ...state,
-        substate: 'ready',
+        substate: 'rotate-prompt',
         startedAt: null,
         durationMs: 0,
         ended: false,

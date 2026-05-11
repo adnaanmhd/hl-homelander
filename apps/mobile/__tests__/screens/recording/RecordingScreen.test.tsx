@@ -6,7 +6,7 @@
 //   - the dark-theme chrome renders the verbatim copy + substate affordances
 //   - REC-01: Orientation.lockToLandscape() on mount; unlockAllOrientations() +
 //     HumynScreenBrightness.set(-1) on unmount (REC-08)
-//   - the gate-pass → active transition (passed): Vibration.vibrate(80) +
+//   - the gate-pass → active transition (passed): Vibration.vibrate(120) +
 //     speakCue('Recording started') + HumynScreenBrightness.set(0.05) +
 //     HumynCapture.start(<opts that parse>) → CAPTURE_STARTED → 'active'
 //   - HumynCapture.start reject {code:'thermal_throttling'} → set(-1) + toast +
@@ -117,6 +117,19 @@ vi.mock('../../../src/native/HumynHandDetector', () => ({
   isHandDetectorAvailable: mockDetectAvailable,
   detectHands: vi.fn().mockResolvedValue(0),
   cleanup: mockCleanupHandDetector,
+}));
+
+// Native Camera2 gate camera (debug handgate-never-passes). `startGate` returns
+// a never-settling promise so the gate stays in its `loading` phase (CAMERA_READY
+// never fires) — the existing chrome tests assert "Preparing camera…" /
+// gate-ring rendering, not the post-CAMERA_READY poll loop. `isGateCameraAvailable`
+// is true so the HAND-08 bypass doesn't fire spuriously.
+vi.mock('../../../src/native/HumynGateCamera', () => ({
+  startGate: vi.fn(() => new Promise<void>(() => undefined)),
+  captureFrame: vi.fn().mockResolvedValue(undefined),
+  stopGate: vi.fn().mockResolvedValue(undefined),
+  isGateCameraAvailable: () => true,
+  HumynGateCameraView: () => null,
 }));
 
 vi.mock('react-native-orientation-locker', () => {
@@ -431,7 +444,7 @@ describe('RecordingScreen — orientation + brightness lifecycle (REC-01 / REC-0
 });
 
 describe('RecordingScreen — gate-pass → active transition (HAND-09)', () => {
-  it('passed: Vibration.vibrate(80) + speakCue("Recording started") + set(0.05) + HumynCapture.start(<parseable opts>) → active', async () => {
+  it('passed: Vibration.vibrate(120) + speakCue("Recording started") + set(0.05) + HumynCapture.start(<parseable opts>) → active', async () => {
     _routeParams = {
       taskId: 'cooking_chop',
       taskName: 'Chop vegetables',
@@ -443,7 +456,7 @@ describe('RecordingScreen — gate-pass → active transition (HAND-09)', () => 
       render(<RecordingScreen __test_initialState={confirmedGate('passed')} />);
     });
     await waitFor(() => expect(mockHcStart).toHaveBeenCalledTimes(1));
-    expect(vibrateSpy).toHaveBeenCalledWith(80);
+    expect(vibrateSpy).toHaveBeenCalledWith(120);
     expect(mockSpeakCue).toHaveBeenCalledWith('Recording started');
     expect(mockBrightnessSet).toHaveBeenCalledWith(0.05);
     const opts = mockHcStart.mock.calls[0]![0] as {
@@ -473,7 +486,7 @@ describe('RecordingScreen — gate-pass → active transition (HAND-09)', () => 
     await waitFor(() => expect(screen.getByLabelText('recording-record-button')).toBeTruthy());
   });
 
-  it('Skip: NO vibrate(80), NO "Recording started" cue, but set(0.05) STILL called + HumynCapture.start STILL called (HAND-07)', async () => {
+  it('Skip: NO vibrate(120), NO "Recording started" cue, but set(0.05) STILL called + HumynCapture.start STILL called (HAND-07)', async () => {
     _routeParams = {
       taskId: 'cooking_chop',
       taskName: 'Chop vegetables',
@@ -541,7 +554,7 @@ describe('RecordingScreen — §7h post-stop routing', () => {
     );
   });
 
-  it('real recording <60s stopped → showToast("Recording too short — discarded.") + RESET_FOR_FRESH (back to ready)', async () => {
+  it('real recording <60s stopped → showToast("Recording too short — discarded.") + RESET_FOR_FRESH (back to the landscape gate)', async () => {
     _routeParams = {
       taskId: 'cooking_chop',
       taskName: 'Chop vegetables',
@@ -558,7 +571,9 @@ describe('RecordingScreen — §7h post-stop routing', () => {
     });
     fireEvent.click(screen.getByLabelText('recording-stop'));
     await waitFor(() => expect(screen.getByText('Recording too short — discarded.')).toBeTruthy());
-    await waitFor(() => expect(screen.getByLabelText('recording-record-button')).toBeTruthy());
+    // RESET_FOR_FRESH now lands on 'rotate-prompt' (not 'ready') so a 2nd take
+    // re-runs the landscape gate — debug session handgate-never-passes.
+    await waitFor(() => expect(screen.getByLabelText('rotate-prompt')).toBeTruthy());
   });
 });
 
