@@ -90,27 +90,28 @@ const REQUIRED_PHASE_2_ROUTES = [
   'CompatPass',
   'CompatFail',
   'RigTutorial',
-  // Phase 4 plan 04-06 — the two light tutorial screens spliced between
-  // RigTutorial and MainTabs (RigTutorial → PracticeIntro → Recording →
-  // PracticeComplete → MainTabs). Registered in OnboardingStack.tsx.
-  'PracticeIntro',
-  'PracticeComplete',
+  // NB: 'PracticeIntro' / 'PracticeComplete' (OnboardingStack, plan 04-06) used
+  // to live in this Phase-2 list; plan 04-09 moved them into
+  // REQUIRED_PHASE_4_ROUTES below alongside 'Recording' so the Pattern-54
+  // Phase-4 invariant covers all three Phase-4 routes in one block.
 ];
 
 /**
- * Phase 4 — routes added by Phase 4 plans that the registry invariant must
- * now require (removal fails CI — D-NAV-01 / Pattern 54).
+ * Phase 4 — routes added by Phase 4 plans that the registry invariant must now
+ * require (removal of any of the three fails CI — D-NAV-01 / Pattern 54).
  *
- * Plan 04-07 — `Recording` (RootNativeStack sibling): the full-bleed dark
- * recording surface. `PracticeIntro`/`PracticeComplete` (OnboardingStack)
- * are registered by plan 04-06 (same plan-wave as 04-07) and were added to
- * REQUIRED_PHASE_2_ROUTES by that plan; their dedicated required-route
- * assertions live there. Plan 04-09 (which depends on both 04-06 and 04-07)
- * is the natural home for any further OnboardingStack-route additions; this
- * plan (04-07) is the SOLE plan-wave-3 plan that touches this test file and
- * it adds ONLY `Recording`.
+ * `Recording` (RootNativeStack sibling, plan 04-07) — the full-bleed dark
+ * recording surface. `PracticeIntro` / `PracticeComplete` (OnboardingStack, plan
+ * 04-06) — the two light tutorial screens spliced between RigTutorial and
+ * MainTabs (RigTutorial → PracticeIntro → Recording → PracticeComplete →
+ * MainTabs). The PracticeIntro/PracticeComplete entries are added here by plan
+ * 04-09 (which depends on both 04-06 and 04-07) — they previously lived in
+ * REQUIRED_PHASE_2_ROUTES; consolidating all three Phase-4 routes into this one
+ * block keeps the Pattern-54 invariant authoritative. Do NOT move 'Recording'
+ * out of this block — plan 04-07 owns it; do NOT re-add the practice routes to
+ * the Phase-2 list.
  */
-const REQUIRED_PHASE_4_ROUTES = ['Recording'];
+const REQUIRED_PHASE_4_ROUTES = ['Recording', 'PracticeIntro', 'PracticeComplete'];
 
 /**
  * Phase 2 routes that were REMOVED by later plans. The invariant test asserts
