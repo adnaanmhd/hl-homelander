@@ -46,9 +46,24 @@ class HumynForegroundService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // CR-02 fix — when intent is null, the OS is re-delivering after a
+        // process kill (the historical cost of START_STICKY). The
+        // CaptureSession / Camera2 pipeline / JS bridge are all dead at this
+        // point; restarting the FGS would show a "Recording in progress"
+        // notification with the camera|microphone FGS-type indicator while
+        // nothing is actually being captured (a privacy hazard given the
+        // bitmask). Stop ourselves so the FGS state matches reality.
+        if (intent == null) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         val notif = HumynForegroundNotification.build(this, "Recording in progress")
         ServiceCompat.startForeground(this, NOTIF_ID, notif, FGS_TYPE_RECORDING)
-        return START_STICKY
+        // START_NOT_STICKY: the JS bridge owns the lifecycle. After a
+        // low-memory kill, the user re-launches the app and explicitly
+        // start()s a new session — at which point HumynCaptureModule.start
+        // re-creates the FGS. Never auto-restart on our own.
+        return START_NOT_STICKY
     }
 
     /**
