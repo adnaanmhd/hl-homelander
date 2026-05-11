@@ -19,7 +19,7 @@
 // automatic — Profile is a sibling of MainTabs, not a child.
 
 import React from 'react';
-import { View, ScrollView, Pressable } from 'react-native';
+import { View, ScrollView } from 'react-native';
 import ScreenContainer from '../../ui/primitives/ScreenContainer';
 import Text from '../../ui/primitives/Text';
 import { TopBar } from '../../components/TopBar';
@@ -27,86 +27,13 @@ import { SoftUpgradeBanner } from '../../components/SoftUpgradeBanner';
 import { useAppStore } from '../../state/appStore';
 import { useTabTopBarProps } from '../../hooks/useTabTopBarProps';
 import { spacing } from '../../ui/tokens';
-import * as HumynCapture from '../../native/HumynCapture';
-import type { CaptureSessionOpts } from '@humyn/shared-types';
+
+// (Phase 3 smoke seam removed in Phase 4 — the real RecordingScreen now wires
+//  the HumynCapture start path; trail: deferred-items.md D4-01 + commit 15d8a16.)
 
 export default function HomeSkeletonScreen() {
   const topBarProps = useTabTopBarProps();
   const softUpgradeAvailable = useAppStore((s) => s.softUpgradeAvailable);
-  const user = useAppStore((s) => s.user);
-
-  // Phase 3 smoke seam — REMOVE in Phase 4 when RecordingScreen wires up
-  // start()/stop() against the real Hand-detection gate + practice flow.
-  // Documented anchor: 03-MANUAL-SMOKE.md §2 "edit a debug build to invoke
-  // start() once". Validates UAT #5 (FGS), #6 (SHA), #7 (events) without
-  // depending on Phase 4 deliverables.
-  const [smokeState, setSmokeState] = React.useState<'idle' | 'running' | 'done' | 'error'>('idle');
-  const [smokeMsg, setSmokeMsg] = React.useState<string | null>(null);
-
-  const onSmokeCapture = React.useCallback(async () => {
-    const opts: CaptureSessionOpts = {
-      taskId: '01J5K7M9P0QR2STU4VWX6YZ8AB',
-      taskName: 'Phase 3 smoke',
-      taskCategory: 'smoke',
-      taskSetting: 'indoor',
-      contributor: {
-        name: user?.name ?? 'Smoke Operator',
-        email: user?.email ?? 'm.adnaan161@gmail.com',
-        age: null,
-        gender: null,
-        consent: true,
-      },
-      isPractice: false,
-      startGate: {
-        type: 'hand_detection',
-        passed: true,
-        skipped: false,
-        bypassed: false,
-        durationMs: 1500,
-        consecutiveHitsRequired: 5,
-        platformCadenceMs: 100,
-      },
-      location: 'Phase 3 smoke',
-      appVersion: '0.1.0-apk',
-      dfovDegrees: 115.2,
-    };
-
-    console.log('[smoke] start() opts', JSON.stringify(opts));
-    setSmokeState('running');
-    setSmokeMsg(null);
-    const subs: { remove: () => void }[] = [];
-    try {
-      subs.push(
-        HumynCapture.onSegmentStart((e) =>
-          console.log('[smoke] onSegmentStart', JSON.stringify(e)),
-        ),
-        HumynCapture.onSegmentComplete((e) =>
-          console.log('[smoke] onSegmentComplete', JSON.stringify(e)),
-        ),
-        HumynCapture.onSessionStop((e) => console.log('[smoke] onSessionStop', JSON.stringify(e))),
-        HumynCapture.onThermalAbort((e) =>
-          console.log('[smoke] onThermalAbort', JSON.stringify(e)),
-        ),
-        HumynCapture.onError((e) => console.log('[smoke] onError', JSON.stringify(e))),
-      );
-      const result = await HumynCapture.start(opts);
-      console.log('[smoke] start resolved', JSON.stringify(result));
-      setSmokeMsg(`started: ${result.sessionId}`);
-      await new Promise((r) => setTimeout(r, 30_000));
-      console.log('[smoke] calling stop()');
-      await HumynCapture.stop();
-      console.log('[smoke] stop resolved');
-      setSmokeMsg('stop resolved — check files/recordings');
-      setSmokeState('done');
-    } catch (err) {
-      const e = err as { code?: string; message?: string };
-      console.error('[smoke] error', e?.code, e?.message);
-      setSmokeMsg(`${e?.code ?? 'unknown'}: ${e?.message ?? String(err)}`);
-      setSmokeState('error');
-    } finally {
-      subs.forEach((s) => s.remove?.());
-    }
-  }, [user]);
 
   return (
     <ScreenContainer accessibilityLabel="Home screen" padding={0}>
@@ -134,58 +61,6 @@ export default function HomeSkeletonScreen() {
           Home tiles arrive in Phase 6. For now this is the structural shell that locks in HOME-07
           (3 tabs) and HOME-08 (tab bar suppression).
         </Text>
-        {__DEV__ ? (
-          <View
-            accessibilityLabel="phase-3-smoke-seam"
-            style={{
-              marginTop: spacing.xl,
-              padding: spacing.md,
-              borderWidth: 1,
-              borderColor: '#ffaa00',
-              borderRadius: 8,
-            }}
-          >
-            <Text variant="bodyLg" tone="primary" style={{ marginBottom: spacing.s }}>
-              DEBUG · Phase 3 Smoke Seam
-            </Text>
-            <Text variant="body" tone="secondary" style={{ marginBottom: spacing.md }}>
-              Invokes HumynCapture.start() + stop() for a 30 s smoke capture (UAT #5/#6/#7). Removed
-              in Phase 4 when RecordingScreen wires the real start path.
-            </Text>
-            <Pressable
-              onPress={onSmokeCapture}
-              disabled={smokeState === 'running'}
-              accessibilityLabel="smoke-capture-button"
-              style={{
-                padding: spacing.md,
-                backgroundColor: smokeState === 'running' ? '#888' : '#0066cc',
-                borderRadius: 6,
-              }}
-            >
-              <Text variant="body" tone="primary" style={{ color: '#fff', textAlign: 'center' }}>
-                {smokeState === 'idle'
-                  ? '▶ Smoke Capture (30s)'
-                  : smokeState === 'running'
-                    ? 'Recording…'
-                    : smokeState === 'done'
-                      ? '✓ Done — check logcat'
-                      : '✗ Error'}
-              </Text>
-            </Pressable>
-            {smokeMsg ? (
-              <Text
-                variant="body"
-                tone="secondary"
-                style={{
-                  marginTop: spacing.s,
-                  color: smokeState === 'error' ? '#cc0000' : undefined,
-                }}
-              >
-                {smokeMsg}
-              </Text>
-            ) : null}
-          </View>
-        ) : null}
       </ScrollView>
     </ScreenContainer>
   );
