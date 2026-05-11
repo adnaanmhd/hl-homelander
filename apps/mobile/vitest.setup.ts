@@ -17,6 +17,21 @@ import * as React from 'react';
 import { toMatchImageSnapshot } from 'jest-image-snapshot';
 
 // ---------------------------------------------------------------------------
+// `__DEV__` global shim (Plan 04-01).
+//
+// React Native's bundler (Metro) defines the `__DEV__` global at build time;
+// the jsdom test environment does not, so any component that reads `__DEV__`
+// (e.g. HomeSkeletonScreen.tsx's dev-only debug block) crashes with
+// `ReferenceError: __DEV__ is not defined` at render time — taking out the
+// Home tab, the navigator boot, and every visual snapshot that renders it.
+// Mirror Metro's default for a debug build. Tests that need the production
+// branch can `vi.stubGlobal('__DEV__', false)` per-suite.
+// ---------------------------------------------------------------------------
+if (typeof (globalThis as { __DEV__?: boolean }).__DEV__ === 'undefined') {
+  (globalThis as { __DEV__?: boolean }).__DEV__ = true;
+}
+
+// ---------------------------------------------------------------------------
 // Phase 3 Wave 1 — visual snapshot adapter (D-WAVE-06).
 //
 // jest-image-snapshot ships an `expect.extend`-shaped matcher that compares
@@ -581,3 +596,194 @@ vi.mock('react-native-keychain', () => ({
   STORAGE_TYPE: {},
   SECURITY_LEVEL: {},
 }));
+
+// ===========================================================================
+// Phase 4 — handdetector / recording-UX / practice / tutorial.
+//
+// Plan 04-01 adds the locked Phase 4 RN library deps (CLAUDE.md pins) plus
+// jsdom mocks for them so Wave 2/3/4 plans can `import` + unit-test the
+// recording surface without invoking any native bridge. VisionCamera here is
+// preview + `takePhoto()`/`takeSnapshot()` ONLY — the HEVC video pipeline is
+// the hand-rolled HumynCapture native module (CLAUDE.md "Do NOT Use"). The
+// transitive VC peers (react-native-worklets-core, @shopify/react-native-skia)
+// are NOT mocked here — Phase 4 JS never imports them directly; add a vi.mock
+// only if a downstream import surfaces them.
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// react-native-vision-camera — preview component + still-capture only.
+// `Camera` is a forwardRef host component that returns null; its ref instance
+// exposes `takePhoto` / `takeSnapshot` (the hand-gate frame source). The
+// device hooks return a stub back ultra-wide device so `useCameraDevice`
+// consumers render the happy path. `Camera.getAvailableCameraDevices` is the
+// imperative analogue used by the compat probe / device-selection code.
+// ---------------------------------------------------------------------------
+vi.mock('react-native-vision-camera', () => {
+  const STUB_DEVICE = {
+    id: 'mock-cam-0',
+    position: 'back' as const,
+    physicalDevices: ['ultra-wide-angle-camera'] as const,
+    formats: [] as unknown[],
+  };
+  const Camera = React.forwardRef<
+    unknown,
+    Record<string, unknown> & { children?: React.ReactNode }
+  >(function CameraMock(_props, ref) {
+    // Expose the imperative still-capture surface on the ref so consumers
+    // doing `cameraRef.current?.takePhoto()` get a resolved photo object.
+    React.useImperativeHandle(ref, () => ({
+      takePhoto: vi.fn().mockResolvedValue({
+        path: '/tmp/mock-photo.jpg',
+        width: 320,
+        height: 240,
+        orientation: 'landscape-right',
+        isRawPhoto: false,
+      }),
+      takeSnapshot: vi.fn().mockResolvedValue({ path: '/tmp/mock-snap.jpg' }),
+    }));
+    return null;
+  });
+  (Camera as unknown as { getAvailableCameraDevices: unknown }).getAvailableCameraDevices = vi
+    .fn()
+    .mockResolvedValue([
+      { id: 'mock-cam-0', position: 'back', physicalDevices: ['ultra-wide-angle-camera'] },
+    ]);
+  return {
+    Camera,
+    useCameraDevice: (_position?: unknown, _filter?: unknown) => STUB_DEVICE,
+    useCameraDevices: () => [STUB_DEVICE],
+    getCameraDevice: (_devices?: unknown, _position?: unknown, _filter?: unknown) => STUB_DEVICE,
+    useCameraPermission: () => ({
+      hasPermission: true,
+      requestPermission: vi.fn().mockResolvedValue(true),
+    }),
+  };
+});
+
+// ---------------------------------------------------------------------------
+// react-native-tts — default export object; mirrors the idea-brief §13 voice
+// fallback chain (en-IN female → en-IN any → en-US female → first en-*). The
+// `voices()` stub returns en-IN + en-US so the picker resolves a real choice;
+// `getInitStatus` resolves 'success' so the TTS bootstrap code's happy path
+// fires. Event listeners return a `{ remove }` subscription handle.
+// ---------------------------------------------------------------------------
+vi.mock('react-native-tts', () => {
+  const Tts = {
+    getInitStatus: vi.fn().mockResolvedValue('success'),
+    voices: vi.fn().mockResolvedValue([
+      { id: 'en-in-x-ene-local', language: 'en-IN', quality: 300, notInstalled: false },
+      { id: 'en-us-x-tpf-local', language: 'en-US', quality: 300, notInstalled: false },
+    ]),
+    setDefaultVoice: vi.fn().mockResolvedValue(undefined),
+    setDefaultRate: vi.fn(),
+    setDefaultPitch: vi.fn(),
+    setDefaultLanguage: vi.fn(),
+    setIgnoreSilentSwitch: vi.fn(),
+    setDucking: vi.fn(),
+    speak: vi.fn(),
+    stop: vi.fn(),
+    pause: vi.fn(),
+    resume: vi.fn(),
+    addEventListener: vi.fn(() => ({ remove: vi.fn() })),
+    removeAllListeners: vi.fn(),
+  };
+  return { default: Tts, ...Tts };
+});
+
+// ---------------------------------------------------------------------------
+// react-native-fs — exported BOTH as named exports and a default object
+// (consumers use `import RNFS from 'react-native-fs'` AND `import { mkdir }
+// from 'react-native-fs'`). `exists` defaults false; `getFSInfo` returns a
+// healthy 64 GB / 32 GB free so the storage-headroom guard's happy path runs.
+// ---------------------------------------------------------------------------
+vi.mock('react-native-fs', () => {
+  const RNFS = {
+    CachesDirectoryPath: '/tmp/mock-caches',
+    DocumentDirectoryPath: '/tmp/mock-docs',
+    TemporaryDirectoryPath: '/tmp/mock-tmp',
+    ExternalDirectoryPath: '/tmp/mock-external',
+    mkdir: vi.fn().mockResolvedValue(undefined),
+    moveFile: vi.fn().mockResolvedValue(undefined),
+    copyFile: vi.fn().mockResolvedValue(undefined),
+    unlink: vi.fn().mockResolvedValue(undefined),
+    exists: vi.fn().mockResolvedValue(false),
+    readDir: vi.fn().mockResolvedValue([]),
+    readFile: vi.fn().mockResolvedValue(''),
+    writeFile: vi.fn().mockResolvedValue(undefined),
+    stat: vi.fn().mockResolvedValue({ size: 0, isFile: () => true, isDirectory: () => false }),
+    getFSInfo: vi.fn().mockResolvedValue({ totalSpace: 64 * 1e9, freeSpace: 32 * 1e9 }),
+    hash: vi.fn().mockResolvedValue('0'.repeat(64)),
+  };
+  return { default: RNFS, ...RNFS };
+});
+
+// ---------------------------------------------------------------------------
+// react-native-orientation-locker — default export object + named exports
+// (`OrientationType` const map, `OrientationLocker` no-op component). Phase 4
+// `RecordingScreen` is the ONLY landscape-locked surface — `lockToLandscape`
+// on mount, `unlockAllOrientations` on unmount. All listener APIs are no-op
+// spies; the getters resolve PORTRAIT (irrelevant in jsdom — device-frame
+// orientation is integration-tested on hardware, not unit tests).
+// ---------------------------------------------------------------------------
+vi.mock('react-native-orientation-locker', () => {
+  // orientation-locker's OrientationType enum — the five canonical strings.
+  // Object keys containing a dash MUST be quoted.
+  const ENUM = {
+    PORTRAIT: 'PORTRAIT',
+    'LANDSCAPE-LEFT': 'LANDSCAPE-LEFT',
+    'LANDSCAPE-RIGHT': 'LANDSCAPE-RIGHT',
+    'PORTRAIT-UPSIDEDOWN': 'PORTRAIT-UPSIDEDOWN',
+    UNKNOWN: 'UNKNOWN',
+  };
+  const Orientation = {
+    lockToLandscape: vi.fn(),
+    lockToLandscapeLeft: vi.fn(),
+    lockToLandscapeRight: vi.fn(),
+    lockToPortrait: vi.fn(),
+    unlockAllOrientations: vi.fn(),
+    getOrientation: vi.fn((cb: (o: string) => void) => cb('PORTRAIT')),
+    getDeviceOrientation: vi.fn((cb: (o: string) => void) => cb('PORTRAIT')),
+    getInitialOrientation: vi.fn(() => 'PORTRAIT'),
+    addOrientationListener: vi.fn(),
+    removeOrientationListener: vi.fn(),
+    addDeviceOrientationListener: vi.fn(),
+    removeDeviceOrientationListener: vi.fn(),
+    addLockListener: vi.fn(),
+    removeLockListener: vi.fn(),
+    configure: vi.fn(),
+  };
+  const OrientationLocker = () => null;
+  return { default: Orientation, OrientationType: ENUM, OrientationLocker };
+});
+
+// ---------------------------------------------------------------------------
+// NativeModules — canonical Phase 4 native-module stub shapes.
+//
+// CONTRACT (preserved from Phase 3): the `react-native` mock above leaves
+// `NativeModules` as `{}`. Per-file tests that need a specific native module
+// `vi.doMock('react-native', () => ({ NativeModules: { HumynX: { ... } }, ... }))`
+// — see __tests__/native/HumynCapture.test.ts and HumynCompat.test.ts. Plan
+// 04-01 does NOT change that contract; it documents the canonical stub shapes
+// here so per-file mocks across the Phase 4 plans stay consistent. The five
+// new in-house Kotlin native modules (D-WAVE-01) and their JS stub shapes:
+//
+//   HumynHandDetector  — MediaPipe HandLandmarker IMAGE mode, hand-count only:
+//     { detectHands: vi.fn().mockResolvedValue(0),
+//       cleanup: vi.fn().mockResolvedValue(undefined) }
+//   HumynPhoneState    — AudioManager.OnAudioFocusChangeListener ONLY (no
+//                        READ_PHONE_STATE / TelephonyManager — corrected
+//                        RESEARCH D-LIFE-02):
+//     { start: vi.fn().mockResolvedValue(undefined),
+//       stop:  vi.fn().mockResolvedValue(undefined) }
+//   HumynBattery       — ACTION_BATTERY_CHANGED broadcast bridge:
+//     { start: vi.fn().mockResolvedValue(undefined),
+//       stop:  vi.fn().mockResolvedValue(undefined) }
+//   HumynScreenBrightness — per-window brightness override (NOT Settings.System):
+//     { set: vi.fn().mockResolvedValue(undefined) }
+//   HumynBeep          — SoundPool over a pre-baked .wav:
+//     { playTone: vi.fn().mockResolvedValue(undefined) }
+//
+// Each is also exposed via NativeEventEmitter where it emits events; bindings
+// must return the EmitterSubscription (`{ remove }`) so callers can unsubscribe
+// (the T-3.3-04 leak-mitigation contract — mirrored from HumynCapture).
+// ---------------------------------------------------------------------------
