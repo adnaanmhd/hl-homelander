@@ -98,6 +98,21 @@ const REQUIRED_PHASE_2_ROUTES = [
 ];
 
 /**
+ * Phase 4 — routes added by Phase 4 plans that the registry invariant must
+ * now require (removal fails CI — D-NAV-01 / Pattern 54).
+ *
+ * Plan 04-07 — `Recording` (RootNativeStack sibling): the full-bleed dark
+ * recording surface. `PracticeIntro`/`PracticeComplete` (OnboardingStack)
+ * are registered by plan 04-06 (same plan-wave as 04-07) and were added to
+ * REQUIRED_PHASE_2_ROUTES by that plan; their dedicated required-route
+ * assertions live there. Plan 04-09 (which depends on both 04-06 and 04-07)
+ * is the natural home for any further OnboardingStack-route additions; this
+ * plan (04-07) is the SOLE plan-wave-3 plan that touches this test file and
+ * it adds ONLY `Recording`.
+ */
+const REQUIRED_PHASE_4_ROUTES = ['Recording'];
+
+/**
  * Phase 2 routes that were REMOVED by later plans. The invariant test asserts
  * each removed name is NOT registered anywhere in the navigator pair so an
  * accidental re-introduction surfaces in PR review.
@@ -122,14 +137,21 @@ describe('Navigator route registry — Phase 2 screens (D-NAV-02)', () => {
     });
   }
 
-  it('does not register any unrecognized Phase-3+ routes (early-warning check)', () => {
-    // Phase 4 will add Recording; Phase 6 will add Player. Until those plans
-    // land, asserting they are absent prevents an accidental early commit.
-    // When Phase 4 lands, the corresponding name moves into
-    // REQUIRED_PHASE_2_ROUTES (or a new test file).
-    const phase3Plus = ['Recording', 'Player'];
-    for (const route of phase3Plus) {
+  it('does not register any unrecognized Phase-6+ routes (early-warning check)', () => {
+    // Phase 6 will add Player. Until that plan lands, asserting it is absent
+    // prevents an accidental early commit. When it lands, the name moves into
+    // a Phase-6 required-routes block.
+    const phase6Plus = ['Player'];
+    for (const route of phase6Plus) {
       expect(ALL_NAVIGATOR_SOURCE).not.toMatch(new RegExp(`name=["']${route}["']`));
     }
   });
+});
+
+describe('Navigator route registry — Phase 4 screens (D-NAV-01 / Pattern 54)', () => {
+  for (const name of REQUIRED_PHASE_4_ROUTES) {
+    it(`registers screen name="${name}"`, () => {
+      expect(ALL_NAVIGATOR_SOURCE).toMatch(new RegExp(`name=["']${name}["']`));
+    });
+  }
 });

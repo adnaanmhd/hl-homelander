@@ -36,8 +36,19 @@ export const colors = {
   bannerWarnBg: '#FFF4E5',
   bannerWarnBorder: '#FFD9A8',
   bannerWarnText: '#8C5A1A',
-  // Recording surface
+  // Recording surface — dark theme (design-spec §7 / 04-UI-SPEC § Color §
+  // "Dark recording surface"). The full/partial-opacity whites + the dark
+  // overlay tones live here so no rgba/hex literal leaks into a screen or
+  // component body (the D-UI-01 token-discipline gate).
   recBg: '#0A0A0A',
+  recTextPrimary: '#FFFFFF', // task name, primary chrome text
+  recTextSecondary: 'rgba(255,255,255,0.95)', // gate prompt (17/24)
+  recTextCaption: 'rgba(255,255,255,0.85)', // overlay tip / loading caption
+  recSkipLink: 'rgba(255,255,255,0.7)', // gate "Skip" link (14/600)
+  recOverlayTip: 'rgba(0,0,0,0.6)', // 3s "Don't exit while recording." overlay bg
+  recToastBg: 'rgba(26,26,26,0.94)', // bottom toast bg
+  recVoiceCueBg: 'rgba(255,255,255,0.96)', // voice-cue pill bg (dark text on it)
+  recRingTrack: 'rgba(255,255,255,0.18)', // GateRing track circle
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -179,6 +190,22 @@ export const typography = {
     lineHeight: 32,
     fontWeight: '600' as const,
     letterSpacing: 1,
+  },
+  // Recording surface — dark-theme typography (04-UI-SPEC § Typography).
+  recGatePrompt: {
+    fontSize: 17,
+    lineHeight: 24,
+    fontWeight: '500' as const,
+  },
+  recSkipLink: {
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '600' as const,
+  },
+  recAlertPill: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600' as const,
   },
 } as const;
 
