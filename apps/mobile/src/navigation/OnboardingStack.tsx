@@ -1,15 +1,16 @@
 // OnboardingStack — native stack for the pre-MainTabs flow.
 //
 // `gestureEnabled: false` enforces D-NAV-04 / engineering-handoff §3.3:
-// Permissions, Compat (Running/Pass/Fail), and RigTutorial expose NO back
-// gesture. The Splash and Signup screens also opt out of swipe-back to keep
-// the flow linear.
+// Permissions, Compat (Running/Pass/Fail), RigTutorial, PracticeIntro, and
+// PracticeComplete expose NO back gesture. The Splash and Signup screens also
+// opt out of swipe-back to keep the flow linear.
 //
-// Splash → Signup → Permissions → Compat (Running → Pass → RigTutorial OR
-// Running → Fail [merged Fail+Recovery — Plan 03-03]) → MainTabs (handled by
-// RootNativeStack via navigation.replace). CompatRecoveryScreen + its route
-// were merged into CompatFailScreen in Plan 03-03 (02-COSMETIC-GAPS.md
-// § Compat-fail screen).
+// Splash → Signup → Permissions → Compat → RigTutorial → PracticeIntro →
+// (Recording, a RootNativeStack route registered by plan 04-07) →
+// PracticeComplete → MainTabs (PracticeComplete.Continue does
+// navigation.reset). PracticeIntro + PracticeComplete added Phase 4 plan
+// 04-06. CompatRecoveryScreen + its route were merged into CompatFailScreen
+// in Plan 03-03 (02-COSMETIC-GAPS.md § Compat-fail screen).
 
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -20,6 +21,8 @@ import CompatRunningScreen from '../screens/compat/CompatRunningScreen';
 import CompatPassScreen from '../screens/compat/CompatPassScreen';
 import CompatFailScreen from '../screens/compat/CompatFailScreen';
 import RigTutorialScreen from '../screens/tutorial/RigTutorialScreen';
+import PracticeIntroScreen from '../screens/tutorial/PracticeIntroScreen';
+import PracticeCompleteScreen from '../screens/tutorial/PracticeCompleteScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -33,6 +36,8 @@ export default function OnboardingStack() {
       <Stack.Screen name="CompatPass" component={CompatPassScreen} />
       <Stack.Screen name="CompatFail" component={CompatFailScreen} />
       <Stack.Screen name="RigTutorial" component={RigTutorialScreen} />
+      <Stack.Screen name="PracticeIntro" component={PracticeIntroScreen} />
+      <Stack.Screen name="PracticeComplete" component={PracticeCompleteScreen} />
     </Stack.Navigator>
   );
 }

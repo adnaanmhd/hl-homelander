@@ -57,6 +57,21 @@ export const EVENT_NAMES = [
   // Onboarding
   'rig_tutorial_shown',
   'rig_no_rig_link_tapped',
+  // Onboarding — practice tutorial (Phase 4)
+  'practice_intro_shown',
+  'practice_started',
+  'practice_complete_shown',
+  'practice_complete_continued',
+  // Recording (Phase 4)
+  // recording_gate_* — the MediaPipe HandLandmarker pre-record gate funnel
+  // (HAND-14; recording_gate_skipped is consumed by plan 04-09's Skip link).
+  'recording_gate_started',
+  'recording_gate_passed',
+  'recording_gate_skipped',
+  'recording_gate_bypassed',
+  'recording_started',
+  'recording_stopped',
+  'recording_too_short',
   // Profile
   'profile_viewed',
   'profile_edited',
