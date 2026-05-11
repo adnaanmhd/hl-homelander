@@ -34,6 +34,7 @@ import type {
   SessionStopEvent,
   ThermalAbortEvent,
   CaptureErrorEvent,
+  CrashRecoveryEvent,
 } from './HumynCapture.types';
 
 interface HumynCaptureNativeModule {
@@ -145,6 +146,19 @@ export function onError(listener: (e: CaptureErrorEvent) => void): EmitterSubscr
   return emitter().addListener('onError', listener);
 }
 
+/**
+ * D-LIFE-04 — subscribe to the one-shot `onCrashRecovery` event the
+ * Phase-3 app-launch sweep emits when it re-finalizes orphan segments
+ * after a force-quit / OS-evict (`{ recovered: string[] }` — the
+ * re-finalize-candidate filenameBases). Fires AT MOST once per app
+ * launch (only when there is recoverable work). Caller MUST `.remove()`
+ * the returned subscription on unmount (T-3.3-04 leak mitigation) — the
+ * boot listener `.remove()`s it after the first fire (one-shot).
+ */
+export function onCrashRecovery(listener: (e: CrashRecoveryEvent) => void): EmitterSubscription {
+  return emitter().addListener('onCrashRecovery', listener);
+}
+
 export type {
   CaptureStartResponse,
   SegmentStartEvent,
@@ -152,4 +166,5 @@ export type {
   SessionStopEvent,
   ThermalAbortEvent,
   CaptureErrorEvent,
+  CrashRecoveryEvent,
 };

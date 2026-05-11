@@ -75,7 +75,11 @@ class MainApplication : Application(), ReactApplication {
 
         // Phase 3 D-FS-04 — orphan recordings + practice cleanup. Best-effort;
         // missing dirs are skipped. See CaptureLaunchSweep.kt for sweep semantics.
-        CaptureLaunchSweep(filesDir).run()
+        // Phase 4 D-LIFE-04 (plan 04-10) — stash the orphan-with-valid-sidecar
+        // bases the sweep found; HumynCaptureModule drains this on first
+        // onHostResume (after the JS bundle + installBootRecoveryListener are up)
+        // and emits the one-shot onCrashRecovery event for the Home toast.
+        CaptureLaunchSweep.pendingRecovery = CaptureLaunchSweep(filesDir).run()
 
         // Phase 3 — set capture.segment_minutes default (read by SegmentDurationConfig.load()).
         // Defaults are best-effort: if Firebase init hasn't completed (test/no-network), the
