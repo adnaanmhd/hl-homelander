@@ -90,6 +90,14 @@ const TOAST_START_BATTERY = 'Battery too low to start a recording. Charge to at 
 const VOICE_BATTERY_LOW = 'Battery low. Consider charging soon.';
 const VOICE_THERMAL = 'Phone too hot, stopping recording';
 
+/** Monotonic-ish clock — `performance.now()` with a `Date.now()` fallback (the
+ *  same one `RecordingScreen` uses for `state.startedAt`). */
+function nowMs(): number {
+  return typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now();
+}
+
 export type StopReason =
   | 'manual'
   | 'background'
@@ -123,6 +131,13 @@ export type UseRecordingLifecycleArgs = {
   isPractice: boolean;
   /** Current active-recording duration (the screen's TICK value, ms). */
   durationMs: number;
+  /** Wall-clock start of the active recording (`state.startedAt` — the same
+   *  `performance.now()`-with-`Date.now()`-fallback clock the screen uses).
+   *  The practice 60s cap is re-armed off this, NOT the frozen `durationMs`,
+   *  so the stop-confirm modal can't overrun it (WR-07). Optional only so the
+   *  hook unit test can omit it (it falls back to `durationMs`); production
+   *  always passes `state.startedAt`. */
+  startedAt?: number | null;
   /** Flips true when the user logs out while a recording is active (§10). */
   loggedOut?: boolean;
   callbacks: LifecycleCallbacks;
@@ -143,13 +158,15 @@ export function useRecordingLifecycle(args: UseRecordingLifecycleArgs): {
    *  returns `{ blocked:false }` if OK, or `{ blocked:true, toast }` if blocked. */
   checkStartGuards: () => Promise<StartGuardResult>;
 } {
-  const { substate, isPractice, durationMs, loggedOut, callbacks } = args;
+  const { substate, isPractice, durationMs, startedAt, loggedOut, callbacks } = args;
 
   // Stable refs so the single effect doesn't churn on every render.
   const callbacksRef = useRef(callbacks);
   callbacksRef.current = callbacks;
   const durationMsRef = useRef(durationMs);
   durationMsRef.current = durationMs;
+  const startedAtRef = useRef<number | null | undefined>(startedAt);
+  startedAtRef.current = startedAt;
   const substateRef = useRef(substate);
   substateRef.current = substate;
 
@@ -180,16 +197,18 @@ export function useRecordingLifecycle(args: UseRecordingLifecycleArgs): {
   }, []);
 
   // The active flag the effect closes over for the §10 edges. We re-run the
-  // effect when the substate enters/leaves {gate, active}; inside, `isActive`
-  // re-derives from substateRef so the AppState/orientation handlers don't fire
-  // a stop while in 'gate'.
-  const monitoring = substate === 'gate' || substate === 'active';
+  // effect when the substate enters/leaves {gate, active, stop-confirm}; inside,
+  // `isActive` re-derives from substateRef so the AppState/orientation handlers
+  // don't fire a stop while in 'gate' or 'stop-confirm'. Keeping 'stop-confirm'
+  // in `monitoring` means the §10 safety stops stay SUBSCRIBED while a recording
+  // runs under an open stop-confirm modal — they aren't torn down and re-created
+  // on the modal open/close churn (WR-07).
+  const monitoring = substate === 'gate' || substate === 'active' || substate === 'stop-confirm';
 
   useEffect(() => {
     if (!monitoring) return;
 
     const subs: Removable[] = [];
-    const timers: Array<ReturnType<typeof setTimeout>> = [];
     let audioFocusTimer: ReturnType<typeof setTimeout> | null = null;
     let periodicGuard: ReturnType<typeof setInterval> | null = null;
 
@@ -326,7 +345,6 @@ export function useRecordingLifecycle(args: UseRecordingLifecycleArgs): {
         }
       }
       clearAudioFocusTimer();
-      for (const t of timers) clearTimeout(t);
       if (periodicGuard != null) clearInterval(periodicGuard);
       phoneStop().catch(() => undefined);
       batteryStop().catch(() => undefined);
@@ -334,12 +352,19 @@ export function useRecordingLifecycle(args: UseRecordingLifecycleArgs): {
   }, [monitoring]);
 
   // --- practice 60s hard cap (ONB-05) ---------------------------------------
-  // A separate effect so it re-arms exactly when active starts (or fires
-  // immediately if the recording is already past 60s). Takes precedence over
-  // every other lifecycle event — the cap fires at exactly 60s of recording.
+  // A separate effect so it re-arms exactly when active starts (or re-enters
+  // 'active' from "Keep recording"). The remaining time is computed off the
+  // WALL-CLOCK elapsed since `startedAt`, NOT the frozen `durationMs` — the
+  // TICK that feeds `durationMs` early-returns on substate !== 'active', so a
+  // stop-confirm modal opened mid-record would otherwise freeze the cap clock
+  // and the practice clip could overrun 60s (WR-07). Fires immediately
+  // (`remaining === 0`) if the recording is already past 60s. Takes precedence
+  // over every other lifecycle event.
   useEffect(() => {
     if (!isPractice || substate !== 'active') return;
-    const remaining = Math.max(0, PRACTICE_HARD_CAP_MS - durationMsRef.current);
+    const elapsed =
+      startedAtRef.current != null ? nowMs() - startedAtRef.current : durationMsRef.current;
+    const remaining = Math.max(0, PRACTICE_HARD_CAP_MS - elapsed);
     const t = setTimeout(() => {
       logEvent('recording_stopped', { reason: 'practice_hard_cap' });
       callbacksRef.current.onStop('practice_hard_cap');
