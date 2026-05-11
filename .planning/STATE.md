@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 3 Wave 1 authoring COMPLETE — Plans 03-01 + 03-02 + 03-03 all landed on 2026-05-10. Plan 03-03 (cosmetic-functional-regressions, the LAST Wave 1 plan) closes the navigation-graph-touching changes inventoried in 02-COSMETIC-GAPS.md: Pattern 71 useTabTopBarProps wires Tasks/History TopBar avatars identically to Home; Pattern 72 useForegroundUserRehydrate hook fires /me at navigator root on AppState 'active' when user==null && jwt!=null (closes Phase 2 §13-soak Android-process-kill avatar regression); CompatFail + CompatRecovery merged into one centered scrollable surface (CompatRecoveryScreen.tsx + test deleted; route-registry test gains REMOVED_PHASE_2_ROUTES list asserting CompatRecovery re-introduction fails CI); CompatPass auto-routes to RigTutorial after 1.5s without manual tap (40ms haptic preserved; clearTimeout on unmount per T-3.2-05); 5th and final [EMAIL_ADDRESS] placeholder swapped for support@humynlabs.ai inside the merged CompatFailScreen mailto (OQ-1 fully resolved end-to-end; OQ-2 marked superseded-by-03-02-merge); 4 new visual baselines lifting Wave 1 total to 10; 03-WAVE1-SMOKE.md operator re-walk runbook authored (12 sections, Pre-flight, Sign-off, D-WAVE-09 amendment protocol). Full mobile test suite: 344/344 across 61 test files (was 320/320 after Plan 03-02; +24 new tests across Wave 1). Wave 2 plan-phase (Plan 03-04 capture-foundation-muxer-bridge) is unblocked from authoring standpoint; conditions (3)+(4) of D-WAVE-08 (operator re-walk on Pixel 10a + re-walked-on: stamp in 03-WAVE1-SMOKE.md) remain operator-driven hard gates before Wave 2 plan-phase starts."
-last_updated: '2026-05-10T18:04:50.573Z'
-last_activity: 2026-05-10
+stopped_at: 'Phase 3 ALL 11 PLANS LANDED + code-review fixes applied + verification ran (status: human_needed). Wave 1 (cosmetic): 03-01/02/03 landed 2026-05-10. Wave 2-6 (HumynCapture module): 03-04 capture-foundation-muxer-bridge → 03-05 pure-fn-primitives → 03-06 metadata-composer → 03-07 foreground-service-thermal → 03-08 encoder-imu-segment-timer → 03-09 orchestrator-bridge-wireup → 03-10 capture-session-finalize → 03-11 wave1-polish all complete with SUMMARY.md. 03-REVIEW.md found 7 BLOCKERs (CR-01..CR-07) + 14 warnings (WR-01..WR-14); all 21 fixed in-Phase-3 per operator decision (commits 7a89585, 971c557, 857f9ac, f945bc4, ef5059b, 04c0542..11a3718). 03-VERIFICATION.md: 5/5 must-haves verified at module-ready scope, real-device E2E deferred to Phase 4 per CONTEXT.md D-WAVE-01; surfaced 9 HUMAN-UAT items. 2026-05-11: operator approved paper items #8 (REVIEW blockers all fixed-in-phase) + #9 (re-walked-on stamp confirmed); 7 hardware UAT items remain pending real-device testing on Pixel 7a/8a (#1 10-min HEVC spec, #2 25-min auto-segment, #3 drift residual, #4 thermal handling, #5 FGS type + KEEP_SCREEN_ON, #6 CAP-18 SHA round-trip, #7 CAP-13 upload-pause seam). Phase 3 NOT marked complete — awaiting hardware UAT. ROADMAP table updated 4/11 → 11/11; STATE counters rolled forward 39 → 46.'
+last_updated: '2026-05-11T01:56:13Z'
+last_activity: 2026-05-11
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 46
-  completed_plans: 39
-  percent: 85
+  completed_plans: 46
+  percent: 100
 ---
 
 # Project State
@@ -25,18 +25,31 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 
 ## Current Position
 
-Phase: 03 (humyn-capture-native-module) — EXECUTING
-Plan: 1 of 11
-Status: Executing Phase 03
+Phase: 03 (humyn-capture-native-module) — AWAITING HARDWARE UAT
+Plan: 11 of 11 (all SUMMARYs landed)
+Status: Verification status = human_needed; 2/9 UAT items resolved (paper sign-offs #8 + #9); 7/9 pending real-device testing on Pixel 7a/8a
+
+Phase 2 operator smoke-walk history (carried forward):
 
 - §1 Cold-start gate decision tree — PASSED (Path A, fresh install)
 - §2 Sign-up + Terms-of-Use modal — PASSED (after 4 auth-stack provisioning fixes, see commits below)
 - §3 Permissions — PASSED (Camera + Mic granted, Continue advanced)
 - §4 Compat happy path — PASSED ✅ (ec86b99 expanded LOGICAL_MULTI_CAMERA.physicalIds in DeviceCaps; on-device CompatPassScreen rendered)
 - §5–§13 PENDING (operator-driven, smoke-walk continuation)
-  Last activity: 2026-05-10
 
-Progress: [██████████] 100% (authoring) · §4 of 13 smoke sections (auth + perms cleared; compat 1 leg from passing)
+Phase 3 hardware UAT pending (7 items, all on real Pixel 7a/8a):
+
+- #1 10-min HEVC capture spec (ffprobe + NAL)
+- #2 25-min auto-segment integrity (sibling triples + 0.5 s gap)
+- #3 imu*video_drift*{max,mean,p99}\_ms residual
+- #4 Pre-record + mid-record thermal handling
+- #5 FGS type = camera|microphone|dataSync + KEEP_SCREEN_ON
+- #6 CAP-18 byte-for-byte SHA round-trip (device → S3)
+- #7 CAP-13 onSessionStart/Stop upload-pause seam
+
+Last activity: 2026-05-11
+
+Progress: [██████████] 100% (authoring + code-review + automated verify) · 2/9 UAT cleared on paper · 7/9 awaiting hardware
 
 ## Resume Path (set before pause)
 

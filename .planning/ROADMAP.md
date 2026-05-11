@@ -207,7 +207,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | ---------------------------------------------------------- | -------------- | ------------------------------------------------ | ---------- |
 | 1. Foundation, Backend & Distribution Recon                | 13/13          | Complete                                         | 2026-05-08 |
 | 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 22/22          | Authoring complete · operator-smoke gate pending | -          |
-| 3. HumynCapture Native Module (Bytes-on-disk)              | 4/11           | In Progress                                      |            |
+| 3. HumynCapture Native Module (Bytes-on-disk)              | 11/11          | Authoring complete · hardware UAT pending (7/9)  |            |
 | 4. HandDetector, Recording UX & Practice Tutorial          | 0/TBD          | Not started                                      | -          |
 | 5. Upload Pipeline, Hash-Verify Worker & Anti-fraud        | 0/TBD          | Not started                                      | -          |
 | 6. Tasks, History, Home Tiles & Hybrid Search              | 0/TBD          | Not started                                      | -          |
