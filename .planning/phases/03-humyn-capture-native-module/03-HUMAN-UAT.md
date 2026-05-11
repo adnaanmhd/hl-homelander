@@ -143,13 +143,31 @@ disposition: **RESOLVED 2026-05-11.**
 - Verified live on third smoke run 2026-05-11 sessionId 01KRAHE26NS644XSZH6XTEKFNQ: ffprobe on `20260511_090131_004.mp4` reports `nb_streams=2` — stream 0 = `aac LC 48000 Hz mono 128 kbps duration 29.94 s`, stream 1 = `hevc Main 1920x1080 7.7 Mbps duration 29.87 s`. SHA round-trip exact on both MP4 + IMU CSV. CCodec "discarded unknown buffer" log gone.
 - Caveat: drift figures rose once audio joined the alignment calc (max 25→29 ms, mean 1.78→5.52, p99 2.07→5.82). Likely audio-PTS-vs-bytes-consumed approach needed for ±1 ms target — see GAP-3.
 
-### GAP-3 (advisory): drift figures elevated after audio wiring — re-measure on Phase 4 10-min smoke
+### GAP-3 — audio dropped from capture spec to preserve drift invariant — RESOLVED
 
-origin: 2026-05-11 smoke walk. Drift residual across three 30 s sessions:
+origin: 2026-05-11 smoke walk. Drift residual across four 30 s sessions on Pixel 10a:
 
-- Smoke 1 (no audio): max 25.60, mean 1.78, p99 2.07 ms (audio-pipeline ramp-up artifact).
-- Smoke 3 (post-fix, with audio): max 29.35, mean 5.52, p99 5.82 ms.
+| Smoke | Audio         | PTS scheme     | max (ms) | mean (ms) | p99 (ms) |
+| ----- | ------------- | -------------- | -------- | --------- | -------- |
+| 1     | OFF (unwired) | n/a            | 25.60    | 1.78      | 2.07     |
+| 3     | ON            | wall-clock     | 29.35    | 5.52      | 5.82     |
+| 4     | ON            | bytes-consumed | 28.11    | 4.29      | 4.58     |
+| 6     | OFF (toggle)  | n/a            | 26.86    | 3.03      | 3.33     |
 
-expected: idea-brief.md §6.5 example values `max ≈ 0.7 ms, mean ≈ 0.18 ms, p99 ≈ 0.5 ms` for a healthy 10-min capture; locked spec is "±1 ms timestamp alignment between video, audio, and IMU."
-observed: mean/p99 jumped 3× once audio joined the alignment calc. /gsd-debug session caveat: "AudioRecord PTS is segment-relative on the elapsedRealtimeNanos domain... If you observe drift > 1 ms on the smoke MP4, the next step is to switch audio PTS from wall-clock sampling to bytes-consumed × (1 / sample_rate) which is the canonical zero-drift approach." 30 s captures additionally amortize encoder/AudioRecord ramp-up worse than 10-min captures; max ~29 ms is likely a single early-session frame.
-disposition: advisory — re-measure during Phase 4 10-min smoke (UAT #1). If 10-min mean/p99 stay > 1 ms, switch audio PTS to bytes-consumed × (1/sample_rate) in `runAudioPumpLoop`. WR-06 commit fa6e286 already documented a known minor edge-clamp under-report; that's distinct from this concern.
+expected: idea-brief.md §6.5 example values `max ≈ 0.7 ms, mean ≈ 0.18 ms, p99 ≈ 0.5 ms`; locked spec was "±1 ms timestamp alignment between video, audio, and IMU."
+
+observed: mean/p99 inflated 3× when audio joined the pipeline (Smoke 3). Switching audio PTS from wall-clock to bytes-consumed × (1/sample_rate) recovered ~22% (Smoke 4). Disabling audio capture entirely (Smoke 6) restored mean/p99 to ~3 ms — close to the audio-off baseline (Smoke 1's 1.78/2.07), residual gap is likely AAC-encoder idle thermal overhead + device-warmer-than-Smoke-1.
+
+**SPEC CHANGE DECISION (project owner, 2026-05-11):** Audio dropped from the locked capture spec. Training pipeline (VLA/VLN/robotics) consumes egocentric video + IMU; audio is not on the critical path. Drift invariant (±1 ms target) takes precedence over an optional input channel.
+
+disposition: **RESOLVED 2026-05-11 via three batched commits.**
+
+1. `apps/mobile/android/.../CaptureSession.kt::openSegment` — `audioRecord = null` (single-toggle disable; AacEncoder.configure() retained for close-path safety; runAudioPumpLoop + MuxerStartGate + audio-pump HandlerThread plumbing dormant but intact for future re-enablement).
+2. `apps/mobile/android/.../MetadataComposer.kt` — `audio_sample_rate_hz`, `audio_codec`, `audio_bitrate_bps`, `audio_channels` stamped as `JSONObject.NULL` instead of the locked constants. JSON consumers must treat as nullable (consistent with existing nullable drift fields).
+3. `apps/mobile/android/.../MetadataSchemaConformanceTest.kt` — updated to assert `isNull(...)` for the four audio fields. All 21 capture/\* unit tests pass.
+
+Verified live on Pixel 10a 2026-05-11 sessionId 01KRAJ7YP37Y42NHT5JDT1JWDD (smoke 6): ffprobe reports `nb_streams=1` (single video stream, codec=hevc, duration 29.87 s, 29.2 MB MP4); metadata JSON's four `audio_*` fields are `null`; drift mean 3.03 / p99 3.33 ms (still above ±1 ms target but Phase 4 10-min smoke is the real evaluation gate — short-capture ramp-up dominates 30 s figures); SHA round-trip exact on MP4 + IMU CSV.
+
+Phase 4 follow-up if 10-min drift > 1 ms (less urgent now that audio is out of the picture): inspect per-frame video timestamp jitter, revisit DriftCalculator early-window behavior, consider whether a separately allocated AAC encoder (now dormant) is still worth carrying — could drop entirely for further drift gains. WR-06 commit fa6e286 already documented a known minor edge-clamp under-report; that's distinct from this concern.
+
+Spec-doc updates: `CLAUDE.md` Constraints section and `idea-brief.md §2.1 / §6.3` references to audio should be updated to reflect this decision in a follow-up doc pass (intentionally not auto-touched in this commit — locked-spec doc edits are owner-only).

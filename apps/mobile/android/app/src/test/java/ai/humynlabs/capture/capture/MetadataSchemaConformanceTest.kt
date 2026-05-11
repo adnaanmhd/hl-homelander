@@ -180,10 +180,14 @@ class MetadataSchemaConformanceTest {
         assertFalse(md.getBoolean("hdr"))
         assertFalse(md.getBoolean("b_frames"))
         assertFalse(md.getBoolean("image_stabilization"))
-        assertEquals(48000, md.getInt("audio_sample_rate_hz"))
-        assertEquals("AAC-LC", md.getString("audio_codec"))
-        assertEquals(128000, md.getInt("audio_bitrate_bps"))
-        assertEquals(1, md.getInt("audio_channels"))
+        // GAP-3 (2026-05-11) — audio capture disabled. Fields stamped as
+        // null in the metadata JSON to truthfully reflect that no audio
+        // track exists in the muxed MP4. Re-enabling audio restores the
+        // non-null constants (48000 / "AAC-LC" / 128000 / 1).
+        assertTrue(md.isNull("audio_sample_rate_hz"))
+        assertTrue(md.isNull("audio_codec"))
+        assertTrue(md.isNull("audio_bitrate_bps"))
+        assertTrue(md.isNull("audio_channels"))
     }
 
     @Test

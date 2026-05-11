@@ -186,10 +186,19 @@ object MetadataComposer {
             .put("imu_video_drift_p99_ms", m.drift?.p99Ms ?: JSONObject.NULL)
             // D-IMU-02 — the only new field at the schema 1.1.0 emit boundary.
             .put("imu_min_rate_hz_observed_p1", m.imuFloorHz ?: JSONObject.NULL)
-            .put("audio_sample_rate_hz", 48000)
-            .put("audio_codec", "AAC-LC")
-            .put("audio_bitrate_bps", 128000)
-            .put("audio_channels", 1)
+            // Audio capture disabled per GAP-3 disposition 2026-05-11
+            // (see CaptureSession.openSegment for the toggle + rationale).
+            // Fields stamped as null to truthfully reflect that no audio
+            // track exists in the muxed MP4. JSON consumers that expect
+            // numeric values must treat these as nullable; the training
+            // pipeline's schema reader is already nullable-tolerant for
+            // drift fields above, so this is a consistent extension.
+            // Re-enabling audio capture restores these to non-null
+            // constants (48000 / "AAC-LC" / 128000 / 1).
+            .put("audio_sample_rate_hz", JSONObject.NULL)
+            .put("audio_codec", JSONObject.NULL)
+            .put("audio_bitrate_bps", JSONObject.NULL)
+            .put("audio_channels", JSONObject.NULL)
             .put("start_timestamp", m.startTimestampIso)
             .put("end_timestamp", m.endTimestampIso)
             .put("imu_start_timestamp", m.imuStartTimestampIso)
