@@ -327,7 +327,7 @@ class CaptureSession private constructor(
             inputSurface = surf
             muxer = FragmentedMuxerWrapper.create(mp4)
             imuWriter = ImuWriter(ctx, csv).also { it.start() }
-            captureSession = openCaptureSession(camDevice, inputSurface)
+            captureSession = openCaptureSession(camDevice, inputSurface, mgr)
         } catch (t: Throwable) {
             // Tear down whatever we managed to allocate before propagating.
             try { captureSession?.close() } catch (_: Throwable) {}
@@ -437,8 +437,35 @@ class CaptureSession private constructor(
      * Build the CameraCaptureSession with the encoder Surface as the only
      * output target. OIS + video stabilization OFF; HDR is implicit STANDARD
      * because we never request an HDR profile (Pitfall 3 + 4).
+     *
+     * The recording streams the back ULTRAWIDE: on a logical multi-camera the
+     * default physical is the main wide, so the TEMPLATE_RECORD request drives
+     * CONTROL_ZOOM_RATIO to the lower bound of CONTROL_ZOOM_RATIO_RANGE (< 1.0
+     * → switches the active physical to the ultrawide; harmless no-op when the
+     * device has no sub-1.0 zoom). Mirrors the native gate camera; required to
+     * meet the LOCKED ≥110° dFOV spec (debug session handgate-never-passes — Stage 2).
+     *
+     * Focus is LOCKED for the whole take (debug session handgate-never-passes,
+     * 2026-05-11): `CONTROL_AF_MODE_OFF` + a fixed `LENS_FOCUS_DISTANCE` so a
+     * head-mounted egocentric rig never refocuses mid-segment (the Pixel 10a
+     * smoke walk showed the wide lens hunting focus continuously — `GAF` /
+     * `cam2_actuator` ABORTED spam ~30/s — which blurs frames and is wrong for
+     * this capture profile; it also perturbs the §5b ±1 ms drift measurement
+     * since AF state changes ripple through the capture-request cadence). We
+     * focus at the lens hyperfocal-ish "far" setting (`LENS_FOCUS_DISTANCE`
+     * is in diopters = 1/metres; `0.0f` = infinity), which keeps everything
+     * from ~arm's length to infinity acceptably sharp on the ultrawide — the
+     * relevant range for egocentric capture of everyday tasks. If the device
+     * reports `LENS_INFO_MINIMUM_FOCUS_DISTANCE == 0` it's a fixed-focus lens
+     * and the setter is a harmless no-op. This is purely additive hardening on
+     * top of the existing OIS/EIS-off request — the Camera2+MediaCodec pipeline
+     * itself is unchanged (LOCKED per CLAUDE.md).
      */
-    private fun openCaptureSession(cam: CameraDevice, surface: Surface): CameraCaptureSession {
+    private fun openCaptureSession(
+        cam: CameraDevice,
+        surface: Surface,
+        mgr: CameraManager,
+    ): CameraCaptureSession {
         val latch = CountDownLatch(1)
         var session: CameraCaptureSession? = null
         var sessionError: Throwable? = null
@@ -463,6 +490,57 @@ class CaptureSession private constructor(
                                 )
                             } catch (_: Throwable) { /* best-effort */ }
                         }
+                        // Route the logical back camera through its ULTRAWIDE
+                        // physical sub-camera by driving the zoom ratio to the
+                        // lower bound of CONTROL_ZOOM_RATIO_RANGE (debug session
+                        // handgate-never-passes — Stage 2). On a logical
+                        // multi-camera whose default physical is the main wide
+                        // (~83° dFOV), a plain createCaptureSession streams that
+                        // main wide — violating the LOCKED ≥110° dFOV spec
+                        // (idea-brief.md §2.1) even though the compat probe and
+                        // the sidecar's dfovDegrees read the ultrawide's
+                        // intrinsics. A sub-1.0 zoom ratio switches the active
+                        // physical to the ultrawide (Pixel 10a logical-back
+                        // range lower bound = 0.556 = the ultrawide), the same
+                        // approach the native gate camera proved on-device.
+                        // API 30+ only (CONTROL_ZOOM_RATIO_RANGE). When the
+                        // device has no sub-1.0 zoom (range lower ≥ 1.0, or the
+                        // openable IS the ultrawide), this is a harmless no-op.
+                        // Additive hardening — the encoder/muxer/IMU core is
+                        // untouched (LOCKED per CLAUDE.md), but re-verify the
+                        // §5b ±1 ms drift afterward since the capture-request
+                        // shape changed.
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            try {
+                                val zoomLower = mgr.getCameraCharacteristics(cam.id)
+                                    .get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE)
+                                    ?.lower
+                                if (zoomLower != null && zoomLower < 1.0f) {
+                                    builder.set(CaptureRequest.CONTROL_ZOOM_RATIO, zoomLower)
+                                }
+                            } catch (_: Throwable) { /* best-effort — never block the session on zoom */ }
+                        }
+                        // Lock focus for the whole take — no AF hunting on a
+                        // head-mounted rig (debug session handgate-never-passes).
+                        try {
+                            builder.set(
+                                CaptureRequest.CONTROL_AF_MODE,
+                                CaptureRequest.CONTROL_AF_MODE_OFF,
+                            )
+                            val characteristics = mgr.getCameraCharacteristics(cam.id)
+                            val minFocusDistance = characteristics.get(
+                                CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE,
+                            )
+                            // LENS_FOCUS_DISTANCE is in diopters (1/metres);
+                            // 0.0f = focus at infinity (hyperfocal "far"),
+                            // which keeps arm's-length-to-infinity acceptably
+                            // sharp on the ultrawide. Only meaningful on a lens
+                            // that actually supports manual focus (minFocus > 0);
+                            // a fixed-focus lens reports 0 and ignores it.
+                            if (minFocusDistance != null && minFocusDistance > 0f) {
+                                builder.set(CaptureRequest.LENS_FOCUS_DISTANCE, 0.0f)
+                            }
+                        } catch (_: Throwable) { /* best-effort — never block the session on focus-lock */ }
                         s.setRepeatingRequest(builder.build(), null, sessionHandler)
                         session = s
                     } catch (t: Throwable) {
