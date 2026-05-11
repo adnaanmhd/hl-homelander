@@ -44,8 +44,9 @@ Full rationale, OEM sharp edges, version sources, and config recipes: `research/
 ### Mobile — Camera / hand-gate / capture
 
 - `react-native-vision-camera@4.7.3` — preview + `takePhoto()` only. Do NOT use for HEVC video pipeline. V5 (Nitro rewrite) deferred.
-- `react-native-worklets-core@1.6.3` (V4 pairs with this, NOT `react-native-worklets`).
-- `react-native-reanimated@3.16.x` (4.x too new for the RN 0.83 ecosystem).
+- `react-native-worklets-core@1.6.3` — VisionCamera 4's frame-processor runtime. Distinct from `react-native-worklets` below; both are present and coexist.
+- `react-native-reanimated@4.x` (≥4.3.1) — the RN-0.83-compatible line (new-arch only, peer `react-native: 0.81–0.85`). The 3.x line does NOT compile against RN 0.83 on Android (references the removed Paper-era `UIManagerModuleListener` / `Systrace.TRACE_TAG_REACT_JAVA_BRIDGE` / `UIManagerModule.addUIManagerListener` / `LengthPercentage.resolve(float,float)` APIs).
+- `react-native-worklets@0.8.x` — peer dep of reanimated 4 (the standalone worklets runtime). `babel.config.js` MUST end with `react-native-worklets/plugin` (replaces the old `react-native-reanimated/plugin`).
 - `@shopify/react-native-skia@1.x` (≥1.2.1) — V4 Skia frame-processor minimum.
 - **`HumynCapture` (Kotlin) / `HumynCaptureIOS` (Swift)** — hand-rolled Camera2+MediaCodec / AVCaptureSession+AVAssetWriter HEVC pipeline. Owns the locked capture spec.
 - **`HandDetector` (Kotlin + Swift)** — ~95 LOC each, MediaPipe HandLandmarker IMAGE mode, hand-count only.
@@ -109,7 +110,8 @@ Full rationale, OEM sharp edges, version sources, and config recipes: `research/
 ## Version Compatibility Pinpoints
 
 - RN 0.83 ↔ all `@react-native-firebase/*` 24.0.0.
-- RN 0.83 ↔ VisionCamera 4.7.3 ↔ `worklets-core` 1.6.3 ↔ reanimated 3.16.x ↔ Skia 1.x (≥1.2.1).
+- RN 0.83 ↔ VisionCamera 4.7.3 ↔ `worklets-core` 1.6.3 ↔ Skia 1.x (≥1.2.1).
+- RN 0.83 ↔ reanimated 4.x (≥4.3.1) ↔ `react-native-worklets` 0.8.x (reanimated 4's peer) — `babel.config.js` ends with `react-native-worklets/plugin`. (reanimated 3.x is NOT RN-0.83-compatible on Android.)
 - mediapipe `tasks-vision` 0.10.21 ↔ `MediaPipeTasksVision` 0.10.21 (lock both).
 - `pgvector` 0.8.0+ ↔ PG 16/17 (HNSW iterative scan).
 - `@aws-sdk/client-s3` ↔ `@aws-sdk/s3-request-presigner` (always same minor).
