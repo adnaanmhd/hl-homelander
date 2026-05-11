@@ -41,6 +41,22 @@ export const colors = {
 } as const;
 
 // ---------------------------------------------------------------------------
+// Confetti palette — design-spec §8 ("random hues from the accent palette")
+// for the PracticeComplete confetti burst (the one sanctioned multi-hue /
+// decorative-transient use per 04-UI-SPEC § Color). Warm tones around
+// `--accent #FF6A2D`. Kept in this module so no hex literal leaks into a
+// screen/component body (the D-UI-01 token-discipline gate).
+// ---------------------------------------------------------------------------
+export const confettiPalette = [
+  '#FF6A2D',
+  '#FF8A4D',
+  '#FFB07A',
+  '#FFD0A8',
+  '#F2A53C',
+  '#E84A38',
+] as const;
+
+// ---------------------------------------------------------------------------
 // Typography — design-spec §0.2 + engineering-handoff §1.2-1.3.
 // `fontFamily` keys map to the bundled RethinkSans family files (via
 // react-native-asset, plan 02-02 Task 2). `mono` falls back to Menlo on iOS

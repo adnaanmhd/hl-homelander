@@ -211,6 +211,15 @@ vi.mock('react-native', () => {
       currentState: 'active' as const,
       addEventListener: () => ({ remove: () => undefined }),
     },
+    // Plan 04-06 — PracticeCompleteScreen fires Vibration.vibrate([…]) on
+    // enter (the [40,80,40]ms practice-done haptic, engineering-handoff
+    // §6.2). Default stub is a no-op; per-test files override via
+    // `vi.mocked(...)` or a per-test `vi.mock('react-native', …)` shim to
+    // assert the call args.
+    Vibration: {
+      vibrate: () => undefined,
+      cancel: () => undefined,
+    },
     // Animated — minimal stub so that CompatRing (plan 02-15 Task 2) can
     // call `Animated.createAnimatedComponent(Circle)` and
     // `Animated.timing(...).start()` at module-init time. JSDOM never
