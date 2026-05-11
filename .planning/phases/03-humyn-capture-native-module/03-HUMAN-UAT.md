@@ -3,7 +3,7 @@ status: partial
 phase: 03-humyn-capture-native-module
 source: [03-VERIFICATION.md]
 started: 2026-05-11T00:31:07Z
-updated: 2026-05-11T00:31:07Z
+updated: 2026-05-11T01:56:13Z
 ---
 
 ## Current Test
@@ -50,19 +50,23 @@ result: [pending]
 ### 8. 03-REVIEW.md blocker review — operator decision on whether to fix in Phase 3 or carry into Phase 4
 
 expected: Operator reviews 03-REVIEW.md's 7 BLOCKER findings (CR-01..CR-07) — concurrent ArrayList in CaptureSession, FGS START_STICKY misuse, rotateSegment swallowed exceptions, pump-loop close-ordering race, cleanupAfterPreFlightFailure ordering bug, errorCodeFor dead branch + fragile string matching, MetadataComposer.writeAtomic non-atomic fallback. Decide whether each is fixed-in-Phase-3 or carried-into-Phase-4 alongside the on-device smoke walk.
-result: [pending]
+result: passed
+evidence: Operator decision = fix-in-Phase-3 for all 7. CR-01 → 7a89585 (CopyOnWriteArrayList), CR-02 → 971c557 (START_NOT_STICKY), CR-03/04/05 → 857f9ac (segment lifecycle hardening), CR-06 → f945bc4 (writeAtomic via Files.move ATOMIC_MOVE), CR-07 → ef5059b (typed bridge exceptions). 14 WR-\* warnings additionally landed (WR-01..WR-14, commits 04c0542..11a3718).
+resolved: 2026-05-11T01:56:13Z
 
 ### 9. Plan 03-04 Task 0 pre-flight stamp verification: 03-WAVE1-SMOKE.md `re-walked-on:` is present
 
 expected: 03-WAVE1-SMOKE.md frontmatter / sign-off block carries `re-walked-on: 2026-05-10` (post-Plan-03-11 re-re-walk on Pixel 10a). Already confirmed via grep — stamp present.
-result: [pending]
+result: passed
+evidence: `re-walked-on: 2026-05-10` present at 03-WAVE1-SMOKE.md lines 7, 185, 202 (verified via grep 2026-05-11).
+resolved: 2026-05-11T01:56:13Z
 
 ## Summary
 
 total: 9
-passed: 0
+passed: 2
 issues: 0
-pending: 9
+pending: 7
 skipped: 0
 blocked: 0
 
