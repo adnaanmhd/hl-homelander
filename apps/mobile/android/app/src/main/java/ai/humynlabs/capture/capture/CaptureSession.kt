@@ -341,7 +341,7 @@ class CaptureSession private constructor(
             audioRecord = audioRecord,
             muxer = muxer!!,
             imuWriter = imuWriter!!,
-            videoFrameTimestamps = mutableListOf(),
+            videoFrameTimestamps = java.util.concurrent.CopyOnWriteArrayList(),
             pumpThread = pumpThread,
         )
 
@@ -682,7 +682,24 @@ internal data class Segment(
     val audioRecord: AudioRecord?,
     val muxer: FragmentedMuxerWrapper,
     val imuWriter: ImuWriter,
-    val videoFrameTimestamps: MutableList<Long>,
+    /**
+     * CR-01 fix — `CopyOnWriteArrayList` so the encoder pump thread (writer)
+     * and the finalize executor (reader, via `toLongArray()`) see a
+     * memory-model-correct view. The previous `mutableListOf<Long>()`
+     * (an unsynchronized `ArrayList`) admitted ConcurrentModificationException
+     * during finalize's snapshot AND silently truncated arrays on partial
+     * visibility — both of which corrupt the CAP-08 drift methodology.
+     *
+     * Per-frame allocation cost on COW: each `add` copies the underlying
+     * array. At 30 fps × 600 s = 18 000 frames per segment, that is
+     * O(n²) writes — acceptable here because the writes are tiny longs
+     * and the total work is well under a second on a Pixel-class device.
+     * If profiling on a real device shows hot-path pressure, swap to a
+     * pre-allocated `LongArray` + `AtomicInteger` write index (sized for
+     * `max_frames_per_segment` = 21 600 with safety margin); both are
+     * memory-model-correct.
+     */
+    val videoFrameTimestamps: java.util.concurrent.CopyOnWriteArrayList<Long>,
     val pumpThread: HandlerThread,
 )
 
