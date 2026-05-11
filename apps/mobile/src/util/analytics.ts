@@ -68,6 +68,11 @@ export const EVENT_NAMES = [
   'help_accordion_expanded',
   'help_contact_support_tapped',
   'help_report_problem_submitted',
+  // WR-10 fix — useForegroundUserRehydrate failure telemetry. Fires when
+  // the foreground rehydrate `/me` call throws (network down, server-side
+  // JWT revoked, etc.). Lets the help-pull diagnostic snapshot show why
+  // the avatar stayed at 'U' on a long-suspended app session.
+  'rehydrate_user_failed',
 ] as const;
 
 export type EventName = (typeof EVENT_NAMES)[number];
