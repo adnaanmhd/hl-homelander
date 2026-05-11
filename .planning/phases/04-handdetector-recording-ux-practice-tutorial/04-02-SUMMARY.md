@@ -120,9 +120,9 @@ completed: 2026-05-11
 Each task was committed atomically:
 
 1. **Task 1: HumynHandDetector shell + MediaPipe Gradle dep + hand_landmarker.task asset + JS binding + test** — `f44d2d2` (feat) — TDD: test written first (RED — module file absent), then JS binding + Kotlin shells + Gradle dep + model asset (GREEN — 7/7), single commit.
-2. **Task 2: HumynPhoneState + HumynBattery + HumynScreenBrightness + HumynBeep shells + JS bindings + tests** — `d67fc7e` (feat) — TDD: 4 test files written first (RED), then 4 JS bindings + 8 Kotlin files + MainApplication registration (GREEN — 16/16), single commit.
+2. **Task 2: HumynPhoneState + HumynBattery + HumynScreenBrightness + HumynBeep shells + JS bindings + tests** — `d67fc7e` (feat) — TDD: 4 test files written first (RED), then 4 JS bindings + 8 Kotlin files + MainApplication registration (GREEN — 16/16), single commit. Follow-up fixup: `6858775` (fix — docstring rephrase so the T-4.2-01 grep gate stays clean, see Deviations).
 
-**Plan metadata:** (final docs commit — see git log)
+**Plan metadata:** `949d72f` (docs: SUMMARY) + the final docs commit (STATE/ROADMAP/REQUIREMENTS) — see git log
 
 _Note: tdd="true" tasks here committed test+impl together in one feat() commit (the strict test()→feat() split is for `type: tdd` plans; this is `type: execute`)._
 
@@ -141,7 +141,20 @@ See `key-decisions` in the frontmatter — the four substantive calls: (1) copie
 
 ## Deviations from Plan
 
-None — plan executed exactly as written. All 21 files were created and the 2 files modified exactly as the plan's `files_modified` / task actions specified; both task verifies and the full-suite verification (modulo the documented pre-existing D4-01 failures) passed.
+### Auto-fixed Issues
+
+**1. [Rule 2 - Missing critical functionality / T-4.2-01 mitigation] Rephrased the `HumynPhoneStateModule.kt` docstring so the T-4.2-01 grep gate stays clean**
+- **Found during:** Task 2 (self-check verification)
+- **Issue:** The plan's action text says the docstring should note `value ∈ ... NO TelephonyManager / PhoneStateListener / READ_PHONE_STATE`. Writing those symbols literally in the docstring made the file fail the threat-model acceptance gate ("Acceptance criterion greps the file for the forbidden symbols" — T-4.2-01) — a `grep -E 'TelephonyManager|READ_PHONE_STATE|PhoneStateListener'` matched the comment.
+- **Fix:** Reworded the docstring to name the forbidden APIs descriptively ("the telephony / call-state APIs are deliberately NOT used") and explicitly call out that the gate greps this file, so the file is now grep-clean of all three literal symbols.
+- **Files modified:** `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/phonestate/HumynPhoneStateModule.kt`
+- **Verification:** `grep -E 'TelephonyManager|READ_PHONE_STATE|PhoneStateListener'` → 0 matches (exit 1); `tsc --noEmit` clean.
+- **Committed in:** `6858775` (follow-up fix commit on top of the Task 2 commit `d67fc7e`)
+
+---
+
+**Total deviations:** 1 auto-fixed (1 × Rule 2 / threat-model T-4.2-01 mitigation refinement).
+**Impact on plan:** No scope creep — the change is a docstring rewrite within Task 2's own file that makes the T-4.2-01 acceptance gate actually pass. All 21 files were created and the 2 files modified exactly as the plan's `files_modified` / task actions specified; both task verifies and the full-suite verification (modulo the documented pre-existing D4-01 failures) passed.
 
 ## Issues Encountered
 

@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-01-PLAN.md
-last_updated: '2026-05-11T08:18:00.000Z'
-last_activity: 2026-05-11 -- Phase 04 plan 01 complete (RN deps + jsdom mocks + orientation-locker Android wiring)
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-05-11T08:29:11.955Z"
+last_activity: 2026-05-11
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 56
-  completed_plans: 47
-  percent: 84
+  completed_plans: 48
+  percent: 86
 ---
 
 # Project State
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 04 (handdetector-recording-ux-practice-tutorial) — EXECUTING
-Plan: 2 of 10 (01 complete)
-Status: Executing Phase 04 — Wave 1
+Plan: 3 of 10 (01 complete)
+Status: Ready to execute
 
 Phase 2 operator smoke-walk history (carried forward):
 
@@ -47,7 +47,7 @@ Phase 3 hardware UAT pending (7 items, all on real Pixel 7a/8a) — these RETIRE
 - #6 CAP-18 byte-for-byte SHA round-trip (device → S3)
 - #7 CAP-13 onSessionStart/Stop upload-pause seam
 
-Last activity: 2026-05-11 -- Phase 04 plan 01 complete
+Last activity: 2026-05-11
 
 Progress: Phase 4 — 1/10 plans complete (Wave 1 in progress)
 
@@ -102,6 +102,7 @@ _Updated after each plan completion_
 | Phase 03 P02 | 25min | 3 tasks | 26 files |
 | Phase 03 P03 | ~25min (split across 2 sessions) | 4 tasks | 24 files |
 | Phase 04 P01 | ~18min | 3 tasks | 6 files |
+| Phase 04 P02 | ~15min | 2 tasks | 23 files |
 
 ## Accumulated Context
 
@@ -221,6 +222,8 @@ Recent decisions affecting current work:
 - [Phase 3]: Plan 03-03: 03-WAVE1-SMOKE.md operator re-walk runbook authored at `.planning/phases/03-humyn-capture-native-module/03-WAVE1-SMOKE.md`. Mirrors apps/mobile/02-MANUAL-SMOKE.md Pattern 56 shape: numbered checkbox sections + per-step Inputs/Assertions blocks + Pre-flight + Sign-off bookends + per-section Acceptance criteria. 12 sections covering Splash + Sign-up + Permissions + Compat-fail merge + Compat-pass auto-advance + RigTutorial + Home + Tasks + History + Profile + foreground rehydrate (§11 — directly targets Pattern 72's regression fix) + visual snapshot CI ≥1h soak gate (§12 — T-3.2-01 lineage). D-WAVE-09 amendment protocol on every walk reminds operator that new gaps go to 03-W1-AMENDMENTS.md, NEVER back into 02-COSMETIC-GAPS.md (frozen-2026-05-10).
 - [Phase 3]: Plan 03-03: Wave 1 authoring closes. Both navigation-graph-touching plans (03-01, 03-02, 03-03) committed; full mobile test suite stays green at 344/344 across 61 test files (was 320/320 after Plan 03-02; +24 new tests across Wave 1). 10 jest-image-snapshot baselines committed (6 from Plan 03-02 + 1 from this plan's Task 3 + 3 from this plan's Task 4). Wave 2 plan-phase (Plan 03-04 capture-foundation-muxer-bridge) is unblocked from authoring standpoint; conditions (3) operator re-walk on Pixel 10a + (4) re-walked-on: stamp of D-WAVE-08 remain operator-driven hard gates before Wave 2 plan-phase starts.
 - [Phase 4]: Plan 04-01: Phase 4 foundation landed — 8 RN library deps at CLAUDE.md pins (react-native-vision-camera 4.7.3 pinned exact = preview + takePhoto/takeSnapshot ONLY, NOT the HEVC pipeline; react-native-worklets-core 1.6.3, react-native-reanimated ~3.16.7, react-native-tts 4.1.1, react-native-fs 2.20.0, react-native-orientation-locker 1.7.0 all pinned exact; @react-native-firebase/{analytics,crashlytics} 24.0.0 unified minor, pinned exact). **@shopify/react-native-skia NOT installed** — it is an OPTIONAL VisionCamera peer (`peerDependenciesMeta` marks it optional), and takePhoto-only usage doesn't need it; avoids a heavy native binding on a preview-only surface. Forbidden libs confirmed absent: `react-native-worklets` (non-core), Skia 2.x, react-native-sound, react-native-track-player. `vitest.setup.ts` gained vi.mock blocks for the four new libs (VisionCamera = forwardRef Camera returning null + `useImperativeHandle` exposing `takePhoto`/`takeSnapshot` on the ref + `useCameraDevice`/`useCameraDevices`/`getCameraDevice` stub back ultra-wide device + `getAvailableCameraDevices`; react-native-tts/-fs/-orientation-locker mocked as `{ default: X, ...X }` so default+named consumers both resolve; Tts mock mirrors idea-brief §13 voice chain), plus a documented (NOT globally-injected) comment block listing the canonical Phase 4 native-module stub shapes (HumynHandDetector/HumynPhoneState/HumynBattery/HumynScreenBrightness/HumynBeep) — the per-file `vi.doMock('react-native', ...)` NativeModules contract (HumynCapture.test.ts pattern) is preserved. **`globalThis.__DEV__ = true` shim added to vitest.setup.ts** (Rule 1/3) — jsdom never defines Metro's `__DEV__`; the Phase-3 `15d8a16` smoke seam in `HomeSkeletonScreen.tsx` (slated for removal in Phase 4 per its own commit msg) reads it and crashed 10 pre-existing tests; shim unblocks them, suite 364→371 tests / 12→2 failed. The remaining 2 reds (hex literals + stale visual baseline in `HomeSkeletonScreen.tsx`) + 3 `setPermsGranted` unhandled rejections in `RootNativeStack.test.tsx` are inherent to that seam and logged in `.planning/phases/04-handdetector-recording-ux-practice-tutorial/deferred-items.md` D4-01 — the Phase 4 RecordingScreen plan (04-04/04-05) removes the seam. `react-native-orientation-locker` Android wiring: `MainActivity.onConfigurationChanged` override broadcasts the `"onConfigurationChanged"` Intent (OrientationActivityLifecycle contract); `AndroidManifest.xml` already declared `android:configChanges` with `orientation|screenSize` (plan 02 base manifest — no edit needed); companion `MainApplication.onCreate()` `OrientationActivityLifecycle.getInstance(...)` registration is owned by plan 04-02. New `__tests__/native/phase4-deps.test.ts` (7 tests) grep-asserts the mocks + manifest/MainActivity invariants. **Note for downstream plans:** the repo root is a pnpm workspace, not an npm workspace — `npm install -w apps/mobile ... from repo root` is a no-op; run `npm install` from inside `apps/mobile/` (it has its own `package-lock.json`; the `mobile:install` script does `cd apps/mobile && npm ci`).
+- [Phase ?]: Phase 4 native-module SHELL pattern (04-02): 3-file triad (Module/Package/JS-binding) with NOT_IMPLEMENTED bodies + a docstring naming the plan that wires the real body — establishes the contract surface ahead of the implementation plan
+- [Phase ?]: isHandDetectorAvailable() = NativeModules.HumynHandDetector != null is the HAND-08 silent-bypass discriminant (04-02) — RecordingScreen bypasses the hand gate when false (no dead poll loop)
 
 ### Quick Tasks Completed
 
@@ -276,9 +279,9 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-11T04:57:11.582Z
+Last session: 2026-05-11T08:29:11.951Z
 Last activity: 2026-05-10
-Stopped at: Phase 4 context gathered
+Stopped at: Completed 04-02-PLAN.md
 
 - 01-10 (terraform apply): Tasks 1+2+3 complete + committed (430e17a, 9e52db8, ad93d17). Operator runs `terraform fmt -check` + `terraform validate` + `terraform plan` + `terraform apply` against real AWS staging.
 - 01-11 (counsel engagement): code-ready-counsel-deferred. Three commits ship the canonical consent text + boot-time hash guard, takedown SOP runbook, dsr-export CLI, and counsel-engagement checklist. Real attorney review queued for legal-ops backlog.

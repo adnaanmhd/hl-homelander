@@ -109,14 +109,14 @@
 
 ### Recording — Hand-detection Gate
 
-- [ ] **HAND-01**: On record-button press, gate runs once per recording session via a custom Kotlin (Android) / Swift (iOS) RN module wrapping MediaPipe HandLandmarker (`hand_landmarker.task` ~7.8 MB, `RunningMode.IMAGE`, `numHands=2`, all confidences 0.5, CPU delegate)
+- [x] **HAND-01**: On record-button press, gate runs once per recording session via a custom Kotlin (Android) / Swift (iOS) RN module wrapping MediaPipe HandLandmarker (`hand_landmarker.task` ~7.8 MB, `RunningMode.IMAGE`, `numHands=2`, all confidences 0.5, CPU delegate)
 - [ ] **HAND-02**: Gate displays the centered prompt "Mount the phone on your head and bring your hands in frame for 2 secs" + custom 130×130 progress ring (6 px stroke, accent fill on translucent track, clockwise increment via `stroke-dashoffset`) + Skip link visible from t=0
 - [ ] **HAND-03**: Detection loop polls every ~400 ms (Android) / ~600 ms (iOS) via `Camera.takePhoto()` → native `HandDetector.detectHands(path)` → returns hand count
 - [ ] **HAND-04**: Gate pass = exactly 2 hands detected for **N consecutive successful checks** (5 on Android, 3 on iOS); any check returning `≠ 2` resets the counter to 0 with instant ring snap-back (no animation)
 - [ ] **HAND-05**: Gate runs indefinitely until pass or skip — no timeout, no auto-cancel
 - [ ] **HAND-06**: Gate shows a loading state (spinner inside ring well + caption `Preparing camera…`) when the camera isn't streaming yet; accumulator does not start until the first frame arrives
 - [ ] **HAND-07**: Skip link bypasses the gate silently — no voice cue, no haptic, brightness still drops to 5%
-- [ ] **HAND-08**: Native module unavailable → silent bypass (`bypassed = true`) — same UX as Skip
+- [x] **HAND-08**: Native module unavailable → silent bypass (`bypassed = true`) — same UX as Skip
 - [ ] **HAND-09**: On gate pass (not skip, not silent bypass), system fires 80 ms vibrate + TTS "Recording started." in Indian English female voice + brightness drops to 5%
 - [ ] **HAND-10**: Tapping X during the gate is treated as a pre-record exit — silent dismiss to Home, no confirmation modal, no captured data to discard
 - [ ] **HAND-11**: Hand-gate target hits, cadence, and `minHandDetectionConfidence` are Firebase Remote Config keys so they can be retuned without an app release
@@ -133,9 +133,9 @@
 - [ ] **REC-05**: Re-pressing record after stop starts a **fresh recording** under the same task; switching tasks requires exiting the recording screen
 - [ ] **REC-06**: Tapping X during active recording shows the Stop confirmation modal (`Keep recording` / `Stop`); pre-record exit is silent
 - [ ] **REC-07**: Recordings shorter than 60 seconds are discarded with toast `Recording too short — discarded.`; not uploaded, not in History, not counted
-- [ ] **REC-08**: Display behavior during recording: `KEEP_SCREEN_ON`, brightness auto-dimmed to 5% (restored on stop or exit)
+- [x] **REC-08**: Display behavior during recording: `KEEP_SCREEN_ON`, brightness auto-dimmed to 5% (restored on stop or exit)
 - [ ] **REC-09**: System does **NOT** programmatically toggle DND during recording (no `ACCESS_NOTIFICATION_POLICY` use, no Settings deep-link, no in-app DND nudge)
-- [ ] **REC-10**: Battery drop to ≤15% fires alert pill + 520 Hz beep (200 ms) + `[100, 50, 100]` ms haptic + voice "Battery low. Consider charging soon." Recording continues; new recordings refused below 5% until charged ≥15%
+- [x] **REC-10**: Battery drop to ≤15% fires alert pill + 520 Hz beep (200 ms) + `[100, 50, 100]` ms haptic + voice "Battery low. Consider charging soon." Recording continues; new recordings refused below 5% until charged ≥15%
 - [ ] **REC-11**: Battery drop to ≤5% ends the current segment immediately
 - [ ] **REC-12**: Phone-call answered, alarm rings, rotation out of landscape, force-quit, OS-evict, or storage-full mid-record stops the recording per `idea-brief.md` §10 lifecycle table (upload if ≥60 s; discard if not)
 - [ ] **REC-13**: Phone-call declined → recording continues
@@ -449,14 +449,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CAP-17      | Phase 3 | Complete              |
 | CAP-18      | Phase 3 | Complete              |
 | CAP-19      | Phase 3 | Complete              |
-| HAND-01     | Phase 4 | Pending               |
+| HAND-01     | Phase 4 | Complete |
 | HAND-02     | Phase 4 | Pending               |
 | HAND-03     | Phase 4 | Pending               |
 | HAND-04     | Phase 4 | Pending               |
 | HAND-05     | Phase 4 | Pending               |
 | HAND-06     | Phase 4 | Pending               |
 | HAND-07     | Phase 4 | Pending               |
-| HAND-08     | Phase 4 | Pending               |
+| HAND-08     | Phase 4 | Complete |
 | HAND-09     | Phase 4 | Pending               |
 | HAND-10     | Phase 4 | Pending               |
 | HAND-11     | Phase 4 | Pending               |
@@ -470,9 +470,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REC-05      | Phase 4 | Pending               |
 | REC-06      | Phase 4 | Pending               |
 | REC-07      | Phase 4 | Pending               |
-| REC-08      | Phase 4 | Pending               |
+| REC-08      | Phase 4 | Complete |
 | REC-09      | Phase 4 | Pending               |
-| REC-10      | Phase 4 | Pending               |
+| REC-10      | Phase 4 | Complete |
 | REC-11      | Phase 4 | Pending               |
 | REC-12      | Phase 4 | Pending               |
 | REC-13      | Phase 4 | Pending               |
