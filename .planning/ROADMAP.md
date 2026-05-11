@@ -149,8 +149,29 @@ Plans:
 3. The recording surface auto-rotates and locks to landscape, displays the 3-second "Don't exit while recording." overlay, shows the minute-bar timer + HH:MM:SS counter + floating stop button, fires "Recording stopped" + the duration toast on stop, discards <60 s recordings with the documented toast and never persists them, and starts a fresh recording on re-press without a countdown
 4. Every `idea-brief.md` §10 lifecycle edge is honored on a real device — phone-call answered / alarm / rotation / force-quit / OS-evict / storage-full stops recording per the table; phone-call declined continues; battery ≤15% fires alert pill + 520 Hz beep + haptic + voice cue with new recordings refused below 5%; battery ≤5% ends the segment immediately; recurring storage check runs before each recording start; DND is never programmatically toggled
 5. A first-time user runs the tutorial Rig screen → 60-second practice recording with `practice = true` propagated through capture / metadata / upload-queue exclusion (never uploaded, never in History, never counted), all multimodal alerts active, hard-cap auto-stop at exactly 60 s, then sees the Practice-complete screen with confetti + light haptic `[40, 80, 40]` ms; tutorial runs once per install per Google account with no re-entry path
-   **Plans**: TBD
-   **UI hint**: yes
+
+**Plans:** 10 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 04-01-PLAN.md — RN deps install (VisionCamera 4.7.3 / tts / fs / orientation-locker / worklets-core / reanimated / firebase-analytics) + vitest mocks + orientation-locker Android manifest/activity wiring
+- [ ] 04-02-PLAN.md — 5 native module shells (HumynHandDetector / HumynPhoneState / HumynBattery / HumynScreenBrightness / HumynBeep) + JS bindings + MediaPipe `tasks-vision:0.10.21` gradle dep + `hand_landmarker.task` asset + MainApplication registration + native-binding tests
+- [ ] 04-03-PLAN.md — `practiceDoneKey(sub)` MMKV helper + `decodeGoogleSubFromJwt` util extraction + `setPracticeDone` action + `computeInitialRoute` per-account tutorial gate + RigTutorial Next-CTA retarget
+      **Wave 2** _(blocked on Wave 1)_
+- [ ] 04-04-PLAN.md — HumynHandDetectorModule.kt MediaPipe HandLandmarker body (IMAGE mode, numHands=2, CPU delegate, RGB_565/320×240/recycle — HAND-13)
+- [ ] 04-05-PLAN.md — HumynPhoneState (AudioFocus only) + HumynBattery (ACTION*BATTERY_CHANGED) + HumynScreenBrightness (per-window override) + HumynBeep (SoundPool) bodies + the 2 pre-baked .wav assets
+      **Wave 3** *(blocked on Wave 1)\_
+- [ ] 04-06-PLAN.md — PracticeIntroScreen (§6) + PracticeCompleteScreen (§8 — confetti + scale-pop + [40,80,40]ms haptic, writes ONB-08 flag) + OnboardingStack routes + analytics events + practiceFlow test + 2 visual baselines
+- [ ] 04-07-PLAN.md — recState.ts state machine (§4.3) + 5 recording components (GateRing/VoiceCuePill/StopConfirmModal/AlertPill/RotatePrompt) + RecordingScreen shell + RootNativeStack Recording route + route-registry.test.ts update (Pattern 54) + 8 visual baselines
+      **Wave 4** _(blocked on Waves 2+3)_
+- [ ] 04-08-PLAN.md — useRecordingLifecycle hook (idea-brief §10 policy table + practice 60s hard cap + checkStartGuards) + ttsVoice.ts (REC-14 fallback) + durationFormat.ts (REC-04) + `__DEV__`-gated dev affordance on TasksPlaceholder
+      **Wave 5** _(blocked on Wave 4)_
+- [ ] 04-09-PLAN.md — RecordingScreen live wiring: VC `<Camera>` on the compat ultrawide lens + HAND-12 pre-warm + useHandGate poll loop + gate-pass→active TTS-masked transition + buildCaptureOpts + RemoteConfig gate reads + useRecordingLifecycle mount + §7h post-stop routing + HAND-14 analytics + brightness/orientation
+      **Wave 6** _(blocked on Wave 5)_
+- [ ] 04-10-PLAN.md — onCrashRecovery event (Phase-3 sweep emit + JS binding) + Toast host + bootRecoveryListener + `04-MANUAL-SMOKE.md` on-hardware acceptance runbook (incl. the **[BLOCKING] ±1ms drift re-measurement** on the gate→record handoff) + ROADMAP/STATE refresh
+
+  **UI hint**: yes
 
 ### Phase 5: Upload Pipeline, Hash-Verify Worker & Anti-fraud
 
@@ -204,7 +225,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation, Backend & Distribution Recon                | 13/13          | Complete    | 2026-05-08 |
 | 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 22/22          | Complete    | 2026-05-10 |
 | 3. HumynCapture Native Module (Bytes-on-disk)              | 11/11          | Complete    | 2026-05-11 |
-| 4. HandDetector, Recording UX & Practice Tutorial          | 0/TBD          | Not started | -          |
+| 4. HandDetector, Recording UX & Practice Tutorial          | 0/10           | Not started | -          |
 | 5. Upload Pipeline, Hash-Verify Worker & Anti-fraud        | 0/TBD          | Not started | -          |
 | 6. Tasks, History, Home Tiles & Lexical Search             | 0/TBD          | Not started | -          |
 | 7. Observability & APK Distribution Hardening              | 0/TBD          | Not started | -          |
