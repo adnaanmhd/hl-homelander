@@ -81,6 +81,16 @@ class ImuWriter(
         override fun onAccuracyChanged(s: Sensor, a: Int) { /* unused */ }
     }
     @Volatile private var closed = false
+    /**
+     * WR-08 fix — guards every csv access (writeRow / stop / close) so the
+     * sensor HandlerThread cannot race the session HandlerThread that
+     * called `stop()` / `close()`. SensorManager.unregisterListener is
+     * asynchronous on some Android versions and pending events may already
+     * be dispatched on the sensor HandlerThread; the lock ensures
+     * writeRow's `closed` check and the subsequent `csv.write` are
+     * atomic relative to close()'s `closed = true` + `csv.close()`.
+     */
+    private val csvLock = Any()
 
     /**
      * Register both gyro and accelerometer listeners. No-op if sensors
@@ -100,23 +110,46 @@ class ImuWriter(
      * timestamps observed so far — caller uses for finalize-time drift
      * + p1 calc. Does NOT close the BufferedWriter (caller may inspect
      * timestamps() before close()).
+     *
+     * **WR-07 fix.** Flush the BufferedWriter explicitly. Without this,
+     * up to 8 KiB of IMU rows (~256 rows / ~0.6 s of IMU at 416 Hz) sit
+     * in the BufferedWriter's in-memory buffer between stop() and
+     * close(), and a SIGKILL in that window loses them — the CSV file
+     * is then short relative to the in-memory timestampList (which the
+     * caller has already snapshotted), and the CSV SHA mismatches the
+     * implied row count. Phase 5 server QA may flag this as an
+     * integrity error. The flush is best-effort under csvLock so it
+     * doesn't race writeRow on the sensor thread.
      */
     fun stop(): LongArray {
         sm?.unregisterListener(listener)
+        synchronized(csvLock) {
+            try { csv.flush() } catch (_: Throwable) { /* best-effort */ }
+        }
         return timestampList.toLongArray()
     }
 
     /**
      * Final flush + writer close + thread shutdown. Idempotent — safe
      * to call multiple times.
+     *
+     * **WR-08 fix.** csvLock-guarded so a sensor HandlerThread writeRow
+     * call cannot race the close() flush+close. Without the lock, a
+     * sensor event squeezing through between writeRow's volatile-read
+     * of `closed=false` and its subsequent `csv.write(...)` would hit
+     * a closed BufferedWriter → IOException; SensorManager
+     * infrastructure logs-and-swallows the throw on some Android
+     * versions, masking the data loss.
      */
     fun close() {
-        if (closed) return
-        closed = true
-        try {
-            csv.flush()
-            csv.close()
-        } catch (_: Throwable) { /* best-effort */ }
+        synchronized(csvLock) {
+            if (closed) return
+            closed = true
+            try {
+                csv.flush()
+                csv.close()
+            } catch (_: Throwable) { /* best-effort */ }
+        }
         handlerThread.quitSafely()
     }
 
@@ -142,10 +175,18 @@ class ImuWriter(
     /**
      * Internal write path — used by both the listener and the
      * test-visible writeRowForTest seam.
+     *
+     * **WR-08 fix.** csvLock-guarded so concurrent close() cannot drop
+     * the BufferedWriter out from under us between the `closed` check
+     * and the `csv.write(...)` call. The lock is held only across the
+     * BufferedWriter call itself; sensor-thread throughput is unaffected
+     * in the steady-state common case where close() is not racing.
      */
     private fun writeRow(timestampNs: Long, type: String, x: Float, y: Float, z: Float) {
-        if (closed) return
-        csv.write(formatRow(timestampNs, type, x, y, z))
-        timestampList.add(timestampNs)
+        synchronized(csvLock) {
+            if (closed) return
+            csv.write(formatRow(timestampNs, type, x, y, z))
+            timestampList.add(timestampNs)
+        }
     }
 }
