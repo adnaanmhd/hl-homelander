@@ -73,8 +73,14 @@ class MainApplication : Application(), ReactApplication {
             com.google.firebase.remoteconfig.FirebaseRemoteConfig.getInstance().setDefaultsAsync(
                 mapOf(SegmentDurationConfig.KEY to SegmentDurationConfig.DEFAULT_MINUTES),
             )
-        } catch (_: Throwable) {
-            // Phase 2 already wired the SDK; default suffices on failure.
+        } catch (t: Throwable) {
+            // WR-03 fix — surface the failure on the catch path so a
+            // mis-configured Firebase wiring (e.g. missing google-services.json
+            // for the active flavor) is visible in logcat. Previously this
+            // was silently swallowed and a debug build would happily run
+            // with the default, never telling the developer the Remote Config
+            // wiring is broken.
+            android.util.Log.w("MainApplication", "remote_config_defaults_failed", t)
         }
 
         // Phase 3 — ensure FGS notification channel exists for the next start().
