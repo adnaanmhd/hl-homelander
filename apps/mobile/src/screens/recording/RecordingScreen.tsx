@@ -354,19 +354,23 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         });
       }
       await HumynScreenBrightness.set(-1).catch(() => undefined);
-      // NOTE: do NOT unlock orientation here. The navigate-away paths
-      // (practice → PracticeComplete, real ≥60s → Home) unlock via the mount
-      // effect's unmount cleanup. The real-<60s path stays on this screen and
-      // goes back to 'rotate-prompt' (RESET_FOR_FRESH) — it must STAY locked
-      // to landscape so the rotate-prompt UI is readable and a 2nd take can't
-      // start in portrait (debug session handgate-never-passes).
+      // The two navigate-away paths (practice → PracticeComplete, real ≥60s →
+      // Home) must unlock orientation HERE, synchronously, before navigating —
+      // relying on the screen's unmount cleanup left the next screen stuck in
+      // landscape after a recording auto-stop (smoke walk, debug session
+      // handgate-never-passes). The real-<60s path is the exception: it stays
+      // on this screen and goes back to 'rotate-prompt' (RESET_FOR_FRESH), so
+      // it must STAY landscape-locked (readable rotate-prompt; no 2nd take in
+      // portrait) — that branch deliberately does NOT unlock.
       if (practice) {
+        Orientation.unlockAllOrientations();
         logEvent('recording_stopped');
         speakCue('Recording stopped');
         navigateToPracticeComplete(navigation);
         return;
       }
       if (durationMs >= 60_000) {
+        Orientation.unlockAllOrientations();
         logEvent('recording_stopped');
         speakCue('Recording stopped');
         showToast(
@@ -682,7 +686,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
   }, []);
 
   // ===========================================================================
-  // X button — stop-confirm while active; silent goBack pre-record (HAND-10).
+  // X button — stop-confirm while active; silent dismiss → Home pre-record (HAND-10).
   // ===========================================================================
   const handleClose = () => {
     if (state.substate === 'active') {
@@ -690,9 +694,19 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
       return;
     }
     // Pre-record substates: silent dismiss, no confirmation, no data to discard.
+    // `Recording` is a root-stack sibling and the practice path got here via
+    // PracticeIntro.replace(...) (which popped the rest of the stack), so a plain
+    // navigation.goBack() throws "GO_BACK was not handled by any navigator"
+    // (smoke walk, debug session handgate-never-passes). Reset the root onto
+    // MainTabs (Home) — mirrors navigateToHome / navigateToPracticeComplete.
     HumynScreenBrightness.set(-1).catch(() => undefined);
     Orientation.unlockAllOrientations();
-    navigation.goBack();
+    const target = navigation.getParent?.() ?? navigation;
+    if (target.reset) {
+      target.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+    } else {
+      target.navigate('MainTabs');
+    }
   };
 
   const minuteBarFraction =

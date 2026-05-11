@@ -62,15 +62,14 @@ describe('PracticeIntroScreen (plan 04-06 — ONB-03, design-spec §6)', () => {
   });
   afterEach(() => cleanup());
 
-  it('Test 1: renders the verbatim §6 heading + body + muted-line copy', () => {
-    const { getByText } = render(<PracticeIntroScreen />);
+  it('Test 1: renders the §6 heading + body copy (owner-shortened 2026-05-12; muted line removed)', () => {
+    const { getByText, queryByText } = render(<PracticeIntroScreen />);
     expect(getByText('One quick try')).toBeTruthy();
     expect(
-      getByText("We'll walk you through one short recording — 60 seconds, just to get the feel."),
+      getByText("We'll walk you through one short recording — 60 secs, to get the feel"),
     ).toBeTruthy();
-    expect(
-      getByText('This is a practice task — it does not count towards your contribution.'),
-    ).toBeTruthy();
+    // The "This is a practice task — …" muted line was removed (owner directive).
+    expect(queryByText(/does not count towards your contribution/)).toBeNull();
   });
 
   it('Test 2: renders the "Start practice" CTA', () => {
