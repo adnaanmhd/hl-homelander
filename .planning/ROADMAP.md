@@ -163,11 +163,11 @@ Plans:
 - [ ] 04-05-PLAN.md — HumynPhoneState (AudioFocus only) + HumynBattery (ACTION*BATTERY_CHANGED) + HumynScreenBrightness (per-window override) + HumynBeep (SoundPool) bodies + the 2 pre-baked .wav assets
       **Wave 3** *(blocked on Wave 1)\_
 - [ ] 04-06-PLAN.md — PracticeIntroScreen (§6) + PracticeCompleteScreen (§8 — confetti + scale-pop + [40,80,40]ms haptic, writes ONB-08 flag) + OnboardingStack routes + analytics events + practiceFlow test + 2 visual baselines
-- [ ] 04-07-PLAN.md — recState.ts state machine (§4.3) + 5 recording components (GateRing/VoiceCuePill/StopConfirmModal/AlertPill/RotatePrompt) + RecordingScreen shell + RootNativeStack Recording route + route-registry.test.ts update (Pattern 54) + 8 visual baselines
+- [ ] 04-07-PLAN.md — recState.ts state machine (§4.3) + 5 recording components (GateRing/VoiceCuePill/StopConfirmModal/AlertPill/RotatePrompt) + RecordingScreen shell + RootNativeStack Recording route + route-registry.test.ts update (Pattern 54 — adds a `REQUIRED_PHASE_4_ROUTES = ['Recording']` block; `PracticeIntro`/`PracticeComplete` get added to it by plan 04-09 since 04-06 registers them in the same wave) + 8 visual baselines
       **Wave 4** _(blocked on Waves 2+3)_
 - [ ] 04-08-PLAN.md — useRecordingLifecycle hook (idea-brief §10 policy table + practice 60s hard cap + checkStartGuards) + ttsVoice.ts (REC-14 fallback) + durationFormat.ts (REC-04) + `__DEV__`-gated dev affordance on TasksPlaceholder
       **Wave 5** _(blocked on Wave 4)_
-- [ ] 04-09-PLAN.md — RecordingScreen live wiring: VC `<Camera>` on the compat ultrawide lens + HAND-12 pre-warm + useHandGate poll loop + gate-pass→active TTS-masked transition + buildCaptureOpts + RemoteConfig gate reads + useRecordingLifecycle mount + §7h post-stop routing + HAND-14 analytics + brightness/orientation
+- [ ] 04-09-PLAN.md — RecordingScreen live wiring: VC `<Camera>` on the compat ultrawide lens + HAND-12 pre-warm + useHandGate poll loop + gate-pass→active TTS-masked transition + buildCaptureOpts + RemoteConfig gate reads + useRecordingLifecycle mount + §7h post-stop routing + HAND-14 analytics + brightness/orientation + route-registry.test.ts `PracticeIntro`/`PracticeComplete` additions (depends on 04-06 + 04-07)
       **Wave 6** _(blocked on Wave 5)_
 - [ ] 04-10-PLAN.md — onCrashRecovery event (Phase-3 sweep emit + JS binding) + Toast host + bootRecoveryListener + `04-MANUAL-SMOKE.md` on-hardware acceptance runbook (incl. the **[BLOCKING] ±1ms drift re-measurement** on the gate→record handoff) + ROADMAP/STATE refresh
 
