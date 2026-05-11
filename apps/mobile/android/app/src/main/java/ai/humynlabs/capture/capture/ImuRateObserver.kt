@@ -60,32 +60,33 @@ object ImuRateObserver {
         // Sliding-window scan: each window is exactly 1 s long. Count the
         // samples in [winStart, winStart + 1s); since the window IS 1 s,
         // count == Hz directly. Slide by 100 ms → up to 10× overlap.
+        //
+        // WR-05 fix — two-pointer sliding window. The previous
+        // `countInRange` linear scan from index 0 on every window admitted
+        // pathological O(W × N) work where W = (lastNs - firstNs) / SLIDE_STEP
+        // ≈ 6000 windows for a 10-min segment and N ≈ 250K samples at
+        // 416 Hz. The two-pointer form is O(N + W): each pointer advances
+        // at most N times across the full scan, so total work is bounded
+        // by the sample count, not their product. Drift between windows
+        // is small (the slide step is 10× smaller than the window) so the
+        // amortized advance per window is ~10% of the window's sample count.
         val windowsHz = mutableListOf<Double>()
+        var leftIdx = 0
+        var rightIdx = 0
         var winStart = firstNs
         while (winStart + SLIDING_WINDOW_NS <= lastNs) {
             val winEnd = winStart + SLIDING_WINDOW_NS
-            val countInWindow = countInRange(sorted, winStart, winEnd)
-            windowsHz.add(countInWindow.toDouble())
+            // Advance leftIdx past samples below the current window start.
+            while (leftIdx < sorted.size && sorted[leftIdx] < winStart) leftIdx++
+            // Advance rightIdx past samples below the current window end
+            // (rightIdx ends pointing AT the first sample >= winEnd).
+            while (rightIdx < sorted.size && sorted[rightIdx] < winEnd) rightIdx++
+            windowsHz.add((rightIdx - leftIdx).toDouble())
             winStart += SLIDE_STEP_NS
         }
         if (windowsHz.isEmpty()) return 0.0
         val sortedHz = windowsHz.sorted()
         val p1Idx = (sortedHz.size * 1 / 100).coerceAtMost(sortedHz.size - 1)
         return sortedHz[p1Idx]
-    }
-
-    /**
-     * Counts entries in `sorted` (ascending) that fall in `[start, end)`.
-     * Linear sweep is fine — call sites have ≤ ~250 K samples (10 min @
-     * 416 Hz) and we only run this at finalize-time, off the IMU hot path.
-     */
-    private fun countInRange(sorted: LongArray, start: Long, end: Long): Int {
-        var count = 0
-        for (ts in sorted) {
-            if (ts < start) continue
-            if (ts >= end) break
-            count++
-        }
-        return count
     }
 }
