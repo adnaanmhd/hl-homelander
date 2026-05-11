@@ -53,7 +53,7 @@
 - [ ] **ONB-01**: First-time user sees the Rig screen ("You'll need a head rig" + body copy verbatim from spec) before practice
 - [ ] **ONB-02**: Rig screen offers a "Don't have a rig yet" off-ramp (recovery info + contact link) so users without rigs aren't soft-locked **[research]**
 - [x] **ONB-03**: First-time user goes through a 60-second practice recording with `practice = true` propagated through capture, metadata, and upload-queue exclusion
-- [ ] **ONB-04**: Practice recording is captured locally but NEVER uploaded, NEVER appears in History, NEVER counts toward contribution
+- [x] **ONB-04**: Practice recording is captured locally but NEVER uploaded, NEVER appears in History, NEVER counts toward contribution
 - [x] **ONB-05**: Practice recording auto-stops at exactly 60 seconds (hard cap) regardless of any other lifecycle event
 - [x] **ONB-06**: All multimodal alerts (battery / storage / thermal) remain active during practice so users experience them
 - [x] **ONB-07**: After practice, user sees the Practice-complete screen with success badge, confetti animation, light haptic `[40, 80, 40]` ms, and `Continue` CTA
@@ -111,18 +111,18 @@
 
 - [x] **HAND-01**: On record-button press, gate runs once per recording session via a custom Kotlin (Android) / Swift (iOS) RN module wrapping MediaPipe HandLandmarker (`hand_landmarker.task` ~7.8 MB, `RunningMode.IMAGE`, `numHands=2`, all confidences 0.5, CPU delegate)
 - [x] **HAND-02**: Gate displays the centered prompt "Mount the phone on your head and bring your hands in frame for 2 secs" + custom 130×130 progress ring (6 px stroke, accent fill on translucent track, clockwise increment via `stroke-dashoffset`) + Skip link visible from t=0
-- [ ] **HAND-03**: Detection loop polls every ~400 ms (Android) / ~600 ms (iOS) via `Camera.takePhoto()` → native `HandDetector.detectHands(path)` → returns hand count
+- [x] **HAND-03**: Detection loop polls every ~400 ms (Android) / ~600 ms (iOS) via `Camera.takePhoto()` → native `HandDetector.detectHands(path)` → returns hand count
 - [x] **HAND-04**: Gate pass = exactly 2 hands detected for **N consecutive successful checks** (5 on Android, 3 on iOS); any check returning `≠ 2` resets the counter to 0 with instant ring snap-back (no animation)
 - [x] **HAND-05**: Gate runs indefinitely until pass or skip — no timeout, no auto-cancel
 - [x] **HAND-06**: Gate shows a loading state (spinner inside ring well + caption `Preparing camera…`) when the camera isn't streaming yet; accumulator does not start until the first frame arrives
-- [ ] **HAND-07**: Skip link bypasses the gate silently — no voice cue, no haptic, brightness still drops to 5%
+- [x] **HAND-07**: Skip link bypasses the gate silently — no voice cue, no haptic, brightness still drops to 5%
 - [x] **HAND-08**: Native module unavailable → silent bypass (`bypassed = true`) — same UX as Skip
-- [ ] **HAND-09**: On gate pass (not skip, not silent bypass), system fires 80 ms vibrate + TTS "Recording started." in Indian English female voice + brightness drops to 5%
+- [x] **HAND-09**: On gate pass (not skip, not silent bypass), system fires 80 ms vibrate + TTS "Recording started." in Indian English female voice + brightness drops to 5%
 - [x] **HAND-10**: Tapping X during the gate is treated as a pre-record exit — silent dismiss to Home, no confirmation modal, no captured data to discard
-- [ ] **HAND-11**: Hand-gate target hits, cadence, and `minHandDetectionConfidence` are Firebase Remote Config keys so they can be retuned without an app release
-- [ ] **HAND-12**: System pre-warms the photo pipeline at recording-screen mount to avoid the gate ring sitting at 0 during `takePhoto()` cold-start latency **[research]**
+- [x] **HAND-11**: Hand-gate target hits, cadence, and `minHandDetectionConfidence` are Firebase Remote Config keys so they can be retuned without an app release
+- [x] **HAND-12**: System pre-warms the photo pipeline at recording-screen mount to avoid the gate ring sitting at 0 during `takePhoto()` cold-start latency **[research]**
 - [x] **HAND-13**: Gate decodes captured photos at 320×240 RGB_565 with explicit `bitmap.recycle()` to avoid memory pressure under sustained gate cadence **[research]**
-- [ ] **HAND-14**: System emits per-locale `recording_gate_skipped` rate telemetry as a leading skin-tone-bias indicator **[research]**
+- [x] **HAND-14**: System emits per-locale `recording_gate_skipped` rate telemetry as a leading skin-tone-bias indicator **[research]**
 
 ### Recording — UX & Lifecycle
 
@@ -407,7 +407,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ONB-01      | Phase 2 | Pending               |
 | ONB-02      | Phase 2 | Pending               |
 | ONB-03      | Phase 4 | Complete              |
-| ONB-04      | Phase 4 | Pending               |
+| ONB-04      | Phase 4 | Complete              |
 | ONB-05      | Phase 4 | Done (04-08)          |
 | ONB-06      | Phase 4 | Done (04-08)          |
 | ONB-07      | Phase 4 | Complete              |
@@ -453,18 +453,18 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CAP-19      | Phase 3 | Complete              |
 | HAND-01     | Phase 4 | Complete              |
 | HAND-02     | Phase 4 | Done (04-07)          |
-| HAND-03     | Phase 4 | Pending               |
+| HAND-03     | Phase 4 | Complete              |
 | HAND-04     | Phase 4 | Done (04-07)          |
 | HAND-05     | Phase 4 | Done (04-07)          |
 | HAND-06     | Phase 4 | Done (04-07)          |
-| HAND-07     | Phase 4 | Pending               |
+| HAND-07     | Phase 4 | Complete              |
 | HAND-08     | Phase 4 | Complete              |
-| HAND-09     | Phase 4 | Pending               |
+| HAND-09     | Phase 4 | Complete              |
 | HAND-10     | Phase 4 | Done (04-07)          |
-| HAND-11     | Phase 4 | Pending               |
-| HAND-12     | Phase 4 | Pending               |
+| HAND-11     | Phase 4 | Complete              |
+| HAND-12     | Phase 4 | Complete              |
 | HAND-13     | Phase 4 | Complete              |
-| HAND-14     | Phase 4 | Pending               |
+| HAND-14     | Phase 4 | Complete              |
 | REC-01      | Phase 4 | Done (04-07)          |
 | REC-02      | Phase 4 | Done (04-07)          |
 | REC-03      | Phase 4 | Done (04-07)          |
