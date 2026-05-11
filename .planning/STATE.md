@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-05-PLAN.md
-last_updated: '2026-05-11T09:14:34.383Z'
+stopped_at: Completed 04-07-PLAN.md
+last_updated: '2026-05-11T15:00:00.000Z'
 last_activity: 2026-05-11
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 56
-  completed_plans: 52
-  percent: 93
+  completed_plans: 54
+  percent: 96
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 04 (handdetector-recording-ux-practice-tutorial) — EXECUTING
-Plan: 7 of 10 (01, 02, 03, 04, 05 complete)
+Plan: 8 of 10 (01, 02, 03, 04, 05, 06, 07 complete)
 Status: Ready to execute
 
 Phase 2 operator smoke-walk history (carried forward):
@@ -47,9 +47,9 @@ Phase 3 hardware UAT pending (7 items, all on real Pixel 7a/8a) — these RETIRE
 - #6 CAP-18 byte-for-byte SHA round-trip (device → S3)
 - #7 CAP-13 onSessionStart/Stop upload-pause seam
 
-Last activity: 2026-05-11 — Completed quick task 260511-kfs: descoped server-side IMU-liveness check (FRAUD-03/04) to v2
+Last activity: 2026-05-11 — Completed quick task 260511-kph: ImuWriter emits the `timestamp_ns,sensor_type,x,y,z` header as IMU-CSV line 1
 
-Progress: Phase 4 — 5/10 plans complete (Wave 2 in progress)
+Progress: Phase 4 — 7/10 plans complete (Wave 3 in progress — 04-06 + 04-07 landed)
 
 ## Resume Path (set before pause)
 
@@ -108,6 +108,7 @@ _Updated after each plan completion_
 | Phase 04-handdetector-recording-ux-practice-tutorial P04 | 12min | 2 tasks | 3 files |
 | Phase 04-handdetector-recording-ux-practice-tutorial P05 | 12min | 2 tasks | 6 files |
 | Phase 04 P06 | 38min | 2 tasks | 15 files |
+| Phase 04 P07 | 28min | 2 tasks | 22 files |
 
 ## Accumulated Context
 
@@ -236,17 +237,19 @@ Recent decisions affecting current work:
 - [Phase 04]: Plan 04-06: PracticeComplete heading = 'You got it.' verbatim per design-spec §8 (prototype heading not fully captured; PM may override) — followed the spec, not the prototype.html DOM placeholder
 - [Phase 04]: Plan 04-06: confetti hue palette lives in tokens.ts (confettiPalette) — sanctioned decorative multi-hue use, keeps the D-UI-01 no-hex-in-screens gate satisfied; PracticeComplete badge scale-pop + Confetti rise start in a useEffect so the visual baseline frame is the deterministic pre-animation state
 - [Phase 04]: Plan 04-06: Vibration.vibrate([0,40,80,40]) — leading 0 makes RN's off/on/off/on array yield the engineering-handoff §6.2 [40,80,40]ms practice-done pattern; PracticeIntro→Recording and PracticeComplete→MainTabs use navigation.getParent()?.{replace,reset} with a local-navigator fallback
+- [Phase 04]: Plan 04-07: `src/screens/recording/recState.ts` = the canonical recording state machine — `RecState` type reproduced VERBATIM from engineering-handoff §4.3 (the `gate` block becomes `metadata.start_gate` in Phase 5) + a planner-derived `RecSubstate` discriminant; `recReducer` is PURE (no `performance.now()`/`Date.now()` inside — the caller passes `now` via the action payload); `initialRecState(params, gateConfig?)` defaults to substate `rotate-prompt`, cap 60_000 (practice)/1_200_000 (real), gate `idle`/targetHits 5/cadenceMs 400 (RemoteConfig-overridable). The §4.3 anti-patterns are honored: the 60s practice hard-cap is JS-owned (a `PRACTICE_HARD_CAP` action; HC's own timer auto-segments at 10m), and there is NO timeout transition (HAND-05 — the gate runs indefinitely until pass/skip). `RecordingScreen.tsx` is a SHELL ONLY — substate-driven dark-theme chrome (minute-bar, 36px circular X, task name, 3s overlay tip, the 7 substate bodies) + a render-only `__test_initialState` escape hatch (the same RecState shape the visual baselines build); the live VisionCamera `<Camera>` mount, the `useHandGate` poll loop, the gate-pass→active TTS-masked transition, `useRecordingLifecycle`, `buildCaptureOpts`, RemoteConfig gate reads, brightness/orientation, HAND-14 analytics, and §7h post-stop routing are all plan 04-09. GateRing instant snap-to-0 on a hits-decrease bypasses `Animated.timing` and calls `offset.setValue(CIRC)` directly (HAND-04). Dark-theme partial-opacity whites + the overlay rgba tones are tokenised in tokens.ts (recText{Primary,Secondary,Caption}/recSkipLink/recOverlayTip/recToastBg/recVoiceCueBg/recRingTrack) so the D-UI-01 no-hex-literals gate stays green. `RootNativeStack` registers `Recording` as a MainTabs sibling (gestureEnabled:false / headerShown:false / animation:fade); `route-registry.test.ts` now has a `REQUIRED_PHASE_4_ROUTES = ['Recording']` block (Pattern 54) — `PracticeIntro`/`PracticeComplete` required-route assertions are owned by plan 04-09. vitest.setup.ts gained `ActivityIndicator` (RN host shim) + `RotateCw` (lucide allow-list) — Rule 3 blocking. 8 static-surface visual baselines + recState reducer test (43) + RecordingScreen render test (12); full mobile suite 494/496 green — the 2 reds (HomeSkeletonScreen hex + visual baseline) + 3 `setPermsGranted` errors are the pre-existing D4-01 carry-forwards in files outside this plan's scope (SCOPE BOUNDARY — not touched).
 
 ### Quick Tasks Completed
 
-| #          | Description                                                                                 | Date       | Commit                  | Directory                                                                                           |
-| ---------- | ------------------------------------------------------------------------------------------- | ---------- | ----------------------- | --------------------------------------------------------------------------------------------------- |
-| 260510-001 | Declare HIGH_SAMPLING_RATE_SENSORS for IMU probe (Android 12+)                              | 2026-05-10 | cc867b7                 | [260510-001-imu-high-sampling-rate-perm](./quick/260510-001-imu-high-sampling-rate-perm/)           |
-| 260510-002 | Drive CompatRunningScreen rows from real probe progress (Pattern 59)                        | 2026-05-10 | 629d2be                 | [260510-002-compat-running-progress-events](./quick/260510-002-compat-running-progress-events/)     |
-| 260510-003 | Attach Authorization Bearer header in apiClient (Pattern 60)                                | 2026-05-10 | ae90541                 | [260510-003-api-client-bearer-auth-header](./quick/260510-003-api-client-bearer-auth-header/)       |
-| 260510-004 | LogoutModal reset target + Help Center markdown renderer (Patterns 61, 62)                  | 2026-05-10 | 7ac0ee7,720c738         | [260510-004-logout-reset-and-help-markdown](./quick/260510-004-logout-reset-and-help-markdown/)     |
-| 260510-005 | Profile UX cluster: head tap-to-edit + Gender enum + TopBar Google avatar (Patterns 63, 64) | 2026-05-10 | cf98090,d3b6a45,1a831c0 | [260510-005-profile-ux-cluster](./quick/260510-005-profile-ux-cluster/)                             |
-| 260511-kfs | Descope server-side IMU-liveness check (FRAUD-03/04) to v2 — docs/planning only             | 2026-05-11 | de09bcf                 | [260511-kfs-descope-imu-liveness-check-to-v2](./quick/260511-kfs-descope-imu-liveness-check-to-v2/) |
+| #          | Description                                                                                      | Date       | Commit                  | Directory                                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------------ | ---------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| 260510-001 | Declare HIGH_SAMPLING_RATE_SENSORS for IMU probe (Android 12+)                                   | 2026-05-10 | cc867b7                 | [260510-001-imu-high-sampling-rate-perm](./quick/260510-001-imu-high-sampling-rate-perm/)                           |
+| 260510-002 | Drive CompatRunningScreen rows from real probe progress (Pattern 59)                             | 2026-05-10 | 629d2be                 | [260510-002-compat-running-progress-events](./quick/260510-002-compat-running-progress-events/)                     |
+| 260510-003 | Attach Authorization Bearer header in apiClient (Pattern 60)                                     | 2026-05-10 | ae90541                 | [260510-003-api-client-bearer-auth-header](./quick/260510-003-api-client-bearer-auth-header/)                       |
+| 260510-004 | LogoutModal reset target + Help Center markdown renderer (Patterns 61, 62)                       | 2026-05-10 | 7ac0ee7,720c738         | [260510-004-logout-reset-and-help-markdown](./quick/260510-004-logout-reset-and-help-markdown/)                     |
+| 260510-005 | Profile UX cluster: head tap-to-edit + Gender enum + TopBar Google avatar (Patterns 63, 64)      | 2026-05-10 | cf98090,d3b6a45,1a831c0 | [260510-005-profile-ux-cluster](./quick/260510-005-profile-ux-cluster/)                                             |
+| 260511-kfs | Descope server-side IMU-liveness check (FRAUD-03/04) to v2 — docs/planning only                  | 2026-05-11 | de09bcf                 | [260511-kfs-descope-imu-liveness-check-to-v2](./quick/260511-kfs-descope-imu-liveness-check-to-v2/)                 |
+| 260511-kph | ImuWriter emits the `timestamp_ns,sensor_type,x,y,z` header as IMU-CSV line 1 (RED→GREEN + docs) | 2026-05-11 | 10a6efb,b4391b2,5e3bc98 | [260511-kph-imuwriter-emits-canonical-csv-header-row](./quick/260511-kph-imuwriter-emits-canonical-csv-header-row/) |
 
 ### Phase 2 Smoke-Walk Fix-Forward Commits (2026-05-10)
 
@@ -293,9 +296,9 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-11T09:14:10.949Z
-Last activity: 2026-05-11 — Completed quick task 260511-kfs: descoped server-side IMU-liveness check (FRAUD-03/04) to v2
-Stopped at: Completed 04-05-PLAN.md
+Last session: 2026-05-11T15:00:00.000Z
+Last activity: 2026-05-11 — Completed 04-07-PLAN.md: recording-surface scaffold (recState §4.3 state machine + 5 components + RecordingScreen shell + Recording route + route-registry Pattern-54 update + 8 visual baselines)
+Stopped at: Completed 04-07-PLAN.md
 
 - 01-10 (terraform apply): Tasks 1+2+3 complete + committed (430e17a, 9e52db8, ad93d17). Operator runs `terraform fmt -check` + `terraform validate` + `terraform plan` + `terraform apply` against real AWS staging.
 - 01-11 (counsel engagement): code-ready-counsel-deferred. Three commits ship the canonical consent text + boot-time hash guard, takedown SOP runbook, dsr-export CLI, and counsel-engagement checklist. Real attorney review queued for legal-ops backlog.

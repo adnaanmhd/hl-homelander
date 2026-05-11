@@ -110,15 +110,15 @@
 ### Recording — Hand-detection Gate
 
 - [x] **HAND-01**: On record-button press, gate runs once per recording session via a custom Kotlin (Android) / Swift (iOS) RN module wrapping MediaPipe HandLandmarker (`hand_landmarker.task` ~7.8 MB, `RunningMode.IMAGE`, `numHands=2`, all confidences 0.5, CPU delegate)
-- [ ] **HAND-02**: Gate displays the centered prompt "Mount the phone on your head and bring your hands in frame for 2 secs" + custom 130×130 progress ring (6 px stroke, accent fill on translucent track, clockwise increment via `stroke-dashoffset`) + Skip link visible from t=0
+- [x] **HAND-02**: Gate displays the centered prompt "Mount the phone on your head and bring your hands in frame for 2 secs" + custom 130×130 progress ring (6 px stroke, accent fill on translucent track, clockwise increment via `stroke-dashoffset`) + Skip link visible from t=0
 - [ ] **HAND-03**: Detection loop polls every ~400 ms (Android) / ~600 ms (iOS) via `Camera.takePhoto()` → native `HandDetector.detectHands(path)` → returns hand count
-- [ ] **HAND-04**: Gate pass = exactly 2 hands detected for **N consecutive successful checks** (5 on Android, 3 on iOS); any check returning `≠ 2` resets the counter to 0 with instant ring snap-back (no animation)
-- [ ] **HAND-05**: Gate runs indefinitely until pass or skip — no timeout, no auto-cancel
-- [ ] **HAND-06**: Gate shows a loading state (spinner inside ring well + caption `Preparing camera…`) when the camera isn't streaming yet; accumulator does not start until the first frame arrives
+- [x] **HAND-04**: Gate pass = exactly 2 hands detected for **N consecutive successful checks** (5 on Android, 3 on iOS); any check returning `≠ 2` resets the counter to 0 with instant ring snap-back (no animation)
+- [x] **HAND-05**: Gate runs indefinitely until pass or skip — no timeout, no auto-cancel
+- [x] **HAND-06**: Gate shows a loading state (spinner inside ring well + caption `Preparing camera…`) when the camera isn't streaming yet; accumulator does not start until the first frame arrives
 - [ ] **HAND-07**: Skip link bypasses the gate silently — no voice cue, no haptic, brightness still drops to 5%
 - [x] **HAND-08**: Native module unavailable → silent bypass (`bypassed = true`) — same UX as Skip
 - [ ] **HAND-09**: On gate pass (not skip, not silent bypass), system fires 80 ms vibrate + TTS "Recording started." in Indian English female voice + brightness drops to 5%
-- [ ] **HAND-10**: Tapping X during the gate is treated as a pre-record exit — silent dismiss to Home, no confirmation modal, no captured data to discard
+- [x] **HAND-10**: Tapping X during the gate is treated as a pre-record exit — silent dismiss to Home, no confirmation modal, no captured data to discard
 - [ ] **HAND-11**: Hand-gate target hits, cadence, and `minHandDetectionConfidence` are Firebase Remote Config keys so they can be retuned without an app release
 - [ ] **HAND-12**: System pre-warms the photo pipeline at recording-screen mount to avoid the gate ring sitting at 0 during `takePhoto()` cold-start latency **[research]**
 - [x] **HAND-13**: Gate decodes captured photos at 320×240 RGB_565 with explicit `bitmap.recycle()` to avoid memory pressure under sustained gate cadence **[research]**
@@ -126,12 +126,12 @@
 
 ### Recording — UX & Lifecycle
 
-- [ ] **REC-01**: Recording surface auto-rotates to landscape, locks orientation, and shows the rotate-prompt animation until landscape is detected
-- [ ] **REC-02**: Recording surface displays a 3-second top-anchored disappearing overlay "Don't exit while recording." on entry
-- [ ] **REC-03**: After gate exit, recording surface shows minute-bar timer, mono HH:MM:SS counter, and floating stop button
+- [x] **REC-01**: Recording surface auto-rotates to landscape, locks orientation, and shows the rotate-prompt animation until landscape is detected
+- [x] **REC-02**: Recording surface displays a 3-second top-anchored disappearing overlay "Don't exit while recording." on entry
+- [x] **REC-03**: After gate exit, recording surface shows minute-bar timer, mono HH:MM:SS counter, and floating stop button
 - [ ] **REC-04**: Stop tap fires voice cue "Recording stopped." + 2-second toast `{Hh Mm} added to your contribution.` (formatter matches HOME-06)
-- [ ] **REC-05**: Re-pressing record after stop starts a **fresh recording** under the same task; switching tasks requires exiting the recording screen
-- [ ] **REC-06**: Tapping X during active recording shows the Stop confirmation modal (`Keep recording` / `Stop`); pre-record exit is silent
+- [x] **REC-05**: Re-pressing record after stop starts a **fresh recording** under the same task; switching tasks requires exiting the recording screen
+- [x] **REC-06**: Tapping X during active recording shows the Stop confirmation modal (`Keep recording` / `Stop`); pre-record exit is silent
 - [ ] **REC-07**: Recordings shorter than 60 seconds are discarded with toast `Recording too short — discarded.`; not uploaded, not in History, not counted
 - [x] **REC-08**: Display behavior during recording: `KEEP_SCREEN_ON`, brightness auto-dimmed to 5% (restored on stop or exit)
 - [ ] **REC-09**: System does **NOT** programmatically toggle DND during recording (no `ACCESS_NOTIFICATION_POLICY` use, no Settings deep-link, no in-app DND nudge)
@@ -140,7 +140,7 @@
 - [x] **REC-12**: Phone-call answered, alarm rings, rotation out of landscape, force-quit, OS-evict, or storage-full mid-record stops the recording per `idea-brief.md` §10 lifecycle table (upload if ≥60 s; discard if not)
 - [x] **REC-13**: Phone-call declined → recording continues
 - [ ] **REC-14**: TTS uses Indian English female voice (en-IN) with the documented fallback chain (en-IN female → en-IN neutral → en-US female → first available en-\*); rate 1.0, pitch 0.95, volume 0.85
-- [ ] **REC-15**: Voice cues are duplicated as the centered VoiceCue overlay text for accessibility
+- [x] **REC-15**: Voice cues are duplicated as the centered VoiceCue overlay text for accessibility
 - [ ] **REC-16**: System runs a recurring storage check before each recording start (compat-time check is one-time only) **[research]**
 
 ### Upload Pipeline
@@ -452,25 +452,25 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CAP-18      | Phase 3 | Complete              |
 | CAP-19      | Phase 3 | Complete              |
 | HAND-01     | Phase 4 | Complete              |
-| HAND-02     | Phase 4 | Pending               |
+| HAND-02     | Phase 4 | Done (04-07)          |
 | HAND-03     | Phase 4 | Pending               |
-| HAND-04     | Phase 4 | Pending               |
-| HAND-05     | Phase 4 | Pending               |
-| HAND-06     | Phase 4 | Pending               |
+| HAND-04     | Phase 4 | Done (04-07)          |
+| HAND-05     | Phase 4 | Done (04-07)          |
+| HAND-06     | Phase 4 | Done (04-07)          |
 | HAND-07     | Phase 4 | Pending               |
 | HAND-08     | Phase 4 | Complete              |
 | HAND-09     | Phase 4 | Pending               |
-| HAND-10     | Phase 4 | Pending               |
+| HAND-10     | Phase 4 | Done (04-07)          |
 | HAND-11     | Phase 4 | Pending               |
 | HAND-12     | Phase 4 | Pending               |
 | HAND-13     | Phase 4 | Complete              |
 | HAND-14     | Phase 4 | Pending               |
-| REC-01      | Phase 4 | Pending               |
-| REC-02      | Phase 4 | Pending               |
-| REC-03      | Phase 4 | Pending               |
+| REC-01      | Phase 4 | Done (04-07)          |
+| REC-02      | Phase 4 | Done (04-07)          |
+| REC-03      | Phase 4 | Done (04-07)          |
 | REC-04      | Phase 4 | Pending               |
-| REC-05      | Phase 4 | Pending               |
-| REC-06      | Phase 4 | Pending               |
+| REC-05      | Phase 4 | Done (04-07)          |
+| REC-06      | Phase 4 | Done (04-07)          |
 | REC-07      | Phase 4 | Pending               |
 | REC-08      | Phase 4 | Complete              |
 | REC-09      | Phase 4 | Pending               |
@@ -479,7 +479,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REC-12      | Phase 4 | Complete              |
 | REC-13      | Phase 4 | Complete              |
 | REC-14      | Phase 4 | Pending               |
-| REC-15      | Phase 4 | Pending               |
+| REC-15      | Phase 4 | Done (04-07)          |
 | REC-16      | Phase 4 | Pending               |
 | UP-01       | Phase 5 | Pending               |
 | UP-02       | Phase 5 | Pending               |
