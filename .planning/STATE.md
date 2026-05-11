@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Phase 4 UI-SPEC approved
+stopped_at: Phase 4 planned (10 plans, 6 waves)
 last_updated: '2026-05-11T12:00:00.000Z'
 last_activity: 2026-05-11
-resume_file: .planning/phases/04-handdetector-recording-ux-practice-tutorial/04-UI-SPEC.md
+resume_file: .planning/phases/04-handdetector-recording-ux-practice-tutorial/04-01-PLAN.md
 progress:
   total_phases: 7
   completed_phases: 3
-  total_plans: 46
+  total_plans: 56
   completed_plans: 46
   percent: 100
 ---
@@ -38,7 +38,7 @@ Phase 2 operator smoke-walk history (carried forward):
 - §4 Compat happy path — PASSED ✅ (ec86b99 expanded LOGICAL_MULTI_CAMERA.physicalIds in DeviceCaps; on-device CompatPassScreen rendered)
 - §5–§13 PENDING (operator-driven, smoke-walk continuation)
 
-Phase 3 hardware UAT pending (7 items, all on real Pixel 7a/8a):
+Phase 3 hardware UAT pending (7 items, all on real Pixel 7a/8a) — these RETIRE during the Phase 4 Wave-6 smoke walk (`04-MANUAL-SMOKE.md` §3/§5/§5b per D-WAVE-04); the verifier should not separately re-block on them after Phase 4 closes:
 
 - #1 10-min HEVC capture spec (ffprobe + NAL)
 - #2 25-min auto-segment integrity (sibling triples + 0.5 s gap)
@@ -106,6 +106,7 @@ _Updated after each plan completion_
 
 ### Roadmap Evolution
 
+- 2026-05-11: **Phase 4 planned** — 10 plans across 6 plan-waves. Conceptual D-WAVE-01 5-wave structure maps to plan-waves 1-6: wave-4 work (state machine + lifecycle) spans plan-waves 4-5 because `RecordingScreen.tsx` and `useRecordingLifecycle.ts` must not be touched by the same plan (file-ownership for parallel exec); wave-5 work (crash-recovery + smoke + Phase-3-UAT-retirement) is plan-wave 6. The **[BLOCKING] ±1 ms drift re-measurement** on the gate→record camera handoff lives in `04-MANUAL-SMOKE.md` §5b — a Phase-4 blocker if it regresses past Phase 3 smoke 7 (mean 0.594 / p99 0.728 ms). Phase 3's seven pending hardware-UAT items effectively retire during the Phase 4 Wave-6 smoke walk (D-WAVE-04 — verifier should not separately re-block on them). Five new in-house Kotlin native modules ship: `HumynHandDetector` (MediaPipe HandLandmarker IMAGE mode), `HumynPhoneState` (AudioManager.OnAudioFocusChangeListener ONLY — no `READ_PHONE_STATE`/TelephonyManager per the corrected RESEARCH D-LIFE-02), `HumynBattery` (`ACTION_BATTERY_CHANGED`), `HumynScreenBrightness` (per-window override — not `Settings.System`), `HumynBeep` (SoundPool over pre-baked .wav). `RecordingScreen` is the only dark + only landscape-locked surface; `recState.ts` is a `useReducer` state machine (shape verbatim from `engineering-handoff.md §4.3`).
 - 2026-05-11: **MVP descoped** via `/gsd-phase --edit` —
   - Phase 6 retitled "Tasks, History, Home Tiles & **Lexical Search**"; semantic/pgvector + RRF hybrid search removed from the client surface (backend pipeline still shipped in Phase 1). TASK-03 reworded to `ts_vector` lexical-only; new §v2 req **SEARCH-V2-01** holds the deferred hybrid layer.
   - Phase 7 retitled "**Observability & APK Distribution Hardening**"; iOS parity (IOS-01..07) and the staged Play Store → App Store rollout (DIST-05, DIST-06) removed — relocated to REQUIREMENTS.md §v2. Phase 7 requirements now OBS-01..05 only; SC#2 rewritten around APK signing / `HumynUpdater` / force-upgrade gate hardening. Phase 7 `UI hint` dropped.
