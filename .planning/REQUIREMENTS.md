@@ -237,10 +237,10 @@
 
 - [x] **FRAUD-01**: Play Integrity Standard verification at sign-in only (per-upload attestation deferred to v2)
 - [x] **FRAUD-02**: Backend rejects sign-in with rooted, emulator, and non-Play-Store-install verdicts (APK build flavor bypasses install-source check via Remote Config; Play Store flavor cannot opt into bypass)
-- [ ] **FRAUD-03**: Backend implements server-side IMU liveness fraud check on the uploaded IMU CSV (stillness gate, gravity-axis check, saccade density, optional walking-segment FFT, vision-motion correlation) per `imu-liveness-check.md` §4 — promoted from v2-deferred to MVP backend scope **[research]**
-- [ ] **FRAUD-04**: Backend produces a `liveness_score ∈ [0, 1]` per segment with the weighted formula in `imu-liveness-check.md` §5; thresholds are tunable
 - [ ] **FRAUD-05**: Per-account daily upload-rate cap enforced server-side as a coarse fraud heuristic
-- [ ] **FRAUD-06**: Pre-payout fraud monitoring dashboard tracks liveness-score distribution, hash-mismatch rate, account-fingerprint clustering, and OEM/region anomalies
+- [ ] **FRAUD-06**: Pre-payout fraud monitoring dashboard tracks hash-mismatch rate, account-fingerprint clustering, and OEM/region anomalies (the `liveness_score` distribution panel lands with the deferred FRAUD-03/04 — see §v2)
+
+> FRAUD-03 (server-side IMU-liveness check on the uploaded CSV) and FRAUD-04 (`liveness_score ∈ [0,1]` rollup) were briefly **promoted from v2-deferred to MVP backend scope (Phase 5), then descoped back 2026-05-11** → relocated to §v2 (Anti-fraud). MVP anti-fraud is Play Integrity at sign-in (FRAUD-01/02) + per-account upload-rate cap (FRAUD-05) + the on-device one-shot hand gate; the uploaded IMU CSV is not analysed server-side at MVP.
 
 ### Observability
 
@@ -290,6 +290,8 @@ Deferred to a future release. Tracked but not in current roadmap.
 
 ### Anti-fraud
 
+- **FRAUD-03**: Backend implements a server-side IMU-liveness fraud check on the uploaded IMU CSV (stillness gate, gravity-axis check, saccade density, optional walking-segment FFT, vision–motion correlation) per `imu-liveness-check.md` §4. _Briefly promoted to MVP backend scope (Phase 5), descoped back to v2 2026-05-11 — MVP collects the IMU CSV but does not analyse it server-side._
+- **FRAUD-04**: Backend produces a `liveness_score ∈ [0, 1]` per segment with the weighted formula in `imu-liveness-check.md` §5; thresholds are tunable. _Descoped with FRAUD-03 2026-05-11._
 - **FRAUD-V2-01**: Per-upload Play Integrity attestation
 - **FRAUD-V2-02**: Server-side perceptual-hash duplicate detection
 - **FRAUD-V2-03**: Device-fingerprint binding (one account ↔ one device)
@@ -550,8 +552,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | VERIFY-07   | Phase 5 | Pending               |
 | FRAUD-01    | Phase 1 | Complete              |
 | FRAUD-02    | Phase 1 | Complete              |
-| FRAUD-03    | Phase 5 | Pending               |
-| FRAUD-04    | Phase 5 | Pending               |
+| FRAUD-03    | v2      | Deferred 2026-05-11   |
+| FRAUD-04    | v2      | Deferred 2026-05-11   |
 | FRAUD-05    | Phase 5 | Pending               |
 | FRAUD-06    | Phase 5 | Pending               |
 | OBS-01      | Phase 7 | Pending               |
@@ -599,4 +601,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 ---
 
 _Requirements defined: 2026-05-07_
-_Last updated: 2026-05-11 — descoped DIST-05, DIST-06, IOS-01..07 (9 reqs) to §v2; reworded TASK-03 to lexical-only and added SEARCH-V2-01 for the descoped semantic/RRF layer. Phase 7 narrowed to observability + APK-distribution hardening. Original: 2026-05-07 — Traceability written by roadmapper (7 phases, 199 requirements, 100% coverage)._
+_Last updated: 2026-05-11 — descoped the server-side IMU-liveness fraud check (FRAUD-03, FRAUD-04) from the Phase 5 MVP backend back to §v2 (Anti-fraud); reworded FRAUD-06 so its `liveness_score` panel rides with the deferred FRAUD-03/04 (quick task 260511-kfs). Earlier 2026-05-11 — descoped DIST-05, DIST-06, IOS-01..07 (9 reqs) to §v2; reworded TASK-03 to lexical-only and added SEARCH-V2-01 for the descoped semantic/RRF layer; Phase 7 narrowed to observability + APK-distribution hardening. Original: 2026-05-07 — Traceability written by roadmapper (7 phases, 199 requirements, 100% coverage)._
