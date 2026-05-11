@@ -108,16 +108,14 @@ class HumynCaptureModule(reactContext: ReactApplicationContext) :
         captureExecutor.execute {
             try {
                 // T-3.10-04 mitigation — double-start serialised through
-                // captureExecutor + explicit guard. Reject so the JS layer
-                // surfaces "session already active; stop the current one
-                // before starting a new one."
+                // captureExecutor + explicit guard. Throw the typed
+                // SessionAlreadyActiveException so errorCodeFor maps it to
+                // "session_already_active" via type dispatch (CR-07 fix —
+                // the previous direct `promise.reject("session_already_active",
+                // ...)` worked but left errorCodeFor's `t.message ==
+                // "session_already_active"` branch as dead code).
                 if (session != null) {
-                    promise.reject(
-                        "session_already_active",
-                        "a CaptureSession is already running; call stop() first",
-                        null as Throwable?,
-                    )
-                    return@execute
+                    throw SessionAlreadyActiveException()
                 }
                 // Step 1: opts validation (defense-in-depth at the Kotlin bridge end).
                 val opts = CaptureSessionOptsBridge.fromBridge(optsMap)
@@ -155,7 +153,11 @@ class HumynCaptureModule(reactContext: ReactApplicationContext) :
     fun stop(promise: Promise) {
         captureExecutor.execute {
             try {
-                val s = session ?: throw IllegalStateException("no_active_session")
+                // CR-07 fix — typed NoActiveSessionException keeps errorCodeFor's
+                // dispatch refactor-safe. A future contributor renaming the
+                // literal "no_active_session" string would no longer silently
+                // demote the public bridge contract to "internal_error".
+                val s = session ?: throw NoActiveSessionException()
                 s.stop()
                 session = null
                 // Stop FGS AFTER session.stop returns so the OS doesn't kill the
@@ -174,19 +176,37 @@ class HumynCaptureModule(reactContext: ReactApplicationContext) :
      * Map a thrown exception type to its stable bridge error code.
      * Visible-for-tests indirectly — every catch site in start() / stop()
      * funnels through here so the contract is single-source.
+     *
+     * **CR-07 fix.** The previous implementation pattern-matched on
+     * `t.message == "no_active_session"` etc. Two problems:
+     *   (1) The `t.message == "session_already_active"` branch was dead
+     *       code — that exception was never thrown (the double-start guard
+     *       called `promise.reject` directly).
+     *   (2) String-equality message matching is fragile: a future
+     *       contributor renaming the literal in `IllegalStateException(...)`
+     *       silently demotes the public bridge contract to `internal_error`
+     *       with no compile-time signal.
+     * Switched to typed exception dispatch — the throw site and the catch
+     * site share a single class, so renames cannot drift apart.
      */
     private fun errorCodeFor(t: Throwable): String = when (t) {
         is ThermalRefuseException -> "thermal_throttling"
         is RealtimeClockUnavailableException -> "realtime_clock_unavailable"
-        is IllegalStateException -> if (t.message == "no_active_session") {
-            "no_active_session"
-        } else if (t.message == "session_already_active") {
-            "session_already_active"
-        } else {
-            "internal_error"
-        }
+        is NoActiveSessionException -> "no_active_session"
+        is SessionAlreadyActiveException -> "session_already_active"
+        is ConsentInvalidException -> "consent_invalid"
+        is InvalidOptsException -> "invalid_opts"
         is SecurityException -> "permission_revoked"
         is java.io.IOException -> "storage_full"
+        // Defense-in-depth: legacy throw sites that still raise raw
+        // IllegalStateException / IllegalArgumentException (e.g.
+        // CaptureSessionOptsBridge's `require(...)` calls before the typed-
+        // exception migration is complete) still get sensible bridge codes.
+        // The typed branches above take precedence; these tail branches
+        // catch the un-migrated cases. Once every throw site uses the
+        // typed exceptions, these tail branches become dead and can be
+        // removed.
+        is IllegalStateException -> "internal_error"
         is IllegalArgumentException -> if (t.message == "consent_invalid") {
             "consent_invalid"
         } else {
@@ -208,3 +228,21 @@ class HumynCaptureModule(reactContext: ReactApplicationContext) :
             .emit(name, payload)
     }
 }
+
+// CR-07 fix — typed exceptions for the bridge error contract. Each class
+// extends an IllegalStateException / IllegalArgumentException with the
+// canonical message string so legacy callers reading `.message` keep
+// working, AND errorCodeFor's `when` dispatches by type so the contract
+// is refactor-safe (renames cannot silently demote a code to internal_error).
+
+/** Thrown by `stop()` when no CaptureSession is active. */
+class NoActiveSessionException : IllegalStateException("no_active_session")
+
+/** Thrown by `start()` when a CaptureSession is already running. */
+class SessionAlreadyActiveException : IllegalStateException("session_already_active")
+
+/** Thrown by opts validation when `contributor.consent !== true`. */
+class ConsentInvalidException : IllegalArgumentException("consent_invalid")
+
+/** Thrown by opts validation for any other CaptureSessionOpts shape failure. */
+class InvalidOptsException(field: String) : IllegalArgumentException("invalid_opts: $field")
