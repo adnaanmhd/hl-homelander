@@ -4,9 +4,11 @@
 
 **Homelander** — codename for **Humyn Labs Capture**. Android-first React Native app that records strict-spec egocentric (head-mounted) video + IMU streams of everyday tasks. Captured data trains physical/embodied AI (VLA/VLN, humanoid robotics). Brand: _Real Humyns. Real Intelligence._ MVP ships as a signed APK direct to users in India + Brazil, ages 18–35, on ₹30K+ phones. (Play Store and iOS App Store channels are deferred to a follow-on milestone — see the descope banner below.)
 
-**Core Value — capture quality is non-negotiable.** Every uploaded segment: 1080p / 30 FPS / ≥110° dFOV / IMU sustained ≥100 Hz / ±1 ms video↔IMU timestamp alignment. If capture quality slips, the project fails.
+**Core Value — capture quality is non-negotiable.** Every uploaded segment: 1080p / 30 FPS / ≥110° dFOV / IMU sustained ≥100 Hz. Video↔IMU drift (`imu_video_drift_{max,mean,p99}_ms`) is **measured and recorded** in every segment's metadata — the original ±1 ms gate is relaxed (see the drift banner below). If 1080p/30/≥110°/≥100 Hz slips, the project fails.
 
-> **Audio dropped 2026-05-11.** Original spec included 48 kHz mono AAC-LC. Phase 3 smoke on Pixel 10a showed audio-pump CPU contention pushed `imu_video_drift_{mean,p99}_ms` from ~1.8/2.1 ms to ~5.5/5.8 ms — outside ±1 ms. Audio dropped to preserve the drift invariant; training pipeline consumes video + IMU only. Post-unwire smoke 7: drift mean 0.594 ms / p99 0.728 ms ✓. Trail: `.planning/phases/03-humyn-capture-native-module/03-HUMAN-UAT.md` GAP-3 + commits `a1ab0ea` (unwire), `1a3e039` (closure). Re-introducing audio requires on-hardware proof drift stays inside ±1 ms.
+> **±1 ms drift gate relaxed 2026-05-12.** The LOCKED spec (`idea-brief.md` §2.1) calls for ±1 ms video↔IMU timestamp alignment. On the Phase-4 capture path the HEVC stream records on the **ultrawide** physical sub-camera via `CONTROL_ZOOM_RATIO` (required to actually hit ≥110° dFOV instead of streaming the ~83° main wide) — the ultrawide's heavy distortion-correction / fusion pipeline regresses drift to ~1.7–6.2 ms (a clean 10-min gate-pass segment: max 6.16 / mean 5.58 / p99 5.63 ms). **Owner decision: keep computing & recording the three drift figures in every segment's metadata as fleet-health telemetry; do NOT gate Phase completion / smoke sign-off / finalization / uploads on them; do NOT change the ultrawide lens code.** `idea-brief.md` §2.1 and `.planning/REQUIREMENTS.md` still state ±1 ms — not edited; revisit in a dedicated pass if the spec docs should be aligned. Full write-up + mitigation options if ever revisited: `ULTRAWIDE-DRIFT-FINDINGS.md` (repo root). Trail: debug session `.planning/debug/handgate-never-passes.md` (Stage 2), `04-MANUAL-SMOKE.md` §5b.
+
+> **Audio dropped 2026-05-11.** Original spec included 48 kHz mono AAC-LC. Phase 3 smoke on Pixel 10a showed audio-pump CPU contention pushed `imu_video_drift_{mean,p99}_ms` from ~1.8/2.1 ms to ~5.5/5.8 ms — outside the then-active ±1 ms gate. Audio dropped; training pipeline consumes video + IMU only. Post-unwire smoke 7: drift mean 0.594 ms / p99 0.728 ms. Trail: `.planning/phases/03-humyn-capture-native-module/03-HUMAN-UAT.md` GAP-3 + commits `a1ab0ea` (unwire), `1a3e039` (closure). Audio stays dropped (the drift gate's relaxation 2026-05-12 doesn't reopen it — re-introducing audio is its own decision, and would still need fresh on-hardware drift evidence).
 
 > **MVP descoped 2026-05-11.** (1) **Semantic search dropped from the MVP client surface** — the `ts_vector` lexical path is the MVP task search; the pgvector + RRF (k=60) hybrid layer shipped in the Phase 1 backend but is not surfaced. (2) **Play Store staged rollout, the iOS App Store channel, and all iOS native-module analogues are deferred** to a follow-on milestone — MVP is Android-only via the signed APK. Phase 7 narrowed to observability + APK-distribution hardening. Trail: `.planning/ROADMAP.md` (Phases 6 + 7), `.planning/REQUIREMENTS.md` §v2 (SEARCH-V2-01, DIST-05, DIST-06, IOS-01..07), `.planning/STATE.md` Roadmap Evolution + Deferred Items.
 
@@ -43,20 +45,20 @@ Full rationale, OEM sharp edges, version sources, and config recipes: `research/
 
 ### Mobile — Camera / hand-gate / capture
 
-- `react-native-vision-camera@4.7.3` — preview + `takePhoto()` only. Do NOT use for HEVC video pipeline. V5 (Nitro rewrite) deferred.
-- `react-native-worklets-core@1.6.3` — VisionCamera 4's frame-processor runtime. Distinct from `react-native-worklets` below; both are present and coexist.
 - `react-native-reanimated@4.x` (≥4.3.1) — the RN-0.83-compatible line (new-arch only, peer `react-native: 0.81–0.85`). The 3.x line does NOT compile against RN 0.83 on Android (references the removed Paper-era `UIManagerModuleListener` / `Systrace.TRACE_TAG_REACT_JAVA_BRIDGE` / `UIManagerModule.addUIManagerListener` / `LengthPercentage.resolve(float,float)` APIs).
 - `react-native-worklets@0.8.x` — peer dep of reanimated 4 (the standalone worklets runtime). `babel.config.js` MUST end with `react-native-worklets/plugin` (replaces the old `react-native-reanimated/plugin`).
-- `@shopify/react-native-skia@1.x` (≥1.2.1) — V4 Skia frame-processor minimum.
-- **`HumynCapture` (Kotlin) / `HumynCaptureIOS` (Swift)** — hand-rolled Camera2+MediaCodec / AVCaptureSession+AVAssetWriter HEVC pipeline. Owns the locked capture spec.
-- **`HandDetector` (Kotlin + Swift)** — ~95 LOC each, MediaPipe HandLandmarker IMAGE mode, hand-count only.
+- `react-native-svg@15.x` (≥15.15.4) — the RotatePrompt portrait-phone glyph + the GateRing, etc.
+- **`react-native-vision-camera` REMOVED 2026-05-12** (debug session `handgate-never-passes`). It was the original pre-record hand-gate camera (preview + `takePhoto()`), but on a logical-multi-camera Android device it can't disable AF or reach the ultrawide sub-camera — replaced by the hand-rolled native Camera2 gate camera (`HumynGateCamera` below). Its `react-native-worklets-core` peer + the `@shopify/react-native-skia` frame-processor dep went with it. (Camera permissions are `react-native-permissions`, not VisionCamera.)
+- **`HumynCapture` (Kotlin) / `HumynCaptureIOS` (Swift)** — hand-rolled Camera2+MediaCodec / AVCaptureSession+AVAssetWriter HEVC pipeline. Owns the locked capture spec. Records on the **back ultrawide** physical sub-camera (≥110° dFOV) by driving `CONTROL_ZOOM_RATIO` to the lower bound of `CONTROL_ZOOM_RATIO_RANGE` on the logical back camera, AF off + fixed focus (the ultrawide path costs video↔IMU drift — see the drift banner up top).
+- **`HumynGateCamera` (Kotlin Camera2)** — the pre-record hand-gate camera: opens the back logical camera, drives `CONTROL_ZOOM_RATIO` to the ultrawide, AF off + fixed focus; `<HumynGateCameraView>` is the live preview (a Camera2-fed TextureView), shown from the `'ready'` substate (once landscape) through the gate so the operator/helper can check rig placement + hands-in-frame before pressing Start. Released before `HumynCapture.start()` opens its own Camera2 session (one back-camera client at a time). Replaced the VisionCamera `<Camera>`. (iOS analogue deferred with the rest of the iOS native modules.)
+- **`HandDetector` (Kotlin + Swift)** — ~95 LOC each, MediaPipe HandLandmarker IMAGE mode, hand-count only. Frame source is `HumynGateCamera.captureFrame()` (a JPEG to `cacheDir/hand-gate/`), not VisionCamera `takePhoto()`. The bundled `hand_landmarker.task` MUST be `noCompress`'d in `app/build.gradle` (Deflate-compressed → MediaPipe can't memory-map it → throws every poll).
 - `com.google.mediapipe:tasks-vision@0.10.21` (Android) + `MediaPipeTasksVision@0.10.21` (iOS pod). **Pin both at 0.10.21** — iOS pod 0.10.33+ has XCFramework linking issues (mediapipe #6258).
 
 ### Mobile — Sensors / FS / storage / glue
 
 - `SensorManager` (Android) / `CMMotionManager` (iOS) — inside HumynCapture, no RN library.
 - `react-native-fs@2.20.0`, `react-native-mmkv@4.3.1`, `react-native-keychain@10.0.0`.
-- `react-native-tts@4.1.1` — uses `idea-brief.md §13` fallback chain (en-IN female → en-IN any → en-US female → first en-\*).
+- `react-native-tts@4.1.1` — recording-cue voice. ⚠ **OWNER DEVIATION 2026-05-12** from `idea-brief.md §13` / `engineering-handoff.md §6.3` / REQ REC-14 (which mandate _en-IN female_): the cue voice is now **en-US, female-leaning** (`Tts.setDefaultLanguage('en-US')` baseline → an en-US female-ish voice → any en-US → first en-\*). On the Pixel 10a the engine's en-IN fallback sounded bad to the owner. `ttsVoice.ts` keeps the `EnIn` symbol names to avoid churning import sites. (`RigTutorialScreen.tsx` has a related owner-directed deviation — a one-line camera-framing tip added to its "verbatim §5" copy.)
 - `react-native-config@1.6.1`, `lucide-react-native@1.14.0`.
 
 ### Mobile — Auth / integrity / Firebase
@@ -92,7 +94,7 @@ Full rationale, OEM sharp edges, version sources, and config recipes: `research/
 
 ## Do NOT Use
 
-- **VisionCamera for the HEVC pipeline** — no `KEY_BITRATE_MODE` / `KEY_LATENCY` / `MAX_B_FRAMES`. Use the custom Camera2+MediaCodec module.
+- **`react-native-vision-camera`** (any role) — REMOVED 2026-05-12. Was the hand-gate camera; on a logical-multi-camera Android device it can't disable AF or reach the ultrawide sub-camera, and it never had `KEY_BITRATE_MODE` / `KEY_LATENCY` / `MAX_B_FRAMES` for the HEVC pipeline anyway. The gate runs on the hand-rolled native Camera2 `HumynGateCamera`; the HEVC pipeline is `HumynCapture`; camera permissions are `react-native-permissions`. (Its `react-native-worklets-core` peer + the `@shopify/react-native-skia` frame-processor dep went with it.)
 - **CameraX (any version)** — spec rejects; controls we need not exposed.
 - **`MediaPipeTasksVision` iOS pod 0.10.33+** — XCFramework linking issues. Stay at 0.10.21.
 - **Third-party RN MediaPipe wrappers** — unmaintained; the in-house module is ~95 LOC.
@@ -110,8 +112,7 @@ Full rationale, OEM sharp edges, version sources, and config recipes: `research/
 ## Version Compatibility Pinpoints
 
 - RN 0.83 ↔ all `@react-native-firebase/*` 24.0.0.
-- RN 0.83 ↔ VisionCamera 4.7.3 ↔ `worklets-core` 1.6.3 ↔ Skia 1.x (≥1.2.1).
-- RN 0.83 ↔ reanimated 4.x (≥4.3.1) ↔ `react-native-worklets` 0.8.x (reanimated 4's peer) — `babel.config.js` ends with `react-native-worklets/plugin`. (reanimated 3.x is NOT RN-0.83-compatible on Android.)
+- RN 0.83 ↔ reanimated 4.x (≥4.3.1) ↔ `react-native-worklets` 0.8.x (reanimated 4's peer) — `babel.config.js` ends with `react-native-worklets/plugin`. (reanimated 3.x is NOT RN-0.83-compatible on Android. `react-native-vision-camera` + `react-native-worklets-core` were removed 2026-05-12 — no VisionCamera/Skia compat pin anymore.)
 - mediapipe `tasks-vision` 0.10.21 ↔ `MediaPipeTasksVision` 0.10.21 (lock both).
 - `pgvector` 0.8.0+ ↔ PG 16/17 (HNSW iterative scan).
 - `@aws-sdk/client-s3` ↔ `@aws-sdk/s3-request-presigner` (always same minor).
