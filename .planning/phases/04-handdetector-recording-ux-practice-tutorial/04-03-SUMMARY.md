@@ -169,6 +169,10 @@ None - no external service configuration required.
 - `RigTutorialScreen.handleNext` already targets `'PracticeIntro'` — plan 04-06 must register that route (and `'PracticeComplete'`) in `OnboardingStack.tsx`, and `route-registry.test.ts` must add `'PracticeIntro'`/`'PracticeComplete'`/`'Recording'` to the required-routes list.
 - **Concern:** the full mobile suite does not exit 0 due to the pre-existing D4-01 failures — whichever Phase 4 plan removes the `HomeSkeletonScreen` `__DEV__` smoke seam should also regenerate the visual baseline and fix the stale `setPermsGranted` reference in `RootNativeStack.test.tsx`.
 
+## Self-Check: PASSED
+
+All claimed files exist on disk (`jwtSub.ts`, `jwtSub.test.ts`, `keys.ts`, `appStore.ts`, `initialRoute.ts`, `RigTutorialScreen.tsx`, `initialRoute.test.ts`, `appStore.test.ts`, `RigTutorialScreen.test.tsx`, `04-03-SUMMARY.md`). All task commits present in `git log` (`6a31dc4`, `178b944`) plus the docs commit (`7eca0b9`).
+
 ---
 
 _Phase: 04-handdetector-recording-ux-practice-tutorial_

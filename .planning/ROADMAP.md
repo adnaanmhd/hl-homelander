@@ -157,7 +157,7 @@ Plans:
 
 - [x] 04-01-PLAN.md — RN deps install (VisionCamera 4.7.3 / tts / fs / orientation-locker / worklets-core / reanimated / firebase-analytics + crashlytics) + vitest mocks + orientation-locker Android manifest/activity wiring (completed 2026-05-11)
 - [x] 04-02-PLAN.md — 5 native module shells (HumynHandDetector / HumynPhoneState / HumynBattery / HumynScreenBrightness / HumynBeep) + JS bindings + MediaPipe `tasks-vision:0.10.21` gradle dep + `hand_landmarker.task` asset + MainApplication registration + native-binding tests
-- [ ] 04-03-PLAN.md — `practiceDoneKey(sub)` MMKV helper + `decodeGoogleSubFromJwt` util extraction + `setPracticeDone` action + `computeInitialRoute` per-account tutorial gate + RigTutorial Next-CTA retarget
+- [x] 04-03-PLAN.md — `practiceDoneKey(sub)` MMKV helper + `decodeGoogleSubFromJwt` util extraction + `setPracticeDone` action + `computeInitialRoute` per-account tutorial gate + RigTutorial Next-CTA retarget (completed 2026-05-11)
       **Wave 2** _(blocked on Wave 1)_
 - [ ] 04-04-PLAN.md — HumynHandDetectorModule.kt MediaPipe HandLandmarker body (IMAGE mode, numHands=2, CPU delegate, RGB_565/320×240/recycle — HAND-13)
 - [ ] 04-05-PLAN.md — HumynPhoneState (AudioFocus only) + HumynBattery (ACTION*BATTERY_CHANGED) + HumynScreenBrightness (per-window override) + HumynBeep (SoundPool) bodies + the 2 pre-baked .wav assets
@@ -225,7 +225,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation, Backend & Distribution Recon                | 13/13          | Complete    | 2026-05-08 |
 | 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 22/22          | Complete    | 2026-05-10 |
 | 3. HumynCapture Native Module (Bytes-on-disk)              | 11/11          | Complete    | 2026-05-11 |
-| 4. HandDetector, Recording UX & Practice Tutorial          | 1/10           | In progress | -          |
+| 4. HandDetector, Recording UX & Practice Tutorial          | 3/10           | In progress | -          |
 | 5. Upload Pipeline, Hash-Verify Worker & Anti-fraud        | 0/TBD          | Not started | -          |
 | 6. Tasks, History, Home Tiles & Lexical Search             | 0/TBD          | Not started | -          |
 | 7. Observability & APK Distribution Hardening              | 0/TBD          | Not started | -          |
