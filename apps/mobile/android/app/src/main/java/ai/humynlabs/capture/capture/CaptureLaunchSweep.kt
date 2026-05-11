@@ -76,6 +76,23 @@ class CaptureLaunchSweep(private val filesDir: File) {
                 j.delete()
             }
         }
+
+        // WR-13 fix — Pass 3: orphan .partial residue from
+        // MetadataComposer.writeAtomic / SidecarManager.write
+        // (`{file}.partial` left on disk when the process is killed
+        // between the partial write and the atomic move). Without this
+        // sweep, `.partial` cruft accumulates indefinitely AND pollutes
+        // FilenameGenerator's per-day NNN scan: a file like
+        // `20260510_001234_005.json.partial` has nameWithoutExtension =
+        // `20260510_001234_005.json` which still starts with today's
+        // date and would be counted in the per-day NNN allocation,
+        // incrementing the next NNN by 1 (sequence pollution). Sweeping
+        // them at boot keeps the recordings/ directory clean.
+        val partials = recordingsDir.listFiles { f -> f.name.endsWith(".partial") } ?: emptyArray()
+        for (p in partials) {
+            Log.w(TAG, "orphan_partial=${p.name} — deleting")
+            p.delete()
+        }
     }
 
     private fun sweepPractice() {
