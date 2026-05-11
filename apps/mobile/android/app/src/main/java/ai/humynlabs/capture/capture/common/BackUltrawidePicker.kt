@@ -33,11 +33,26 @@ import android.os.Build
  * characteristics for the physical sub-camera whose intrinsics define
  * the ultrawide dFOV. On non-logical-multi-camera devices, both ID and
  * characteristics refer to the same camera.
+ *
+ * [physicalUltrawideId] is the Camera2 id STRING of that physical
+ * sub-camera when the ultrawide lives inside a `LOGICAL_MULTI_CAMERA`
+ * (e.g. Pixel 10a: openableId="0" / physicalUltrawideId="3"); it is
+ * `null` when the openable camera IS the ultrawide (a non-logical
+ * device, or a logical camera whose own default characteristics already
+ * have the shortest focal). Callers that need to actually STREAM the
+ * ultrawide (not just read its intrinsics) must, when this is non-null,
+ * build their session via
+ * `OutputConfiguration(surface).apply { setPhysicalCameraId(physicalUltrawideId) }`
+ * + `CameraDevice.createCaptureSessionByOutputConfigurations(...)` — a
+ * plain `createCaptureSession` on the openable id streams its DEFAULT
+ * physical (usually the main wide), and on Pixel logical-back `minZoom`
+ * is 1.0 so there is no sub-1.0 zoom that switches to the ultrawide.
  */
 data class UltrawidePick(
     val openableId: String,
     val openableChars: CameraCharacteristics,
     val ultrawideChars: CameraCharacteristics,
+    val physicalUltrawideId: String?,
 )
 
 object BackUltrawidePicker {
@@ -84,6 +99,11 @@ object BackUltrawidePicker {
             val openableId: String,
             val openableChars: CameraCharacteristics,
             val ultrawideChars: CameraCharacteristics,
+            // null ⇒ the openable camera itself is the ultrawide candidate;
+            // non-null ⇒ the ultrawide is this physical sub-camera of the
+            // logical `openableId` parent, and STREAMING from it requires
+            // `OutputConfiguration.setPhysicalCameraId(physicalUltrawideId)`.
+            val physicalUltrawideId: String?,
             val minFocalMm: Float,
         )
 
@@ -94,6 +114,7 @@ object BackUltrawidePicker {
                 openableId = topId,
                 openableChars = topChars,
                 ultrawideChars = topChars,
+                physicalUltrawideId = null,
                 minFocalMm = minFocal(topChars),
             )
             // Expand physical sub-cameras when supported (API 28+ + capability).
@@ -113,6 +134,7 @@ object BackUltrawidePicker {
                         openableId = topId, // open the LOGICAL parent, not the physical
                         openableChars = topChars,
                         ultrawideChars = physChars,
+                        physicalUltrawideId = physId,
                         minFocalMm = minFocal(physChars),
                     )
                 }
@@ -125,6 +147,7 @@ object BackUltrawidePicker {
             openableId = best.openableId,
             openableChars = best.openableChars,
             ultrawideChars = best.ultrawideChars,
+            physicalUltrawideId = best.physicalUltrawideId,
         )
     }
 

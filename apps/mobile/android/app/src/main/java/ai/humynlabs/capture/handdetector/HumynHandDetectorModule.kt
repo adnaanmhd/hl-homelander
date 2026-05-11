@@ -2,6 +2,7 @@ package ai.humynlabs.capture.handdetector
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import androidx.exifinterface.media.ExifInterface
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -9,6 +10,7 @@ import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.module.annotations.ReactModule
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
+import com.google.mediapipe.tasks.vision.core.ImageProcessingOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
 // HandLandmarkerOptions is a nested class of HandLandmarker in tasks-vision 0.10.21
@@ -22,10 +24,23 @@ import java.util.concurrent.Executors
  * bundle; Gradle dep `com.google.mediapipe:tasks-vision:0.10.21`, pinned for
  * iOS-pod parity per CLAUDE.md — do NOT bump to 0.10.33+).
  *
- * HAND-13 — `BitmapFactory.decodeFile` at `RGB_565` (half the memory of
- * ARGB_8888) → `createScaledBitmap(_, 320, 240, _)` → detect → explicit
- * `bitmap.recycle()` in a `finally`, so the native bitmap heap is reclaimed
- * before the JS GC runs under the sustained gate-poll cadence (Pitfall 10).
+ * NOTE — the model asset MUST be packaged UNCOMPRESSED. MediaPipe Tasks loads
+ * the bundle via `AssetManager.openFd()` / memory-map, which only works on a
+ * STORED (not Deflate-compressed) APK asset; a compressed `.task` makes
+ * `HandLandmarker.createFromOptions(...)` throw ("this file can not be opened
+ * as a file descriptor; it is probably compressed"). `app/build.gradle` carries
+ * `androidResources { noCompress += ["task", "tflite"] }` for this (debug
+ * session handgate-never-passes, 2026-05-11 — this silently broke the gate from
+ * the first APK build).
+ *
+ * HAND-13 — `BitmapFactory.decodeFile` at `ARGB_8888` → `createScaledBitmap(_,
+ * 320, 240, _)` → detect → explicit `bitmap.recycle()` in a `finally`, so the
+ * native bitmap heap is reclaimed before the JS GC runs under the sustained
+ * gate-poll cadence (Pitfall 10). (We do NOT use `RGB_565` here even though it
+ * halves the bitmap memory: MediaPipe's `BitmapImageBuilder` requires
+ * `ARGB_8888` and rejects `RGB_565` — debug session handgate-never-passes,
+ * 2026-05-11. The 320×240 downscale is the memory lever; an ARGB_8888 320×240
+ * bitmap is ~300 KB, recycled immediately.)
  *
  * Mirrors `figure-app-hands.md` — the reverse-engineered Figure "Minutes"
  * pattern: a one-shot still-image check exposed as a single `@ReactMethod`,
@@ -85,6 +100,28 @@ class HumynHandDetectorModule(reactContext: ReactApplicationContext) :
          */
         @JvmStatic
         fun clampConfidence(value: Double): Float = value.toFloat().coerceIn(0f, 1f)
+
+        /**
+         * Map an EXIF Orientation int (`ExifInterface.TAG_ORIENTATION`) to the
+         * clockwise rotation in degrees that MediaPipe's
+         * `ImageProcessingOptions.setRotationDegrees(...)` expects to undo it.
+         * `RunningMode.IMAGE` HandLandmarker assumes an upright image; if the
+         * source JPEG carries a rotation tag (some OEM camera paths write the
+         * sensor-native orientation + a tag rather than baking it into pixels),
+         * the un-rotated bitmap is fed sideways and detection fails. On the
+         * Pixel 10a landscape-locked path the tag is `ORIENTATION_NORMAL` (1),
+         * so this is a no-op there — it's a cheap defensive guard for other
+         * devices/paths. Only the four right-angle orientations are handled;
+         * the mirrored/transposed variants (2/4/5/7) and undefined fall back to
+         * 0° (a binary hand-count is robust to a mirror flip).
+         */
+        @JvmStatic
+        fun exifOrientationToRotationDegrees(orientation: Int): Int = when (orientation) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> 90
+            ExifInterface.ORIENTATION_ROTATE_180 -> 180
+            ExifInterface.ORIENTATION_ROTATE_270 -> 270
+            else -> 0
+        }
     }
 
     /**
@@ -141,22 +178,49 @@ class HumynHandDetectorModule(reactContext: ReactApplicationContext) :
             var decoded: Bitmap? = null
             var scaled: Bitmap? = null
             try {
-                // HAND-13 / Pitfall 10 — RGB_565 is half the memory of the
-                // default ARGB_8888; binary hand-count detection is unaffected.
+                // HAND-13 / Pitfall 10 — ARGB_8888 (MediaPipe's BitmapImageBuilder
+                // requires it; RGB_565 is rejected — debug session
+                // handgate-never-passes). The 320×240 downscale below is the
+                // memory lever; an ARGB_8888 320×240 bitmap is ~300 KB and is
+                // recycled immediately in the `finally`.
                 val opts = BitmapFactory.Options().apply {
-                    inPreferredConfig = Bitmap.Config.RGB_565
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
                 }
                 // T-4.4-02 — a missing/corrupt JPEG path → decodeFile returns
                 // null → IllegalArgumentException → caught below → reject.
                 // Never crashes the bridge thread (work runs on bgExecutor).
                 decoded = BitmapFactory.decodeFile(path, opts)
                     ?: throw IllegalArgumentException("decodeFile returned null for $path")
+
+                // Defensive: honor an EXIF Orientation tag if the source JPEG
+                // carries one (no-op when ORIENTATION_NORMAL, which is what the
+                // Pixel 10a landscape-locked sensor writes). HandLandmarker
+                // RunningMode.IMAGE assumes an upright image; a rotation-tagged
+                // JPEG decoded with `BitmapFactory` is NOT auto-rotated, so we
+                // pass the rotation through `ImageProcessingOptions`. The EXIF
+                // read can throw on a non-JPEG — swallow it and treat as 0°.
+                val rotationDeg: Int = try {
+                    exifOrientationToRotationDegrees(
+                        ExifInterface(path).getAttributeInt(
+                            ExifInterface.TAG_ORIENTATION,
+                            ExifInterface.ORIENTATION_UNDEFINED,
+                        ),
+                    )
+                } catch (_: Exception) {
+                    0
+                }
+
                 // HAND-13 / Pitfall 10 — 320×240 is plenty for MediaPipe's
                 // binary hand-count detection.
                 scaled = Bitmap.createScaledBitmap(decoded, 320, 240, true)
                 // T-4.4-03 — clamp the JS-supplied confidence into [0f, 1f].
                 val mc = clampConfidence(minConfidence)
-                val result = getOrCreate(mc).detect(BitmapImageBuilder(scaled).build())
+                val imageProcessingOptions = ImageProcessingOptions.builder()
+                    .setRotationDegrees(rotationDeg)
+                    .build()
+                val lm = getOrCreate(mc)
+                val result = lm.detect(BitmapImageBuilder(scaled).build(), imageProcessingOptions)
+
                 // Hand COUNT only (0 / 1 / 2). The 21-point landmarks, world
                 // coords and handedness MediaPipe computes are discarded — the
                 // gate is "are N hands present?", not a tracker.
