@@ -144,10 +144,25 @@ class CaptureSession private constructor(
         //    install-time check (driver update mid-session, etc.).
         RealtimeGate.verify(pick.openableChars)
 
-        // 4. Subscribe to mid-record thermal escalation (CAP-12). The listener
-        //    fires on the system binder dispatch thread when status >= SEVERE.
-        //    We DO NOT block in the callback — we emit the JS event immediately
-        //    and post the graceful stop to the session's HandlerThread.
+        // WR-02 fix — defer thermal subscription until AFTER the first
+        // segment is open. The previous step ordering (subscribe → open
+        // segment) admitted a race where SEVERE thermal escalation during
+        // openSegment would fire the callback while currentSegment was
+        // still null: the emitted onThermalAbort payload had segmentId=""
+        // (uncorrelable on the JS side) AND the 2.5s graceful-stop was
+        // posted to sessionHandler while preFlightAndStartFirstSegment was
+        // still allocating, so stop() ran concurrent with the in-flight
+        // openSegment, leaving Camera2 / encoders / muxer in undefined state.
+
+        // 4. First segment — segment 1 owns a fresh recordingId (CAP-09).
+        currentSegment = openSegment(recordingId = UlidGenerator.next(), pick = pick)
+
+        // 5. NOW it is safe to subscribe to mid-record thermal escalation
+        //    (CAP-12). The listener fires on the system binder dispatch
+        //    thread when status >= SEVERE; we DO NOT block in the callback —
+        //    we emit the JS event immediately and post the graceful stop
+        //    to the session's HandlerThread. By this point currentSegment
+        //    is guaranteed non-null so the emitted segmentId is correlable.
         thermalSubscription = thermalGate.subscribeMidRecord { status ->
             val payload = Arguments.createMap().apply {
                 putString("segmentId", currentSegment?.segmentId ?: "")
@@ -156,9 +171,6 @@ class CaptureSession private constructor(
             emit("onThermalAbort", payload)
             sessionHandler.postDelayed({ if (!stopping) stop() }, THERMAL_GRACEFUL_STOP_MS)
         }
-
-        // 5. First segment — segment 1 owns a fresh recordingId (CAP-09).
-        currentSegment = openSegment(recordingId = UlidGenerator.next(), pick = pick)
 
         // 6. Schedule the next auto-cut. The cut callback runs on
         //    SegmentTimer's HandlerThread; we post the rotateSegment work
