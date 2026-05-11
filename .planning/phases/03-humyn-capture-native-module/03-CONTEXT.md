@@ -1,8 +1,10 @@
 # Phase 3: HumynCapture Native Module (Bytes-on-disk) - Context
 
 **Gathered:** 2026-05-10
-**Updated:** 2026-05-10 (post-Phase-2-soak: Wave 1 scope frozen + plan layout + Wave 2 gate locked — D-WAVE-04..09)
-**Status:** Ready for planning — Wave 1 scope frozen 2026-05-10; planner can write Wave 1 plans immediately against `02-COSMETIC-GAPS.md` as it stands today.
+**Updated:** 2026-05-11 (Phase 3 closed; audio dropped from capture spec — see closure note below)
+**Status:** Phase 3 COMPLETE 2026-05-11. See `03-HUMAN-UAT.md` for final disposition + `03-VERIFICATION.md` for closure trail.
+
+> **2026-05-11 closure note — Audio dropped.** Many decisions below (D-API-02, D-CAP-\* boundaries that touch the audio path, D-WAVE-01 success-criteria scope) originally encompassed a 48 kHz mono AAC-LC 128 kbps audio track. After Phase 3 execution and smoke walks on Pixel 10a, audio capture was dropped from the locked spec to preserve the ±1 ms drift target. See `03-HUMAN-UAT.md` GAP-3 for the full decision trail. Decisions below remain historically accurate at planning time; live runtime state is per the GAP-3 disposition.
 
 <domain>
 ## Phase Boundary
