@@ -12,7 +12,7 @@
 
 import React from 'react';
 import { render, cleanup } from '@testing-library/react';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const { MOCK_USER } = vi.hoisted(() => ({
   MOCK_USER: {
@@ -106,7 +106,18 @@ import TasksPlaceholderScreen from '../../src/screens/tasks/TasksPlaceholderScre
 import { renderToImage } from './_utils/renderToImage';
 
 describe('TasksPlaceholderScreen visual (Plan 03-03 Task 1 / Pattern 71)', () => {
-  afterEach(() => cleanup());
+  // Plan 04-08 added a `__DEV__`-gated debug long-press wrapper around the
+  // heading. Production (`apkRollout`/`playStore`) builds set `__DEV__===false`
+  // → Metro dead-code-eliminates that wrapper, so the visual baseline pins the
+  // production rendering (the plain heading, no Pressable). `vitest.setup.ts`
+  // defaults `__DEV__` truthy; stub it false here so the baseline is stable.
+  beforeEach(() => {
+    vi.stubGlobal('__DEV__', false);
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    cleanup();
+  });
 
   it('matches baseline (TopBar wordmark + Google avatar + body copy)', () => {
     const { container } = render(<TasksPlaceholderScreen />);
