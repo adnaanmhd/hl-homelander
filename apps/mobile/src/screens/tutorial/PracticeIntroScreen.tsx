@@ -2,14 +2,15 @@
 // `#tut-practice`). Registered in OnboardingStack between RigTutorial and the
 // Recording surface (a RootNativeStack route, registered by plan 04-07).
 //
-// Verbatim §6 / 04-UI-SPEC § Copywriting:
+// §6 / 04-UI-SPEC § Copywriting — ⚠ OWNER DEVIATION 2026-05-12 (debug-session
+// smoke walk): the body copy is shortened to "We'll walk you through one short
+// recording — 60 secs, to get the feel" and the "This is a practice task — it
+// does not count towards your contribution." muted line is REMOVED. (Reflect
+// into design-spec §6 / 04-UI-SPEC § Copywriting in a doc pass.) Now:
 //   Heading (tutorialHeading 30/36 700 -0.5px) "One quick try"
 //   Body    (tutBody 17/25 400)               "We'll walk you through one
-//                                              short recording — 60 seconds,
-//                                              just to get the feel."
-//   Muted   (caption 14/20-ish, secondary)    "This is a practice task — it
-//                                              does not count towards your
-//                                              contribution."
+//                                              short recording — 60 secs, to
+//                                              get the feel"
 //   Button  (btn-accent — `--accent #FF6A2D`) "Start practice"
 //
 // Same layout as RigTutorialScreen (centered text stack + bottom CTA). Screen
@@ -93,16 +94,7 @@ export default function PracticeIntroScreen() {
           style={styles.body}
           accessibilityLabel="practice intro body"
         >
-          We&apos;ll walk you through one short recording — 60 seconds, just to get the feel.
-        </Text>
-        <View style={{ height: spacing.xs }} />
-        <Text
-          variant="caption"
-          tone="secondary"
-          style={styles.muted}
-          accessibilityLabel="practice intro muted line"
-        >
-          This is a practice task — it does not count towards your contribution.
+          We&apos;ll walk you through one short recording — 60 secs, to get the feel
         </Text>
       </View>
 
@@ -124,5 +116,4 @@ const styles = StyleSheet.create({
   },
   heading: { textAlign: 'center' },
   body: { textAlign: 'center', maxWidth: 320 },
-  muted: { textAlign: 'center', maxWidth: 320 },
 });

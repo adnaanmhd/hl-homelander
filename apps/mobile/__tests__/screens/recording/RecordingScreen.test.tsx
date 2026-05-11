@@ -421,12 +421,15 @@ describe('RecordingScreen — orientation + brightness lifecycle (REC-01 / REC-0
     expect(mockBrightnessSet).toHaveBeenCalledWith(-1);
   });
 
-  it('close pre-record (ready) → goBack() (HAND-10 silent dismiss)', async () => {
+  it('close pre-record (ready) → silent dismiss: unlock + brightness reset + reset root onto MainTabs (HAND-10; goBack() would throw — Recording is a root sibling)', async () => {
     await act(async () => {
       render(<RecordingScreen __test_initialState={stateIn('ready')} />);
     });
     fireEvent.click(screen.getByLabelText('recording-close'));
-    expect(mockGoBack).toHaveBeenCalledTimes(1);
+    expect(mockOrientationUnlock).toHaveBeenCalled();
+    expect(mockBrightnessSet).toHaveBeenCalledWith(-1);
+    expect(mockParentReset).toHaveBeenCalledWith({ index: 0, routes: [{ name: 'MainTabs' }] });
+    expect(mockGoBack).not.toHaveBeenCalled();
   });
 
   it('close while active → X_PRESSED → stop-confirm modal', async () => {
