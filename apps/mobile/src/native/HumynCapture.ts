@@ -53,8 +53,17 @@ function ensure(): HumynCaptureNativeModule {
 
 /**
  * Start a capture session. Resolves with `{sessionId, segmentId,
- * recordingId, filenameBase}` once the encoder is up and the first
- * frame is written.
+ * recordingId, filenameBase}` once the encoder pipeline is configured
+ * (Camera2 capture session built, encoder Surface connected, IMU
+ * registered, foreground service started, first segment's sidecar
+ * written). The first frame may not yet have been encoded by the
+ * time this Promise resolves — frame production happens asynchronously
+ * on the encoder pump thread; the first onSegmentStart event fires
+ * before resolution but the first muxer.writeSampleData call is
+ * in-flight. Subsequent encoder failures (timeout, format renegotiation,
+ * etc.) surface as `onError` events, not as a Promise rejection.
+ * (WR-12: docstring corrected — the previous text claimed "first frame
+ * is written" which over-promised the resolution timing.)
  *
  * Pre-flight rejection codes (D-THERM-01 / D-API-01):
  *   - `thermal_throttling` — `PowerManager.getCurrentThermalStatus() ≥ THROTTLING`
