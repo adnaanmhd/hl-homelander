@@ -5,9 +5,10 @@
 //
 // Test 1: Verbatim §5 heading + body copy renders.
 // Test 2: "Next" CTA + "Don't have a rig yet?" off-ramp link both render.
-// Test 3: Tap "Next" → setTutorialDone(googleSub) called → parent
-//         navigator.replace('MainTabs') called (Phase 2 stops here; Phase 4
-//         splices Practice between this screen's Next and MainTabs).
+// Test 3: Tap "Next" → setTutorialDone(googleSub) called → local
+//         navigator.replace('PracticeIntro') called (plan 04-03 retargeted
+//         the Next CTA; the OnboardingStack now runs RigTutorial →
+//         PracticeIntro → Recording → PracticeComplete → MainTabs).
 // Test 4: Tap "Don't have a rig yet?" → off-ramp Sheet opens; sheet body
 //         mentions the support@humynlabs.ai mailto target (T-2.11-01: OQ-1 resolved)
 //         intentionally bundled at MVP; swap tracked in 02-21 manual smoke).
@@ -209,13 +210,14 @@ describe('RigTutorialScreen (plan 02-11 — ONB-01 + ONB-02)', () => {
     expect(getByText("Don't have a rig yet?")).toBeTruthy();
   });
 
-  it('Test 3: tap Next → setTutorialDone(googleSub) → parent.replace("MainTabs")', () => {
+  it('Test 3: tap Next → setTutorialDone(googleSub) → navigation.replace("PracticeIntro")', () => {
     const { getByLabelText } = render(<RigTutorialScreen />);
     fireEvent.click(getByLabelText('Next'));
     expect(mockSetTutorialDone).toHaveBeenCalledTimes(1);
     expect(mockSetTutorialDone).toHaveBeenCalledWith('google-sub-12345');
-    expect(mockGetParent).toHaveBeenCalled();
-    expect(mockReplace).toHaveBeenCalledWith('MainTabs');
+    // Plan 04-03: 'PracticeIntro' is an OnboardingStack sibling, so we
+    // navigate on the local navigator (no getParent hop).
+    expect(mockReplace).toHaveBeenCalledWith('PracticeIntro');
   });
 
   it('Test 4: tap "Don\'t have a rig yet?" → off-ramp sheet opens with mailto target', () => {
@@ -243,7 +245,7 @@ describe('RigTutorialScreen (plan 02-11 — ONB-01 + ONB-02)', () => {
     // Tap Next — still works
     fireEvent.click(getByLabelText('Next'));
     expect(mockSetTutorialDone).toHaveBeenCalledWith('google-sub-12345');
-    expect(mockReplace).toHaveBeenCalledWith('MainTabs');
+    expect(mockReplace).toHaveBeenCalledWith('PracticeIntro');
   });
 
   it('Test 6: rig_tutorial_shown fires on mount; rig_no_rig_link_tapped fires on off-ramp tap', () => {

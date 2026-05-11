@@ -24,3 +24,16 @@ export const KEYS = {
 export function softBannerDismissKey(latest: string): string {
   return `appVersion.softBannerDismissed.${latest}`;
 }
+
+/**
+ * Per-Google-account practice-tutorial completion flag (ONB-08, D-NAV-04).
+ * Pattern: `tutorial.practice_done.{googleAccountSub}.v1`. Written by
+ * PracticeCompleteScreen.Continue (plan 04-06) via appStore.setPracticeDone(sub);
+ * read by computeInitialRoute at boot. Reinstall wipes MMKV → tutorial re-runs.
+ * An empty sub still produces a deterministic key (`tutorial.practice_done..v1`)
+ * — never throws; mirrors the decodeGoogleSubFromJwt-returns-'' no-soft-lock
+ * contract.
+ */
+export function practiceDoneKey(sub: string): string {
+  return `tutorial.practice_done.${sub}.v1`;
+}

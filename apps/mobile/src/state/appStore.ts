@@ -16,7 +16,7 @@
 import { create } from 'zustand';
 import type { CompatResult } from '@humyn/shared-types';
 import { secureMmkv } from './mmkv';
-import { KEYS } from './keys';
+import { KEYS, practiceDoneKey } from './keys';
 
 export interface ConsentState {
   acceptedAt: string; // ISO datetime
@@ -82,6 +82,7 @@ export interface AppState {
   setCompatResult(r: CompatResult): void;
   clearCompatPassed(): void;
   setTutorialDone(googleSub: string): void;
+  setPracticeDone(sub: string): void;
   setInstallationId(id: string): void;
   setAppVersionCache(c: AppVersionCacheEntry): void;
   setSoftUpgradeAvailable(s: { latest: string } | null): void;
@@ -151,6 +152,16 @@ export const useAppStore = create<AppState>((set) => ({
     const payload = { doneAt: new Date().toISOString(), googleSub };
     secureMmkv.set(KEYS.ONBOARDING_TUTORIAL_DONE, JSON.stringify(payload));
     set({ tutorialDone: true });
+  },
+
+  /**
+   * ONB-08 — writes the per-account practice-tutorial-done flag (keyed by the
+   * Google account `sub`). Read by computeInitialRoute at boot. No in-memory
+   * state field: the flag is consumed directly from MMKV by the gate-decision
+   * tree, not via this store. Idempotent. Never logs the `sub` (T-4.3-03).
+   */
+  setPracticeDone: (sub) => {
+    secureMmkv.set(practiceDoneKey(sub), true);
   },
 
   setInstallationId: (id) => {
