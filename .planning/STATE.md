@@ -3,9 +3,10 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Phase 4 context gathered
-last_updated: '2026-05-11T04:57:11.587Z'
+stopped_at: Phase 4 UI-SPEC approved
+last_updated: '2026-05-11T12:00:00.000Z'
 last_activity: 2026-05-11
+resume_file: .planning/phases/04-handdetector-recording-ux-practice-tutorial/04-UI-SPEC.md
 progress:
   total_phases: 7
   completed_phases: 3
@@ -102,6 +103,14 @@ _Updated after each plan completion_
 | Phase 03 P03 | ~25min (split across 2 sessions) | 4 tasks | 24 files |
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- 2026-05-11: **MVP descoped** via `/gsd-phase --edit` —
+  - Phase 6 retitled "Tasks, History, Home Tiles & **Lexical Search**"; semantic/pgvector + RRF hybrid search removed from the client surface (backend pipeline still shipped in Phase 1). TASK-03 reworded to `ts_vector` lexical-only; new §v2 req **SEARCH-V2-01** holds the deferred hybrid layer.
+  - Phase 7 retitled "**Observability & APK Distribution Hardening**"; iOS parity (IOS-01..07) and the staged Play Store → App Store rollout (DIST-05, DIST-06) removed — relocated to REQUIREMENTS.md §v2. Phase 7 requirements now OBS-01..05 only; SC#2 rewritten around APK signing / `HumynUpdater` / force-upgrade gate hardening. Phase 7 `UI hint` dropped.
+  - Phase 1 SC#1 annotated: lexical pipeline is the MVP search surface; pgvector + RRF shipped but descoped from MVP client.
+  - ROADMAP Overview + phase checklist + progress table + parallelization note updated to match.
 
 ### Decisions
 
@@ -256,9 +265,11 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Deferred Items
 
-| Category                   | Item | Status | Deferred At |
-| -------------------------- | ---- | ------ | ----------- |
-| _(none — first milestone)_ |      |        |             |
+| Category               | Item                                                                                                                                                               | Status                          | Deferred At |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- | ----------- |
+| Search                 | Semantic + lexical RRF (k=60) hybrid task search (pgvector HNSW) — backend shipped Phase 1; client surface descoped (TASK-03 → lexical-only / SEARCH-V2-01)        | Deferred to follow-on milestone | 2026-05-11  |
+| Distribution / Rollout | Staged Play Store rollout 1%→5%→25%→100% with k6 gates (DIST-05); iOS App Store submission ≤2 wks after (DIST-06)                                                  | Deferred to follow-on milestone | 2026-05-11  |
+| iOS Parity             | iOS analogues — HumynCapture / HumynHandDetector / HumynUpload / HumynIntegrity, en-IN TTS, deployment target 15.1, no-B-frames (IOS-01..07). MVP is Android-only. | Deferred to follow-on milestone | 2026-05-11  |
 
 ## Session Continuity
 
