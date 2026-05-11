@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 04-08-PLAN.md
-last_updated: '2026-05-11T10:09:03.437Z'
+stopped_at: Completed 04-10-PLAN.md — Phase 4 execution done; awaiting verify
+last_updated: '2026-05-11T16:00:00.000Z'
 last_activity: 2026-05-11
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 56
-  completed_plans: 54
-  percent: 96
+  completed_plans: 56
+  percent: 100
 ---
 
 # Project State
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 04 (handdetector-recording-ux-practice-tutorial) — EXECUTING
-Plan: 10 of 10 (01, 02, 03, 04, 05, 06, 07, 08 complete)
-Status: Phase complete — ready for verification
+Plan: 10 of 10 (01–10 complete)
+Status: All 10 plans landed — ready for verification. The on-hardware acceptance gate is `04-MANUAL-SMOKE.md` (D-WAVE-04), including the [BLOCKING] §5b ±1 ms drift re-measurement on the gate→record camera handoff.
 
 Phase 2 operator smoke-walk history (carried forward):
 
@@ -37,19 +37,19 @@ Phase 2 operator smoke-walk history (carried forward):
 - §4 Compat happy path — PASSED ✅ (ec86b99 expanded LOGICAL_MULTI_CAMERA.physicalIds in DeviceCaps; on-device CompatPassScreen rendered)
 - §5–§13 PENDING (operator-driven, smoke-walk continuation)
 
-Phase 3 hardware UAT pending (7 items, all on real Pixel 7a/8a) — these RETIRE during the Phase 4 Wave-6 smoke walk (`04-MANUAL-SMOKE.md` §3/§5/§5b per D-WAVE-04); the verifier should not separately re-block on them after Phase 4 closes:
+Phase 3 hardware UAT pending (7 items, all on real Pixel 7a/8a) — these RETIRE during the Phase 4 Wave-6 smoke walk now that `04-MANUAL-SMOKE.md` exists and covers them (per D-WAVE-04); the verifier should not separately re-block on them after Phase 4 closes:
 
-- #1 10-min HEVC capture spec (ffprobe + NAL)
-- #2 25-min auto-segment integrity (sibling triples + 0.5 s gap)
-- #3 imu*video_drift*{max,mean,p99}\_ms residual
-- #4 Pre-record + mid-record thermal handling
-- #5 FGS type = camera|microphone|dataSync + KEEP_SCREEN_ON
-- #6 CAP-18 byte-for-byte SHA round-trip (device → S3)
-- #7 CAP-13 onSessionStart/Stop upload-pause seam
+- #1 10-min HEVC capture spec (ffprobe + NAL) — `04-MANUAL-SMOKE.md` §3 spec-compliance assertions
+- #2 25-min / 10-min auto-segment integrity (sibling triples + 0.5 s gap + preserved `start_gate`) — §3 10-min auto-segment cut
+- #3 imu*video_drift*{max,mean,p99}\_ms residual — §5b ([BLOCKING] — the drift table is the canonical Phase-4 evidence)
+- #4 Pre-record + mid-record thermal handling — §5 thermal injection
+- #5 FGS type = camera|microphone|dataSync + KEEP_SCREEN_ON — §3 FGS/KEEP_SCREEN_ON assertion
+- #6 CAP-18 byte-for-byte SHA round-trip — §3 on-disk SHA ↔ metadata assertion (Phase 5 owns the device→S3 leg)
+- #7 CAP-13 onSessionStart/Stop upload-pause seam — §3 session start/stop event log assertion (log-only at Phase 4; Phase 5 wires the pause)
 
 Last activity: 2026-05-11
 
-Progress: Phase 4 — 8/10 plans complete (Wave 4 — 04-08 landed; 04-09 RecordingScreen live wiring is the last Wave-4/5 plan)
+Progress: Phase 4 — 10/10 plans complete (Wave 6 — 04-10 landed: onCrashRecovery event + Toast host + bootRecoveryListener + `04-MANUAL-SMOKE.md` on-hardware acceptance runbook with the [BLOCKING] §5b drift gate). Phase 4 awaiting verify; the on-hardware smoke walk is the acceptance gate.
 
 ## Resume Path (set before pause)
 
@@ -116,6 +116,7 @@ _Updated after each plan completion_
 
 ### Roadmap Evolution
 
+- 2026-05-11: **Phase 4 executed** — all 10 plans landed (01–10). The Wave-6 plan 04-10 wired the crash-recovery UX (D-LIFE-04): `CaptureLaunchSweep.run()` now returns the orphan-with-valid-sidecar bases → `MainApplication.onCreate` stashes them in `CaptureLaunchSweep.pendingRecovery` → `HumynCaptureModule` (now a `LifecycleEventListener`) drains the holder on first `onHostResume` and emits the one-shot `onCrashRecovery({recovered: string[]})` event → the JS `bootRecoveryListener` (mounted in `App.tsx` after `hydrate()`) validates `recovered` is `string[]`, shows the Home `<ToastHost />` toast "Recording recovered after force-quit — uploading.", and `.remove()`s the subscription (one-shot per launch). New `src/components/Toast.tsx` (the first transient-toast primitive — a module-level `showToast`/`hideToast` + `<ToastHost />` pill on `colors.toastBg`, mounted as a `NavigationContainer` sibling). The on-hardware acceptance runbook `04-MANUAL-SMOKE.md` (D-WAVE-04) is authored: practice E2E + non-practice via the `__DEV__` dev affordance (incl. the silent 10-min auto-segment cut with preserved `start_gate`) + all `idea-brief.md §10` lifecycle edges + thermal injection (`adb shell cmd thermalservice override-status 4`) + the **[BLOCKING] §5b ±1 ms video↔IMU drift re-measurement on the gate→record camera handoff** (must not regress past Phase 3 smoke 7 mean 0.594 / p99 0.728 ms; remedy = bump `SETTLE_MS` in `RecordingScreen.tsx`, escalate a camera-availability-poll change to Phase 3 if that's not enough; audio stays out per the `CLAUDE.md` banner). Phase 3's seven pending hardware-UAT items retire during this smoke walk (the verifier should not separately re-block on them). Phase 4 is awaiting verify; the on-hardware smoke walk is the acceptance gate (the Gradle/Android build is broken in the current dev env — pre-existing `react-native-reanimated` RN-0.83 patch incompat — so the Kotlin/Robolectric tests + the actual on-device walk run on a working Android toolchain).
 - 2026-05-11: **Phase 4 planned** — 10 plans across 6 plan-waves. Conceptual D-WAVE-01 5-wave structure maps to plan-waves 1-6: wave-4 work (state machine + lifecycle) spans plan-waves 4-5 because `RecordingScreen.tsx` and `useRecordingLifecycle.ts` must not be touched by the same plan (file-ownership for parallel exec); wave-5 work (crash-recovery + smoke + Phase-3-UAT-retirement) is plan-wave 6. The **[BLOCKING] ±1 ms drift re-measurement** on the gate→record camera handoff lives in `04-MANUAL-SMOKE.md` §5b — a Phase-4 blocker if it regresses past Phase 3 smoke 7 (mean 0.594 / p99 0.728 ms). Phase 3's seven pending hardware-UAT items effectively retire during the Phase 4 Wave-6 smoke walk (D-WAVE-04 — verifier should not separately re-block on them). Five new in-house Kotlin native modules ship: `HumynHandDetector` (MediaPipe HandLandmarker IMAGE mode), `HumynPhoneState` (AudioManager.OnAudioFocusChangeListener ONLY — no `READ_PHONE_STATE`/TelephonyManager per the corrected RESEARCH D-LIFE-02), `HumynBattery` (`ACTION_BATTERY_CHANGED`), `HumynScreenBrightness` (per-window override — not `Settings.System`), `HumynBeep` (SoundPool over pre-baked .wav). `RecordingScreen` is the only dark + only landscape-locked surface; `recState.ts` is a `useReducer` state machine (shape verbatim from `engineering-handoff.md §4.3`).
 - 2026-05-11: **MVP descoped** via `/gsd-phase --edit` —
   - Phase 6 retitled "Tasks, History, Home Tiles & **Lexical Search**"; semantic/pgvector + RRF hybrid search removed from the client surface (backend pipeline still shipped in Phase 1). TASK-03 reworded to `ts_vector` lexical-only; new §v2 req **SEARCH-V2-01** holds the deferred hybrid layer.
