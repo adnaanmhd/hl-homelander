@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 04 (handdetector-recording-ux-practice-tutorial) — EXECUTING
-Plan: 6 of 10 (01, 02, 03 complete)
+Plan: 6 of 10 (01, 02, 03, 04, 05 complete)
 Status: Ready to execute
 
 Phase 2 operator smoke-walk history (carried forward):
@@ -49,7 +49,7 @@ Phase 3 hardware UAT pending (7 items, all on real Pixel 7a/8a) — these RETIRE
 
 Last activity: 2026-05-11
 
-Progress: Phase 4 — 3/10 plans complete (Wave 1 in progress)
+Progress: Phase 4 — 5/10 plans complete (Wave 2 in progress)
 
 ## Resume Path (set before pause)
 
@@ -80,7 +80,7 @@ To resume Phase 1:
 | Phase 01 | 9 / 13 | 94 min  | ~10.4 min |
 | 1        | 13     | -       | -         |
 | 3        | 11     | -       | -         |
-| 4        | 3 / 10 | ~55 min | ~18.3 min |
+| 4        | 5 / 10 | ~79 min | ~15.8 min |
 
 **Recent Trend:**
 
@@ -104,7 +104,9 @@ _Updated after each plan completion_
 | Phase 04 P01 | ~18min | 3 tasks | 6 files |
 | Phase 04 P02 | ~15min | 2 tasks | 23 files |
 | Phase 04 P03 | ~22min | 2 tasks | 7 files |
+| Phase 04 P05 | ~12min | 2 tasks | 6 files |
 | Phase 04-handdetector-recording-ux-practice-tutorial P04 | 12min | 2 tasks | 3 files |
+| Phase 04-handdetector-recording-ux-practice-tutorial P05 | 12min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -228,6 +230,7 @@ Recent decisions affecting current work:
 - [Phase ?]: isHandDetectorAvailable() = NativeModules.HumynHandDetector != null is the HAND-08 silent-bypass discriminant (04-02) — RecordingScreen bypasses the hand gate when false (no dead poll loop)
 - [Phase 4]: Plan 04-03: ONB-08 once-per-install-per-account tutorial gate = parameterised MMKV key `tutorial.practice_done.{googleAccountSub}.v1` (helper `practiceDoneKey(sub)` in state/keys.ts, mirrors `softBannerDismissKey(latest)`). Written by `appStore.setPracticeDone(sub)` (pure write-through `true`, NO in-memory state field — the flag is read directly from MMKV by `computeInitialRoute` at boot). `computeInitialRoute` step 5 now reads `secureMmkv.getBoolean(practiceDoneKey(decodeGoogleSubFromJwt(s.jwt))) ?? false` instead of the legacy `s.tutorialDone` bool — `s.tutorialDone` (still flipped by `RigTutorialScreen.handleNext`, writes `onboarding.tutorialDone.v1`) is no longer the gate. The new gate is composed AFTER the compat gate (Pitfall 8 — compat-missing/stale still wins). Per-account: sub A's flag does not satisfy sub B; reinstall wipes MMKV → tutorial re-runs (exact ONB-08 semantics, for free). `decodeGoogleSubFromJwt` extracted verbatim from `RigTutorialScreen.tsx` into shared `src/lib/jwtSub.ts` (decode-without-verify of the `sub` claim — used ONLY as a local cache key, never an authz decision; `''` on any malformed input, never throws/soft-locks; T-4.3-01) — now reused by RigTutorialScreen + computeInitialRoute, ready for PracticeCompleteScreen (plan 04-06). `RigTutorialScreen.handleNext` Next CTA retargeted `MainTabs` → `PracticeIntro` on the LOCAL navigator (PracticeIntro is an OnboardingStack sibling registered by plan 04-06 — not the parent-navigator hop the old MainTabs target needed; loosely typed so no typecheck dependency on the not-yet-registered route). Existing `RigTutorialScreen.test.tsx` Tests 3 & 5 updated to assert `replace('PracticeIntro')`.
 - [Phase ?]: Plan 04-04: HumynHandDetectorModule.kt MediaPipe body — figure-app-hands.md verbatim port (RunningMode.IMAGE, numHands=2, all confidences 0.5/configurable, CPU delegate) over the bundled hand*landmarker.task; HAND-13 hygiene = BitmapFactory RGB_565 -> createScaledBitmap(*,320,240,\_) -> detect -> recycle() in finally; lazy getOrCreate(minConf) caches the FIRST-passed confidence (cleanup() to change it mid-session); clampConfidence(d) extracted @JvmStatic for unit-testability; HumynHandDetectorModuleTest.kt uses an 11-overload RecordingPromise test double. Gradle Kotlin unit-test run blocked in this dev env by a pre-existing react-native-reanimated RN-0.83 javac break + missing google-services.json — JS contract test is the green gate.
+- [Phase 4]: Plan 04-05: filled in the four recording-UX native-module bodies — `HumynPhoneStateModule` = AudioFocusRequest(AUDIOFOCUS_GAIN) + OnAudioFocusChangeListener emitting `onAudioFocusChanged({focus: gain|loss|transient_loss|transient_loss_can_duck})`, a DUMB PIPE of raw focus transitions (answered-vs-declined timing heuristic lives JS-side in `useRecordingLifecycle` plan 04-08); abandons on stop() AND on `invalidate()`; NO telephony API / READ_PHONE_STATE (D-LIFE-02 corrected finding). `HumynBatteryModule` = BroadcastReceiver for ACTION_BATTERY_CHANGED emitting `onBatteryChanged({level:0..1 Double, isCharging:Boolean})` de-duplicated + a synthesized initial emit from the sticky broadcast; unregisters on stop() AND `invalidate()` (no permission — protected broadcast). `HumynScreenBrightnessModule.set(value)` = per-window `screenBrightness` override on the UI thread (reuses HumynCaptureModule's `currentActivity` + `runOnUiThread` idiom); value<0 → `BRIGHTNESS_OVERRIDE_NONE` (restore system default), else `value.toFloat().coerceIn(0f,1f)`; per-window only — NOT the OS-wide system setting (no WRITE_SETTINGS). `HumynBeepModule.playTone(name)` = SoundPool over bundled `.wav`s, lazy pool build + preload both clips on first call, `name` validated against the fixed map `{battery_alert→audio/battery_alert.wav, thermal_alert→audio/thermal_alert.wav}` (unknown → `UNKNOWN_TONE` reject — the JS string never enters an asset path; T-4.5-04); releases the pool on `invalidate()`; no third-party RN sound libs, no MediaPlayer. **Teardown pattern:** every in-house event module tears down on BOTH `@ReactMethod stop()` (screen-lifecycle) AND `BaseJavaModule.invalidate()` (catalyst-instance-destroy — RN 0.83's modern replacement for the deprecated `onCatalystInstanceDestroy`) so no receiver/focus-request/SoundPool leaks (PITFALLS.md Pitfall 5). **Docstring-grep trap (carried forward from 04-02):** the threat-model acceptance grep gates (T-4.5-01/-02) grep the source files for forbidden symbol strings INCLUDING comments — so the docstrings name `TelephonyManager`/`PhoneStateListener`/`READ_PHONE_STATE`/`Settings.System`/`WRITE_SETTINGS`/`react-native-sound`/`MediaPlayer` only DESCRIPTIVELY, never literally (auto-fixed deviation, Rule 2). Generated `battery_alert.wav` (520 Hz / 200 ms, 44.1 kHz mono 16-bit PCM, 5 ms afade in/out) + `thermal_alert.wav` (descending three-note 440→560→680 Hz at 180/180/220 ms — frequencies ascend but engineering-handoff §6.1 calls it "descending"; reproduced verbatim, no inter-note gaps; three faded sine segments concatenated, 580 ms total) via ffmpeg `lavfi sine` + `afade`. JS contract tests stay green (16: 10 phone+battery, 6 brightness+beep); full mobile suite 403/405 + 3 unhandled errors — the 2 reds (HomeSkeletonScreen hex literals + visual baseline) + 3 `setPermsGranted` errors are the pre-existing D4-01 carry-forwards in files outside this plan's scope, not auto-fixed (SCOPE BOUNDARY). Every native-side contract for plan 04-08 (`useRecordingLifecycle`) is now final and exercised.
 
 ### Quick Tasks Completed
 
@@ -283,9 +286,9 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-11T08:50:29.578Z
+Last session: 2026-05-11T14:33:00.000Z
 Last activity: 2026-05-11
-Stopped at: Completed 04-04-PLAN.md
+Stopped at: Completed 04-05-PLAN.md
 
 - 01-10 (terraform apply): Tasks 1+2+3 complete + committed (430e17a, 9e52db8, ad93d17). Operator runs `terraform fmt -check` + `terraform validate` + `terraform plan` + `terraform apply` against real AWS staging.
 - 01-11 (counsel engagement): code-ready-counsel-deferred. Three commits ship the canonical consent text + boot-time hash guard, takedown SOP runbook, dsr-export CLI, and counsel-engagement checklist. Real attorney review queued for legal-ops backlog.
