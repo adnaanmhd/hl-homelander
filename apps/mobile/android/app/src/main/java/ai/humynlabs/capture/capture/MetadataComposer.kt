@@ -222,18 +222,33 @@ object MetadataComposer {
 
     /**
      * Atomic write of [json] to [file]. Writes to `{file.parent}/{file.name}.partial`
-     * first, then `File.renameTo([file])`. On a same-filesystem rename the OS
-     * guarantees observers either see the old [file] (or no [file]) or the
-     * fully-written one — never a half-written file (T-3.5-02 mitigation).
+     * first, then atomically moves it onto [file] via
+     * [java.nio.file.Files.move] with `ATOMIC_MOVE` + `REPLACE_EXISTING`.
+     * On a same-filesystem move the OS guarantees observers either see the
+     * old [file] (or no [file]) or the fully-written one — never a
+     * half-written file (T-3.5-02 mitigation).
      *
-     * On rename failure (cross-mount paths can reject `renameTo`), falls
-     * back to a copy-and-delete sequence so the final file is still on disk
-     * with the partial cleaned up.
+     * **CR-06 fix.** The previous implementation had a `File.renameTo`
+     * fallback that, on rename failure, did `file.writeText(partial.readText())`
+     * — a non-atomic rewrite that defeats the entire point. A power loss
+     * mid-fallback wrote a partial canonical JSON; the sidecar (which
+     * signals "finalize incomplete") was then deleted by the
+     * FinalizeWorker, and the next launch parsed a corrupt finalized
+     * file with no recovery signal. The fix is to use
+     * [java.nio.file.Files.move] which IS atomic across compatible
+     * filesystems and throws clearly otherwise. Android `filesDir` is
+     * always single-mount, so atomic move is the contract we need;
+     * a cross-mount failure surfaces as `IOException("atomic_move_unsupported")`
+     * which FinalizeWorker maps to onError(code=finalize_failed,
+     * recoverable=false) and the sidecar stays on disk so the app-launch
+     * sweep can retry on next boot.
      *
      * On any throwable mid-write, the residual `.partial` is deleted before
      * the exception propagates so the caller's retry sees a clean slate.
      * (A `.partial` left behind across a process crash is intentional —
-     * Plan 03-10's app-launch sweep treats it as a mid-write-crash signal.)
+     * Plan 03-10's app-launch sweep treats it as a mid-write-crash signal,
+     * and WR-13's third-pass sweep removes the `.partial` cruft so it
+     * doesn't pollute the FilenameGenerator NNN sequence.)
      */
     fun writeAtomic(file: File, json: JSONObject) {
         val parent = file.parentFile
@@ -241,10 +256,19 @@ object MetadataComposer {
         val partial = File(parent, "${file.name}.partial")
         try {
             partial.writeText(json.toString(2))
-            if (!partial.renameTo(file)) {
-                // Fallback: copy + delete (some FS reject rename across mount points).
-                file.writeText(partial.readText())
-                partial.delete()
+            try {
+                java.nio.file.Files.move(
+                    partial.toPath(),
+                    file.toPath(),
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                )
+            } catch (e: java.nio.file.AtomicMoveNotSupportedException) {
+                // filesDir is single-mount on Android; this should never happen.
+                // If it does, surface as IOException so FinalizeWorker emits
+                // onError(code=finalize_failed) and the sidecar stays on disk
+                // for the next-launch sweep to retry.
+                throw java.io.IOException("atomic_move_unsupported", e)
             }
         } catch (e: Throwable) {
             partial.delete()
