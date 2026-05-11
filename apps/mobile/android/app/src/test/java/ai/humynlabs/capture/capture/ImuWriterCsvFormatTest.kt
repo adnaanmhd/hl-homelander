@@ -86,20 +86,37 @@ class ImuWriterCsvFormatTest {
     }
 
     @Test
-    fun `writeRowForTest persists row to disk verbatim`() {
+    fun `every CSV starts with the canonical header row`() {
+        val tmp = File(RuntimeEnvironment.getApplication().cacheDir, "imu-header-1.csv")
+        try {
+            // Construct then close immediately — no data rows. The file must
+            // still be a valid CSV: header line, nothing else.
+            val w = ImuWriter(RuntimeEnvironment.getApplication(), tmp)
+            w.close()
+            assertEquals("timestamp_ns,sensor_type,x,y,z\n", ImuWriter.CSV_HEADER)
+            assertEquals(ImuWriter.CSV_HEADER, tmp.readText())
+        } finally {
+            tmp.delete()
+        }
+    }
+
+    @Test
+    fun `writeRowForTest persists rows to disk verbatim after the header`() {
         val tmp = File(RuntimeEnvironment.getApplication().cacheDir, "imu-write-1.csv")
         try {
             val w = ImuWriter(RuntimeEnvironment.getApplication(), tmp)
             w.writeRowForTest(100L, "gyro", 0.5f, -0.5f, 0.0f)
             w.writeRowForTest(200L, "accel", 9.8f, 0.0f, 0.1f)
             // close() finalizes the BufferedWriter and unregisters
-            // listeners — the on-disk bytes match the in-memory rows.
+            // listeners — the on-disk bytes match the header + the in-memory rows.
             w.close()
             val text = tmp.readText()
             assertEquals(
-                "100,gyro,0.5,-0.5,0.0\n200,accel,9.8,0.0,0.1\n",
+                ImuWriter.CSV_HEADER + "100,gyro,0.5,-0.5,0.0\n200,accel,9.8,0.0,0.1\n",
                 text,
             )
+            // Line 1 is exactly the column-name header.
+            assertEquals("timestamp_ns,sensor_type,x,y,z", text.lineSequence().first())
         } finally {
             tmp.delete()
         }
