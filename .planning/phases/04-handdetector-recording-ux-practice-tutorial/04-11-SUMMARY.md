@@ -148,6 +148,13 @@ None - no external service configuration required.
 - Plan 04-12 owns the remaining Kotlin native-module gaps (`HumynHandDetectorModule.kt` WR-03 / `HumynBeepModule.kt` WR-04); WR-05 (`SETTLE_MS` re-measure) stays with the on-hardware `[BLOCKING]` §5b walk.
 - No new blockers introduced.
 
+## Self-Check: PASSED
+
+- All 9 modified files exist on disk.
+- All 4 commits (`4f08457`, `f663254`, `a5701b7`, `0bff422`) are in the branch history.
+- `04-11-SUMMARY.md` created.
+- Full mobile suite `npx vitest run`: 579/579 green. `npx tsc --noEmit -p tsconfig.json`: clean.
+
 ---
 
 _Phase: 04-handdetector-recording-ux-practice-tutorial_
