@@ -76,7 +76,7 @@
 
 - [ ] **TASK-01**: User can browse all 65 tasks across 10 categories (Cooking, Dishwashing, Kitchen, Cleaning, Tidying, Laundry, Gardening, Pet Care, Home Maintenance, Hobby) sourced from `task-taxonomy.md`
 - [ ] **TASK-02**: Per-category pills filter the list (horizontally scrollable; first pill flush-left at rest; subtle right-edge gradient hint)
-- [ ] **TASK-03**: User can search tasks via an always-visible debounced (200 ms) input that runs **server-side semantic search** on task name + description with fuzzy lexical fallback
+- [ ] **TASK-03**: User can search tasks via an always-visible debounced (200 ms) input that runs **server-side lexical search** (`ts_vector` + GIN) on task name + description with fuzzy fallback _(semantic/pgvector + RRF descoped from MVP 2026-05-11 — see §v2 SEARCH-V2-01)_
 - [ ] **TASK-04**: Each task card shows lucide-react icon (28 px stroke 1.75) via `<TaskIcon task={slug} />`, name (verbatim from taxonomy), category eyebrow, and 1-2 line description
 - [ ] **TASK-05**: Tapping a card opens the Task details sheet with category chip, optional outdoor chip, name + description (verbatim), Universal rules block, "For this task" instructions (max 3 bullets), and Start Recording CTA
 - [ ] **TASK-06**: Universal rules block renders 4 equal-weight rules (`front_hand` "Keep your hands in frame", `videocam` "Mount the device firmly on the rig", `lightbulb` "Make sure your space is well-lit", `apps` "Close all other apps before you start") sourced from `task-taxonomy.md` header
@@ -256,19 +256,13 @@
 - [x] **DIST-02**: Different `applicationId` per Android flavor enables co-installation
 - [x] **DIST-03**: Remote Config keys the install-source-check bypass by `applicationId`; `playStore` flavor cannot opt into bypass
 - [x] **DIST-04**: Backend `/auth/google` validates that the supplied build-flavor field matches a known flavor and applies the matching install-source policy
-- [ ] **DIST-05**: Play Store rollout is staged: 1% → 5% → 25% → 100% with k6 load-test gate at each stage
-- [ ] **DIST-06**: iOS App Store ships ≤2 weeks after Play Store rollout (within the same MVP milestone)
 - [x] **DIST-07**: Standalone compat-only APK (`compatRecon` flavor) ships to ~50 clan chiefs **before** APK rollout to harvest device-model coverage data; addressable-fleet go/no-go gate **[research]**
+
+> DIST-05 (staged Play Store rollout) and DIST-06 (iOS App Store ship) **descoped from MVP 2026-05-11** → relocated to §v2 (Distribution / Rollout).
 
 ### iOS Parity
 
-- [ ] **IOS-01**: iOS analogue for `HumynCapture` (AVCaptureSession + AVAssetWriter + CMMotionManager + AVAudioRecorder) honors the same locked spec values
-- [ ] **IOS-02**: iOS analogue for `HumynHandDetector` (MediaPipe iOS Tasks Vision pod 0.10.21) wraps the same `hand_landmarker.task` bundle
-- [ ] **IOS-03**: iOS analogue for `HumynUpload` uses URLSession background config with the documented post-completion handoff pattern
-- [ ] **IOS-04**: iOS analogue for `HumynIntegrity` uses DeviceCheck / App Attest at sign-in
-- [ ] **IOS-05**: iOS deployment target is 15.1 (forced by ultrawide-camera availability and CMMotionManager max-rate guarantees)
-- [ ] **IOS-06**: iOS uses `AVVideoAllowFrameReorderingKey: false` to disable B-frames; sets the same HEVC profile / bitrate / GOP
-- [ ] **IOS-07**: iOS TTS uses `AVSpeechSynthesisVoice(language: "en-IN")` filtered to female with the documented fallback chain
+> **The iOS-parity workstream (IOS-01..07) was descoped from this MVP 2026-05-11** and relocated to §v2 (iOS Parity). The MVP ships Android-only via the signed APK. Phase 7 retains observability + APK-distribution hardening only.
 
 ### Foundation / Legal
 
@@ -340,6 +334,25 @@ Deferred to a future release. Tracked but not in current roadmap.
 
 - **ARCH-V2-01**: Hash-verify worker migrates from BullMQ + ECS to S3 EventBridge → Lambda at 1M-hour scale
 - **ARCH-V2-02**: Web / desktop / tablet review-only client (Player only)
+
+### Search
+
+- **SEARCH-V2-01**: Semantic + lexical RRF (k=60) hybrid task search — pgvector HNSW over task name + description embeddings fused with `ts_vector` lexical results. _Backend pipeline shipped in Phase 1 (seeded from `mapping.json`); descoped from the MVP client search surface 2026-05-11 — MVP uses the `ts_vector` lexical path only (TASK-03)._
+
+### Distribution / Rollout (descoped from MVP 2026-05-11)
+
+- **DIST-05**: Play Store rollout is staged: 1% → 5% → 25% → 100% with k6 load-test gate at each stage
+- **DIST-06**: iOS App Store ships ≤2 weeks after Play Store rollout (within the same milestone)
+
+### iOS Parity (descoped from MVP 2026-05-11)
+
+- **IOS-01**: iOS analogue for `HumynCapture` (AVCaptureSession + AVAssetWriter + CMMotionManager — AVAudioRecorder dropped per the 2026-05-11 audio-drop decision) honors the same locked spec values
+- **IOS-02**: iOS analogue for `HumynHandDetector` (MediaPipe iOS Tasks Vision pod 0.10.21) wraps the same `hand_landmarker.task` bundle
+- **IOS-03**: iOS analogue for `HumynUpload` uses URLSession background config with the documented post-completion handoff pattern
+- **IOS-04**: iOS analogue for `HumynIntegrity` uses DeviceCheck / App Attest at sign-in
+- **IOS-05**: iOS deployment target is 15.1 (forced by ultrawide-camera availability and CMMotionManager max-rate guarantees)
+- **IOS-06**: iOS uses `AVVideoAllowFrameReorderingKey: false` to disable B-frames; sets the same HEVC profile / bitrate / GOP
+- **IOS-07**: iOS TTS uses `AVSpeechSynthesisVoice(language: "en-IN")` filtered to female with the documented fallback chain
 
 ## Out of Scope
 
@@ -550,16 +563,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DIST-02     | Phase 1 | Complete              |
 | DIST-03     | Phase 1 | Complete              |
 | DIST-04     | Phase 1 | Complete              |
-| DIST-05     | Phase 7 | Pending               |
-| DIST-06     | Phase 7 | Pending               |
+| DIST-05     | v2      | Deferred 2026-05-11   |
+| DIST-06     | v2      | Deferred 2026-05-11   |
 | DIST-07     | Phase 1 | Complete              |
-| IOS-01      | Phase 7 | Pending               |
-| IOS-02      | Phase 7 | Pending               |
-| IOS-03      | Phase 7 | Pending               |
-| IOS-04      | Phase 7 | Pending               |
-| IOS-05      | Phase 7 | Pending               |
-| IOS-06      | Phase 7 | Pending               |
-| IOS-07      | Phase 7 | Pending               |
+| IOS-01      | v2      | Deferred 2026-05-11   |
+| IOS-02      | v2      | Deferred 2026-05-11   |
+| IOS-03      | v2      | Deferred 2026-05-11   |
+| IOS-04      | v2      | Deferred 2026-05-11   |
+| IOS-05      | v2      | Deferred 2026-05-11   |
+| IOS-06      | v2      | Deferred 2026-05-11   |
+| IOS-07      | v2      | Deferred 2026-05-11   |
 | LEGAL-01    | Phase 1 | Complete              |
 | LEGAL-02    | Phase 1 | Complete              |
 | LEGAL-03    | Phase 1 | Complete              |
@@ -586,4 +599,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 ---
 
 _Requirements defined: 2026-05-07_
-_Last updated: 2026-05-07 — Traceability written by roadmapper (7 phases, 199 requirements, 100% coverage)_
+_Last updated: 2026-05-11 — descoped DIST-05, DIST-06, IOS-01..07 (9 reqs) to §v2; reworded TASK-03 to lexical-only and added SEARCH-V2-01 for the descoped semantic/RRF layer. Phase 7 narrowed to observability + APK-distribution hardening. Original: 2026-05-07 — Traceability written by roadmapper (7 phases, 199 requirements, 100% coverage)._
