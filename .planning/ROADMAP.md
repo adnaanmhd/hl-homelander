@@ -150,7 +150,7 @@ Plans:
 4. Every `idea-brief.md` §10 lifecycle edge is honored on a real device — phone-call answered / alarm / rotation / force-quit / OS-evict / storage-full stops recording per the table; phone-call declined continues; battery ≤15% fires alert pill + 520 Hz beep + haptic + voice cue with new recordings refused below 5%; battery ≤5% ends the segment immediately; recurring storage check runs before each recording start; DND is never programmatically toggled
 5. A first-time user runs the tutorial Rig screen → 60-second practice recording with `practice = true` propagated through capture / metadata / upload-queue exclusion (never uploaded, never in History, never counted), all multimodal alerts active, hard-cap auto-stop at exactly 60 s, then sees the Practice-complete screen with confetti + light haptic `[40, 80, 40]` ms; tutorial runs once per install per Google account with no re-entry path
 
-**Plans:** 10 plans
+**Plans:** 12 plans (10 original + 2 gap-closure)
 
 Plans:
 **Wave 1**
@@ -170,6 +170,9 @@ Plans:
 - [x] 04-09-PLAN.md — RecordingScreen live wiring: VC `<Camera>` on the compat ultrawide lens + HAND-12 pre-warm + useHandGate poll loop + gate-pass→active TTS-masked transition + buildCaptureOpts + RemoteConfig gate reads + useRecordingLifecycle mount + §7h post-stop routing + HAND-14 analytics + brightness/orientation + route-registry.test.ts `PracticeIntro`/`PracticeComplete` additions (completed 2026-05-11)
       **Wave 6** _(blocked on Wave 5)_
 - [x] 04-10-PLAN.md — onCrashRecovery event (Phase-3 sweep emit + JS binding) + Toast host + bootRecoveryListener + `04-MANUAL-SMOKE.md` on-hardware acceptance runbook (incl. the **[BLOCKING] ±1ms drift re-measurement** on the gate→record handoff) + ROADMAP/STATE refresh (completed 2026-05-11)
+      **Wave 7 — gap closure** _(addresses 04-VERIFICATION.md gaps: CR-01 blocker + WR-01..07 + IN-01/02/09; parallel — no file overlap between 04-11 and 04-12)_
+- [ ] 04-11-PLAN.md — CR-01 (recording surface reachable in a release build — production orientation→LANDSCAPE_DETECTED path + no-`__test_initialState` render test + `04-MANUAL-SMOKE.md` §2 amendment) + WR-01 (RemoteConfig gate cadence/target reach the reducer via SET_GATE_CONFIG) + WR-02 (no orphaned native capture session on a gate→record exit) + WR-07 (practice 60s cap survives the stop-confirm modal) + WR-06/IN-01/IN-02/IN-09 in-file polish
+- [ ] 04-12-PLAN.md — WR-03 (HumynHandDetectorModule.cleanup() serialised with detect() on bgExecutor — no MediaPipe crash on unmount-during-gate-poll) + WR-04 (HumynBeepModule first playTone() audible — pre-load + OnLoadCompleteListener + pending-play queue + play()-return-value check)
 
   **UI hint**: yes
 
