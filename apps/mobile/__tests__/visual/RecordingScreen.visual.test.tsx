@@ -31,6 +31,23 @@ vi.mock('@react-navigation/native', () => ({
 }));
 vi.mock('../../src/util/analytics', () => ({ logEvent: () => undefined }));
 
+// appStore — a signed-in user (jwt non-null) so the WR-06 `loggedOut` wiring
+// (RecordingScreen passes `loggedOut={appStore.jwt == null}` into
+// useRecordingLifecycle) doesn't fire the §10 logout-stop in the `active`
+// baselines. Mirrors the getState()/selector shape RecordingScreen uses.
+vi.mock('../../src/state/appStore', () => {
+  const state = {
+    jwt: 'test-jwt',
+    user: { id: 'u', email: 'u@example.com', name: 'U', avatarUrl: null },
+    consent: { acceptedAt: '2026-05-01T00:00:00Z', consentVersion: 'v1' },
+  };
+  function useAppStore<T>(selector: (s: typeof state) => T): T {
+    return selector(state);
+  }
+  (useAppStore as unknown as { getState: () => typeof state }).getState = () => state;
+  return { useAppStore };
+});
+
 import RecordingScreen from '../../src/screens/recording/RecordingScreen';
 import { initialRecState, type RecState } from '../../src/screens/recording/recState';
 import { renderToImage } from './_utils/renderToImage';

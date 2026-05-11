@@ -45,7 +45,7 @@ import RNFS from 'react-native-fs';
 import { Text } from '../../ui/primitives/Text';
 import { Icon } from '../../ui/primitives/Icon';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
-import { colors, spacing } from '../../ui/tokens';
+import { colors, radii, spacing } from '../../ui/tokens';
 import { recReducer, initialRecState, type RecState } from './recState';
 import { GateRing } from './components/GateRing';
 import { VoiceCuePill } from './components/VoiceCuePill';
@@ -322,7 +322,19 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
       const practice = stateRef.current.isPractice;
       // End the reducer state first so the chrome stops the timer immediately.
       dispatch({ type: 'STOP' });
-      await HumynCapture.stop().catch(() => undefined);
+      // IN-09 — capture the stop() rejection rather than swallowing it. A
+      // 'no_active_session' reject is harmless (the gate→record handoff hasn't
+      // brought up a session yet); a real reject means the segment may not have
+      // finalized — we log it and, on the real-recording ≥60s path, surface a
+      // "finalizing failed" toast instead of claiming a clean save.
+      const stopErr = await HumynCapture.stop()
+        .then(() => null)
+        .catch((e: unknown) => e);
+      if (stopErr) {
+        logEvent('recording_stop_failed', {
+          code: (stopErr as { code?: string } | undefined)?.code ?? 'unknown',
+        });
+      }
       await HumynScreenBrightness.set(-1).catch(() => undefined);
       Orientation.unlockAllOrientations();
       if (practice) {
@@ -334,7 +346,11 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
       if (durationMs >= 60_000) {
         logEvent('recording_stopped');
         speakCue('Recording stopped');
-        showToast(`${formatContributionDuration(durationMs)} added to your contribution.`);
+        showToast(
+          stopErr
+            ? 'Recording saved, but finalizing failed — it may not upload.'
+            : `${formatContributionDuration(durationMs)} added to your contribution.`,
+        );
         navigateToHome(navigation);
         return;
       }
@@ -349,11 +365,18 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
     [navigation, showToast],
   );
 
+  // WR-06 — `loggedOut` wired to the auth-token signal: the §10 "logout while
+  // active → onStop('logout')" policy fires when `appStore.jwt` flips to null
+  // (signOut()). Selector returns a boolean so the screen only re-renders on
+  // the actual login/logout transition.
+  const loggedOut = useAppStore((s) => s.jwt == null);
+
   const { checkStartGuards } = useRecordingLifecycle({
     substate: state.substate,
     isPractice,
     durationMs: state.durationMs,
     startedAt: state.startedAt,
+    loggedOut,
     callbacks: {
       onStop: (reason) => {
         handleStop(reason).catch(() => undefined);
@@ -798,7 +821,7 @@ const styles = StyleSheet.create({
     top: 88,
     alignSelf: 'center',
     backgroundColor: colors.recOverlayTip,
-    borderRadius: 999,
+    borderRadius: radii.pill,
     paddingVertical: spacing.s,
     paddingHorizontal: spacing.l,
   },
@@ -829,7 +852,7 @@ const styles = StyleSheet.create({
     bottom: 40,
     alignSelf: 'center',
     backgroundColor: colors.recToastBg,
-    borderRadius: 999,
+    borderRadius: radii.pill,
     paddingVertical: spacing.s,
     paddingHorizontal: spacing.l,
     maxWidth: '90%',
