@@ -136,9 +136,9 @@
 - [x] **REC-08**: Display behavior during recording: `KEEP_SCREEN_ON`, brightness auto-dimmed to 5% (restored on stop or exit)
 - [ ] **REC-09**: System does **NOT** programmatically toggle DND during recording (no `ACCESS_NOTIFICATION_POLICY` use, no Settings deep-link, no in-app DND nudge)
 - [x] **REC-10**: Battery drop to ≤15% fires alert pill + 520 Hz beep (200 ms) + `[100, 50, 100]` ms haptic + voice "Battery low. Consider charging soon." Recording continues; new recordings refused below 5% until charged ≥15%
-- [ ] **REC-11**: Battery drop to ≤5% ends the current segment immediately
-- [ ] **REC-12**: Phone-call answered, alarm rings, rotation out of landscape, force-quit, OS-evict, or storage-full mid-record stops the recording per `idea-brief.md` §10 lifecycle table (upload if ≥60 s; discard if not)
-- [ ] **REC-13**: Phone-call declined → recording continues
+- [x] **REC-11**: Battery drop to ≤5% ends the current segment immediately
+- [x] **REC-12**: Phone-call answered, alarm rings, rotation out of landscape, force-quit, OS-evict, or storage-full mid-record stops the recording per `idea-brief.md` §10 lifecycle table (upload if ≥60 s; discard if not)
+- [x] **REC-13**: Phone-call declined → recording continues
 - [ ] **REC-14**: TTS uses Indian English female voice (en-IN) with the documented fallback chain (en-IN female → en-IN neutral → en-US female → first available en-\*); rate 1.0, pitch 0.95, volume 0.85
 - [ ] **REC-15**: Voice cues are duplicated as the centered VoiceCue overlay text for accessibility
 - [ ] **REC-16**: System runs a recurring storage check before each recording start (compat-time check is one-time only) **[research]**
@@ -473,9 +473,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REC-08      | Phase 4 | Complete              |
 | REC-09      | Phase 4 | Pending               |
 | REC-10      | Phase 4 | Complete              |
-| REC-11      | Phase 4 | Pending               |
-| REC-12      | Phase 4 | Pending               |
-| REC-13      | Phase 4 | Pending               |
+| REC-11      | Phase 4 | Complete              |
+| REC-12      | Phase 4 | Complete              |
+| REC-13      | Phase 4 | Complete              |
 | REC-14      | Phase 4 | Pending               |
 | REC-15      | Phase 4 | Pending               |
 | REC-16      | Phase 4 | Pending               |
