@@ -173,5 +173,11 @@ None — no external service configuration required.
 
 ---
 
+## Self-Check: PASSED
+
+- Files created/modified exist: `apps/mobile/package.json`, `apps/mobile/package-lock.json`, `apps/mobile/vitest.setup.ts`, `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/MainActivity.kt`, `apps/mobile/__tests__/native/phase4-deps.test.ts`, `.planning/phases/04-handdetector-recording-ux-practice-tutorial/deferred-items.md` — all FOUND.
+- Commits exist: `e716b51` (Task 1, chore), `12c399d` (Task 2, test), `e05f374` (Task 3, feat), `a677e01` (SUMMARY docs), `55ddee3` (STATE/ROADMAP/deferred docs) — all FOUND in git log.
+- Verification: `npx vitest run __tests__/native/phase4-deps.test.ts` → 7/7 pass; `npx tsc --noEmit` → exit 0; full mobile suite → 369/371 (2 pre-existing failures from the Phase-3 `HomeSkeletonScreen.tsx` smoke seam, documented in `deferred-items.md` D4-01).
+
 _Phase: 04-handdetector-recording-ux-practice-tutorial_
 _Completed: 2026-05-11_
