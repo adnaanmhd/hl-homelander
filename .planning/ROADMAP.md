@@ -159,7 +159,7 @@ Plans:
 - [x] 04-02-PLAN.md — 5 native module shells (HumynHandDetector / HumynPhoneState / HumynBattery / HumynScreenBrightness / HumynBeep) + JS bindings + MediaPipe `tasks-vision:0.10.21` gradle dep + `hand_landmarker.task` asset + MainApplication registration + native-binding tests
 - [x] 04-03-PLAN.md — `practiceDoneKey(sub)` MMKV helper + `decodeGoogleSubFromJwt` util extraction + `setPracticeDone` action + `computeInitialRoute` per-account tutorial gate + RigTutorial Next-CTA retarget (completed 2026-05-11)
       **Wave 2** _(blocked on Wave 1)_
-- [ ] 04-04-PLAN.md — HumynHandDetectorModule.kt MediaPipe HandLandmarker body (IMAGE mode, numHands=2, CPU delegate, RGB_565/320×240/recycle — HAND-13)
+- [x] 04-04-PLAN.md — HumynHandDetectorModule.kt MediaPipe HandLandmarker body (IMAGE mode, numHands=2, CPU delegate, RGB_565/320×240/recycle — HAND-13)
 - [ ] 04-05-PLAN.md — HumynPhoneState (AudioFocus only) + HumynBattery (ACTION*BATTERY_CHANGED) + HumynScreenBrightness (per-window override) + HumynBeep (SoundPool) bodies + the 2 pre-baked .wav assets
       **Wave 3** *(blocked on Wave 1)\_
 - [ ] 04-06-PLAN.md — PracticeIntroScreen (§6) + PracticeCompleteScreen (§8 — confetti + scale-pop + [40,80,40]ms haptic, writes ONB-08 flag) + OnboardingStack routes + analytics events + practiceFlow test + 2 visual baselines

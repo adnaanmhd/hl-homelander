@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-03-PLAN.md
-last_updated: '2026-05-11T08:35:00.000Z'
+stopped_at: Completed 04-04-PLAN.md
+last_updated: '2026-05-11T08:50:29.633Z'
 last_activity: 2026-05-11
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 56
-  completed_plans: 49
-  percent: 88
+  completed_plans: 50
+  percent: 89
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 04 (handdetector-recording-ux-practice-tutorial) — EXECUTING
-Plan: 4 of 10 (01, 02, 03 complete)
+Plan: 6 of 10 (01, 02, 03 complete)
 Status: Ready to execute
 
 Phase 2 operator smoke-walk history (carried forward):
@@ -104,6 +104,7 @@ _Updated after each plan completion_
 | Phase 04 P01 | ~18min | 3 tasks | 6 files |
 | Phase 04 P02 | ~15min | 2 tasks | 23 files |
 | Phase 04 P03 | ~22min | 2 tasks | 7 files |
+| Phase 04-handdetector-recording-ux-practice-tutorial P04 | 12min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -226,6 +227,7 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 4 native-module SHELL pattern (04-02): 3-file triad (Module/Package/JS-binding) with NOT_IMPLEMENTED bodies + a docstring naming the plan that wires the real body — establishes the contract surface ahead of the implementation plan
 - [Phase ?]: isHandDetectorAvailable() = NativeModules.HumynHandDetector != null is the HAND-08 silent-bypass discriminant (04-02) — RecordingScreen bypasses the hand gate when false (no dead poll loop)
 - [Phase 4]: Plan 04-03: ONB-08 once-per-install-per-account tutorial gate = parameterised MMKV key `tutorial.practice_done.{googleAccountSub}.v1` (helper `practiceDoneKey(sub)` in state/keys.ts, mirrors `softBannerDismissKey(latest)`). Written by `appStore.setPracticeDone(sub)` (pure write-through `true`, NO in-memory state field — the flag is read directly from MMKV by `computeInitialRoute` at boot). `computeInitialRoute` step 5 now reads `secureMmkv.getBoolean(practiceDoneKey(decodeGoogleSubFromJwt(s.jwt))) ?? false` instead of the legacy `s.tutorialDone` bool — `s.tutorialDone` (still flipped by `RigTutorialScreen.handleNext`, writes `onboarding.tutorialDone.v1`) is no longer the gate. The new gate is composed AFTER the compat gate (Pitfall 8 — compat-missing/stale still wins). Per-account: sub A's flag does not satisfy sub B; reinstall wipes MMKV → tutorial re-runs (exact ONB-08 semantics, for free). `decodeGoogleSubFromJwt` extracted verbatim from `RigTutorialScreen.tsx` into shared `src/lib/jwtSub.ts` (decode-without-verify of the `sub` claim — used ONLY as a local cache key, never an authz decision; `''` on any malformed input, never throws/soft-locks; T-4.3-01) — now reused by RigTutorialScreen + computeInitialRoute, ready for PracticeCompleteScreen (plan 04-06). `RigTutorialScreen.handleNext` Next CTA retargeted `MainTabs` → `PracticeIntro` on the LOCAL navigator (PracticeIntro is an OnboardingStack sibling registered by plan 04-06 — not the parent-navigator hop the old MainTabs target needed; loosely typed so no typecheck dependency on the not-yet-registered route). Existing `RigTutorialScreen.test.tsx` Tests 3 & 5 updated to assert `replace('PracticeIntro')`.
+- [Phase ?]: Plan 04-04: HumynHandDetectorModule.kt MediaPipe body — figure-app-hands.md verbatim port (RunningMode.IMAGE, numHands=2, all confidences 0.5/configurable, CPU delegate) over the bundled hand*landmarker.task; HAND-13 hygiene = BitmapFactory RGB_565 -> createScaledBitmap(*,320,240,\_) -> detect -> recycle() in finally; lazy getOrCreate(minConf) caches the FIRST-passed confidence (cleanup() to change it mid-session); clampConfidence(d) extracted @JvmStatic for unit-testability; HumynHandDetectorModuleTest.kt uses an 11-overload RecordingPromise test double. Gradle Kotlin unit-test run blocked in this dev env by a pre-existing react-native-reanimated RN-0.83 javac break + missing google-services.json — JS contract test is the green gate.
 
 ### Quick Tasks Completed
 
@@ -281,9 +283,9 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-11T08:35:00.000Z
+Last session: 2026-05-11T08:50:29.578Z
 Last activity: 2026-05-11
-Stopped at: Completed 04-03-PLAN.md
+Stopped at: Completed 04-04-PLAN.md
 
 - 01-10 (terraform apply): Tasks 1+2+3 complete + committed (430e17a, 9e52db8, ad93d17). Operator runs `terraform fmt -check` + `terraform validate` + `terraform plan` + `terraform apply` against real AWS staging.
 - 01-11 (counsel engagement): code-ready-counsel-deferred. Three commits ship the canonical consent text + boot-time hash guard, takedown SOP runbook, dsr-export CLI, and counsel-engagement checklist. Real attorney review queued for legal-ops backlog.

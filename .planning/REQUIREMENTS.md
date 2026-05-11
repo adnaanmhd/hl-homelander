@@ -121,7 +121,7 @@
 - [ ] **HAND-10**: Tapping X during the gate is treated as a pre-record exit — silent dismiss to Home, no confirmation modal, no captured data to discard
 - [ ] **HAND-11**: Hand-gate target hits, cadence, and `minHandDetectionConfidence` are Firebase Remote Config keys so they can be retuned without an app release
 - [ ] **HAND-12**: System pre-warms the photo pipeline at recording-screen mount to avoid the gate ring sitting at 0 during `takePhoto()` cold-start latency **[research]**
-- [ ] **HAND-13**: Gate decodes captured photos at 320×240 RGB_565 with explicit `bitmap.recycle()` to avoid memory pressure under sustained gate cadence **[research]**
+- [x] **HAND-13**: Gate decodes captured photos at 320×240 RGB_565 with explicit `bitmap.recycle()` to avoid memory pressure under sustained gate cadence **[research]**
 - [ ] **HAND-14**: System emits per-locale `recording_gate_skipped` rate telemetry as a leading skin-tone-bias indicator **[research]**
 
 ### Recording — UX & Lifecycle
@@ -461,7 +461,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HAND-10     | Phase 4 | Pending               |
 | HAND-11     | Phase 4 | Pending               |
 | HAND-12     | Phase 4 | Pending               |
-| HAND-13     | Phase 4 | Pending               |
+| HAND-13     | Phase 4 | Complete              |
 | HAND-14     | Phase 4 | Pending               |
 | REC-01      | Phase 4 | Pending               |
 | REC-02      | Phase 4 | Pending               |
