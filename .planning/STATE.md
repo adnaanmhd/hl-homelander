@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 04-10-PLAN.md — Phase 4 execution done; awaiting verify
-last_updated: '2026-05-11T16:00:00.000Z'
-last_activity: 2026-05-11
+status: executing
+stopped_at: Completed 04-08-PLAN.md
+last_updated: '2026-05-11T11:02:16.129Z'
+last_activity: 2026-05-11 -- Phase 4 planning complete
 progress:
   total_phases: 7
   completed_phases: 3
-  total_plans: 56
+  total_plans: 58
   completed_plans: 56
-  percent: 100
+  percent: 97
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 
 Phase: 04 (handdetector-recording-ux-practice-tutorial) — EXECUTING
 Plan: 10 of 10 (01–10 complete)
-Status: All 10 plans landed — ready for verification. The on-hardware acceptance gate is `04-MANUAL-SMOKE.md` (D-WAVE-04), including the [BLOCKING] §5b ±1 ms drift re-measurement on the gate→record camera handoff.
+Status: Ready to execute
 
 Phase 2 operator smoke-walk history (carried forward):
 
@@ -47,7 +47,7 @@ Phase 3 hardware UAT pending (7 items, all on real Pixel 7a/8a) — these RETIRE
 - #6 CAP-18 byte-for-byte SHA round-trip — §3 on-disk SHA ↔ metadata assertion (Phase 5 owns the device→S3 leg)
 - #7 CAP-13 onSessionStart/Stop upload-pause seam — §3 session start/stop event log assertion (log-only at Phase 4; Phase 5 wires the pause)
 
-Last activity: 2026-05-11
+Last activity: 2026-05-11 -- Phase 4 planning complete
 
 Progress: Phase 4 — 10/10 plans complete (Wave 6 — 04-10 landed: onCrashRecovery event + Toast host + bootRecoveryListener + `04-MANUAL-SMOKE.md` on-hardware acceptance runbook with the [BLOCKING] §5b drift gate). Phase 4 awaiting verify; the on-hardware smoke walk is the acceptance gate.
 
