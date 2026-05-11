@@ -1,6 +1,7 @@
 package ai.humynlabs.capture.capture
 
 import android.app.Application
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -150,7 +151,86 @@ class CaptureLaunchSweepTest {
         recordingsDir.delete()
         practiceDir.delete()
 
-        // Should not throw.
-        CaptureLaunchSweep(filesDir).run()
+        // Should not throw — and the recovered list is empty.
+        val recovered = CaptureLaunchSweep(filesDir).run()
+        assertTrue("no recovered candidates on a first-launch state", recovered.isEmpty())
+    }
+
+    // -------------------------------------------------------------------------
+    // Phase 4 D-LIFE-04 (plan 04-10) — run() returns the orphan-with-valid-
+    // sidecar bases (the re-finalize candidates) so MainApplication can stash
+    // them in CaptureLaunchSweep.pendingRecovery → HumynCaptureModule emits the
+    // one-shot onCrashRecovery event for the Home toast. The on-device emit path
+    // (Arguments.createMap / RCTDeviceEventEmitter) can't be exercised under
+    // Robolectric — that's covered by 04-MANUAL-SMOKE.md §4(e). These tests lock
+    // the run()-return contract.
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `run returns the base of an orphan mp4 with a valid sidecar`() {
+        val base = "20260510_900"
+        File(recordingsDir, "$base.mp4").apply { writeText("fake mp4 bytes") }
+        File(recordingsDir, "$base.csv").apply { writeText("fake csv bytes") }
+        SidecarManager.write(File(recordingsDir, "$base.session.json"), fixtureSidecarPayload(base))
+
+        val recovered = CaptureLaunchSweep(filesDir).run()
+
+        assertEquals(listOf(base), recovered)
+    }
+
+    @Test
+    fun `run does not return bases for corrupt-sidecar or no-sidecar orphans`() {
+        // Orphan with corrupt sidecar — discarded, not a recovery candidate.
+        val corrupt = "20260510_901"
+        File(recordingsDir, "$corrupt.mp4").apply { writeText("x") }
+        File(recordingsDir, "$corrupt.csv").apply { writeText("x") }
+        File(recordingsDir, "$corrupt.session.json").apply { writeText("{ broken") }
+        // Orphan with no sidecar — discarded, not a recovery candidate.
+        val nosidecar = "20260510_902"
+        File(recordingsDir, "$nosidecar.mp4").apply { writeText("x") }
+        File(recordingsDir, "$nosidecar.csv").apply { writeText("x") }
+        // A complete triple — not an orphan at all.
+        val complete = "20260510_903"
+        File(recordingsDir, "$complete.mp4").apply { writeText("x") }
+        File(recordingsDir, "$complete.csv").apply { writeText("x") }
+        File(recordingsDir, "$complete.json").apply { writeText("{}") }
+
+        val recovered = CaptureLaunchSweep(filesDir).run()
+
+        assertTrue("no recovery candidates among corrupt/no-sidecar/complete", recovered.isEmpty())
+    }
+
+    @Test
+    fun `run returns all orphan-with-valid-sidecar bases when several exist`() {
+        val a = "20260510_910"
+        val b = "20260510_911"
+        for (base in listOf(a, b)) {
+            File(recordingsDir, "$base.mp4").apply { writeText("x") }
+            File(recordingsDir, "$base.csv").apply { writeText("x") }
+            SidecarManager.write(File(recordingsDir, "$base.session.json"), fixtureSidecarPayload(base))
+        }
+
+        val recovered = CaptureLaunchSweep(filesDir).run().sorted()
+
+        assertEquals(listOf(a, b), recovered)
+    }
+
+    @Test
+    fun `pendingRecovery holder round-trips a recovered list`() {
+        // Mirrors MainApplication.onCreate → HumynCaptureModule.onHostResume:
+        // onCreate sets the holder from run(); onHostResume reads it once + nulls it.
+        val base = "20260510_920"
+        File(recordingsDir, "$base.mp4").apply { writeText("x") }
+        File(recordingsDir, "$base.csv").apply { writeText("x") }
+        SidecarManager.write(File(recordingsDir, "$base.session.json"), fixtureSidecarPayload(base))
+
+        CaptureLaunchSweep.pendingRecovery = CaptureLaunchSweep(filesDir).run()
+        assertEquals(listOf(base), CaptureLaunchSweep.pendingRecovery)
+
+        // Drain (what onHostResume does).
+        val drained = CaptureLaunchSweep.pendingRecovery
+        CaptureLaunchSweep.pendingRecovery = null
+        assertEquals(listOf(base), drained)
+        assertTrue("holder cleared after drain", CaptureLaunchSweep.pendingRecovery == null)
     }
 }

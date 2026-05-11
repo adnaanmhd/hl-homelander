@@ -2,8 +2,11 @@ package ai.humynlabs.capture.capture
 
 import android.app.Activity
 import android.content.Intent
+import android.util.Log
 import android.view.WindowManager
 import androidx.core.content.ContextCompat
+import com.facebook.react.bridge.Arguments
+import com.facebook.react.bridge.LifecycleEventListener
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -70,11 +73,23 @@ import java.util.concurrent.Executors
  */
 @ReactModule(name = HumynCaptureModule.NAME)
 class HumynCaptureModule(reactContext: ReactApplicationContext) :
-    ReactContextBaseJavaModule(reactContext) {
+    ReactContextBaseJavaModule(reactContext), LifecycleEventListener {
+
+    init {
+        // Phase 4 D-LIFE-04 — listen for the activity lifecycle so we can
+        // drain CaptureLaunchSweep.pendingRecovery on the first onHostResume
+        // (by then the JS bundle is up and installBootRecoveryListener has
+        // subscribed to onCrashRecovery), then emit the one-shot event.
+        reactContext.addLifecycleEventListener(this)
+    }
 
     companion object {
         const val NAME = "HumynCapture"
     }
+
+    /** D-LIFE-04 — fire the crash-recovery emit at most once per process. */
+    @Volatile
+    private var crashRecoveryEmitted = false
 
     /**
      * Single-thread executor — serialises start/stop and never runs
@@ -265,6 +280,42 @@ class HumynCaptureModule(reactContext: ReactApplicationContext) :
             .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
             .emit(name, payload)
     }
+
+    // -------------------------------------------------------------------------
+    // Phase 4 D-LIFE-04 — onCrashRecovery emit (plan 04-10).
+    //
+    // The Phase-3 app-launch sweep runs in MainApplication.onCreate (before the
+    // catalyst instance attaches), so it can't emit a JS event itself. It
+    // stashes the orphan-with-valid-sidecar bases in
+    // CaptureLaunchSweep.pendingRecovery; this module drains that holder on the
+    // FIRST onHostResume — by then the JS bundle has loaded and
+    // installBootRecoveryListener() has subscribed to `onCrashRecovery`, so the
+    // emit reaches the JS listener. One-shot per process (crashRecoveryEmitted
+    // guard); the JS listener also `.remove()`s itself after the first fire.
+    // -------------------------------------------------------------------------
+    override fun onHostResume() {
+        if (crashRecoveryEmitted) return
+        crashRecoveryEmitted = true
+        val recovered = CaptureLaunchSweep.pendingRecovery
+        CaptureLaunchSweep.pendingRecovery = null
+        if (recovered.isNullOrEmpty()) return
+        try {
+            val payload = Arguments.createMap().apply {
+                putArray("recovered", Arguments.fromList(recovered))
+            }
+            emitEvent("onCrashRecovery", payload)
+            Log.i("HumynCapture", "onCrashRecovery emitted — recovered=${recovered.size}")
+        } catch (t: Throwable) {
+            // Best-effort — a missing JS module / racing teardown must never
+            // crash the capture module. The recovered triples still get picked
+            // up by Phase 5's upload path; only the toast is skipped.
+            Log.w("HumynCapture", "onCrashRecovery emit failed", t)
+        }
+    }
+
+    override fun onHostPause() { /* no-op — crash-recovery emit is resume-only */ }
+
+    override fun onHostDestroy() { /* no-op */ }
 }
 
 // CR-07 fix — typed exceptions for the bridge error contract. Each class

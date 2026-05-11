@@ -79,6 +79,24 @@ export interface CaptureErrorEvent {
 }
 
 /**
+ * D-LIFE-04 (Phase 4 plan 04-10) — emitted ONCE on app launch when the
+ * Phase-3 app-launch sweep (`CaptureLaunchSweep`) re-finalizes orphan
+ * segments after a force-quit / OS-evict (i.e. there is recoverable
+ * capture work). `recovered` lists the re-finalize-candidate
+ * `filenameBase`s the sweep logged off their `.session.json` sidecars;
+ * the actual re-finalize off the sidecar happens later (Phase 5's upload
+ * pipeline picks the triple up — Phase 4 just surfaces the Home
+ * "Recording recovered after force-quit — uploading." toast). RecordingScreen
+ * is NOT shown during recovery; the user sees the recording arrive in
+ * History (Phase 6). One-shot per launch: the JS listener `.remove()`s
+ * itself after the first fire.
+ */
+export interface CrashRecoveryEvent {
+  /** Re-finalize-candidate filenameBases (YYYYMMDD_HHMMSS_NNN). */
+  recovered: string[];
+}
+
+/**
  * Resolution shape of `HumynCapture.start(opts)`. Resolves when the
  * encoder is up and the first frame is written. Promise rejects with
  * `Error(code: '...')` for pre-flight failures (thermal, permission,

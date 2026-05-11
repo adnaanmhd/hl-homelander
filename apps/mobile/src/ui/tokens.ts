@@ -47,6 +47,10 @@ export const colors = {
   recSkipLink: 'rgba(255,255,255,0.7)', // gate "Skip" link (14/600)
   recOverlayTip: 'rgba(0,0,0,0.6)', // 3s "Don't exit while recording." overlay bg
   recToastBg: 'rgba(26,26,26,0.94)', // bottom toast bg
+  // Plan 04-10 — generic app-wide toast host bg (the Home crash-recovery toast,
+  // D-LIFE-04). Same dark pill the recording surface uses (recToastBg); aliased
+  // here so non-recording surfaces don't reach into the rec* namespace.
+  toastBg: 'rgba(26,26,26,0.94)',
   recVoiceCueBg: 'rgba(255,255,255,0.96)', // voice-cue pill bg (dark text on it)
   recRingTrack: 'rgba(255,255,255,0.18)', // GateRing track circle
 } as const;

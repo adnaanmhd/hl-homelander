@@ -28,16 +28,36 @@ import java.io.File
  * Idempotent: missing recordings/ or practice/ directories are skipped
  * silently. Safe to call from MainApplication.onCreate on every cold
  * launch.
+ *
+ * Phase 4 D-LIFE-04 (plan 04-10) — `run()` now RETURNS the list of
+ * orphan-with-valid-sidecar `filenameBase`s it found (the "re-finalize
+ * candidate" log entries). MainApplication.onCreate stashes that list in
+ * [pendingRecovery]; HumynCaptureModule drains it on first onHostResume
+ * (after the JS bundle is up + `installBootRecoveryListener` has
+ * subscribed) and emits the one-shot `onCrashRecovery` event so the JS
+ * boot listener can fire the Home "Recording recovered after force-quit
+ * — uploading." toast (REC-12). The actual re-finalize off the sidecar
+ * still happens later (Phase 5's upload path picks the triple up). The
+ * existing sweep semantics are UNCHANGED — this only ADDS the
+ * recovered-list capture.
  */
 class CaptureLaunchSweep(private val filesDir: File) {
-    fun run() {
-        sweepRecordings()
+    /**
+     * Run the sweep. Returns the orphan-with-valid-sidecar `filenameBase`s
+     * (the re-finalize candidates) so the caller can surface a recovery
+     * toast — empty when nothing recoverable was found. Existing callers
+     * that ignore the return value are unaffected.
+     */
+    fun run(): List<String> {
+        val recovered = sweepRecordings()
         sweepPractice()
+        return recovered
     }
 
-    private fun sweepRecordings() {
+    private fun sweepRecordings(): List<String> {
         val recordingsDir = File(filesDir, "recordings")
-        if (!recordingsDir.exists()) return
+        if (!recordingsDir.exists()) return emptyList()
+        val recovered = mutableListOf<String>()
 
         // Pass 1: orphan .mp4 (no matching .json).
         val mp4s = recordingsDir.listFiles { f -> f.name.endsWith(".mp4") } ?: emptyArray()
@@ -50,6 +70,9 @@ class CaptureLaunchSweep(private val filesDir: File) {
                 try {
                     SidecarManager.read(sidecar)
                     Log.i(TAG, "orphan_with_sidecar=$base — Phase 4 re-finalize candidate")
+                    // D-LIFE-04 — a recoverable orphan: record its base so
+                    // MainApplication can surface the crash-recovery toast.
+                    recovered.add(base)
                 } catch (_: IllegalArgumentException) {
                     Log.w(TAG, "corrupt_sidecar=$base — discarding triple")
                     mp4.delete()
@@ -93,6 +116,7 @@ class CaptureLaunchSweep(private val filesDir: File) {
             Log.w(TAG, "orphan_partial=${p.name} — deleting")
             p.delete()
         }
+        return recovered
     }
 
     private fun sweepPractice() {
@@ -109,5 +133,19 @@ class CaptureLaunchSweep(private val filesDir: File) {
 
     companion object {
         private const val TAG = "CaptureLaunchSweep"
+
+        /**
+         * Phase 4 D-LIFE-04 — process-singleton holder for the
+         * orphan-with-valid-sidecar bases the boot sweep found.
+         * MainApplication.onCreate sets this from `CaptureLaunchSweep(...).run()`;
+         * HumynCaptureModule drains it (sets it back to `null`) on first
+         * onHostResume and emits the one-shot `onCrashRecovery` event.
+         * `@Volatile` because it's written on the main thread in onCreate
+         * and read on the main thread in onHostResume — defensive against
+         * any future cross-thread access.
+         */
+        @Volatile
+        @JvmStatic
+        var pendingRecovery: List<String>? = null
     }
 }
