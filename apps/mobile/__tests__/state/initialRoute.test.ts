@@ -33,6 +33,7 @@ function baseState(overrides: Partial<AppState> = {}): AppState {
     setCompatResult: () => {},
     clearCompatPassed: () => {},
     setTutorialDone: () => {},
+    setPracticeDone: () => {},
     setInstallationId: () => {},
     setAppVersionCache: () => {},
     setSoftUpgradeAvailable: () => {},

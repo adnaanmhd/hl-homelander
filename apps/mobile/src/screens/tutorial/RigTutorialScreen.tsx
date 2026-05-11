@@ -1,11 +1,16 @@
 // Plan 02-11 RigTutorialScreen — ONB-01 + ONB-02.
+// Plan 04-03: Next now goes to PracticeIntro (was MainTabs) — RigTutorial →
+//   PracticeIntro → Recording → PracticeComplete → MainTabs. The
+//   'PracticeIntro' route is registered by plan 04-06's OnboardingStack edit;
+//   navigation here is loosely typed (`as unknown as LocalNav`) so this is not
+//   a typecheck dependency.
 //
 // Verbatim §5 (design-spec.md, lines 256-264):
 //   Heading (30/36, 700) "You'll need a head rig"
 //   Body    (17/25)      "Mount your phone on the head rig and make sure it
 //                         is steady while recording."
-//   Button  (btn-primary) "Next" → MainTabs (Phase 2 stops here; Phase 4
-//                                  splices Practice between this and MainTabs)
+//   Button  (btn-primary) "Next" → PracticeIntro (Phase 4 spliced Practice
+//                                  between this and MainTabs)
 //
 // ONB-02 off-ramp ("Don't have a rig yet?") opens a Sheet with the support
 // mailto target but does NOT block the user — they can still tap Next from
@@ -31,6 +36,7 @@ import { Pressable } from '../../ui/primitives/Pressable';
 import { Sheet } from '../../ui/primitives/Sheet';
 import { colors, spacing } from '../../ui/tokens';
 import { useAppStore } from '../../state/appStore';
+import { decodeGoogleSubFromJwt } from '../../lib/jwtSub';
 import { logEvent } from '../../util/analytics';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -42,43 +48,6 @@ const RIG_ILLUSTRATION = require('../../assets/illustrations/rig.png');
 // placeholder occurrence landed inside Plan 03-03's merged CompatFailScreen
 // (the standalone CompatRecoveryScreen was merged + deleted in 03-03).
 const SUPPORT_EMAIL = 'support@humynlabs.ai';
-
-/**
- * Decode the `sub` claim from a JWS-shaped JWT (header.payload.signature)
- * without verifying the signature. Used to thread the user's googleSub into
- * `setTutorialDone(googleSub)` per the appStore contract (D-STATE-04).
- *
- * Returns an empty string for any malformed input. The empty string still
- * flows through `setTutorialDone('')` which flips the persisted flag —
- * onboarding does not soft-lock if JWT decoding glitches.
- */
-function decodeGoogleSubFromJwt(jwt: string | null): string {
-  if (!jwt) return '';
-  const parts = jwt.split('.');
-  if (parts.length !== 3) return '';
-  try {
-    const segment = parts[1] ?? '';
-    const b64 = segment.replace(/-/g, '+').replace(/_/g, '/');
-    const padNeeded = (4 - (b64.length % 4)) % 4;
-    const padded = b64 + '='.repeat(padNeeded);
-    type GlobalWithBuffer = typeof globalThis & {
-      Buffer?: { from(data: string, enc: string): { toString(enc: string): string } };
-    };
-    const g = globalThis as GlobalWithBuffer;
-    let json: string;
-    if (typeof g.atob === 'function') {
-      json = g.atob(padded);
-    } else if (g.Buffer) {
-      json = g.Buffer.from(padded, 'base64').toString('utf8');
-    } else {
-      return '';
-    }
-    const payload = JSON.parse(json) as { sub?: unknown };
-    return typeof payload?.sub === 'string' ? payload.sub : '';
-  } catch {
-    return '';
-  }
-}
 
 interface ParentNav {
   replace: (route: string) => void;
@@ -101,17 +70,18 @@ export default function RigTutorialScreen() {
 
   const handleNext = () => {
     const googleSub = decodeGoogleSubFromJwt(jwt);
+    // The legacy onboarding.tutorialDone.v1 flag still flips here (separate
+    // from the new per-account practice flag, which PracticeComplete writes).
     setTutorialDone(googleSub);
-    // Phase 2 stops onboarding here. Phase 4 will splice the Practice screen
-    // between this Next handler and MainTabs (per CONTEXT.md domain note).
-    // Prefer the parent navigator (RootNativeStack) so we can leave the
-    // OnboardingStack entirely; fall back to the local navigator if the
-    // parent is not available.
-    const parent = navigation.getParent?.();
-    if (parent && typeof parent.replace === 'function') {
-      parent.replace('MainTabs');
+    // Phase 4: Next now advances to PracticeIntro (the new OnboardingStack
+    // route from plan 04-06) → Recording → PracticeComplete → MainTabs. We
+    // stay inside OnboardingStack here, so navigate on the local navigator;
+    // fall back to the parent navigator if the local one lacks `replace`.
+    if (typeof navigation.replace === 'function') {
+      navigation.replace('PracticeIntro');
     } else {
-      navigation.replace('MainTabs');
+      const parent = navigation.getParent?.();
+      parent?.replace('PracticeIntro');
     }
   };
 

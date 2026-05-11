@@ -11,13 +11,14 @@ import type { CompatResult } from '@humyn/shared-types';
 
 import { useAppStore } from '../../src/state/appStore';
 import { secureMmkv } from '../../src/state/mmkv';
-import { KEYS } from '../../src/state/keys';
+import { KEYS, practiceDoneKey } from '../../src/state/keys';
 
 function freshState() {
   // Reset every persistent key + every store field so tests are isolated.
   for (const k of Object.values(KEYS)) {
     secureMmkv.remove(k);
   }
+  secureMmkv.remove(practiceDoneKey('sub-A'));
   useAppStore.setState({
     jwt: null,
     consent: null,
@@ -119,5 +120,14 @@ describe('useAppStore', () => {
 
     expect(useAppStore.getState().jwt).toBeNull();
     expect(secureMmkv.getString(KEYS.AUTH_JWT)).toBeUndefined();
+  });
+
+  it('Test 4: setPracticeDone(sub) writes true to MMKV at practiceDoneKey(sub) and is idempotent (ONB-08)', () => {
+    expect(secureMmkv.getBoolean(practiceDoneKey('sub-A'))).toBe(false);
+    useAppStore.getState().setPracticeDone('sub-A');
+    expect(secureMmkv.getBoolean(practiceDoneKey('sub-A'))).toBe(true);
+    // Idempotent — a second call is a no-op (still true, no throw).
+    useAppStore.getState().setPracticeDone('sub-A');
+    expect(secureMmkv.getBoolean(practiceDoneKey('sub-A'))).toBe(true);
   });
 });
