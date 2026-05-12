@@ -219,10 +219,10 @@ Plans:
 
 **Gap Wave 1** _(parallel — no file overlap)_
 
-- [ ] 05-09-PLAN.md — server: idempotent `POST /recordings/init` (SELECT-first, never a 2nd CreateMultipartUpload) + new `POST /recordings/:id/parts` re-presign route (CR-02 + server half of CR-01) — UP-01, UP-04
-- [ ] 05-11-PLAN.md — Kotlin: `UploadCoordinator.drainNow()` serialised by a `ReentrantLock.tryLock()` + drop the bogus `synchronized(queueStore)` wrappers + re-verify DEF-5-01 (CR-03) — UP-06, UP-01, UP-04
-- [ ] 05-12-PLAN.md — server: add `apps/api/src/workers/sqs-poller.ts` (the prod EventBridge→SQS→BullMQ leg the Terraform references) + npm scripts + the S3-event key parser (VERIFY-01) — VERIFY-01
-- [ ] 05-13-PLAN.md — server: retry-safe `/finalize` (NoSuchUpload-tolerant + HeadObject confirm — WR-01) + TOCTOU-safe `verify-recording` qa_status flip (`AND qa_status='uploaded'` + rowCount gate — WR-02) + `events-outbox` only touches 2xx application/json (WR-03) + `verified-ids` cursor user-gate (IN-05) — UP-01, VERIFY-03, VERIFY-04, VERIFY-05
+- [x] 05-09-PLAN.md — server: idempotent `POST /recordings/init` (SELECT-first, never a 2nd CreateMultipartUpload) + new `POST /recordings/:id/parts` re-presign route (CR-02 + server half of CR-01) — UP-01, UP-04
+- [x] 05-11-PLAN.md — Kotlin: `UploadCoordinator.drainNow()` serialised by a `ReentrantLock.tryLock()` + drop the bogus `synchronized(queueStore)` wrappers + re-verify DEF-5-01 (CR-03) — UP-06, UP-01, UP-04
+- [x] 05-12-PLAN.md — server: add `apps/api/src/workers/sqs-poller.ts` (the prod EventBridge→SQS→BullMQ leg the Terraform references) + npm scripts + the S3-event key parser (VERIFY-01) — VERIFY-01
+- [x] 05-13-PLAN.md — server: retry-safe `/finalize` (NoSuchUpload-tolerant + HeadObject confirm — WR-01) + TOCTOU-safe `verify-recording` qa_status flip (`AND qa_status='uploaded'` + rowCount gate — WR-02) + `events-outbox` only touches 2xx application/json (WR-03) + `verified-ids` cursor user-gate (IN-05) — UP-01, VERIFY-03, VERIFY-04, VERIFY-05
 
 **Gap Wave 2** _(blocked on Gap Wave 1 — depends on 05-09's new route + 05-11's drain-lock; both touch `UploadCoordinator.kt`)_
 
