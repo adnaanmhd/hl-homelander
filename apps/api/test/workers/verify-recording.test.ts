@@ -228,4 +228,51 @@ describeIf('lib/verify-recording (LocalStack + DB)', () => {
       .where(eq(schema.recordingEventsOutbox.recordingId, recordingId));
     expect(outbox).toHaveLength(0);
   });
+
+  it('row moved to "takedown" during the re-hash window → not resurrected, no outbox event, queue row left (WR-02)', async () => {
+    const recordingId = ulid();
+    await putBundle(TEST_USER_ID, recordingId);
+    await insertRecording({
+      recordingId,
+      fileSha256: STUB_VIDEO_SHA256,
+      imuSha256: STUB_IMU_SHA256,
+      qaStatus: 'uploaded',
+    });
+    // Simulate the TOCTOU race: an ops takedown flips the row AFTER verifyRecording
+    // would have done its `rec` SELECT but BEFORE the UPDATE. We can't interleave
+    // mid-call, so we flip it here first — verifyRecording's own `rec` SELECT then
+    // reads 'takedown' and early-returns. To exercise the UPDATE's
+    // `AND qa_status='uploaded'` predicate proper we'd need a true interleave; the
+    // important invariant the test pins is: a row that is NOT 'uploaded' is never
+    // written to 'verified' and never gets an outbox event. (The SQL predicate is
+    // the second line of defence behind the early `qaStatus !== 'uploaded'` guard.)
+    await db
+      .update(schema.recordings)
+      .set({ qaStatus: 'takedown' })
+      .where(eq(schema.recordings.id, recordingId));
+
+    await verifyRecording(recordingId);
+
+    const [rec] = await db
+      .select()
+      .from(schema.recordings)
+      .where(eq(schema.recordings.id, recordingId))
+      .limit(1);
+    expect(rec?.qaStatus).toBe('takedown'); // NOT resurrected to 'verified'
+    expect(rec?.verifiedAt).toBeNull();
+
+    const outbox = await db
+      .select()
+      .from(schema.recordingEventsOutbox)
+      .where(eq(schema.recordingEventsOutbox.recordingId, recordingId));
+    expect(outbox).toHaveLength(0); // no event emitted on a moved row
+
+    // The recordings_to_verify row is LEFT in place (the verify-sweep cron reaps
+    // it after MAX_ATTEMPTS; the row will never return to 'uploaded' from takedown).
+    const queued = await db
+      .select()
+      .from(schema.recordingsToVerify)
+      .where(eq(schema.recordingsToVerify.recordingId, recordingId));
+    expect(queued).toHaveLength(1);
+  });
 });

@@ -34,14 +34,14 @@ export default async function recordingsVerifiedIdsRoute(app: FastifyInstance): 
         eq(schema.recordings.qaStatus, 'verified'),
       ];
       if (since) {
-        // Resolve the cursor recording_id to its (verified_at, id) tuple. A
-        // cursor pointing at another user's row (or one that isn't verified)
-        // resolves nothing → no extra filter, and the user_id gate above keeps
-        // the result the caller's own rows regardless.
+        // Resolve the cursor recording_id to its (verified_at, id) tuple. The
+        // SELECT is user-gated (not just the result set), so a cursor pointing
+        // at another user's row resolves nothing — closing the faint existence
+        // oracle (IN-05). A cursor that isn't verified also resolves nothing.
         const [c] = await db
           .select({ verifiedAt: schema.recordings.verifiedAt, id: schema.recordings.id })
           .from(schema.recordings)
-          .where(eq(schema.recordings.id, since))
+          .where(and(eq(schema.recordings.id, since), eq(schema.recordings.userId, userId)))
           .limit(1);
         if (c?.verifiedAt) {
           where.push(
