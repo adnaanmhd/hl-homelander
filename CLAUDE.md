@@ -77,6 +77,7 @@ Full rationale, OEM sharp edges, version sources, and config recipes: `research/
 - `pg@8.20.0`, `drizzle-orm@0.45.2` (chosen over Prisma for hybrid-search ergonomics).
 - `google-auth-library@10.6.2`, `googleapis@171.4.0`.
 - `@aws-sdk/client-s3@3.1044.0` + `@aws-sdk/s3-request-presigner@3.1044.0` (pin both at same minor). NOT `aws-sdk` v2.
+- `bullmq@5.76.8`, `ioredis@5.10.1` — the hash-verify worker queue (Redis-backed; retries/backoff/concurrency/queue-depth metrics for ECS autoscaling). `@aws-sdk/client-sqs@3.1044.0` (pinned to the same minor as `@aws-sdk/client-s3` per the "always same minor" rule) — the thin SQS-poller in prod (S3→EventBridge→SQS→queue.add). Redis **7.x** (ElastiCache prod; `redis:7-alpine` container in dev).
 - `zod@4.4.3`, `vitest@4.1.5`, `drizzle-kit@0.x`.
 
 ### Postgres + search
@@ -105,7 +106,7 @@ Full rationale, OEM sharp edges, version sources, and config recipes: `research/
 - **`@react-native-firebase/*` v22 or older** — pre-New-Arch TurboModule issues.
 - **AWS SDK v2 (`aws-sdk`)** — maintenance-mode; use v3 modular.
 - **Prisma** for hybrid task search — type-safety lost on raw SQL fallback.
-- **Redis at MVP** — Postgres-only; queue lives on device.
+- **Redis for the on-device upload queue** — the upload queue lives on device (MMKV-backed, native-module-owned) per VERIFY-spec / the "queue lives on device" rule. The _hash-verify worker_ queue, by contrast, IS BullMQ-on-Redis-on-ECS per VERIFY-01/07 + the ROADMAP — that's the one Redis carve-out at MVP. No other Redis usage.
 - **`react-native-background-fetch`** for upload — use FGS `dataSync` (Android) / URLSession background (iOS).
 - **Sentry / Datadog / Bugsnag** at MVP — Crashlytics + Firebase Analytics only.
 
