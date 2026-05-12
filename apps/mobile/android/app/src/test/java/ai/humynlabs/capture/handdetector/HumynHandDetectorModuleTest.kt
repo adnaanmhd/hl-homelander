@@ -1,8 +1,8 @@
 package ai.humynlabs.capture.handdetector
 
 import android.app.Application
+import com.facebook.react.bridge.BridgeReactContext
 import com.facebook.react.bridge.Promise
-import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.WritableMap
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -62,7 +62,7 @@ class HumynHandDetectorModuleTest {
 
     @Test
     fun `detectHands rejects with HAND_DETECT_FAILED for a missing file`() {
-        val module = HumynHandDetectorModule(ReactApplicationContext(ctx))
+        val module = HumynHandDetectorModule(BridgeReactContext(ctx))
         val promise = RecordingPromise()
         module.detectHands("/no/such/file-${System.nanoTime()}.jpg", 0.5, promise)
         assertTrue(
@@ -82,7 +82,7 @@ class HumynHandDetectorModuleTest {
 
     @Test
     fun `cleanup resolves and the module still works afterwards`() {
-        val module = HumynHandDetectorModule(ReactApplicationContext(ctx))
+        val module = HumynHandDetectorModule(BridgeReactContext(ctx))
 
         val cleanupPromise = RecordingPromise()
         module.cleanup(cleanupPromise)
