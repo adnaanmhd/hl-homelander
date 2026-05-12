@@ -37,17 +37,23 @@ import { showToast } from '../components/Toast';
 /** The exact Home-toast copy fired when recovery happened (D-LIFE-04 / REC-12). */
 export const CRASH_RECOVERY_TOAST = 'Recording recovered after force-quit — uploading.';
 
-/** How long the recovery toast stays up. It fires from App.tsx's mount effect
- *  — i.e. while the SplashScreen route is still doing its bootstrap (version
- *  check / RemoteConfig / Play Integrity, up to the ~8 s `bootstrap_hard_timeout`).
- *  `<ToastHost />` is a sibling of the navigator so the pill persists across the
- *  splash → Home transition, but a short duration would fade before Home is
- *  visible and the user would never see it (Phase-4 smoke bug 3(a) — "no Home
- *  toast appeared": it WAS shown, just on the splash, then gone). Hold it long
- *  enough to span the bootstrap and still be on screen for a few seconds on Home.
- *  (Proper fix — defer the toast to the post-bootstrap / Home-mount moment — is
- *  noted in 04-COSMETIC-GAPS.md.) */
-const RECOVERY_TOAST_MS = 15_000;
+// 5s is intentional (Phase-5 D-07). Do NOT re-bump to 15s — that was a smoke-walk
+// workaround so the pill spanned the splash bootstrap. At 5s the pill displays
+// during the splash bootstrap and will likely fade before Home renders; that is
+// the pre-workaround behavior and is acceptable ("no Home toast" was an
+// observation, not a bug). The proper fix (stash the recovered list + trigger
+// the toast from post-bootstrap / Home mount) is explicitly rejected for MVP.
+//
+// As of Phase-5 D-03, CaptureLaunchSweep never re-finalizes a crash orphan — all
+// crash-truncated fragments are discarded — so getPendingRecovery()/onCrashRecovery
+// never report a non-empty list and this toast is effectively dead code. It is
+// kept wired as a safety net in case some future recovery path produces an
+// upload-able recovered segment.
+/** How long the recovery toast stays up. It fires from App.tsx's mount effect —
+ *  i.e. while the SplashScreen route is still doing its bootstrap. `<ToastHost />`
+ *  is a sibling of the navigator so the pill persists across the splash → Home
+ *  transition. */
+const RECOVERY_TOAST_MS = 5_000;
 
 function isStringArray(x: unknown): x is string[] {
   return Array.isArray(x) && x.every((v) => typeof v === 'string');
