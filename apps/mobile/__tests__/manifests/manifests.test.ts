@@ -82,4 +82,37 @@ describe('Phase 2 source-manifest invariants (D-UPG-03 / PERM-04 / PERM-03)', ()
     expect(main).toMatch(/android:foregroundServiceType="camera\|microphone\|dataSync"/);
     expect(main).toMatch(/<service[\s\S]*?android:exported="false"/);
   });
+
+  // Plan 05-07 — the FGS type-downgrade lifecycle + the UIDT JobService.
+  // The runtime-side checks (FGS_TYPE_UPLOADING ⊆ FGS_TYPE_RECORDING, onTimeout
+  // overridden) live in HumynForegroundServiceTest.kt; this static gate asserts
+  // the manifest half: the UploadJobService <service> + the RUN_USER_INITIATED_JOBS
+  // perm are declared, and — critically — the FGS foregroundServiceType string
+  // is STILL exactly "camera|microphone|dataSync" (Plan 05-07 must not have
+  // touched it; the dataSync downgrade is a runtime second startForeground with
+  // a narrower bitmask, not a manifest change).
+  it('declares UploadJobService <service> (BIND_JOB_SERVICE, exported=false) for the UIDT background uploads (Plan 05-07)', () => {
+    const main = strip(basePath);
+    expect(main).toMatch(/<service[\s\S]*?android:name="\.upload\.UploadJobService"/);
+    expect(main).toMatch(
+      /<service[\s\S]*?android:name="\.upload\.UploadJobService"[\s\S]*?android:permission="android\.permission\.BIND_JOB_SERVICE"/,
+    );
+    expect(main).toMatch(
+      /<service[\s\S]*?android:name="\.upload\.UploadJobService"[\s\S]*?android:exported="false"/,
+    );
+  });
+
+  it('declares RUN_USER_INITIATED_JOBS (UIDT JobScheduler job) and REQUEST_IGNORE_BATTERY_OPTIMIZATIONS (UP-09)', () => {
+    const main = strip(basePath);
+    expect(main).toMatch(/android\.permission\.RUN_USER_INITIATED_JOBS/);
+    expect(main).toMatch(/android\.permission\.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS/);
+  });
+
+  it('FGS foregroundServiceType is STILL exactly "camera|microphone|dataSync" after Plan 05-07 (no downgrade in the manifest)', () => {
+    const main = strip(basePath);
+    // Exactly the three-token superset — not "dataSync" alone, not a 2-token
+    // subset. The downgrade is a runtime concern (FGS_TYPE_UPLOADING).
+    const m = main.match(/android:foregroundServiceType="([^"]+)"/);
+    expect(m?.[1]).toBe('camera|microphone|dataSync');
+  });
 });
