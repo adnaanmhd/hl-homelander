@@ -160,9 +160,9 @@
 - [x] **UP-13**: Logout cancels in-flight upload but **preserves** the local queue; same-user re-login resumes uploads
 - [ ] **UP-14**: Local files are NEVER deleted before the backend posts the `verified` event for that segment
 - [ ] **UP-15**: On `verified` event, app deletes the local MP4 + CSV + JSON for that segment
-- [ ] **UP-16**: On `re-upload` event (hash mismatch), app re-uploads using the still-present local copy
+- [x] **UP-16**: On `re-upload` event (hash mismatch), app re-uploads using the still-present local copy
 - [x] **UP-17**: Cellular uploads are allowed by default at MVP (no Wi-Fi-only toggle)
-- [ ] **UP-18**: System sends `null` for `ip_address`; server populates from request headers
+- [x] **UP-18**: System sends `null` for `ip_address`; server populates from request headers
 - [ ] **UP-19**: System uses TCP_MAXSEG=1280 + 30-second no-progress abandon-and-retry-with-fresh-socket on cellular to defeat MTU-blackhole retry storms on Jio (CGNAT) and Vivo Brasil **[research]**
 
 ### History
@@ -229,8 +229,8 @@
 - [x] **VERIFY-02**: Worker re-hashes both the MP4 and the IMU CSV from S3 and compares against the manifest hashes (`file_sha256`, `imu_sha256` from the metadata JSON)
 - [x] **VERIFY-03**: On match, worker flips `recordings.qa_status = 'verified'` and emits a `verified` event for the client
 - [x] **VERIFY-04**: On mismatch, worker flips `qa_status = 'hash-mismatch'` and emits a `re-upload` event for the client
-- [ ] **VERIFY-05**: Verified events are delivered piggy-backed on every API response (no FCM/APNs at MVP)
-- [ ] **VERIFY-06**: App-launch reconciliation sweep queries backend for the verified-but-undeleted set and deletes any local files the user no longer needs **[research]**
+- [x] **VERIFY-05**: Verified events are delivered piggy-backed on every API response (no FCM/APNs at MVP)
+- [x] **VERIFY-06**: App-launch reconciliation sweep queries backend for the verified-but-undeleted set and deletes any local files the user no longer needs **[research]**
 - [x] **VERIFY-07**: Worker scales on queue depth (BullMQ + ECS at MVP; switch to S3 EventBridge → Lambda is a v2 concern)
 
 ### Anti-fraud
@@ -496,9 +496,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UP-13       | Phase 5 | Complete              |
 | UP-14       | Phase 5 | Pending               |
 | UP-15       | Phase 5 | Pending               |
-| UP-16       | Phase 5 | Pending               |
+| UP-16       | Phase 5 | Complete              |
 | UP-17       | Phase 5 | Complete              |
-| UP-18       | Phase 5 | Pending               |
+| UP-18       | Phase 5 | Complete              |
 | UP-19       | Phase 5 | Pending               |
 | HIST-01     | Phase 6 | Pending               |
 | HIST-02     | Phase 6 | Pending               |
@@ -547,8 +547,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | VERIFY-02   | Phase 5 | Complete              |
 | VERIFY-03   | Phase 5 | Complete              |
 | VERIFY-04   | Phase 5 | Complete              |
-| VERIFY-05   | Phase 5 | Pending               |
-| VERIFY-06   | Phase 5 | Pending               |
+| VERIFY-05   | Phase 5 | Complete              |
+| VERIFY-06   | Phase 5 | Complete              |
 | VERIFY-07   | Phase 5 | Complete              |
 | FRAUD-01    | Phase 1 | Complete              |
 | FRAUD-02    | Phase 1 | Complete              |

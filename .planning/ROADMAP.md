@@ -204,7 +204,7 @@ Plans:
 
 **Wave 3** _(blocked on Wave 2 completion)_
 
-- [ ] 05-05-PLAN.md — Wave 3: backend HTTP surface (events-outbox onSend plugin + the \_events envelope + the Pattern-22 schema additions; POST /recordings/:id/reupload; GET /recordings/verified-ids; req.ip→recordings.ipAddress; the /finalize dev shim; the verify-queue Terraform module — SQS+DLQ + EventBridge rule + worker ECS task + queue-depth autoscaling + least-privilege IAM; Vitest scaffolds) — VERIFY-01, VERIFY-05, VERIFY-06, VERIFY-07, UP-16, UP-18
+- [x] 05-05-PLAN.md — Wave 3: backend HTTP surface (events-outbox onSend plugin + the \_events envelope + the Pattern-22 schema additions; POST /recordings/:id/reupload; GET /recordings/verified-ids; req.ip→recordings.ipAddress; the /finalize dev shim; the verify-queue Terraform module — SQS+DLQ + EventBridge rule + worker ECS task + queue-depth autoscaling + least-privilege IAM; Vitest scaffolds) — VERIFY-01, VERIFY-05, VERIFY-06, VERIFY-07, UP-16, UP-18
 - [ ] 05-06-PLAN.md — Wave 3: HumynUpload transfer engine (ChunkUploader — streaming PUT-per-part + ETag + 2/4/8/16/32/64s retry→dead-letter + the 30s no-progress watchdog + the best-effort MSS clamp; UploadCoordinator — /init→PUT(metadata+parts, 6-permit semaphore = 3∥×2∥)→/finalize, per-part-state persistence, debounced progress, pause/owner-aware; NetworkMonitor; HumynUploadModule wiring; JUnit scaffolds) — UP-01, UP-03, UP-04, UP-17, UP-19
 
 **Wave 4** _(blocked on Wave 3 completion)_
