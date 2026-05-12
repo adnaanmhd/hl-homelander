@@ -188,7 +188,7 @@ Plans:
 3. The first-upload OEM battery-optimization walkthrough surfaces per-vendor deep-links and steps for Xiaomi (MIUI), Oppo (ColorOS), Vivo (FunTouch), Samsung (OneUI), and stock Android, the Pending Uploads tile shows per-file progress (filename / duration / thumbnail / state), and cellular uploads are allowed by default with no Wi-Fi-only toggle
 4. The hash-verify worker (BullMQ + Redis + ECS, scaled on queue depth) consumes S3 multipart-complete events via EventBridge → SQS, re-hashes both MP4 and IMU CSV, flips `recordings.qa_status` to `'verified'` (emit `verified` event) on match or `'hash-mismatch'` (emit `re-upload` event) on mismatch; events deliver piggy-backed on the next API response, the app deletes local MP4 + CSV + JSON only on `verified`, re-uploads from the still-present local copy on `re-upload`, and an app-launch reconciliation sweep cleans local files for any verified-but-undeleted set
 
-**Plans:** 8 plans (Wave 1 = 05-01 + 05-02 cleanup ‖ ; Wave 2 = 05-03 backend infra/worker + 05-04 mobile native foundation ‖ ; Wave 3 = 05-05 backend HTTP surface + 05-06 mobile transfer engine ‖ ; Wave 4 = 05-07 FGS/UIDT/battery-opt ; Wave 5 = 05-08 Pending Uploads UI + reconcile + wire-up + smoke)
+**Plans:** 7/8 plans executed
 
 Plans:
 
@@ -209,7 +209,7 @@ Plans:
 
 **Wave 4** _(blocked on Wave 3 completion)_
 
-- [ ] 05-07-PLAN.md — Wave 4: OS-survival hardening (HumynForegroundService type-downgrade lifecycle recording→dataSync→idle-stop + onTimeout→UIDT handoff + the drain on the FGS thread; UploadJobService UIDT JobService; BatteryOptimizationHelper AOSP-first + resolveActivity-gated OEM deep-links; BatteryOptimizationScreen first-upload walkthrough; the extended two-sided manifest↔bitmask lock) — UP-06, UP-07, UP-09, UP-10
+- [x] 05-07-PLAN.md — Wave 4: OS-survival hardening (HumynForegroundService type-downgrade lifecycle recording→dataSync→idle-stop + onTimeout→UIDT handoff + the drain on the FGS thread; UploadJobService UIDT JobService; BatteryOptimizationHelper AOSP-first + resolveActivity-gated OEM deep-links; BatteryOptimizationScreen first-upload walkthrough; the extended two-sided manifest↔bitmask lock) — UP-06, UP-07, UP-09, UP-10
 
 **Wave 5** _(blocked on Wave 4 completion)_
 
@@ -254,6 +254,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 22/22          | Complete    | 2026-05-10 |
 | 3. HumynCapture Native Module (Bytes-on-disk)              | 11/11          | Complete    | 2026-05-11 |
 | 4. HandDetector, Recording UX & Practice Tutorial          | 10/10          | In progress | -          |
-| 5. Upload Pipeline & Hash-Verify Worker                    | 0/TBD          | Not started | -          |
+| 5. Upload Pipeline & Hash-Verify Worker                    | 7/8            | In Progress |            |
 | 6. Tasks, History, Home Tiles & Lexical Search             | 0/TBD          | Not started | -          |
 | 7. Observability & APK Distribution Hardening              | 0/TBD          | Not started | -          |
