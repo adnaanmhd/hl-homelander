@@ -224,6 +224,15 @@ dependencies {
     implementation platform('com.google.firebase:firebase-bom:34.10.0')
     implementation 'com.google.firebase:firebase-config'
 
+    // Plan 05-06 — OkHttp is the chunk-PUT transport for the upload pipeline
+    // (`upload/ChunkUploader.kt`, `upload/UploadCoordinator.kt`). RN already
+    // bundles `com.squareup.okhttp3:okhttp:4.9.2` transitively (it's RN's HTTP
+    // stack on Android — see node_modules/react-native/gradle/libs.versions.toml
+    // `okhttp = "4.9.2"`), but we pin it explicitly here so the upload code's
+    // compile classpath doesn't depend on a transitive coincidence. Same minor
+    // as RN's bundled version — do NOT bump independently of RN's pin.
+    implementation 'com.squareup.okhttp3:okhttp:4.9.2'
+
     // Plan 02-02 Task 2 — Robolectric harness. JVM unit tests for our Kotlin
     // native modules (HumynCompat, HumynCapture, HandDetector, ...) run on
     // the host JVM with shadowed Camera2/SensorManager/StatFs frameworks.
@@ -234,6 +243,9 @@ dependencies {
     testImplementation 'org.robolectric:robolectric:4.16.1'
     testImplementation 'androidx.test:core:1.6.1'
     testImplementation 'androidx.test.ext:junit:1.2.1'
+    // Plan 05-06 — MockWebServer stands in for both the Phase-1 API and S3 in
+    // ChunkUploaderRetryTest / UploadCoordinatorTest. Same OkHttp minor (4.9.2).
+    testImplementation 'com.squareup.okhttp3:mockwebserver:4.9.2'
 }
 
 // Autolinking is handled by `com.facebook.react.settings`'s `autolinkLibrariesFromCommand()`
