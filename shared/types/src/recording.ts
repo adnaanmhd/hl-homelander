@@ -149,6 +149,23 @@ export type RecordingReuploadRequest = z.infer<typeof RecordingReuploadRequestSc
 export const RecordingReuploadResponseSchema = RecordingsInitResponseSchema;
 export type RecordingReuploadResponse = z.infer<typeof RecordingReuploadResponseSchema>;
 
+// POST /recordings/:id/parts (UP-04) — re-presign part URLs against the EXISTING
+// video + IMU multipart uploads (no CreateMultipartUpload of any kind). The client
+// supplies the IMU upload-id it received from the original /init (the server stores
+// only the video upload-id on the row). Used by the upload coordinator on a re-drain
+// after a process-kill / presigned-TTL expiry — keeps the already-uploaded VIDEO
+// *and* IMU parts' ETags valid (preferred over re-/init, which restarts the IMU stream).
+export const RecordingRePresignRequestSchema = z.object({
+  partsCount: z.number().int().min(1).max(1000),
+  imuUploadId: z.string().min(1),
+});
+export type RecordingRePresignRequest = z.infer<typeof RecordingRePresignRequestSchema>;
+
+// The re-presign response is the same shape as /recordings/init's — /init's
+// idempotent re-presign path and /parts both return it.
+export const RecordingRePresignResponseSchema = RecordingsInitResponseSchema;
+export type RecordingRePresignResponse = z.infer<typeof RecordingRePresignResponseSchema>;
+
 // GET /recordings/verified-ids?since=<cursor> (VERIFY-06) — the app-launch
 // reconciliation sweep surface. `since` is an opaque cursor = the last-seen
 // recording_id (its (verified_at, id) tuple is resolved server-side).
