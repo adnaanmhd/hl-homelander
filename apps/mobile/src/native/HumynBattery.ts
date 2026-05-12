@@ -24,6 +24,8 @@ interface HumynBatteryNativeModule {
   start(): Promise<void>;
   /** Unregister the receiver; idempotent. */
   stop(): Promise<void>;
+  /** REC-16 — one-shot synchronous read of the sticky ACTION_BATTERY_CHANGED. */
+  getCurrentLevel(): Promise<{ level: number; isCharging: boolean }>;
 }
 
 function ensure(): HumynBatteryNativeModule {
@@ -47,6 +49,21 @@ export async function start(): Promise<void> {
 /** Stop emitting `onBatteryChanged` events. Implementation: plan 04-05. */
 export async function stop(): Promise<void> {
   return ensure().stop();
+}
+
+/**
+ * REC-16 — one-shot synchronous read of the current battery level (0..1) +
+ * charging state, independent of `start()`/`stop()`. Backed by the sticky
+ * `ACTION_BATTERY_CHANGED` broadcast (no receiver registered). `level` is
+ * `-1` when unknown — callers (the recording start guard) treat a negative
+ * level as "don't block on it". Never throws.
+ */
+export async function getCurrentLevel(): Promise<{ level: number; isCharging: boolean }> {
+  try {
+    return await ensure().getCurrentLevel();
+  } catch {
+    return { level: -1, isCharging: false };
+  }
 }
 
 // Lazy NativeEventEmitter — constructed on first subscribe (mirrors

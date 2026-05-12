@@ -105,3 +105,48 @@ describe('HumynBattery event subscriptions', () => {
     expect(remove).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('HumynBattery.getCurrentLevel (REC-16 sync read — Phase-4 smoke bug 2)', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+  afterEach(() => {
+    vi.doUnmock('react-native');
+  });
+
+  it('forwards to native getCurrentLevel and resolves the {level,isCharging} shape', async () => {
+    const native = {
+      start: vi.fn(),
+      stop: vi.fn(),
+      getCurrentLevel: vi.fn().mockResolvedValue({ level: 0.04, isCharging: false }),
+    };
+    vi.doMock('react-native', () => ({
+      NativeModules: { HumynBattery: native },
+      NativeEventEmitter: vi.fn(),
+    }));
+    const { getCurrentLevel } = await import('../../src/native/HumynBattery');
+    const r = await getCurrentLevel();
+    expect(native.getCurrentLevel).toHaveBeenCalledTimes(1);
+    expect(r).toEqual({ level: 0.04, isCharging: false });
+  });
+
+  it('resolves {level:-1} when the native module is not registered (never throws)', async () => {
+    vi.doMock('react-native', () => ({ NativeModules: {}, NativeEventEmitter: vi.fn() }));
+    const { getCurrentLevel } = await import('../../src/native/HumynBattery');
+    await expect(getCurrentLevel()).resolves.toEqual({ level: -1, isCharging: false });
+  });
+
+  it('resolves {level:-1} when the native call rejects (never throws)', async () => {
+    const native = {
+      start: vi.fn(),
+      stop: vi.fn(),
+      getCurrentLevel: vi.fn().mockRejectedValue(new Error('boom')),
+    };
+    vi.doMock('react-native', () => ({
+      NativeModules: { HumynBattery: native },
+      NativeEventEmitter: vi.fn(),
+    }));
+    const { getCurrentLevel } = await import('../../src/native/HumynBattery');
+    await expect(getCurrentLevel()).resolves.toEqual({ level: -1, isCharging: false });
+  });
+});

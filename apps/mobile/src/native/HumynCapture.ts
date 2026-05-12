@@ -40,6 +40,10 @@ import type {
 interface HumynCaptureNativeModule {
   start(opts: CaptureSessionOpts): Promise<CaptureStartResponse>;
   stop(): Promise<void>;
+  /** D-LIFE-04 — synchronous query for the crash-recovery bases the boot
+   *  sweep re-finalized (the backstop for the one-shot `onCrashRecovery`
+   *  event, which has a fragile boot-timing window on the new arch). */
+  getPendingRecovery(): Promise<{ recovered: string[] }>;
 }
 
 function ensure(): HumynCaptureNativeModule {
@@ -87,6 +91,24 @@ export async function start(opts: CaptureSessionOpts): Promise<CaptureStartRespo
  */
 export async function stop(): Promise<void> {
   return ensure().stop();
+}
+
+/**
+ * D-LIFE-04 — query the crash-recovery bases the boot sweep re-finalized.
+ * The one-shot `onCrashRecovery` event is the primary delivery channel, but
+ * its boot-timing window (module construction ↔ JS subscribe ↔ first
+ * onHostResume) is fragile on the new architecture, so the boot listener
+ * also calls this on first render. Clears the native holder, so whichever
+ * channel fires first wins (the boot listener guards against a double toast).
+ * Resolves `{ recovered: [] }` when there is nothing to recover; never throws.
+ */
+export async function getPendingRecovery(): Promise<{ recovered: string[] }> {
+  try {
+    const r = await ensure().getPendingRecovery();
+    return r && Array.isArray(r.recovered) ? r : { recovered: [] };
+  } catch {
+    return { recovered: [] };
+  }
 }
 
 // NativeEventEmitter — D-API-01 + D-API-03.

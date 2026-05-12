@@ -168,6 +168,7 @@ class HumynCaptureModule(reactContext: ReactApplicationContext) :
                 // Step 5: resolve with the D-API-01 start response shape.
                 promise.resolve(sessionInst.toStartResponse())
             } catch (t: Throwable) {
+                Log.e("HumynCapture", "start() failed — code=${errorCodeFor(t)} msg=${t.message}", t)
                 promise.reject(errorCodeFor(t), t.message ?: "capture_start_failed", t)
             }
         }
@@ -196,6 +197,47 @@ class HumynCaptureModule(reactContext: ReactApplicationContext) :
             } catch (t: Throwable) {
                 promise.reject(errorCodeFor(t), t.message ?: "capture_stop_failed", t)
             }
+        }
+    }
+
+    /**
+     * D-LIFE-04 — synchronous query for the crash-recovery bases the boot
+     * sweep re-finalized. The one-shot `onCrashRecovery` *event* is the
+     * primary delivery channel, but on the new architecture the timing
+     * between (a) `HumynCaptureModule` being constructed + registered as a
+     * `LifecycleEventListener`, (b) the JS bundle evaluating
+     * `installBootRecoveryListener()` and subscribing, and (c) the first
+     * `onHostResume` firing the emit is fragile — a missed emit means the
+     * Home recovery toast silently never shows (Phase-4 smoke bug 3(a)).
+     *
+     * `installBootRecoveryListener()` ALSO calls this on first render; it
+     * resolves the *same* list (and clears [CaptureLaunchSweep.pendingRecovery]
+     * so the event path, if it still fires, sees nothing — the JS side guards
+     * against showing the toast twice). Resolves `{ recovered: string[] }`;
+     * `recovered` is empty when there is nothing to recover. Best-effort —
+     * never rejects.
+     */
+    @ReactMethod
+    fun getPendingRecovery(promise: Promise) {
+        try {
+            val recovered = CaptureLaunchSweep.pendingRecovery ?: emptyList()
+            // Deliberately do NOT clear the holder or touch crashRecoveryEmitted:
+            // the JS boot listener dedups the toast via its own `delivered` flag,
+            // and leaving the holder intact means the `onCrashRecovery` event
+            // path and this synchronous query are both robust regardless of which
+            // fires first on the new arch's fragile boot ordering (Phase-4 smoke
+            // bug 3(a)).
+            promise.resolve(
+                Arguments.createMap().apply {
+                    putArray("recovered", Arguments.fromList(recovered))
+                },
+            )
+        } catch (t: Throwable) {
+            promise.resolve(
+                Arguments.createMap().apply {
+                    putArray("recovered", Arguments.fromList(emptyList<String>()))
+                },
+            )
         }
     }
 
@@ -295,10 +337,13 @@ class HumynCaptureModule(reactContext: ReactApplicationContext) :
     // -------------------------------------------------------------------------
     override fun onHostResume() {
         if (crashRecoveryEmitted) return
-        crashRecoveryEmitted = true
         val recovered = CaptureLaunchSweep.pendingRecovery
-        CaptureLaunchSweep.pendingRecovery = null
         if (recovered.isNullOrEmpty()) return
+        // Latch so we emit the event AT MOST once per process; do NOT clear the
+        // holder — installBootRecoveryListener()'s getPendingRecovery() query is
+        // the reliable channel and reads the same holder. The JS side dedups the
+        // toast via its `delivered` flag, so a redundant emit is harmless.
+        crashRecoveryEmitted = true
         try {
             val payload = Arguments.createMap().apply {
                 putArray("recovered", Arguments.fromList(recovered))
@@ -308,7 +353,8 @@ class HumynCaptureModule(reactContext: ReactApplicationContext) :
         } catch (t: Throwable) {
             // Best-effort — a missing JS module / racing teardown must never
             // crash the capture module. The recovered triples still get picked
-            // up by Phase 5's upload path; only the toast is skipped.
+            // up by Phase 5's upload path; the toast falls back to the
+            // getPendingRecovery() query in installBootRecoveryListener().
             Log.w("HumynCapture", "onCrashRecovery emit failed", t)
         }
     }

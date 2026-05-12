@@ -69,6 +69,65 @@ describe('HumynCapture (native module not registered)', () => {
   });
 });
 
+describe('HumynCapture.getPendingRecovery (D-LIFE-04 crash-recovery query — Phase-4 smoke bug 3a)', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+  afterEach(() => {
+    vi.doUnmock('react-native');
+  });
+
+  it('forwards to native getPendingRecovery and passes through a valid {recovered} payload', async () => {
+    const native = {
+      start: vi.fn(),
+      stop: vi.fn(),
+      getPendingRecovery: vi.fn().mockResolvedValue({ recovered: ['20260511_120000_009'] }),
+    };
+    vi.doMock('react-native', () => ({
+      NativeModules: { HumynCapture: native },
+      NativeEventEmitter: vi.fn(),
+    }));
+    const { getPendingRecovery } = await import('../../src/native/HumynCapture');
+    const r = await getPendingRecovery();
+    expect(native.getPendingRecovery).toHaveBeenCalledTimes(1);
+    expect(r).toEqual({ recovered: ['20260511_120000_009'] });
+  });
+
+  it('normalizes a malformed payload to {recovered: []}', async () => {
+    const native = {
+      start: vi.fn(),
+      stop: vi.fn(),
+      getPendingRecovery: vi.fn().mockResolvedValue({ recovered: 'not-an-array' }),
+    };
+    vi.doMock('react-native', () => ({
+      NativeModules: { HumynCapture: native },
+      NativeEventEmitter: vi.fn(),
+    }));
+    const { getPendingRecovery } = await import('../../src/native/HumynCapture');
+    await expect(getPendingRecovery()).resolves.toEqual({ recovered: [] });
+  });
+
+  it('resolves {recovered: []} when the native module is not registered (never throws)', async () => {
+    vi.doMock('react-native', () => ({ NativeModules: {}, NativeEventEmitter: vi.fn() }));
+    const { getPendingRecovery } = await import('../../src/native/HumynCapture');
+    await expect(getPendingRecovery()).resolves.toEqual({ recovered: [] });
+  });
+
+  it('resolves {recovered: []} when the native call rejects (never throws)', async () => {
+    const native = {
+      start: vi.fn(),
+      stop: vi.fn(),
+      getPendingRecovery: vi.fn().mockRejectedValue(new Error('boom')),
+    };
+    vi.doMock('react-native', () => ({
+      NativeModules: { HumynCapture: native },
+      NativeEventEmitter: vi.fn(),
+    }));
+    const { getPendingRecovery } = await import('../../src/native/HumynCapture');
+    await expect(getPendingRecovery()).resolves.toEqual({ recovered: [] });
+  });
+});
+
 describe('HumynCapture (native module registered)', () => {
   beforeEach(() => {
     vi.resetModules();

@@ -68,6 +68,7 @@ import {
   start as batteryStart,
   stop as batteryStop,
   onBatteryChanged,
+  getCurrentLevel as batteryGetCurrentLevel,
 } from '../../native/HumynBattery';
 import { playTone } from '../../native/HumynBeep';
 import { logEvent } from '../../util/analytics';
@@ -186,11 +187,28 @@ export function useRecordingLifecycle(args: UseRecordingLifecycleArgs): {
       // If we can't read free space, don't block on it — HC's own pre-flight
       // `storage_full` rejection is the backstop.
     }
-    if (
-      lastBatteryLevelRef.current >= 0 &&
-      lastBatteryLevelRef.current < BATTERY_CRITICAL_LEVEL &&
-      !lastBatteryChargingRef.current
-    ) {
+    // Bug-2 fix (Phase-4 on-hardware smoke) — read the battery level ON DEMAND
+    // here. The previous implementation read `lastBatteryLevelRef`, which is
+    // populated only by the `onBatteryChanged` subscription that mounts when
+    // the recording enters the `gate` substate — i.e. AFTER this pre-flight
+    // guard runs — so it was always `-1` (no reading) and never blocked.
+    // `HumynBattery.getCurrentLevel()` reads the sticky ACTION_BATTERY_CHANGED
+    // synchronously regardless of subscription state; fall back to the
+    // last-seen event value if the native read returns "unknown".
+    let level = lastBatteryLevelRef.current;
+    let charging = lastBatteryChargingRef.current;
+    try {
+      const cur = await batteryGetCurrentLevel();
+      if (cur.level >= 0) {
+        level = cur.level;
+        charging = cur.isCharging;
+        lastBatteryLevelRef.current = cur.level;
+        lastBatteryChargingRef.current = cur.isCharging;
+      }
+    } catch {
+      // Never throw out of the start guard — fall through to the cached value.
+    }
+    if (level >= 0 && level < BATTERY_CRITICAL_LEVEL && !charging) {
       return { blocked: true, toast: TOAST_START_BATTERY };
     }
     return { blocked: false };
