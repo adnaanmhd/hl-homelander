@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-08-PLAN.md
+stopped_at: Phase 04 complete (on-hardware smoke walk verdict YES, 2026-05-12) — Phase 05 not started
 last_updated: '2026-05-12T07:54:43.728Z'
 last_activity: 2026-05-12
 progress:
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-07)
 
 **Core value:** On-device capture quality is non-negotiable — every uploaded segment must hit the locked spec (1080p / 30 FPS / ≥110° dFOV / IMU sustained ≥100 Hz / ±1 ms timestamp alignment) or the bytes are worthless for training.
-**Current focus:** Phase 04 — handdetector-recording-ux-practice-tutorial
+**Current focus:** Phase 05 — upload pipeline, hash-verify worker & anti-fraud (not started). Phase 04 closed 2026-05-12.
 
 ## Current Position
 
 Phase: 5
 Plan: Not started
-Status: Executing Phase 04
+Status: Phase 04 complete; Phase 05 (upload pipeline, hash-verify worker & anti-fraud) not started
 
 Phase 2 operator smoke-walk history (carried forward):
 
@@ -49,7 +49,7 @@ Phase 3 hardware UAT pending (7 items, all on real Pixel 7a/8a) — these RETIRE
 
 Last activity: 2026-05-12
 
-Progress: Phase 4 — 10/10 plans complete (Wave 6 — 04-10 landed: onCrashRecovery event + Toast host + bootRecoveryListener + `04-MANUAL-SMOKE.md` on-hardware acceptance runbook with the [BLOCKING] §5b drift gate). Phase 4 awaiting verify; the on-hardware smoke walk is the acceptance gate.
+Progress: Phase 4 — **complete (2026-05-12)**. 12/12 plans landed; gsd-verifier returned `human_needed` (5/5 success criteria code-verified); the on-hardware acceptance gate (`04-MANUAL-SMOKE.md`) was walked on a Pixel 10a — first walk 2026-05-12 verdict NO (4 findings) → `/gsd-debug phase4-smoke-fixes` round fixed all 4 + a 5th bug found mid-fix (auto-segment-rotate deadlock) → re-walk verdict **YES** (`04-HUMAN-UAT.md` → resolved 5/5; `04-VERIFICATION.md` → verified). The original "[BLOCKING] §5b ±1 ms drift" gate was relaxed by the owner 2026-05-12 to measure-and-record (ultrawide-recording path; CLAUDE.md drift banner + `ULTRAWIDE-DRIFT-FINDINGS.md`). Non-blocking follow-ups in `04-COSMETIC-GAPS.md`. Phase 5 (upload pipeline, hash-verify worker & anti-fraud) not yet planned — next: `/gsd-discuss-phase 5` (or `/gsd-plan-phase 5`).
 
 ## Resume Path (set before pause)
 
