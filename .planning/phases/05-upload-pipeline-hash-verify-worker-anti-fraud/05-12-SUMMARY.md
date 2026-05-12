@@ -116,6 +116,19 @@ None — no external service configuration required. (The prod ECS worker task d
 - Dev still uses the `/finalize` LocalStack shim; `recordings_to_verify` + the `verify-sweep` cron remain the durable backstop either way.
 - No blockers.
 
+## Self-Check: PASSED
+
+- Files: `apps/api/src/workers/sqs-poller.ts`, `apps/api/test/workers/sqs-poller.test.ts`, `.planning/phases/05-upload-pipeline-hash-verify-worker-anti-fraud/05-12-SUMMARY.md` — all present.
+- Commits: `ead20d0` (test/RED), `03e3bc3` (feat/GREEN), `5997257` (docs/SUMMARY) — all in history.
+- `apps/api/package.json` has the `worker:sqs-poller` script; `infra/terraform/modules/verify-queue/main.tf` comment references `apps/api/src/workers/sqs-poller.ts`.
+- Verification: `WORKER_BOOTSTRAP=false pnpm vitest run test/workers/sqs-poller.test.ts` → 11/11 pass; `pnpm tsc --noEmit` → exit 0.
+
+## TDD Gate Compliance
+
+- RED gate: `ead20d0` `test(05-12): add failing parser tests for sqs-poller` (test failed — module did not exist).
+- GREEN gate: `03e3bc3` `feat(05-12): implement prod sqs-poller ...` (after RED; tests + tsc green).
+- REFACTOR gate: none (GREEN was clean; the one-line `tsc` fix was folded into the GREEN commit's scope).
+
 ---
 
 _Phase: 05-upload-pipeline-hash-verify-worker-anti-fraud_
