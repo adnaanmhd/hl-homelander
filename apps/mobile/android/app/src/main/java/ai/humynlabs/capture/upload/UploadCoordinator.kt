@@ -1,0 +1,462 @@
+package ai.humynlabs.capture.upload
+
+import android.util.Log
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.io.IOException
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.concurrent.Semaphore
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
+
+/**
+ * Phase 5 / Plan 05-06 — the upload-queue drainer.
+ *
+ * [drain] reads the durable queue ([UploadQueueStore.read]) and, for each row
+ * that still needs work and is owned by the currently signed-in user, runs the
+ * Phase-1 multipart flow:
+ *
+ *   1. `POST /recordings/init` (or `/recordings/:id/reupload` for a hash-mismatch
+ *      re-upload — Plan 05-08 sets `reupload` state) with
+ *      `partsCount = partsCountFor(videoSizeBytes, chunkBytesForNetwork(isCellular))`
+ *      decided ONCE here and pinned on the row → gets `partUrls` / `imuPartUrls`
+ *      / `metadataUrl` / `uploadId` / `imuUploadId`. (UP-01)
+ *   2. PUT `metadata.json` to `metadataUrl` (one shot).
+ *   3. PUT each video part to its presigned URL and the single IMU part to its
+ *      presigned URL, behind a 6-permit [Semaphore] used as 3 video ∥ + 3 IMU ∥
+ *      (the IMU CSV is tiny → part 1 only; the surplus IMU part-URLs are ignored
+ *      — Pitfall 2), each via [ChunkUploader.uploadPart] (the
+ *      retry/backoff/watchdog). After each successful part, `{etag,status}` is
+ *      persisted into the queue row ([UploadQueueStore.upsert]) and a DEBOUNCED
+ *      progress event is emitted (≤ once per 5 s per row). (UP-03)
+ *   4. `POST /recordings/:id/finalize` with `{ videoParts, imuParts, imuUploadId }`.
+ *   5. Mark the row `AWAITING_VERIFY` — it stays in the queue until a
+ *      `verified` / `re-upload` event clears it (Plan 05-08). On a
+ *      non-retryable error ([DeadLetterException]) mark `DEAD_LETTER`. (UP-14)
+ *
+ * Pause / owner safety:
+ *  - [isPaused] (the `UploadControlState` flag, flipped by
+ *    `HumynUploadModule.pause()` / `resume()`, UP-10) short-circuits [drain]
+ *    before each PUT.
+ *  - rows whose `ownerUserId != getCurrentSub()` are skipped — a row owned by a
+ *    logged-out / different user just waits (UP-13, T-5-06-03).
+ *
+ * Threading: [drain] hops onto a single-thread executor (it's also called from
+ * the FGS thread in Plan 05-07 — the FGS owns the `startForeground`-with-
+ * `dataSync` lifecycle; this plan provides the `drain()` logic + sends the
+ * `ACTION_SET_UPLOAD_ACTIVE` intent from `HumynUploadModule.enqueue()`). The
+ * parallel part PUTs run on a small fixed pool, capped by the semaphore. NEVER
+ * on the JS / main thread.
+ *
+ * The auth context (API base URL, bearer JWT, signed-in `sub`) is pushed from
+ * the JS side via `HumynUploadModule.setUploadContext(...)` into
+ * [UploadAuthContext] — the JWT lives in encrypted MMKV which is awkward to read
+ * from Kotlin, so the bridge injects it instead (and refreshes it on `resume()`).
+ * Presigned S3 PUTs carry NO bearer (they're presigned); only `/init`,
+ * `/finalize`, `/reupload` get the `Authorization: Bearer` header.
+ */
+class UploadCoordinator(
+    private val queueStore: UploadQueueStore,
+    private val networkMonitor: NetworkMonitor,
+    private val emitProgress: (recordingId: String, bytesUploaded: Long, bytesTotal: Long) -> Unit,
+    private val emitQueueChanged: () -> Unit,
+    private val getApiBaseUrl: () -> String?,
+    private val getBearerToken: () -> String?,
+    private val getCurrentSub: () -> String?,
+    private val isPaused: () -> Boolean,
+    /** Test seam — short backoff so tests don't sleep 2/4/8 s. */
+    private val chunkUploader: ChunkUploader = ChunkUploader(DEFAULT_HTTP_CLIENT),
+) {
+
+    private val apiClient: OkHttpClient = DEFAULT_HTTP_CLIENT
+    private val drainExecutor: ExecutorService = Executors.newSingleThreadExecutor { r ->
+        Thread(r, "humyn-upload-drain").apply { isDaemon = true }
+    }
+    private val partExecutor: ExecutorService = Executors.newFixedThreadPool(6) { r ->
+        Thread(r, "humyn-upload-part").apply { isDaemon = true }
+    }
+    private val partSemaphore = Semaphore(6) // 3 video ∥ + 3 IMU ∥ (IMU has 1 part → effectively 3 video + 1 IMU)
+
+    /** The active in-flight calls, so [cancelInflight] can abort them on pause/logout. */
+    private val inflight = java.util.Collections.synchronizedSet(mutableSetOf<okhttp3.Call>())
+
+    /** Per-row last-progress-emit timestamp (debounce to ≤ once / 5 s). */
+    private val lastEmitMs = java.util.Collections.synchronizedMap(mutableMapOf<String, Long>())
+
+    // -------------------------------------------------------------------------
+    // Public surface
+    // -------------------------------------------------------------------------
+
+    /** Kick a queue drain on the drain thread. No-op if paused / no network / no signed-in user. */
+    fun drain() {
+        drainExecutor.execute { drainNow() }
+    }
+
+    /**
+     * Synchronous drain — exposed for the FGS thread (Plan 05-07) which calls it
+     * directly on its own background thread, and for tests. Iterates the queue,
+     * uploads each eligible row, dead-letters on a [DeadLetterException], leaves
+     * a transient failure as-is (the next drain retries).
+     */
+    fun drainNow() {
+        if (isPaused()) return
+        val sub = getCurrentSub() ?: return
+        if (!networkMonitor.hasNetwork()) return
+        for (row in queueStore.read()) {
+            if (isPaused()) break
+            if (row.ownerUserId != sub) continue
+            if (row.state == UploadState.AWAITING_VERIFY ||
+                row.state == UploadState.VERIFIED ||
+                row.state == UploadState.DEAD_LETTER
+            ) {
+                continue
+            }
+            try {
+                uploadOne(row)
+            } catch (e: DeadLetterException) {
+                row.state = UploadState.DEAD_LETTER
+                row.deadLetterReason = e.message ?: "upload failed"
+                queueStore.upsert(row)
+                emitQueueChanged()
+            } catch (e: Exception) {
+                // Transient — leave the row PENDING/UPLOADING; the next drain retries.
+                // (Never log the presigned URLs — T-5-06-02. recordingId is a ULID, safe.)
+                Log.w(TAG, "row ${row.recordingId} upload failed transiently: ${e.message}")
+            }
+        }
+    }
+
+    /** Cancel any in-flight HTTP calls (pause / logout). Queue rows are NOT discarded — they resume. */
+    fun cancelInflight() {
+        synchronized(inflight) {
+            inflight.forEach { runCatching { it.cancel() } }
+            inflight.clear()
+        }
+    }
+
+    /** Shut down the executors + the chunk-uploader watchdog scheduler (HumynUploadModule.invalidate()). */
+    fun shutdown() {
+        runCatching { cancelInflight() }
+        runCatching { drainExecutor.shutdownNow() }
+        runCatching { partExecutor.shutdownNow() }
+        runCatching { chunkUploader.shutdown() }
+    }
+
+    // -------------------------------------------------------------------------
+    // The Pattern-1 flow
+    // -------------------------------------------------------------------------
+
+    private fun uploadOne(row: UploadRow) {
+        val baseUrl = getApiBaseUrl()?.trimEnd('/')
+            ?: throw IOException("API base URL not configured — cannot /init")
+        val mp4 = File(row.mp4Path)
+        val csv = File(row.csvPath)
+        val jsonFile = File(row.jsonPath)
+        if (!mp4.exists() || !csv.exists() || !jsonFile.exists()) {
+            throw DeadLetterException("recording ${row.recordingId}: a bundle file is missing on disk", null)
+        }
+
+        // 1. /init (or /reupload) — decide partsCount ONCE on the first call and
+        //    pin it (`row.partsCount` / `row.chunkBytes`); a re-drain re-issues
+        //    fresh (non-expired) presigned URLs but KEEPS the row's per-part
+        //    {etag,status} (a DONE part is never re-PUT, UP-04).
+        val isReupload = row.reupload // Plan 05-08's "re-upload after hash-mismatch" marker
+        if (row.chunkBytes == null) {
+            row.chunkBytes = chunkBytesForNetwork(networkMonitor.isCellular())
+        }
+        if (row.partsCount == null) {
+            row.partsCount = partsCountFor(mp4.length(), row.chunkBytes!!)
+        }
+        val partsCount = row.partsCount!!
+        // Lay out the per-part state ONCE (preserve any pre-existing DONE parts on a re-drain).
+        if (row.videoParts.isEmpty()) {
+            row.videoParts.addAll((1..partsCount).map { PartState(it) })
+        } else {
+            // Defensive: top up if the layout is short (shouldn't happen — partsCount is pinned).
+            for (n in (row.videoParts.size + 1)..partsCount) row.videoParts.add(PartState(n))
+        }
+        if (row.imuParts.isEmpty()) row.imuParts.add(PartState(1))
+
+        val initResp: InitResponse = if (isReupload) {
+            postReupload(baseUrl, row, partsCount)
+        } else {
+            postInit(baseUrl, row, jsonFile, partsCount)
+        }
+        row.uploadId = initResp.uploadId
+        row.imuUploadId = initResp.imuUploadId
+        row.state = UploadState.UPLOADING
+        queueStore.upsert(row)
+
+        if (isPaused()) return
+
+        // 2. metadata.json — one shot, but through the same retry/backoff/
+        //    dead-letter machinery (a permanently-failing metadata PUT
+        //    dead-letters the recording rather than spinning forever).
+        if (row.metadataPut != PartStatus.DONE) {
+            chunkUploader.putPart(
+                initResp.metadataUrl, jsonFile, 0, jsonFile.length(),
+            ) { maybeEmitProgress(row, mp4.length() + csv.length() + jsonFile.length()) }
+            row.metadataPut = PartStatus.DONE
+            queueStore.upsert(row)
+        }
+
+        if (isPaused()) return
+
+        val chunkBytes = row.chunkBytes ?: chunkBytesForNetwork(false)
+        val totalBytes = mp4.length() + csv.length() + jsonFile.length()
+
+        // 3. video parts + the 1 IMU part, behind the 6-permit semaphore.
+        val futures = mutableListOf<Future<*>>()
+        for (p in row.videoParts) {
+            if (p.status == PartStatus.DONE) continue
+            val partNumber = p.n
+            val url = initResp.partUrls.firstOrNull { it.partNumber == partNumber }?.url
+                ?: throw IOException("no presigned URL for video part $partNumber")
+            futures += partExecutor.submit {
+                if (isPaused()) return@submit
+                partSemaphore.acquire()
+                try {
+                    val offset = (partNumber - 1L) * chunkBytes
+                    val length = minOf(chunkBytes, mp4.length() - offset)
+                    chunkUploader.uploadPart(row.videoParts, partNumber, mp4, offset, length, url) {
+                        maybeEmitProgress(row, totalBytes)
+                    }
+                    synchronized(queueStore) { queueStore.upsert(row) }
+                } finally {
+                    partSemaphore.release()
+                }
+            }
+        }
+        // IMU — always one part (the CSV is tiny → 1 part regardless; ignore surplus imuPartUrls).
+        if (row.imuParts.first().status != PartStatus.DONE) {
+            val imuUrl = initResp.imuPartUrls.firstOrNull { it.partNumber == 1 }?.url
+                ?: throw IOException("no presigned URL for IMU part 1")
+            futures += partExecutor.submit {
+                if (isPaused()) return@submit
+                partSemaphore.acquire()
+                try {
+                    chunkUploader.uploadPart(row.imuParts, 1, csv, 0, csv.length(), imuUrl) {
+                        maybeEmitProgress(row, totalBytes)
+                    }
+                    synchronized(queueStore) { queueStore.upsert(row) }
+                } finally {
+                    partSemaphore.release()
+                }
+            }
+        }
+        // Wait for all part PUTs; surface a DeadLetterException so the row dead-letters.
+        var deadLetter: DeadLetterException? = null
+        var transient: Exception? = null
+        for (f in futures) {
+            try {
+                f.get()
+            } catch (e: java.util.concurrent.ExecutionException) {
+                when (val cause = e.cause) {
+                    is DeadLetterException -> deadLetter = cause
+                    is Exception -> transient = cause
+                    else -> transient = IOException(cause)
+                }
+            }
+        }
+        if (deadLetter != null) throw deadLetter
+        if (transient != null) throw transient
+        if (isPaused()) return
+
+        // Re-check every part landed (defensive — uploadPart already throws on failure).
+        if (row.videoParts.any { it.status != PartStatus.DONE || it.etag == null } ||
+            row.imuParts.any { it.status != PartStatus.DONE || it.etag == null }
+        ) {
+            throw IOException("some parts did not complete — will retry next drain")
+        }
+
+        // 4. /finalize.
+        row.state = UploadState.FINALIZING
+        queueStore.upsert(row)
+        postFinalize(baseUrl, row)
+
+        // 5. AWAITING_VERIFY — stays in the queue until a verified/re-upload event (Plan 05-08).
+        row.state = UploadState.AWAITING_VERIFY
+        row.reupload = false // a successful (re-)upload clears the marker
+        row.lastProgressAt = System.currentTimeMillis()
+        queueStore.upsert(row)
+        emitQueueChanged()
+        lastEmitMs.remove(row.recordingId)
+    }
+
+    private fun maybeEmitProgress(row: UploadRow, totalBytes: Long) {
+        val now = System.currentTimeMillis()
+        val last = lastEmitMs[row.recordingId] ?: 0L
+        if (now - last < PROGRESS_DEBOUNCE_MS) return
+        lastEmitMs[row.recordingId] = now
+        row.lastProgressAt = now
+        val done = doneBytes(row)
+        runCatching { emitProgress(row.recordingId, done, totalBytes) }
+    }
+
+    private fun doneBytes(row: UploadRow): Long {
+        val chunk = row.chunkBytes ?: chunkBytesForNetwork(false)
+        val mp4Len = File(row.mp4Path).length()
+        var sum = 0L
+        for (p in row.videoParts) {
+            if (p.status == PartStatus.DONE) {
+                val offset = (p.n - 1L) * chunk
+                sum += minOf(chunk, (mp4Len - offset).coerceAtLeast(0L))
+            }
+        }
+        if (row.imuParts.firstOrNull()?.status == PartStatus.DONE) sum += File(row.csvPath).length()
+        if (row.metadataPut == PartStatus.DONE) sum += File(row.jsonPath).length()
+        return sum
+    }
+
+    // -------------------------------------------------------------------------
+    // HTTP — /init, /reupload, /finalize, presigned PUTs
+    // -------------------------------------------------------------------------
+
+    private data class PartUrl(val partNumber: Int, val url: String)
+    private data class InitResponse(
+        val uploadId: String,
+        val imuUploadId: String,
+        val partUrls: List<PartUrl>,
+        val imuPartUrls: List<PartUrl>,
+        val metadataUrl: String,
+    )
+
+    private fun authedJsonRequest(url: String, bodyJson: JSONObject): Request {
+        val token = getBearerToken()
+        return Request.Builder()
+            .url(url)
+            .post(bodyJson.toString().toRequestBody("application/json".toMediaTypeOrNull()))
+            .apply { if (!token.isNullOrBlank()) header("Authorization", "Bearer $token") }
+            .build()
+    }
+
+    private fun executeTracked(req: Request): okhttp3.Response {
+        val call = apiClient.newCall(req)
+        inflight.add(call)
+        return try {
+            call.execute()
+        } finally {
+            inflight.remove(call)
+        }
+    }
+
+    private fun postInit(baseUrl: String, row: UploadRow, jsonFile: File, partsCount: Int): InitResponse {
+        // The /recordings/init body (per shared/types RecordingsInitRequestSchema):
+        // recordingId, taskId (26-char ULID), practice, partsCount, durationMs,
+        // fileSha256, imuSha256, fileSizeBytes, imuSizeBytes, capturedAt (ISO).
+        // We read the SHAs/sizes/timestamp out of the metadata JSON produced by
+        // MetadataComposer at capture time (top-level `recording_id`, nested
+        // `metadata.{file_sha256, imu_sha256, file_size_bytes, imu_size_bytes,
+        // duration_seconds, start_timestamp}`); recordingId/taskId come from the row.
+        val meta = JSONObject(jsonFile.readText())
+        val m = meta.optJSONObject("metadata") ?: JSONObject()
+        val body = JSONObject().apply {
+            put("recordingId", row.recordingId)
+            put("taskId", row.taskId)
+            put("practice", row.isPractice)
+            put("partsCount", partsCount)
+            put("durationMs", Math.round((m.optDouble("duration_seconds", 0.0)) * 1000.0))
+            put("fileSha256", m.optString("file_sha256", ""))
+            put("imuSha256", m.optString("imu_sha256", ""))
+            put("fileSizeBytes", m.optLong("file_size_bytes", File(row.mp4Path).length()))
+            put("imuSizeBytes", m.optLong("imu_size_bytes", File(row.csvPath).length()))
+            put("capturedAt", m.optString("start_timestamp", ""))
+        }
+        executeTracked(authedJsonRequest("$baseUrl/recordings/init", body)).use { resp ->
+            if (!resp.isSuccessful) throw IOException("/recordings/init -> ${resp.code}")
+            return parseInitResponse(resp.body?.string().orEmpty())
+        }
+    }
+
+    private fun postReupload(baseUrl: String, row: UploadRow, partsCount: Int): InitResponse {
+        // POST /recordings/:id/reupload — body is just { partsCount } (Plan 05-05).
+        val body = JSONObject().put("partsCount", partsCount)
+        executeTracked(authedJsonRequest("$baseUrl/recordings/${row.recordingId}/reupload", body)).use { resp ->
+            if (!resp.isSuccessful) throw IOException("/recordings/${row.recordingId}/reupload -> ${resp.code}")
+            return parseInitResponse(resp.body?.string().orEmpty())
+        }
+    }
+
+    private fun parseInitResponse(text: String): InitResponse {
+        val o = JSONObject(text)
+        fun parts(key: String): List<PartUrl> {
+            val arr = o.optJSONArray(key) ?: JSONArray()
+            val out = mutableListOf<PartUrl>()
+            for (i in 0 until arr.length()) {
+                val po = arr.optJSONObject(i) ?: continue
+                out.add(PartUrl(po.getInt("partNumber"), po.getString("url")))
+            }
+            return out
+        }
+        return InitResponse(
+            uploadId = o.getString("uploadId"),
+            imuUploadId = o.getString("imuUploadId"),
+            partUrls = parts("partUrls"),
+            imuPartUrls = parts("imuPartUrls"),
+            metadataUrl = o.getString("metadataUrl"),
+        )
+    }
+
+    private fun postFinalize(baseUrl: String, row: UploadRow) {
+        // POST /recordings/:id/finalize — { videoParts:[{partNumber,etag}],
+        // imuParts:[...], imuUploadId } (shared/types RecordingFinalizeSchema +
+        // the finalize route's FinalizeBodyExtended).
+        fun partsArray(parts: List<PartState>): JSONArray = JSONArray().apply {
+            parts.forEach {
+                put(JSONObject().put("partNumber", it.n).put("etag", it.etag ?: ""))
+            }
+        }
+        val body = JSONObject().apply {
+            put("videoParts", partsArray(row.videoParts))
+            put("imuParts", partsArray(row.imuParts))
+            put("imuUploadId", row.imuUploadId ?: "")
+        }
+        executeTracked(authedJsonRequest("$baseUrl/recordings/${row.recordingId}/finalize", body)).use { resp ->
+            if (!resp.isSuccessful) throw IOException("/recordings/${row.recordingId}/finalize -> ${resp.code}")
+        }
+    }
+
+    companion object {
+        private const val TAG = "HumynUploadCoord"
+        private const val PROGRESS_DEBOUNCE_MS = 5_000L
+
+        /**
+         * The shared OkHttp client for the upload pipeline: the best-effort
+         * [MssSocketFactory] (UP-19 half b), a 30 s connect timeout, and
+         * `readTimeout(0)` / `callTimeout(0)` — stall-handling is the
+         * `ChunkUploader` 30 s no-progress watchdog's job (a fixed `readTimeout`
+         * would kill a slow-but-progressing transfer on a bad cellular link).
+         */
+        val DEFAULT_HTTP_CLIENT: OkHttpClient = OkHttpClient.Builder()
+            .socketFactory(MssSocketFactory())
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(0, TimeUnit.SECONDS)
+            .writeTimeout(0, TimeUnit.SECONDS)
+            .callTimeout(0, TimeUnit.SECONDS)
+            .build()
+    }
+}
+
+/**
+ * Process-lived auth context for the upload pipeline. `HumynUploadModule`
+ * pushes the API base URL + bearer JWT + signed-in `sub` here (the JWT lives in
+ * encrypted MMKV which is awkward to read from Kotlin — the bridge injects it,
+ * refreshed on `resume()`). `UploadCoordinator` reads it. Lives at module scope
+ * (not on the bridge instance) so it survives a catalyst reload.
+ */
+internal object UploadAuthContext {
+    private val ref = AtomicReference<Triple<String?, String?, String?>>(Triple(null, null, null))
+    fun set(apiBaseUrl: String?, bearerToken: String?, sub: String?) {
+        ref.set(Triple(apiBaseUrl, bearerToken, sub))
+    }
+    fun apiBaseUrl(): String? = ref.get().first
+    fun bearerToken(): String? = ref.get().second
+    fun sub(): String? = ref.get().third
+}

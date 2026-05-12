@@ -13,6 +13,7 @@ import com.facebook.react.module.annotations.ReactModule
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import ai.humynlabs.capture.fgs.HumynForegroundService
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Phase 5 / Plan 05-04 — the `HumynUpload` RN bridge.
@@ -57,7 +58,64 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
     /** The native-owned durable queue (JSON-on-disk under filesDir/upload-queue). */
     private val queueStore = UploadQueueStore(reactContext.applicationContext)
 
+    /**
+     * The paused flag. Mirrors [UploadControlState] (the process-lived
+     * @Volatile flag from Plan 05-04 that survives a catalyst reload) — the
+     * coordinator reads `UploadControlState::isPaused`; this AtomicBoolean is
+     * the bridge-instance handle the plan calls for. Both are kept in sync.
+     */
+    private val paused = AtomicBoolean(UploadControlState.isPaused())
+
+    /** Event-driven network monitor — wakes the coordinator when connectivity returns. */
+    private val networkMonitor by lazy {
+        NetworkMonitor(reactContext.applicationContext, ::onConnectivityRegained)
+    }
+
+    /**
+     * The transfer engine (Plan 05-06): drains the queue, runs the multipart
+     * flow with bounded concurrency, persists per-part state, dead-letters
+     * cleanly. The auth context (API base URL + bearer JWT + signed-in sub) is
+     * pushed in via [setUploadContext] (the JWT lives in encrypted MMKV — the
+     * bridge injects it rather than reaching MMKV from Kotlin).
+     */
+    private val coordinator by lazy {
+        UploadCoordinator(
+            queueStore = queueStore,
+            networkMonitor = networkMonitor,
+            emitProgress = ::emitProgress,
+            emitQueueChanged = ::emitQueueChanged,
+            getApiBaseUrl = UploadAuthContext::apiBaseUrl,
+            getBearerToken = UploadAuthContext::bearerToken,
+            getCurrentSub = UploadAuthContext::sub,
+            isPaused = UploadControlState::isPaused,
+        )
+    }
+
+    init {
+        runCatching { networkMonitor.register() }
+    }
+
     override fun getName(): String = NAME
+
+    /**
+     * Push the auth context the coordinator needs for `/recordings/init`,
+     * `/finalize`, `/reupload`: the API base URL (`react-native-config`
+     * `API_BASE_URL`), the current bearer JWT (from encrypted MMKV on the JS
+     * side), and the signed-in user's `sub`. The JS side calls this on launch,
+     * after sign-in, and on resume (to refresh a rotated token). Presigned S3
+     * PUTs never carry the bearer (they're presigned).
+     */
+    @ReactMethod
+    fun setUploadContext(apiBaseUrl: String?, bearerToken: String?, sub: String?, promise: Promise) {
+        bgExecutor.execute {
+            try {
+                UploadAuthContext.set(apiBaseUrl, bearerToken, sub)
+                promise.resolve(null)
+            } catch (t: Throwable) {
+                promise.reject("UPLOAD_SET_CONTEXT_FAILED", t.message ?: "setUploadContext failed", t)
+            }
+        }
+    }
 
     /**
      * Add a recording's bundle to the upload queue. Practice recordings are
@@ -92,6 +150,9 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
                 queueStore.enqueue(row)
                 emitQueueChanged()
                 signalUploadActiveBestEffort()
+                // Plan 05-06: kick the drainer (no-op if paused / no signed-in
+                // user / no network — the coordinator re-checks).
+                runCatching { coordinator.drain() }
                 promise.resolve(null)
             } catch (t: Throwable) {
                 promise.reject("UPLOAD_ENQUEUE_FAILED", t.message ?: "enqueue failed", t)
@@ -109,6 +170,9 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
         bgExecutor.execute {
             try {
                 UploadControlState.setPaused(true)
+                paused.set(true)
+                // Cancel in-flight HTTP calls — parts/queue rows are NOT discarded; they resume.
+                runCatching { coordinator.cancelInflight() }
                 promise.resolve(null)
             } catch (t: Throwable) {
                 promise.reject("UPLOAD_PAUSE_FAILED", t.message ?: "pause failed", t)
@@ -122,7 +186,9 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
         bgExecutor.execute {
             try {
                 UploadControlState.setPaused(false)
-                // Plan 05-06's coordinator wakes itself off this flag flip.
+                paused.set(false)
+                // Plan 05-06: kick the drainer back into action.
+                runCatching { coordinator.drain() }
                 promise.resolve(null)
             } catch (t: Throwable) {
                 promise.reject("UPLOAD_RESUME_FAILED", t.message ?: "resume failed", t)
@@ -202,11 +268,17 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
     // Internals
     // -------------------------------------------------------------------------
 
+    /** Connectivity regained → wake the coordinator (unless paused). */
+    private fun onConnectivityRegained() {
+        if (!UploadControlState.isPaused()) runCatching { coordinator.drain() }
+    }
+
     private fun signalUploadActiveBestEffort() {
         runCatching {
             val ctx = reactApplicationContext.applicationContext
             val intent = Intent(ctx, HumynForegroundService::class.java)
                 .setAction(HumynForegroundService.ACTION_SET_UPLOAD_ACTIVE)
+                .putExtra(HumynForegroundService.EXTRA_UPLOAD_ACTIVE, true)
             ctx.startService(intent)
         }
     }
@@ -243,6 +315,7 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
         putDouble("enqueuedAt", r.enqueuedAt.toDouble())
         putDouble("lastProgressAt", r.lastProgressAt.toDouble())
         if (r.deadLetterReason != null) putString("deadLetterReason", r.deadLetterReason)
+        putBoolean("reupload", r.reupload)
     }
 
     private fun rowsToWritableArray(rows: List<UploadRow>): WritableArray =
@@ -250,6 +323,8 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
 
     override fun invalidate() {
         runCatching { bgExecutor.shutdownNow() }
+        runCatching { coordinator.shutdown() }
+        runCatching { networkMonitor.unregister() }
         super.invalidate()
     }
 }
