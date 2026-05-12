@@ -145,10 +145,10 @@
 
 ### Upload Pipeline
 
-- [ ] **UP-01**: System uploads each segment's three files (MP4 + IMU CSV + metadata JSON) via S3 multipart with presigned URLs
+- [x] **UP-01**: System uploads each segment's three files (MP4 + IMU CSV + metadata JSON) via S3 multipart with presigned URLs
 - [x] **UP-02**: Chunk size = 8 MB on Wi-Fi (last chunk may be smaller); 2 MB on cellular (per research **[research]**) (cellular S3 part size = 5 MiB — reconciled to S3's 5-MiB minimum non-final part size, 2026-05-12; idea-brief.md §7.1 still states 2 MB, not edited)
-- [ ] **UP-03**: Concurrency = 3 chunks in parallel per file × 2 files in parallel
-- [ ] **UP-04**: Failed chunks retry independently with exponential backoff (2 / 4 / 8 / 16 / 32 / 64 s → dead-letter); no whole-file restart
+- [x] **UP-03**: Concurrency = 3 chunks in parallel per file × 2 files in parallel
+- [x] **UP-04**: Failed chunks retry independently with exponential backoff (2 / 4 / 8 / 16 / 32 / 64 s → dead-letter); no whole-file restart
 - [x] **UP-05**: Uploads start automatically once a recording stops
 - [ ] **UP-06**: Uploads run in a foreground service that survives backgrounding and force-quit; on Android 14+ the service type downgrades from `camera|microphone|dataSync` (during recording) → `dataSync` (post-recording) → stops after 5 min idle **[research]**
 - [ ] **UP-07**: On Android 15+, true-background uploads run via a UIDT JobService (`setUserInitiated(true)` + `RUN_USER_INITIATED_JOBS` permission) to survive the 6-hour `dataSync` cap **[research]**
@@ -163,7 +163,7 @@
 - [x] **UP-16**: On `re-upload` event (hash mismatch), app re-uploads using the still-present local copy
 - [x] **UP-17**: Cellular uploads are allowed by default at MVP (no Wi-Fi-only toggle)
 - [x] **UP-18**: System sends `null` for `ip_address`; server populates from request headers
-- [ ] **UP-19**: System uses TCP_MAXSEG=1280 + 30-second no-progress abandon-and-retry-with-fresh-socket on cellular to defeat MTU-blackhole retry storms on Jio (CGNAT) and Vivo Brasil **[research]**
+- [x] **UP-19**: System uses TCP_MAXSEG=1280 + 30-second no-progress abandon-and-retry-with-fresh-socket on cellular to defeat MTU-blackhole retry storms on Jio (CGNAT) and Vivo Brasil **[research]**
 
 ### History
 
@@ -481,10 +481,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REC-14      | Phase 4 | Done (04-08)          |
 | REC-15      | Phase 4 | Done (04-07)          |
 | REC-16      | Phase 4 | Done (04-08)          |
-| UP-01       | Phase 5 | Pending               |
+| UP-01       | Phase 5 | Complete              |
 | UP-02       | Phase 5 | Complete              |
-| UP-03       | Phase 5 | Pending               |
-| UP-04       | Phase 5 | Pending               |
+| UP-03       | Phase 5 | Complete              |
+| UP-04       | Phase 5 | Complete              |
 | UP-05       | Phase 5 | Complete              |
 | UP-06       | Phase 5 | Pending               |
 | UP-07       | Phase 5 | Pending               |
@@ -499,7 +499,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UP-16       | Phase 5 | Complete              |
 | UP-17       | Phase 5 | Complete              |
 | UP-18       | Phase 5 | Complete              |
-| UP-19       | Phase 5 | Pending               |
+| UP-19       | Phase 5 | Complete              |
 | HIST-01     | Phase 6 | Pending               |
 | HIST-02     | Phase 6 | Pending               |
 | HIST-03     | Phase 6 | Pending               |

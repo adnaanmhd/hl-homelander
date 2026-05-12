@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Completed 05-02-PLAN.md
-last_updated: '2026-05-12T12:13:25.683Z'
+last_updated: '2026-05-12T13:11:45.472Z'
 last_activity: 2026-05-12
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 66
-  completed_plans: 63
-  percent: 95
+  completed_plans: 64
+  percent: 97
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 05 (upload-pipeline-hash-verify-worker-anti-fraud) — EXECUTING
-Plan: 6 of 8
+Plan: 7 of 8
 Status: Ready to execute
 
 Phase 2 operator smoke-walk history (carried forward):
@@ -117,6 +117,7 @@ _Updated after each plan completion_
 | Phase 05 P03 | 10min | 5 tasks | 20 files |
 | Phase 05 P04 | ~25m | 3 tasks | 8 files |
 | Phase 05 P05 | 16min | 3 tasks | 25 files |
+| Phase 05 P06 | 95min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -265,6 +266,7 @@ Recent decisions affecting current work:
 - [Phase ?]: Plan 05-05: /finalize dev-shim enqueueVerify is fire-and-forget not awaited (ioredis maxRetriesPerRequest:null retries forever); recordings_to_verify + verify-sweep cron are the durable backstop
 - [Phase ?]: Plan 05-05: RecordingSchema.ipAddress widened to z.string().nullable() on the response (UP-18); CREATE request still requires null; SHARED_TYPES_VERSION 0.7.0->0.8.0
 - [Phase ?]: Plan 05-05: verify-queue + redis Terraform modules wired into prod env only (no envs/dev/; staging carries the prod-only comment); src/workers/sqs-poller.ts referenced but deferred (known stub)
+- [Phase ?]: Plan 05-06: HumynUpload transfer engine — ChunkUploader (streaming PUT-per-part + ETag + 2/4/8/16/32/64s retry→dead-letter + 30s no-progress watchdog + best-effort TCP_MAXSEG=1280 MssSocketFactory clamp), UploadCoordinator (/init→metadata+parts PUTs behind a Semaphore(6)=3∥×2∥→/finalize→AWAITING_VERIFY, per-part {etag,status} persistence, pause/owner-aware, debounced progress, dead-letters cleanly), NetworkMonitor (isCellular() only picks chunk size — no Wi-Fi-only gate; event-driven registerDefaultNetworkCallback resume). Decisions: ChunkUploader backoff/window are ctor params for fast tests; metadata PUT via putPart so a permanent failure dead-letters; UploadRow.reupload is the Plan-05-08 hash-mismatch re-upload seam; bearer+baseURL+sub pushed via setUploadContext (JWT in encrypted MMKV); okhttp:4.9.2 + mockwebserver:4.9.2 pinned. UP-19 manual smoke step open: verify whether the MSS clamp takes on-device.
 
 ### Quick Tasks Completed
 
@@ -323,7 +325,7 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-12T12:13:02.304Z
+Last session: 2026-05-12T13:11:37.751Z
 Last activity: 2026-05-11 — Completed 04-08-PLAN.md: recording-lifecycle support modules (useRecordingLifecycle §10 policy table + practice 60s cap + checkStartGuards; ttsVoice REC-14 fallback chain + speakCue; durationFormat REC-04/HOME-06; **DEV**-gated debug entry to RecordingScreen on TasksPlaceholder; 39 new tests)
 Stopped at: Completed 05-02-PLAN.md
 
