@@ -146,7 +146,7 @@
 ### Upload Pipeline
 
 - [ ] **UP-01**: System uploads each segment's three files (MP4 + IMU CSV + metadata JSON) via S3 multipart with presigned URLs
-- [ ] **UP-02**: Chunk size = 8 MB on Wi-Fi (last chunk may be smaller); 2 MB on cellular (per research **[research]**)
+- [ ] **UP-02**: Chunk size = 8 MB on Wi-Fi (last chunk may be smaller); 2 MB on cellular (per research **[research]**) (cellular S3 part size = 5 MiB — reconciled to S3's 5-MiB minimum non-final part size, 2026-05-12; idea-brief.md §7.1 still states 2 MB, not edited)
 - [ ] **UP-03**: Concurrency = 3 chunks in parallel per file × 2 files in parallel
 - [ ] **UP-04**: Failed chunks retry independently with exponential backoff (2 / 4 / 8 / 16 / 32 / 64 s → dead-letter); no whole-file restart
 - [ ] **UP-05**: Uploads start automatically once a recording stops
@@ -237,10 +237,8 @@
 
 - [x] **FRAUD-01**: Play Integrity Standard verification at sign-in only (per-upload attestation deferred to v2)
 - [x] **FRAUD-02**: Backend rejects sign-in with rooted, emulator, and non-Play-Store-install verdicts (APK build flavor bypasses install-source check via Remote Config; Play Store flavor cannot opt into bypass)
-- [ ] **FRAUD-05**: Per-account daily upload-rate cap enforced server-side as a coarse fraud heuristic
-- [ ] **FRAUD-06**: Pre-payout fraud monitoring dashboard tracks hash-mismatch rate, account-fingerprint clustering, and OEM/region anomalies (the `liveness_score` distribution panel lands with the deferred FRAUD-03/04 — see §v2)
 
-> FRAUD-03 (server-side IMU-liveness check on the uploaded CSV) and FRAUD-04 (`liveness_score ∈ [0,1]` rollup) were briefly **promoted from v2-deferred to MVP backend scope (Phase 5), then descoped back 2026-05-11** → relocated to §v2 (Anti-fraud). MVP anti-fraud is Play Integrity at sign-in (FRAUD-01/02) + per-account upload-rate cap (FRAUD-05) + the on-device one-shot hand gate; the uploaded IMU CSV is not analysed server-side at MVP.
+> FRAUD-03 (server-side IMU-liveness check on the uploaded CSV) and FRAUD-04 (`liveness_score ∈ [0,1]` rollup) were briefly **promoted from v2-deferred to MVP backend scope (Phase 5), then descoped back 2026-05-11** → relocated to §v2 (Anti-fraud). FRAUD-05 (per-account daily upload-rate cap) and FRAUD-06 (pre-payout fraud dashboard) were **descoped to §v2 2026-05-12 — see CONTEXT.md D-04 (Phase 5)**. MVP anti-fraud is Play Integrity at sign-in (FRAUD-01/02) + the on-device one-shot hand gate. The uploaded IMU CSV is collected but not analysed server-side at MVP.
 
 ### Observability
 
@@ -292,6 +290,8 @@ Deferred to a future release. Tracked but not in current roadmap.
 
 - **FRAUD-03**: Backend implements a server-side IMU-liveness fraud check on the uploaded IMU CSV (stillness gate, gravity-axis check, saccade density, optional walking-segment FFT, vision–motion correlation) per `imu-liveness-check.md` §4. _Briefly promoted to MVP backend scope (Phase 5), descoped back to v2 2026-05-11 — MVP collects the IMU CSV but does not analyse it server-side._
 - **FRAUD-04**: Backend produces a `liveness_score ∈ [0, 1]` per segment with the weighted formula in `imu-liveness-check.md` §5; thresholds are tunable. _Descoped with FRAUD-03 2026-05-11._
+- **FRAUD-05**: Per-account daily upload-rate cap enforced server-side as a coarse fraud heuristic. _Descoped to §v2 2026-05-12 — see CONTEXT.md D-04 (Phase 5). MVP upload path is fully uncapped per account (D-04a)._
+- **FRAUD-06**: Pre-payout fraud monitoring dashboard tracks hash-mismatch rate, account-fingerprint clustering, and OEM/region anomalies (the liveness*score panel lands with FRAUD-03/04). \_Descoped to §v2 2026-05-12 — see CONTEXT.md D-04 (Phase 5). Bull-Board for the worker queue is a separate Phase-7 observability item (OBS-04), unaffected.*
 - **FRAUD-V2-01**: Per-upload Play Integrity attestation
 - **FRAUD-V2-02**: Server-side perceptual-hash duplicate detection
 - **FRAUD-V2-03**: Device-fingerprint binding (one account ↔ one device)
@@ -554,8 +554,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FRAUD-02    | Phase 1 | Complete              |
 | FRAUD-03    | v2      | Deferred 2026-05-11   |
 | FRAUD-04    | v2      | Deferred 2026-05-11   |
-| FRAUD-05    | Phase 5 | Pending               |
-| FRAUD-06    | Phase 5 | Pending               |
+| FRAUD-05    | §v2     | Deferred (2026-05-12) |
+| FRAUD-06    | §v2     | Deferred (2026-05-12) |
 | OBS-01      | Phase 7 | Pending               |
 | OBS-02      | Phase 7 | Pending               |
 | OBS-03      | Phase 7 | Pending               |

@@ -6,6 +6,8 @@ Technical and feature decisions that surfaced during the MVP review and were exp
 
 ## Fraud & integrity
 
+**FRAUD-05 / FRAUD-06 descoped to §v2 (2026-05-12)** — per-account daily upload-rate cap + pre-payout fraud dashboard; the MVP upload path is fully uncapped per account; Bull-Board (worker-queue dashboard) is Phase 7 (OBS-04), separate. See CONTEXT.md D-04 + REQUIREMENTS.md §v2.
+
 ### Play Integrity per-upload attestation
 
 Currently MVP uses Play Integrity at sign-in only. Per-upload attestation rejects forged uploads from non-genuine app builds or rooted devices.
@@ -32,7 +34,7 @@ Server requests "show your left palm" or similar at a random moment; the recordi
 
 ### Server-side IMU-liveness check
 
-Backend analyses the IMU CSV that's already uploaded with every recording (stillness gate, gravity-axis check, saccade density, optional walking-segment FFT, vision–motion correlation) and produces a `liveness_score ∈ [0,1]`. Zero on-device cost; catches passive-mount and TV-replay attacks the on-device hand gate cannot. Full design: `imu-liveness-check.md`. Mapped to **REQUIREMENTS.md FRAUD-03 / FRAUD-04**. _Briefly promoted into the Phase 5 MVP backend (2026-05-11), then descoped back the same day — the MVP collects the IMU CSV but does not analyse it server-side; anti-fraud at MVP is Play Integrity at sign-in + per-account upload-rate cap + the on-device one-shot hand gate._
+Backend analyses the IMU CSV that's already uploaded with every recording (stillness gate, gravity-axis check, saccade density, optional walking-segment FFT, vision–motion correlation) and produces a `liveness_score ∈ [0,1]`. Zero on-device cost; catches passive-mount and TV-replay attacks the on-device hand gate cannot. Full design: `imu-liveness-check.md`. Mapped to **REQUIREMENTS.md FRAUD-03 / FRAUD-04**. _Briefly promoted into the Phase 5 MVP backend (2026-05-11), then descoped back the same day — the MVP collects the IMU CSV but does not analyse it server-side; anti-fraud at MVP is Play Integrity at sign-in + the on-device one-shot hand gate (FRAUD-05's per-account upload-rate cap was itself descoped to §v2 on 2026-05-12 — see above)._
 
 - **When to revisit:** v2 anti-fraud sprint — sequence it **before** per-upload attestation and perceptual-hash dedup; it's the cheapest fraud signal given the data already collected. Largely supersedes "liveness gestures" above.
 
