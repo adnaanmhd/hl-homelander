@@ -32,6 +32,7 @@ import OnboardingStack from './OnboardingStack';
 import MainTabs from './MainTabs';
 import RecordingScreen from '../screens/recording/RecordingScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
+import PendingUploadsScreen from '../screens/uploads/PendingUploadsScreen';
 import HelpCenterScreen from '../screens/help/HelpCenterScreen';
 import ForceUpgradeScreen from '../screens/force-upgrade/ForceUpgradeScreen';
 import { LogoutModal } from '../components/LogoutModal';
@@ -77,6 +78,10 @@ export default function RootNativeStack() {
         component={ProfileScreen}
         options={{ headerShown: true, title: 'Profile' }}
       />
+      {/* Plan 05-08 (UP-12) — the upload-queue screen; reached from the Home
+          "Pending uploads" tile. Header is suppressed (the screen owns its own
+          TopBar with a "Pending uploads" centered title). */}
+      <Root.Screen name="PendingUploads" component={PendingUploadsScreen} />
       <Root.Screen
         name="HelpCenter"
         component={HelpCenterScreen}

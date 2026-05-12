@@ -53,6 +53,14 @@ export type UploadQueueRow = {
   enqueuedAt: number;
   lastProgressAt: number;
   deadLetterReason?: string;
+  /**
+   * Recording duration in seconds, surfaced from the bundle's `metadata.json`
+   * `duration_seconds` field for the Pending-Uploads row meta line. Optional —
+   * the Plan-05-04 native row schema doesn't carry it yet; the Pending-Uploads
+   * screen renders a neutral fallback label when it's absent. (Phase-6 follow-on
+   * to plumb it through `UploadRow` / `rowToMap`.)
+   */
+  durationSeconds?: number;
 };
 
 /** Progress tick for one in-flight recording. */
@@ -81,6 +89,14 @@ interface HumynUploadNativeModule {
   getQueue(): Promise<UploadQueueRow[]>;
   /** Mark each recordingId verified, unlink local files, drop the row (UP-15 / VERIFY-06). */
   clearVerified(recordingIds: string[]): Promise<void>;
+  /**
+   * Flip a queue row into its re-upload state (UP-16) — the coordinator then
+   * re-mints the multipart upload via `POST /recordings/:id/reupload` (not
+   * `/init`) and re-PUTs from the still-present local copy. No-op (resolves)
+   * if the row doesn't exist. Driven by the `re-upload` server event
+   * (services/recordingEvents.ts) and the dead-letter "Retry" affordance.
+   */
+  reupload(recordingId: string): Promise<void>;
   // --- Plan 05-07 — battery-optimization exemption + OEM autostart (UP-09) ---
   /** `true` iff the app is already whitelisted from battery optimizations. */
   isBatteryOptimizationExempt(): Promise<boolean>;
@@ -123,6 +139,8 @@ export const HumynUpload = {
   resume: (): Promise<void> => ensure().resume(),
   getQueue: (): Promise<UploadQueueRow[]> => ensure().getQueue(),
   clearVerified: (recordingIds: string[]): Promise<void> => ensure().clearVerified(recordingIds),
+  /** Flip a row into re-upload mode (UP-16). Throws if the module is absent. */
+  reupload: (recordingId: string): Promise<void> => ensure().reupload(recordingId),
   /** Boot-safe `getQueue()` — never throws; `[]` if the module is unavailable. */
   getQueueSafe: async (): Promise<UploadQueueRow[]> => {
     try {
