@@ -110,3 +110,15 @@ export const RecordingFinalizeSchema = z.object({
   imuParts: z.array(FinalizePartSchema),
 });
 export type RecordingFinalize = z.infer<typeof RecordingFinalizeSchema>;
+
+// Server→client recording-status event (Plan 05-03). The hash-verify worker
+// emits one of these per recording: 'verified' (hashes matched) or 're-upload'
+// (hash-mismatch). Delivered via the `events-outbox` onSend hook (Plan 05-05) —
+// the `_events` envelope key + the /reupload + /verified-ids request/response
+// schemas are added there; this is the wire shape the worker side needs.
+// The client de-dups on (recording_id, event_type).
+export const RecordingServerEventSchema = z.object({
+  recording_id: z.string().length(26),
+  event_type: z.enum(['verified', 're-upload']),
+});
+export type RecordingServerEvent = z.infer<typeof RecordingServerEventSchema>;

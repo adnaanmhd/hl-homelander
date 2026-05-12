@@ -18,6 +18,7 @@ import eventsPostRoute from './routes/events/post.js';
 import feedbackPostRoute from './routes/feedback/post.js';
 import appVersionGetRoute from './routes/app-version/get.js';
 import { startDsrCron } from './cron/dsr-hard-delete.js';
+import { startVerifySweep } from './cron/verify-sweep.js';
 import { verifyConsentTextHash } from './legal/boot-guard.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
@@ -53,6 +54,13 @@ export async function buildApp(): Promise<FastifyInstance> {
   // singleFork pool; server.ts boot path always runs it.
   if (process.env.NODE_ENV !== 'test' && process.env.GSD_DSR_CRON !== 'off') {
     startDsrCron(app.log);
+  }
+
+  // verify-sweep cron (Plan 05-03) — re-enqueues stale recordings_to_verify
+  // rows so nothing is lost if the EventBridge→SQS leg dropped a message.
+  // Skipped in tests (avoids opening a Redis connection under the singleFork pool).
+  if (process.env.NODE_ENV !== 'test') {
+    startVerifySweep(app.log);
   }
 
   return app;
