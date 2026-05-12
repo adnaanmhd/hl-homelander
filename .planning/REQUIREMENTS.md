@@ -152,7 +152,7 @@
 - [ ] **UP-05**: Uploads start automatically once a recording stops
 - [ ] **UP-06**: Uploads run in a foreground service that survives backgrounding and force-quit; on Android 14+ the service type downgrades from `camera|microphone|dataSync` (during recording) → `dataSync` (post-recording) → stops after 5 min idle **[research]**
 - [ ] **UP-07**: On Android 15+, true-background uploads run via a UIDT JobService (`setUserInitiated(true)` + `RUN_USER_INITIATED_JOBS` permission) to survive the 6-hour `dataSync` cap **[research]**
-- [ ] **UP-08**: On iOS, uploads run via `URLSessionConfiguration.background(withIdentifier:)` with `sessionSendsLaunchEvents = true` and `isDiscretionary = false`; multipart-complete POST runs as a foreground `dataTask` from inside `urlSessionDidFinishEvents`
+- [x] **UP-08**: On iOS, uploads run via `URLSessionConfiguration.background(withIdentifier:)` with `sessionSendsLaunchEvents = true` and `isDiscretionary = false`; multipart-complete POST runs as a foreground `dataTask` from inside `urlSessionDidFinishEvents`
 - [ ] **UP-09**: System requests battery-optimization exemption at first upload and walks the user through OEM-specific steps for Xiaomi (MIUI), Oppo (ColorOS), Vivo (FunTouch), Samsung (OneUI), and stock Android **[research]**
 - [ ] **UP-10**: Uploads pause during active recording and resume on stop
 - [ ] **UP-11**: User cannot manually cancel an upload
@@ -488,7 +488,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UP-05       | Phase 5 | Pending               |
 | UP-06       | Phase 5 | Pending               |
 | UP-07       | Phase 5 | Pending               |
-| UP-08       | Phase 5 | Pending               |
+| UP-08       | Phase 5 | Complete              |
 | UP-09       | Phase 5 | Pending               |
 | UP-10       | Phase 5 | Pending               |
 | UP-11       | Phase 5 | Pending               |

@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 5 context gathered
-last_updated: '2026-05-12T11:16:31.381Z'
+stopped_at: Completed 05-02-PLAN.md
+last_updated: '2026-05-12T11:28:45.736Z'
 last_activity: 2026-05-12
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 66
-  completed_plans: 59
-  percent: 89
+  completed_plans: 60
+  percent: 91
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 05 (upload-pipeline-hash-verify-worker-anti-fraud) — EXECUTING
-Plan: 2 of 8
+Plan: 3 of 8
 Status: Ready to execute
 
 Phase 2 operator smoke-walk history (carried forward):
@@ -113,6 +113,7 @@ _Updated after each plan completion_
 | Phase 04 P08 | ~18min | 3 tasks | 9 files |
 | Phase 04 P09 | ~13min | 3 tasks | 9 files |
 | Phase 05 P05-01 | 30min | 3 tasks | 9 files |
+| Phase 05 P02 | 50min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -249,6 +250,10 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase-5 D-03: CaptureLaunchSweep discards all crash-truncated orphan fragments (even a playable post-30s one); run() always returns []; no degenerate-metadata bundle reaches the upload queue
 - [Phase ?]: Phase-5 D-05: a device-distress mid-record stop (battery ≤5% / thermal abort) navigates to Home (MainTabs), or PracticeComplete mid-practice; a normal sub-60s manual discard keeps RESET_FOR_FRESH on the recording screen
 - [Phase ?]: Phase-5 D-07: crash-recovery toast duration reverted 15s → 5s; App.tsx-mount toast architecture unchanged; listener is now dead code (D-03) kept as a safety net
+- [Phase ?]: FRAUD-05/06 (per-account upload-rate cap + pre-payout fraud dashboard) descoped to §v2 2026-05-12 (Phase 5 D-04); MVP upload path fully uncapped per account — Owner directive: push all anti-fraud beyond Play Integrity to v2
+- [Phase ?]: Phase 5 re-titled 'Upload Pipeline & Hash-Verify Worker'; directory slug 05-upload-pipeline-hash-verify-worker-anti-fraud left unchanged
+- [Phase ?]: Hash-verify worker queue is the one Redis carve-out at MVP (BullMQ-on-Redis-on-ECS); on-device upload queue stays MMKV-backed/Postgres-free. Backend pins: bullmq@5.76.8, ioredis@5.10.1, @aws-sdk/client-sqs@3.1044.0, Redis 7.x
+- [Phase ?]: Cellular S3 part size reconciled to 5 MiB (S3 minimum non-final part size); idea-brief.md §7.1 still states 2 MB, not edited — dated note added to REQUIREMENTS UP-02 + ROADMAP SC#1
 
 ### Quick Tasks Completed
 
@@ -307,9 +312,9 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-12T11:16:23.492Z
+Last session: 2026-05-12T11:28:45.732Z
 Last activity: 2026-05-11 — Completed 04-08-PLAN.md: recording-lifecycle support modules (useRecordingLifecycle §10 policy table + practice 60s cap + checkStartGuards; ttsVoice REC-14 fallback chain + speakCue; durationFormat REC-04/HOME-06; **DEV**-gated debug entry to RecordingScreen on TasksPlaceholder; 39 new tests)
-Stopped at: Phase 5 context gathered
+Stopped at: Completed 05-02-PLAN.md
 
 - 01-10 (terraform apply): Tasks 1+2+3 complete + committed (430e17a, 9e52db8, ad93d17). Operator runs `terraform fmt -check` + `terraform validate` + `terraform plan` + `terraform apply` against real AWS staging.
 - 01-11 (counsel engagement): code-ready-counsel-deferred. Three commits ship the canonical consent text + boot-time hash guard, takedown SOP runbook, dsr-export CLI, and counsel-engagement checklist. Real attorney review queued for legal-ops backlog.
