@@ -193,13 +193,27 @@ Plans:
 
 Plans:
 
+**Wave 1**
+
 - [ ] 05-01-PLAN.md — Wave 1: Android+RN cleanup code (D-03 CaptureLaunchSweep discards crash-truncated fragments; D-05 device-distress→Home nav; D-07 recovery-toast 5s revert + annotation)
 - [ ] 05-02-PLAN.md — Wave 1: docs/housekeeping (FRAUD-05/06 → §v2; phase re-title; ROADMAP trims + the rescinded duration_seconds:0 note; CLAUDE.md Redis carve-out + backend pins; STACK.md Redis pin; 04-MANUAL-SMOKE refresh + design-spec/UI-SPEC owner deviations; the Wave-1 cleanup smoke runbook; VALIDATION.md per-task map)
+
+**Wave 2** _(blocked on Wave 1 completion)_
+
 - [ ] 05-03-PLAN.md — Wave 2: backend infra + hash-verify worker (Redis container + bullmq/ioredis/sqs deps + lib/queue.ts; recording_events_outbox table + enum + migration + [BLOCKING] schema push; recording-state hash-mismatch→pending edge; sha256-stream; recording-events; verify-recording; workers/hash-verify.ts; cron/verify-sweep.ts; shared-types stub; Vitest scaffolds) — VERIFY-01..04, VERIFY-07
 - [ ] 05-04-PLAN.md — Wave 2: HumynUpload Android native-module foundation (HumynUploadModule/Package + register in MainApplication; UploadQueueStore native-owned JSON queue with the D-08 practice filter + the UP-13 owner-pin; UploadModels chunk-size 8MiB/5MiB + partsCountFor; manifest perms + UploadJobService <service>; native/HumynUpload.ts; UploadQueueStoreTest) — UP-02, UP-05, UP-11, UP-13, UP-17
+
+**Wave 3** _(blocked on Wave 2 completion)_
+
 - [ ] 05-05-PLAN.md — Wave 3: backend HTTP surface (events-outbox onSend plugin + the \_events envelope + the Pattern-22 schema additions; POST /recordings/:id/reupload; GET /recordings/verified-ids; req.ip→recordings.ipAddress; the /finalize dev shim; the verify-queue Terraform module — SQS+DLQ + EventBridge rule + worker ECS task + queue-depth autoscaling + least-privilege IAM; Vitest scaffolds) — VERIFY-01, VERIFY-05, VERIFY-06, VERIFY-07, UP-16, UP-18
 - [ ] 05-06-PLAN.md — Wave 3: HumynUpload transfer engine (ChunkUploader — streaming PUT-per-part + ETag + 2/4/8/16/32/64s retry→dead-letter + the 30s no-progress watchdog + the best-effort MSS clamp; UploadCoordinator — /init→PUT(metadata+parts, 6-permit semaphore = 3∥×2∥)→/finalize, per-part-state persistence, debounced progress, pause/owner-aware; NetworkMonitor; HumynUploadModule wiring; JUnit scaffolds) — UP-01, UP-03, UP-04, UP-17, UP-19
+
+**Wave 4** _(blocked on Wave 3 completion)_
+
 - [ ] 05-07-PLAN.md — Wave 4: OS-survival hardening (HumynForegroundService type-downgrade lifecycle recording→dataSync→idle-stop + onTimeout→UIDT handoff + the drain on the FGS thread; UploadJobService UIDT JobService; BatteryOptimizationHelper AOSP-first + resolveActivity-gated OEM deep-links; BatteryOptimizationScreen first-upload walkthrough; the extended two-sided manifest↔bitmask lock) — UP-06, UP-07, UP-09, UP-10
+
+**Wave 5** _(blocked on Wave 4 completion)_
+
 - [ ] 05-08-PLAN.md — Wave 5: client-surface wire-up (PendingUploadsScreen + UploadStatusChip incl. the 'Paused — no Wi-Fi' variant + the §21.7 resolution; Home-tile real data; recordingEvents \_events consumer + uploadReconcile sweep + the HumynUploadModule.reupload @ReactMethod + the auto-enqueue/pause/resume/logout wiring; the end-to-end upload smoke runbook) — UP-05, UP-10, UP-11, UP-12, UP-13, UP-14, UP-15, UP-16, VERIFY-06
 
 ### Phase 6: Tasks, History, Home Tiles & Lexical Search
