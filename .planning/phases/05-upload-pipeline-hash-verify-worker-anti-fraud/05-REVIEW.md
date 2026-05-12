@@ -1,198 +1,164 @@
 ---
 phase: 05-upload-pipeline-hash-verify-worker-anti-fraud
-reviewed: 2026-05-12T14:52:34Z
+reviewed: 2026-05-12T00:00:00Z
 depth: standard
-files_reviewed: 44
+files_reviewed: 20
 files_reviewed_list:
-  - apps/api/src/app.ts
-  - apps/api/src/cron/verify-sweep.ts
-  - apps/api/src/db/migrations/0006_recording_events_outbox.sql
-  - apps/api/src/db/schema.ts
-  - apps/api/src/lib/queue.ts
-  - apps/api/src/lib/recording-events.ts
-  - apps/api/src/lib/recording-state.ts
-  - apps/api/src/lib/sha256-stream.ts
+  - apps/api/src/routes/recordings/init.ts
+  - apps/api/src/routes/recordings/parts.ts
+  - apps/api/src/routes/recordings/index.ts
+  - apps/api/src/routes/recordings/finalize.ts
+  - apps/api/src/routes/recordings/verified-ids.ts
   - apps/api/src/lib/verify-recording.ts
   - apps/api/src/plugins/events-outbox.ts
-  - apps/api/src/routes/recordings/finalize.ts
-  - apps/api/src/routes/recordings/index.ts
-  - apps/api/src/routes/recordings/init.ts
-  - apps/api/src/routes/recordings/reupload.ts
-  - apps/api/src/routes/recordings/schemas.ts
-  - apps/api/src/routes/recordings/verified-ids.ts
   - apps/api/src/workers/hash-verify.ts
-  - apps/mobile/App.tsx
-  - apps/mobile/android/app/src/main/java/ai/humynlabs/capture/MainApplication.kt
-  - apps/mobile/android/app/src/main/java/ai/humynlabs/capture/capture/CaptureLaunchSweep.kt
-  - apps/mobile/android/app/src/main/java/ai/humynlabs/capture/fgs/HumynForegroundNotification.kt
-  - apps/mobile/android/app/src/main/java/ai/humynlabs/capture/fgs/HumynForegroundService.kt
-  - apps/mobile/android/app/src/main/java/ai/humynlabs/capture/upload/BatteryOptimizationHelper.kt
-  - apps/mobile/android/app/src/main/java/ai/humynlabs/capture/upload/ChunkUploader.kt
-  - apps/mobile/android/app/src/main/java/ai/humynlabs/capture/upload/HumynUploadModule.kt
-  - apps/mobile/android/app/src/main/java/ai/humynlabs/capture/upload/HumynUploadPackage.kt
-  - apps/mobile/android/app/src/main/java/ai/humynlabs/capture/upload/NetworkMonitor.kt
-  - apps/mobile/android/app/src/main/java/ai/humynlabs/capture/upload/UploadCoordinator.kt
-  - apps/mobile/android/app/src/main/java/ai/humynlabs/capture/upload/UploadJobService.kt
-  - apps/mobile/android/app/src/main/java/ai/humynlabs/capture/upload/UploadModels.kt
-  - apps/mobile/android/app/src/main/java/ai/humynlabs/capture/upload/UploadQueueStore.kt
-  - apps/mobile/src/components/UploadStatusChip.tsx
-  - apps/mobile/src/native/HumynUpload.ts
-  - apps/mobile/src/navigation/RootNativeStack.tsx
-  - apps/mobile/src/screens/home/HomeSkeletonScreen.tsx
-  - apps/mobile/src/screens/onboarding/BatteryOptimizationScreen.tsx
-  - apps/mobile/src/screens/recording/RecordingScreen.tsx
-  - apps/mobile/src/screens/recording/useRecordingLifecycle.ts
-  - apps/mobile/src/screens/uploads/PendingUploadsScreen.tsx
-  - apps/mobile/src/services/api.ts
-  - apps/mobile/src/services/recordingEvents.ts
-  - apps/mobile/src/services/uploadReconcile.ts
-  - apps/mobile/src/state/keys.ts
-  - shared/types/src/index.ts
+  - apps/api/src/workers/sqs-poller.ts
   - shared/types/src/recording.ts
+  - infra/terraform/modules/verify-queue/main.tf
+  - apps/mobile/android/app/src/main/java/ai/humynlabs/capture/upload/UploadCoordinator.kt
+  - apps/api/test/routes/recordings/init.test.ts
+  - apps/api/test/routes/recordings/parts.test.ts
+  - apps/api/test/routes/recordings-finalize.test.ts
+  - apps/api/test/routes/recordings/verified-ids.test.ts
+  - apps/api/test/workers/verify-recording.test.ts
+  - apps/api/test/workers/sqs-poller.test.ts
+  - apps/api/test/plugins/events-outbox.test.ts
+  - apps/mobile/android/app/src/test/java/ai/humynlabs/capture/upload/UploadCoordinatorTest.kt
 findings:
-  critical: 3
-  warning: 9
-  info: 5
-  total: 17
+  critical: 0
+  warning: 5
+  info: 7
+  total: 12
 status: issues_found
 ---
 
-# Phase 5: Code Review Report
+# Phase 5 (gap-closure 05-09..05-13): Code Review Report
 
-**Reviewed:** 2026-05-12T14:52:34Z
+**Reviewed:** 2026-05-12
 **Depth:** standard
-**Files Reviewed:** 44
+**Files Reviewed:** 20
 **Status:** issues_found
 
 ## Summary
 
-Reviewed the Phase-5 upload pipeline: the `HumynUpload` Android native module + S3 multipart coordinator, the BullMQ hash-verify worker, and the server→client `recording_events_outbox` channel. The code is generally careful (owner-pin guards, atomic queue writes, presigned-URL hygiene in the happy path, idempotent enqueue via `jobId`), but there are three correctness defects that break the pipeline for exactly the target conditions (slow cellular, process kills): the coordinator re-POSTs `/recordings/init` on every retry — minting a _new_ S3 multipart upload that orphans the already-uploaded parts' ETags; `/recordings/init` is non-idempotent server-side (returns `201` with a stale `s3UploadId`) which compounds it; and `drainNow()` is `public` and invoked directly off three different threads with no mutual exclusion, contradicting the "only one drain at a time" invariant the design depends on. A `finalize` that fails between the two `CompleteMultipartUpload` calls leaves a permanently un-finalizable recording. The events channel mutates problem-detail responses and has an unrecoverable loss window for `re-upload` events.
+Reviewed the Phase-5 gap-closure changes only: idempotent `POST /recordings/init` (CR-02), the new `POST /recordings/:id/parts` re-presign route, mobile `UploadCoordinator` re-drain via `/parts` + `row.reupload` clearing + 409→dead-letter + log-leak hardening (CR-01/WR-06), the `drainLock` ReentrantLock (CR-03), the prod `sqs-poller.ts` (VERIFY-01), retry-safe `/finalize` (WR-01), TOCTOU-safe `verifyRecording` (WR-02), the 2xx-only `events-outbox` hook (WR-03), and the user-gated `verified-ids` cursor (IN-05).
 
-## Critical Issues
+The core mechanics are sound: the idempotency SELECT-first guard, the `tryLock()` serialisation, the `AND qa_status='uploaded'` SQL predicate in `verifyRecording`, the `parseInitResponse` body-free re-throw, and the 2xx/JSON gate in the outbox hook all do what they claim and have test coverage. No BLOCKER-class defects found.
 
-### CR-01: Coordinator re-POSTs `/recordings/init` on every retry → orphaned multipart parts, never recovers
-
-**File:** `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/upload/UploadCoordinator.kt:194-233`
-**Issue:** `uploadOne()` is called for any row in `PENDING`/`UPLOADING`/`FINALIZING` and _unconditionally_ calls `postInit()` (or `postReupload()`) near the top, then skips parts already `DONE` (keeping their cached ETags). But each `POST /recordings/init` creates a brand-new S3 multipart upload with a new `uploadId`. The ETags of parts uploaded under the _previous_ `uploadId` are not valid for the new one, so when the second drain's `uploadOne()` reaches `/finalize` with a mix of old + new ETags, S3 returns `InvalidPart`. That surfaces as an `IOException` in `drainNow()`, which is treated as _transient_ (not `DeadLetterException`) — so the row spins forever, never dead-letters, never uploads. This bites on every process-kill-mid-upload (OS LMK, force-quit, crash) and on every upload that exceeds the 15-min presigned TTL (large file on slow cellular — the documented target market).
-**Fix:** Do not re-POST `/init` if the row already has `uploadId != null` AND any DONE parts. Either (a) add a server endpoint that re-presigns part URLs against the _existing_ `uploadId` (no `CreateMultipartUpload`), and have the coordinator call it on a re-drain; or (b) on a re-drain, `AbortMultipartUpload` the prior upload, reset _all_ parts to `PENDING` (drop cached ETags), and start over from the new `uploadId`. Sketch of (b):
-
-```kotlin
-val isReupload = row.reupload
-val needsFreshUpload = isReupload || row.uploadId == null
-if (!needsFreshUpload) {
-    // re-presign against row.uploadId — requires a new server route; do NOT call /init
-    ...
-} else {
-    if (row.uploadId != null) abortPriorMultipart(baseUrl, row) // don't leak the old one
-    row.videoParts.forEach { it.status = PartStatus.PENDING; it.etag = null }
-    row.imuParts.forEach { it.status = PartStatus.PENDING; it.etag = null }
-    val initResp = if (isReupload) postReupload(...) else postInit(...)
-    ...
-}
-```
-
-### CR-02: `POST /recordings/init` is non-idempotent — second call returns 201 with a stale `s3UploadId`
-
-**File:** `apps/api/src/routes/recordings/init.ts:86-191`
-**Issue:** `init` always issues a fresh `CreateMultipartUpload` for video + IMU and presigns part URLs, but persists the row with `.onConflictDoNothing()`. When the client (e.g. the retry path in CR-01) calls `/init` again for an existing `recordingId`, the row's `s3UploadId` column is NOT updated — it still holds the _first_ `uploadId`. The response body, however, returns the _second_ `uploadId` + part URLs bound to it. The client uploads to the second upload; `/finalize` then uses `rec.s3UploadId` (the first) → `NoSuchUpload` / `InvalidPart`. The recording is permanently un-finalizable. Independently, returning HTTP `201` when nothing was inserted is misleading and leaks an orphaned multipart upload (no lifecycle abort) on every duplicate call.
-**Fix:** Detect the conflict explicitly: `SELECT` the row first; if it exists and belongs to the caller and is still `pending`, treat `/init` as idempotent and _return its stored `s3UploadId`_ (re-presigning part URLs against it) instead of creating a new multipart upload; if it exists and is in a non-`pending` state, return a `409` problem-detail. Only `CreateMultipartUpload` + `INSERT` when there is no row. Never return `201` when the `INSERT` was a no-op.
-
-### CR-03: `drainNow()` runs concurrently on three threads with no mutual exclusion
-
-**File:** `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/upload/UploadCoordinator.kt:124-172, 482-505`; `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/fgs/HumynForegroundService.kt:211-222`; `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/upload/UploadJobService.kt:37-53`
-**Issue:** `getShared()`'s comment claims "only one drain runs at a time (the drain is also serialised internally on `drainExecutor`)", but `drainNow()` is `public` and is invoked **directly** — bypassing `drainExecutor` — from `HumynForegroundService.startUploadDrain()` (on the FGS `HandlerThread`) and from `UploadJobService.onStartJob()` (on a freshly-`start()`ed `Thread`), in addition to `HumynUploadModule.drain()` which _does_ hop onto `drainExecutor`. So the FGS thread and the JobService thread (and a module-driven drain) can all be inside `drainNow()` simultaneously: each iterates `queueStore.read()`, each calls `uploadOne(row)` on the same row, each POSTs `/recordings/init` for the same recording (compounding CR-01/CR-02), each lays out `row.videoParts`, each writes the shared mutable `row` back via `upsert`, and `row.uploadId` is overwritten by whichever finishes last. `synchronized(queueStore){ ... }` inside `uploadOne` doesn't help — `UploadQueueStore.upsert()` synchronizes on its own _private_ `lock` field, a different monitor than the `queueStore` instance.
-**Fix:** Make `drainNow()` private and route all three callers through `drain()` (the `drainExecutor`-serialised entry); or add an explicit `private val drainLock = ReentrantLock()` and wrap the body of `drainNow()` in `if (!drainLock.tryLock()) return; try { ... } finally { drainLock.unlock() }`. Also fix the bogus `synchronized(queueStore)` in `uploadOne` — synchronize on the same object `UploadQueueStore` uses internally, or just rely on `upsert`'s own lock and drop the wrapper.
+The findings: (WR-01) a re-drain of a `FINALIZING` row whose `/finalize` already committed dead-letters spuriously; (WR-02, WR-03) several mobile HTTP error codes fall through to an infinite transient-retry loop instead of dead-lettering; (WR-04) a pre-existing TOCTOU on the `/finalize` state UPDATE that the gap-closure rewrote but didn't harden the way WR-02 hardened `verifyRecording`; (WR-05) a brief persisted-`reupload=true`-with-`uploadId` window; plus seven lower-severity items (stale comments, untested branches, an over-broad EventBridge filter, an API contract coupled to one client's behaviour).
 
 ## Warnings
 
-### WR-01: `finalize` is not atomic across the two `CompleteMultipartUpload` calls → permanently stuck recording
+### WR-01: Re-draining a `FINALIZING` row whose `/finalize` already committed dead-letters it spuriously
 
-**File:** `apps/api/src/routes/recordings/finalize.ts:127-152`
-**Issue:** The video `CompleteMultipartUpload` is sent, then the IMU one. If the IMU call fails (network blip, throttling), the video upload is already reassembled and _consumed_ in S3, but the DB row stays `pending` (the state flip is in a later `db.transaction`). A client retry re-issues the video `CompleteMultipartUpload` with the same — now-consumed — `s3UploadId` → `NoSuchUpload`. The recording can't be finalized (`/finalize` 500s forever — transient in the coordinator, never dead-letters) and can't be re-`/init`'d (CR-02). Combined with CR-01/CR-02 the same retry also won't help.
-**Fix:** Make `/finalize` retry-safe: before each `CompleteMultipartUpload`, swallow `NoSuchUpload`/`already-completed` and `HeadObject` the key to confirm the object exists with the expected size; or do the IMU complete first (smaller, less likely to fail) and gate the video complete on it; or record per-channel completion progress on the row so a retry resumes. At minimum, on a `NoSuchUpload` for a channel whose object already exists, treat it as success rather than 500.
+**File:** `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/upload/UploadCoordinator.kt:192-197, 276-281, 379-381` and `apps/api/src/routes/recordings/parts.ts:118-131`
+**Issue:** When a drain reaches step 4 it sets `row.state = UploadState.FINALIZING`, `queueStore.upsert(row)`, then calls `postFinalize`. If the `/finalize` request commits server-side (row flipped `pending → uploaded`, verify enqueued) but the **HTTP response is lost on the wire** (a routine event on the flaky cellular links this app targets), `postFinalize` throws `IOException` → `drainNow` treats it as transient → the row stays `FINALIZING` on disk. `drainNow()` does **not** skip `FINALIZING` rows (line 192-197 only skips `AWAITING_VERIFY/VERIFIED/DEAD_LETTER`), so the next drain re-enters `uploadOne(row)`. Because `row.uploadId != null` and `!row.reupload`, it calls `postRePresign` → `POST /recordings/:id/parts` → the server row is now `'uploaded'`, not `'pending'` → **409** → `postRePresign` throws `DeadLetterException("…/parts -> 409 (upload not resumable)")` → the row dead-letters and the user sees `chip-failed` for a recording that actually uploaded and verified fine. (It's eventually un-stuck by the `verified-ids` reconcile sweep / `_events` channel — but only if the client clears DEAD_LETTER rows on a `verified` event.)
+**Fix:** When re-draining a row already in `FINALIZING`, retry `postFinalize` directly (it's idempotent — returns 200 for an `'uploaded'` row) before falling back to `postRePresign`; or, in `postRePresign`, on a `409` first re-`GET /recordings/:id` and if the row is `'uploaded'`/`'verified'` treat it as a successful finalize (advance to `AWAITING_VERIFY`) rather than dead-lettering. E.g.:
 
-### WR-02: hash-verify worker's `qa_status` flip uses a stale read — no `WHERE qa_status = 'uploaded'` guard (TOCTOU)
+```kotlin
+if (row.state == UploadState.FINALIZING && row.uploadId != null) {
+    // The previous drain's /finalize may have committed; retry it (idempotent) first.
+    runCatching { postFinalize(baseUrl, row) }.onSuccess {
+        row.state = UploadState.AWAITING_VERIFY; queueStore.upsert(row); emitQueueChanged(); return
+    }
+}
+```
 
-**File:** `apps/api/src/lib/verify-recording.ts:21-60`
-**Issue:** `rec` is `SELECT`ed once; the (expensive, multi-second) S3 re-hash happens outside the transaction; then `db.transaction` does `UPDATE recordings SET qa_status='verified' WHERE id = recordingId` with no `AND qa_status = 'uploaded'` predicate. If an ops action flipped the row to `takedown` (or a re-upload moved it to `pending`) during the hash window, this UPDATE silently resurrects it to `verified` and writes a stale outbox event. The `canTransition(rec.qaStatus, ...)` checks inside are dead — `rec.qaStatus` is always `'uploaded'` there because it was never re-read.
-**Fix:** Add `AND qa_status = 'uploaded'` to both UPDATEs (and only append the outbox event / delete the `recordings_to_verify` row if the UPDATE affected a row), or re-`SELECT ... FOR UPDATE` the row inside the transaction and re-check `canTransition()`.
+### WR-02: `/recordings/init` 400 from a malformed metadata bundle → infinite transient retry, never dead-letters
 
-### WR-03: `events-outbox` onSend hook mutates problem-detail (`application/problem+json`) responses and consumes events on error responses
+**File:** `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/upload/UploadCoordinator.kt:457-485`
+**Issue:** `postInit` reads the SHAs/sizes/timestamp out of `metadata.json` with `m.optString("file_sha256", "")` etc. If the file is present but a field is missing/garbage (a partially written `MetadataComposer` output, or a crash-truncated file), the body carries `fileSha256: ""` (or a non-hex value), and the server's `RecordingsInitRequestSchema` (`.length(64).regex(/^[0-9a-f]{64}$/)`) rejects it with **400**. `postInit` only dead-letters on `409`/`403`; a `400` falls through to `if (!resp.isSuccessful) throw IOException(...)` → caught in `drainNow` as a _transient_ error → the row stays `PENDING` and every subsequent drain repeats the same `400` forever. A `400` here is structurally non-retryable.
+**Fix:** Treat a `400` from `/recordings/init` (and `/reupload`, `/parts`) as a `DeadLetterException`, same as `409`/`403`:
 
-**File:** `apps/api/src/plugins/events-outbox.ts:29-48`
-**Issue:** The hook fires on _every_ authenticated string-bodied JSON-object response, including `reply.type('application/problem+json').send(pd)` (404/403/409 from `finalize`/`reupload`). It JSON-parses the problem detail, adds `_events`, re-stringifies — so RFC 7807 error bodies now carry a non-standard `_events` key, and any pending outbox events are _marked delivered_ on a response a client is likely to treat as a hard failure and not parse for `_events`. Those events are then lost (until the reconcile sweep, which only backstops `verified` — see WR-04).
-**Fix:** Skip the hook when the response status is ≥ 400, or when the content-type isn't `application/json`. E.g. `if (_reply.statusCode >= 400) return payload;` and/or check `_reply.getHeader('content-type')`.
+```kotlin
+if (resp.code == 400 || resp.code == 409 || resp.code == 403) {
+    throw DeadLetterException("/recordings/init -> ${resp.code} (request rejected — not resumable)", null)
+}
+```
 
-### WR-04: a dropped `re-upload` event is unrecoverable — the reconcile sweep only backstops `verified`
+### WR-03: `/recordings/:id/finalize` 409 → infinite transient retry, never dead-letters / re-routes
 
-**File:** `apps/api/src/routes/recordings/verified-ids.ts:18-67`; `apps/mobile/src/services/uploadReconcile.ts:74-116`
-**Issue:** `events-outbox` is at-least-once with a documented loss window (response bytes drop _after_ `markDelivered`). For `verified` events the reconcile sweep (`GET /recordings/verified-ids`) is the convergent backstop. There is no equivalent for `re-upload` (hash-mismatch) events: if one is lost, the server has the row in `hash-mismatch` while the client thinks it's `awaiting-verify` forever — nothing reconciles, the local file is never re-uploaded, and the user has no recovery path.
-**Fix:** Either make `verified-ids` also report `hash-mismatch` ids (and have the sweep call `HumynUpload.reupload()` for them), or add a `GET /recordings/mismatched-ids` companion, or have the client's `awaiting-verify` rows periodically `GET /recordings/:id` to learn the server state.
+**File:** `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/upload/UploadCoordinator.kt:566-568`
+**Issue:** `postFinalize` only checks `!resp.isSuccessful` → `IOException`. If `/finalize` returns **409** (the server row moved to `verified`/`hash-mismatch`/`rejected`/`takedown` between the upload and finalize — an ops takedown, or a `hash-mismatch` from a prior verify cycle the client hasn't reconciled), the row keeps re-draining the full part-upload + finalize loop forever instead of dead-lettering (or, for `hash-mismatch`, re-routing through `/reupload`). Same class as WR-02.
+**Fix:** Inspect the `/finalize` response code: `409` (and `404`) → `DeadLetterException` (the reconcile sweep / `_events` channel converges the row's true state afterward); keep `5xx`/network as transient.
 
-### WR-05: `RecordingFinalizeSchema` has no upper bound on `videoParts`/`imuParts` length, and no consistency check vs the row's `partsCount`
+### WR-04: `/finalize`'s state-flip transaction has no `AND qa_status='pending'` guard — a concurrent takedown is silently clobbered
 
-**File:** `shared/types/src/recording.ts:107-116`; `apps/api/src/routes/recordings/finalize.ts:127-152`
-**Issue:** `videoParts: z.array(FinalizePartSchema)` is unbounded. A client can POST a huge array, which is forwarded verbatim into `MultipartUpload.Parts`. AWS will reject > 10 000 parts, but the array is fully materialised + sent first. There's also no check that `videoParts.length === rec.partsCount` or that part numbers are unique/contiguous, so a malformed client can produce confusing S3 errors instead of a clean 400.
-**Fix:** `z.array(FinalizePartSchema).min(1).max(1000)` (matching `MAX_PARTS_PER_UPLOAD`); in the route, validate the part-number set against `rec.partsCount` and return a `validation` problem-detail on mismatch.
+**File:** `apps/api/src/routes/recordings/finalize.ts:211-226`
+**Issue:** The transaction does `tx.update(schema.recordings).set({ qaStatus: 'uploaded', uploadCompletedAt: new Date() }).where(eq(schema.recordings.id, rec.id))` with **no** predicate on the current `qa_status`. The route's `canTransition` / `rec.qaStatus === 'uploaded'` short-circuits use the _stale_ `rec` read at line 130-134. If an ops takedown (`D-LEGAL-04`) flips the row to `'takedown'` after that SELECT but before the transaction, `/finalize` overwrites it back to `'uploaded'`, the verify worker then re-flips it to `'verified'`, and the legal takedown is undone. This is the exact TOCTOU class WR-02 fixed in `verifyRecording` (`AND qa_status='uploaded'` + only side-effect on `rowCount === 1`); the same hardening was not applied here even though the gap-closure rewrote this transaction. (Pre-existing pattern, not newly introduced — but adjacent to the WR-01 change and worth closing while the file is open.)
+**Fix:** Make the UPDATE conditional and detect the no-op:
 
-### WR-06: `parseInitResponse` throws a `JSONException` whose message includes the raw response body (presigned URLs) into a `Log.w`
+```ts
+const updated = await db.transaction(async (tx) => {
+  const res = await tx.update(schema.recordings)
+    .set({ qaStatus: 'uploaded', uploadCompletedAt: new Date() })
+    .where(and(eq(schema.recordings.id, rec.id), eq(schema.recordings.qaStatus, 'pending')));
+  if ((res.rowCount ?? 0) !== 1) { /* row moved out from under us — return the current row, do NOT enqueue */ }
+  await tx.insert(schema.recordingsToVerify).values({ recordingId: rec.id }).onConflictDoNothing();
+  ...
+});
+```
 
-**File:** `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/upload/UploadCoordinator.kt:425-443, 166-170`
-**Issue:** If `/recordings/init` (or `/reupload`) returns a body that isn't valid JSON, `JSONObject(text)` throws `org.json.JSONException` whose message embeds a snippet of `text` — which on a near-miss response could contain presigned S3 URLs (signature query params). That exception propagates to `drainNow()`'s transient catch → `Log.w(TAG, "row ${row.recordingId} upload failed transiently: ${e.message}")` → presigned URLs in logcat (violates the T-5-06-02 "never log presigned URLs" intent).
-**Fix:** In `parseInitResponse`/`postInit`/`postReupload`, catch `JSONException` and re-throw an `IOException("init response not valid JSON")` with no body content; never include `resp.body?.string()` in an exception message.
+### WR-05: `uploadOne` persists `row.reupload === true` together with the fresh `uploadId`, before clearing the flag
 
-### WR-07: `init` mints `partsCount` presigned URLs for the IMU stream even though only part 1 is ever used; surplus + `init`-orphaned multipart uploads accumulate
+**File:** `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/upload/UploadCoordinator.kt:281-294`
+**Issue:** Line 281-284 does `row.uploadId = initResp.uploadId; row.imuUploadId = …; row.state = UPLOADING; queueStore.upsert(row)` **while `row.reupload` is still `true`** (it's only cleared at line 291-294 in a second `upsert`). If the process is killed between those two writes, the on-disk row has `reupload == true` _and_ `uploadId != null`. The next drain's `when` (line 276) checks `row.reupload` first → calls `postReupload` _again_, minting another fresh video/IMU multipart upload pair and orphaning the one just persisted. (It self-heals — on a first re-upload drain all parts are still `PENDING`, so re-running `/reupload` re-uploads everything against the new ids — but it's an avoidable extra `/reupload` round-trip + orphaned MUs, and the comment at line 286-290 claiming the marker is cleared "IMMEDIATELY" isn't actually guaranteed by the two-write sequence.)
+**Fix:** Clear `row.reupload` before the persist at line 284, in the same `upsert`:
 
-**File:** `apps/api/src/routes/recordings/init.ts:123-137`; `apps/api/src/routes/recordings/reupload.ts:180-194`
-**Issue:** Both routes presign `body.partsCount` IMU part URLs (up to 1000) when the client only ever uploads IMU part 1. More importantly, `/reupload` (and any `/init` retry) calls `CreateMultipartUpload` again without `AbortMultipartUpload`-ing the previous one — incomplete multipart uploads pile up in the bucket and bill until a lifecycle policy reaps them (and no such policy is referenced).
-**Fix:** Presign only 1 IMU part URL; before re-minting in `/reupload`, `AbortMultipartUpload` any prior `s3UploadId`/IMU upload-id (store the IMU id on the row, or list-and-abort by prefix); ensure the S3 bucket has an `AbortIncompleteMultipartUpload` lifecycle rule.
-
-### WR-08: `chunkVariantFor` / progress map keeps stale `progressById` entries forever; coordinator's `lastEmitMs` debounce map likewise unbounded
-
-**File:** `apps/mobile/src/screens/uploads/PendingUploadsScreen.tsx:122, 138-148`; `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/upload/UploadCoordinator.kt:116, 331-339`
-**Issue:** `progressById` is only ever added to (on `onUploadProgress`), never pruned when a row leaves `uploading`. On the native side `lastEmitMs` is pruned only in `uploadOne`'s success tail (`lastEmitMs.remove`) — a dead-lettered or abandoned row's entry lingers. Slow unbounded growth keyed by recordingId; not a leak that matters at MVP volumes but unbounded nonetheless.
-**Fix:** In `PendingUploadsScreen`, drop ids from `progressById` that aren't in the current `rows`; in `UploadCoordinator`, `lastEmitMs.remove(row.recordingId)` in the `DeadLetterException` branch of `drainNow` too.
-
-### WR-09: `app.requireAuth`-gated routes derive `userId` via `(req.user as { sub: string }).sub` everywhere — no runtime assertion `sub` is present
-
-**File:** `apps/api/src/routes/recordings/finalize.ts:77`; `apps/api/src/routes/recordings/init.ts:60-65`; `apps/api/src/routes/recordings/reupload.ts:74`; `apps/api/src/routes/recordings/verified-ids.ts:29`
-**Issue:** Every recordings route does `const userId = (req.user as { sub: string }).sub` after `preHandler: [app.requireAuth]`. If a future refactor of the auth plugin populated `req.user` from a token without a `sub` claim (or as a string), `userId` would be `undefined` — which then flows into `recordingKeys()` (→ `recordings/undefined/.../video.mp4`) and `eq(schema.recordings.userId, undefined)` (Drizzle would likely emit `= NULL`, matching nothing — but the key derivation already wrote to an `undefined` prefix). The `as` cast hides this from the type checker.
-**Fix:** Have `requireAuth` (or a tiny helper) assert `typeof req.user?.sub === 'string' && req.user.sub.length === 26` and 401 otherwise; expose a typed `req.userId` so routes don't re-cast.
+```kotlin
+row.uploadId = initResp.uploadId
+row.imuUploadId = initResp.imuUploadId
+if (wasReupload) row.reupload = false
+row.state = UploadState.UPLOADING
+queueStore.upsert(row)
+```
 
 ## Info
 
-### IN-01: `CaptureLaunchSweep.run()` always returns `emptyList()` — the crash-recovery toast path is dead code
+### IN-01: `sqs-poller.ts` regex comment says "SECOND capture group" but there is only one capture group
 
-**File:** `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/capture/CaptureLaunchSweep.kt:58-128`; `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/MainApplication.kt:86`
-**Issue:** Post-D-03 the sweep never re-finalizes anything, so `pendingRecovery` is always an empty list and the `onCrashRecovery` event/toast can never fire. Documented as a "safety net", but it's effectively unreachable code carrying a `List<String>` plumbing it doesn't need.
-**Fix:** Either delete the recovery-list plumbing (and the toast wiring) or leave a single TODO; not worth keeping a phantom code path live.
+**File:** `apps/api/src/workers/sqs-poller.ts:24-28, 76`
+**Issue:** `RECORDING_KEY_RE` is `^recordings\/[0-9A-HJKMNP-TV-Z]{26}\/([0-9A-HJKMNP-TV-Z]{26})\/(?:video\.mp4|imu\.csv|metadata\.json)$` — the userId segment is **not** parenthesized and the suffix alternation is `(?:…)` non-capturing, so `m[1]` (used by the code, correctly) is the recordingId. The comment "userId & recordingId are 26-char … The SECOND capture group is the recordingId" is wrong.
+**Fix:** Reword the comment ("the only capture group is the recordingId"), or wrap the userId in a group for symmetry and read `m[2]`.
 
-### IN-02: `UploadCoordinator.shutdown()` is never called — `watchdogExecutor`/`drainExecutor`/`partExecutor` live for the process lifetime
+### IN-02: WR-02's `AND qa_status='uploaded'` SQL predicate has no test exercising the 0-row branch
 
-**File:** `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/upload/UploadCoordinator.kt:183-188`; `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/upload/HumynUploadModule.kt:422-430`
-**Issue:** `HumynUploadModule.invalidate()` deliberately does _not_ call `coordinator.shutdown()` (it's a process-scoped singleton), and nothing else calls it. The three executors are daemon threads so it's not a process-exit blocker, but `shutdown()` is dead code as written.
-**Fix:** Either remove `shutdown()` or document that it's test-only.
+**File:** `apps/api/test/workers/verify-recording.test.ts:232-277`
+**Issue:** The "row moved to takedown during the re-hash" test admits it "can't interleave mid-call" and instead flips the row to `takedown` _before_ calling `verifyRecording`, so the early `qaStatus !== 'uploaded'` guard short-circuits and the `AND qa_status='uploaded'` UPDATE predicate (the actual WR-02 fix) is never reached. The `rowCount !== 1` branch (skip outbox event, leave queue row) is untested.
+**Fix:** Add a test that inserts the row as `'uploaded'`, stubs `sha256OfS3Object` to flip the row to `'takedown'` (via a real `db.update`) before resolving, then asserts no outbox row and the queue row left in place — that exercises the SQL predicate, not the early guard.
 
-### IN-03: `HumynForegroundService.onRecordingFinalized()` / `setUploadActive(boolean)` instance methods are never invoked in production
+### IN-03: `sqs-poller.ts` `pollOnce`/`loop` (delete-on-JSON-parse, enqueue-then-delete, backoff) is untested
 
-**File:** `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/fgs/HumynForegroundService.kt:140-168`
-**Issue:** The doc says the production path is the `ACTION_SET_UPLOAD_ACTIVE` intent dispatch; these two instance methods are "kept for same-package tests" but no caller in the reviewed source uses `onRecordingFinalized()`.
-**Fix:** Mark `@VisibleForTesting` or drop `onRecordingFinalized()` if no test exercises it.
+**File:** `apps/api/test/workers/sqs-poller.test.ts` (only `parseRecordingIdFromS3Event` is covered)
+**Issue:** The subtle "if the body parsed as JSON, `DeleteMessage`; if it didn't even parse, leave it for the DLQ" logic in `pollOnce` (lines 102-125), and the "enqueue succeeded → delete; enqueue failed → don't delete" branch (lines 127-138), have no coverage. A regression that deleted unparseable messages (silently dropping a real-but-corrupted event) or deleted on enqueue failure (dropping a verify) would not be caught.
+**Fix:** Add a `pollOnce` test with a mocked `SQSClient` covering: well-formed event → enqueue + delete; non-recording key + valid JSON → delete, no enqueue; non-JSON body → no delete; `enqueueVerify` rejects → no delete.
 
-### IN-04: `RecordingsListItemSchema.qa_status` enum omits `'takedown'` — a `takedown` row reaching the serializer would 500
+### IN-04: EventBridge rule filters on `.mp4`/`.csv` suffixes bucket-wide, not scoped to `recordings/`
 
-**File:** `apps/api/src/routes/recordings/schemas.ts:17-23`
-**Issue:** The list response schema enumerates 5 of the 6 `qa_status` values; the comment says `takedown` rows are filtered at the DB layer. If that filter is ever missed, the strict zod serializer throws and the request 500s instead of degrading. (Same for `RecordingsGetResponseSchema.qa_status: z.enum(['uploaded'])`.)
-**Fix:** Either include `'takedown'` in the enum and exclude such rows in the handler explicitly, or accept the coupling and add a comment-linked test that the DB query always filters `takedown`.
+**File:** `infra/terraform/modules/verify-queue/main.tf:70-86`
+**Issue:** The `event_pattern` matches `object.key` ending in `.mp4`, `.csv`, or `metadata.json` anywhere in `humyn-recordings-${env}`. Any future non-recording `.mp4`/`.csv` object in that bucket would also fire the rule → land on the SQS queue → the poller's `RECORDING_KEY_RE` rejects it → the message is logged + deleted. Wasteful (extra SQS traffic + poller cycles) but not incorrect.
+**Fix:** Add a `prefix = "recordings/"` constraint alongside the suffix filters in the `object.key` matcher.
 
-### IN-05: `verified-ids` cursor resolves arbitrary 26-char ids against the global `recordings` table
+### IN-05: `aws_sqs_queue.verify` `visibility_timeout_seconds = 900` is dead config — the poller overrides it to 60s
 
-**File:** `apps/api/src/routes/recordings/verified-ids.ts:36-51`
-**Issue:** When `since` is supplied, the route does `SELECT verified_at, id FROM recordings WHERE id = since` with no `user_id` predicate, then uses the resolved `verified_at` as a pagination bound. The result set is still gated by `userId`, so no cross-tenant data leaks — but an attacker can probe whether an arbitrary recording id exists and is verified by observing whether the extra `(verified_at, id) < (...)` predicate gets added (a faint timing/result-shape oracle).
-**Fix:** Add `eq(schema.recordings.userId, userId)` to the cursor-resolution query so an out-of-scope id resolves nothing.
+**File:** `infra/terraform/modules/verify-queue/main.tf:45-47` vs `apps/api/src/workers/sqs-poller.ts:94`
+**Issue:** The queue default `visibility_timeout_seconds = 900` is justified by a comment about "the worker re-hashes potentially multi-GB objects" — but the SQS consumer is the _poller_ (which only does a Redis `enqueueVerify` then `DeleteMessage`), not the BullMQ hash-verify worker (which reads from Redis). The poller's `ReceiveMessageCommand` always sets `VisibilityTimeout: 60`, overriding the queue default for every received message. The 900s value is therefore inert and the comment is misleading.
+**Fix:** Drop the queue-level `visibility_timeout_seconds` (or set it to ~60) and correct the comment to say the consumer is the thin poller.
+
+### IN-06: `/recordings/init`'s idempotent path re-issues a fresh IMU `CreateMultipartUpload` on every re-`/init`, orphaning the prior one
+
+**File:** `apps/api/src/routes/recordings/init.ts:215-229, 79-91`
+**Issue:** Each duplicate `/init` for a `pending` row mints a brand-new IMU multipart upload (the IMU upload-id isn't persisted on the row). The inline comment justifies this with "a fresh one orphans nothing because the video upload it accompanies has zero uploaded parts at that point" — that holds for _this_ upload coordinator (which uses `/parts`, not `/init`, on re-drains, so it only re-`/init`s before any part is uploaded), but it's a contract assumption coupled to one client's behaviour: any other caller that uploads IMU parts then re-`/init`s strands those parts. Orphaned MUs are reaped by the recordings bucket's `abort_incomplete_multipart_upload { days_after_initiation = 1 }` lifecycle rule, so the leak is bounded.
+**Fix:** Document the client coupling explicitly in the route comment, or (more robustly) persist the IMU upload-id on the row like the video one so the idempotent path can re-presign it instead of recreating it.
+
+### IN-07: `UploadCoordinator.kt:311` `row.chunkBytes ?: chunkBytesForNetwork(false)` is dead — `chunkBytes` is already non-null here
+
+**File:** `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/upload/UploadCoordinator.kt:311` (also `:403`)
+**Issue:** `row.chunkBytes` is unconditionally set at line 253-255 (`if (row.chunkBytes == null) row.chunkBytes = …`) before line 311 reads it, so the `?: chunkBytesForNetwork(false)` fallback can never fire. `doneBytes` (line 403) has the same dead fallback. Harmless but misleading (it implies `chunkBytes` can legitimately be null mid-`uploadOne`, which would actually be a layout bug).
+**Fix:** Replace with `row.chunkBytes!!` for clarity, or drop the local and read `row.chunkBytes!!` inline.
 
 ---
 
-_Reviewed: 2026-05-12T14:52:34Z_
+_Reviewed: 2026-05-12_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
