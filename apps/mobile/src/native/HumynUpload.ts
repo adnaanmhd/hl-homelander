@@ -71,6 +71,15 @@ export type UploadProgressEvent = {
 };
 
 interface HumynUploadNativeModule {
+  /**
+   * Push the auth context the coordinator needs for `/recordings/init`,
+   * `/finalize`, `/reupload` (presigned S3 PUTs carry no bearer): the API base
+   * URL, the bearer JWT, and the signed-in `sub`. Call on launch / post-sign-in
+   * / on-resume so a JWT refresh is picked up. (Kotlin can't conveniently read
+   * the encrypted MMKV, so the JS side injects it — `services/api.ts`'s
+   * `API_BASE_URL` + the `AUTH_JWT` MMKV key are the single source.)
+   */
+  setUploadContext(apiBaseUrl: string, bearerToken: string | null, sub: string): Promise<void>;
   /** Add a recording's bundle to the durable queue. Practice recordings are refused (D-08). */
   enqueue(
     recordingId: string,
@@ -125,6 +134,9 @@ function ensure(): HumynUploadNativeModule {
  * crash boot.
  */
 export const HumynUpload = {
+  /** Set the upload coordinator's auth context. Throws if the module is absent. */
+  setUploadContext: (apiBaseUrl: string, bearerToken: string | null, sub: string): Promise<void> =>
+    ensure().setUploadContext(apiBaseUrl, bearerToken, sub),
   enqueue: (
     recordingId: string,
     mp4Path: string,
@@ -194,6 +206,18 @@ export const HumynUpload = {
       return await ensure().openOemAutostart();
     } catch {
       return false;
+    }
+  },
+  /** Safe: no-op when the module is unavailable (a build without it / JSDOM). */
+  setUploadContextSafe: async (
+    apiBaseUrl: string,
+    bearerToken: string | null,
+    sub: string,
+  ): Promise<void> => {
+    try {
+      await ensure().setUploadContext(apiBaseUrl, bearerToken, sub);
+    } catch {
+      /* no native module — nothing to do */
     }
   },
 } as const;

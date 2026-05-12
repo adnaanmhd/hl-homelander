@@ -25,6 +25,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { enableScreens } from 'react-native-screens';
 import { hydrate } from './src/state/hydrate';
 import { installBootRecoveryListener } from './src/boot/bootRecoveryListener';
+import { installUploadReconcile } from './src/services/uploadReconcile';
 import { ToastHost } from './src/components/Toast';
 import RootNativeStack from './src/navigation/RootNativeStack';
 import { linking } from './src/navigation/linking';
@@ -49,7 +50,21 @@ export default function App() {
   // HumynCapture isn't registered (JSDOM / a build without it).
   React.useEffect(() => {
     const teardown = installBootRecoveryListener();
-    return teardown;
+    // Plan 05-08 (VERIFY-06) — the upload reconciliation sweep: on cold start +
+    // each AppState→active, GET /recordings/verified-ids and delete any
+    // verified-but-still-local recording triples. try/catch-wrapped so a build
+    // without HumynUpload / JSDOM (or a missing API base URL) never crashes boot
+    // — mirrors the installBootRecoveryListener best-effort pattern.
+    let uploadReconcileTeardown: (() => void) | undefined;
+    try {
+      uploadReconcileTeardown = installUploadReconcile();
+    } catch {
+      uploadReconcileTeardown = undefined;
+    }
+    return () => {
+      teardown();
+      uploadReconcileTeardown?.();
+    };
   }, []);
   return (
     <SafeAreaProvider>

@@ -222,6 +222,43 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    /**
+     * Flip a queue row into its re-upload state (Plan 05-08; UP-16). Driven by
+     * a server `re-upload` event (after a `hash-mismatch`) and the dead-letter
+     * "Retry" affordance. Resets the row so the next drain re-mints the
+     * multipart upload via `POST /recordings/:id/reupload` (not `/init`) and
+     * re-PUTs every part from the still-present local copy — `partsCount` /
+     * `chunkBytes` stay pinned (the file is byte-identical). No-op (resolves)
+     * if the row doesn't exist. The local mp4/csv/json are NOT touched.
+     */
+    @ReactMethod
+    fun reupload(recordingId: String, promise: Promise) {
+        bgExecutor.execute {
+            try {
+                val row = queueStore.read().find { it.recordingId == recordingId }
+                if (row == null) {
+                    promise.resolve(null)
+                    return@execute
+                }
+                row.reupload = true
+                row.state = UploadState.PENDING
+                row.uploadId = null
+                row.imuUploadId = null
+                row.metadataPut = PartStatus.PENDING
+                row.deadLetterReason = null
+                for (p in row.videoParts) { p.status = PartStatus.PENDING; p.etag = null; p.retryCount = 0 }
+                for (p in row.imuParts) { p.status = PartStatus.PENDING; p.etag = null; p.retryCount = 0 }
+                queueStore.upsert(row)
+                emitQueueChanged()
+                runCatching { coordinator.drain() }
+                signalUploadActiveBestEffort()
+                promise.resolve(null)
+            } catch (t: Throwable) {
+                promise.reject("UPLOAD_REUPLOAD_FAILED", t.message ?: "reupload failed", t)
+            }
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Battery-optimization exemption + OEM autostart (UP-09) — drives the
     // BatteryOptimizationScreen first-upload walkthrough.
