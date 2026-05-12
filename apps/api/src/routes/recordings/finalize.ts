@@ -3,12 +3,20 @@
 // 'pending' → 'uploaded', and enqueues the row in recordings_to_verify so the
 // Phase 5 hash-verify worker picks it up. AWS itself reassembles the bytes —
 // the API process never reads file content (CLAUDE.md file-fidelity rule).
+//
+// Retry-safe (WR-01): a /finalize retry where a CompleteMultipartUpload returns
+// NoSuchUpload (the multipart upload was already completed on a prior attempt)
+// HeadObject's the key and treats 'present' as success; a row already in
+// qa_status='uploaded' short-circuits to a 200 (the prior finalize's response
+// dropped on the wire). The row is only flipped to 'uploaded' once BOTH objects
+// are confirmed present, so a half-finished /finalize never strands a row.
 
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
-import { CompleteMultipartUploadCommand } from '@aws-sdk/client-s3';
+import { CompleteMultipartUploadCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import type { S3Client } from '@aws-sdk/client-s3';
 import { db, schema } from '../../db/index.js';
 import { getS3Client, RECORDINGS_BUCKET, recordingKeys } from '../../lib/s3-client.js';
 import { canTransition } from '../../lib/recording-state.js';
@@ -59,6 +67,50 @@ function toRecordingResponse(r: RecordingRow): z.infer<typeof RecordingSchema> {
   };
 }
 
+// S3 surfaces "this multipart upload is gone" under a few different error
+// `name`s depending on SDK version / endpoint (real AWS vs LocalStack).
+const ALREADY_COMPLETED_ERROR_NAMES = new Set([
+  'NoSuchUpload',
+  'NoSuchMultipartUpload',
+  'NoSuchUploadException',
+]);
+
+// Complete the multipart upload — but if S3 says the upload is already gone
+// (we completed it on a prior /finalize attempt that then failed downstream, or
+// it expired), HeadObject the key: "the object exists" ⇒ treat as success
+// (idempotent retry). HeadObject throws NotFound/404 if the object isn't there
+// → that error propagates (a genuine failure; the coordinator retries / it
+// dead-letters). Any S3 error that is neither "already completed" nor a present
+// object also propagates.
+async function completeOrConfirm(
+  s3: S3Client,
+  bucket: string,
+  key: string,
+  uploadId: string,
+  parts: { PartNumber: number; ETag: string }[],
+): Promise<void> {
+  try {
+    await s3.send(
+      new CompleteMultipartUploadCommand({
+        Bucket: bucket,
+        Key: key,
+        UploadId: uploadId,
+        MultipartUpload: { Parts: parts },
+      }),
+    );
+  } catch (err) {
+    const name = (err as { name?: string }).name;
+    if (name && ALREADY_COMPLETED_ERROR_NAMES.has(name)) {
+      // The multipart upload is gone — if the object is present, the prior
+      // attempt's CompleteMultipartUpload already landed it. Treat as success.
+      // (HeadObject throws NotFound/404 → propagates as a genuine failure.)
+      await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+      return;
+    }
+    throw err;
+  }
+}
+
 export default async function finalizeRoute(app: FastifyInstance): Promise<void> {
   app.withTypeProvider<ZodTypeProvider>().post(
     '/recordings/:id/finalize',
@@ -99,6 +151,14 @@ export default async function finalizeRoute(app: FastifyInstance): Promise<void>
         });
         return reply.status(403).type(PROBLEM_CT).send(pd);
       }
+      // Idempotent retry (WR-01): a row already in 'uploaded' means a prior
+      // /finalize flipped it but its response dropped on the wire. The objects
+      // are present; just replay the 200. (verified / hash-mismatch / rejected /
+      // takedown are post-finalize states the client shouldn't be re-finalizing
+      // → still 409 below.)
+      if (rec.qaStatus === 'uploaded') {
+        return reply.send(toRecordingResponse(rec));
+      }
       if (!canTransition(rec.qaStatus, 'uploaded')) {
         const pd = buildProblemDetail({
           slug: PROBLEM_SLUGS.conflict,
@@ -122,34 +182,30 @@ export default async function finalizeRoute(app: FastifyInstance): Promise<void>
       const bucket = RECORDINGS_BUCKET();
       const keys = recordingKeys({ userId, recordingId: rec.id });
 
-      // Server-side complete — AWS reassembles the parts. The API process
-      // never reads bytes (CLAUDE.md file-fidelity rule).
-      await s3.send(
-        new CompleteMultipartUploadCommand({
-          Bucket: bucket,
-          Key: keys.video,
-          UploadId: rec.s3UploadId,
-          MultipartUpload: {
-            Parts: req.body.videoParts.map((p) => ({
-              PartNumber: p.partNumber,
-              ETag: p.etag,
-            })),
-          },
-        }),
+      // Server-side complete — AWS reassembles the parts. The API process never
+      // reads bytes (CLAUDE.md file-fidelity rule). completeOrConfirm tolerates
+      // a NoSuchUpload (already completed on a prior attempt) by HeadObject'ing
+      // the key (WR-01).
+      await completeOrConfirm(
+        s3,
+        bucket,
+        keys.video,
+        rec.s3UploadId,
+        req.body.videoParts.map((p) => ({ PartNumber: p.partNumber, ETag: p.etag })),
       );
-      await s3.send(
-        new CompleteMultipartUploadCommand({
-          Bucket: bucket,
-          Key: keys.imu,
-          UploadId: req.body.imuUploadId,
-          MultipartUpload: {
-            Parts: req.body.imuParts.map((p) => ({
-              PartNumber: p.partNumber,
-              ETag: p.etag,
-            })),
-          },
-        }),
+      await completeOrConfirm(
+        s3,
+        bucket,
+        keys.imu,
+        req.body.imuUploadId,
+        req.body.imuParts.map((p) => ({ PartNumber: p.partNumber, ETag: p.etag })),
       );
+
+      // Only flip the row to 'uploaded' once BOTH objects are confirmed present.
+      // If either HeadObject throws NotFound, the row stays 'pending' and the
+      // client retries — a half-finished /finalize never strands a row (WR-01).
+      await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: keys.video }));
+      await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: keys.imu }));
 
       // Transition state and enqueue Phase 5 hash-verify worker (queue-stub write).
       const updated = await db.transaction(async (tx) => {

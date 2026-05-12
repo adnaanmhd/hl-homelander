@@ -213,4 +213,60 @@ describe('events-outbox onSend hook', () => {
     // The _events key is present (carried by the strict schema, not stripped).
     expect(Array.isArray(body._events)).toBe(true);
   });
+
+  it('a 404 application/problem+json response carries NO _events and leaves the outbox row undelivered (WR-03)', async () => {
+    // Drain anything left over from earlier tests so we start clean for USER_A.
+    await app.inject({
+      method: 'GET',
+      url: '/me',
+      headers: { authorization: `Bearer ${tok(USER_A)}` },
+    });
+    // Seed exactly one fresh undelivered row for USER_A.
+    const rec = await mkRecording(USER_A, 'verified');
+    const evtId = ulid();
+    await db.insert(schema.recordingEventsOutbox).values({
+      id: evtId,
+      userId: USER_A,
+      recordingId: rec,
+      eventType: 'verified',
+    });
+
+    // GET /recordings/<bogus 26-char id> → 404 application/problem+json.
+    const bogusId = '01HBOGUS00000000000000404X'; // 26 chars, no such row
+    const r = await app.inject({
+      method: 'GET',
+      url: `/recordings/${bogusId}`,
+      headers: { authorization: `Bearer ${tok(USER_A)}` },
+    });
+    expect(r.statusCode).toBe(404);
+    expect(r.headers['content-type']).toContain('application/problem+json');
+    expect(r.json()._events).toBeUndefined(); // RFC-7807 body must NOT carry _events
+
+    // The row must still be undelivered (the hook didn't touch the 404).
+    const [row] = await db
+      .select()
+      .from(schema.recordingEventsOutbox)
+      .where(eq(schema.recordingEventsOutbox.id, evtId))
+      .limit(1);
+    expect(row?.deliveredAt).toBeNull();
+
+    // Regression guard: a subsequent 200 application/json response DOES carry
+    // _events and marks the row delivered.
+    const r2 = await app.inject({
+      method: 'GET',
+      url: '/me',
+      headers: { authorization: `Bearer ${tok(USER_A)}` },
+    });
+    expect(r2.statusCode).toBe(200);
+    expect(r2.headers['content-type']).toContain('application/json');
+    expect(r2.json()._events).toEqual(
+      expect.arrayContaining([{ recording_id: rec, event_type: 'verified' }]),
+    );
+    const [rowAfter] = await db
+      .select()
+      .from(schema.recordingEventsOutbox)
+      .where(eq(schema.recordingEventsOutbox.id, evtId))
+      .limit(1);
+    expect(rowAfter?.deliveredAt).not.toBeNull();
+  });
 });
