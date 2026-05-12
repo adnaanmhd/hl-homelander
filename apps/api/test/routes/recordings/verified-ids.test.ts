@@ -158,6 +158,45 @@ describe('GET /recordings/verified-ids', () => {
     expect(body.next_cursor).toBeNull();
   });
 
+  it('?since=<another user’s recording id> behaves identically to ?since=<unknown id> (IN-05)', async () => {
+    // USER_B has exactly one verified recording (seeded in the first test).
+    const [bRow] = await db
+      .select({ id: schema.recordings.id })
+      .from(schema.recordings)
+      .where(eq(schema.recordings.userId, USER_B))
+      .limit(1);
+    const otherUsersId = bRow!.id;
+    const unknownId = '01HUNKNOWN0000000000000NOX'; // 26 chars, no such row
+
+    // Baseline: USER_A's full list, no cursor.
+    const noCursor = await app.inject({
+      method: 'GET',
+      url: '/recordings/verified-ids',
+      headers: { authorization: `Bearer ${tok(USER_A)}` },
+    });
+    expect(noCursor.statusCode).toBe(200);
+    const baseline = noCursor.json();
+
+    // ?since=<USER_B's id> — the cursor SELECT is user-gated, so it resolves
+    // nothing; no (verified_at, id) < (...) predicate is added → same result.
+    const sinceOther = await app.inject({
+      method: 'GET',
+      url: `/recordings/verified-ids?since=${otherUsersId}`,
+      headers: { authorization: `Bearer ${tok(USER_A)}` },
+    });
+    expect(sinceOther.statusCode).toBe(200);
+    expect(sinceOther.json()).toEqual(baseline);
+
+    // ?since=<unknown id> — same: resolves nothing → same result.
+    const sinceUnknown = await app.inject({
+      method: 'GET',
+      url: `/recordings/verified-ids?since=${unknownId}`,
+      headers: { authorization: `Bearer ${tok(USER_A)}` },
+    });
+    expect(sinceUnknown.statusCode).toBe(200);
+    expect(sinceUnknown.json()).toEqual(baseline);
+  });
+
   it('unauthenticated → 401', async () => {
     const res = await app.inject({ method: 'GET', url: '/recordings/verified-ids' });
     expect(res.statusCode).toBe(401);

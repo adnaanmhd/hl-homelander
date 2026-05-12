@@ -18,7 +18,7 @@ const log = pino(loggerOptions).child({ component: 'hash-verify-worker' });
 const worker = new Worker<{ recordingId: string }>(
   'verify',
   async (job) => {
-    await verifyRecording(job.data.recordingId);
+    await verifyRecording(job.data.recordingId, log);
   },
   { connection: getRedisConnection(), concurrency: 4 },
 );
