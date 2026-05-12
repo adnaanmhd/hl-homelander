@@ -213,7 +213,7 @@ Plans:
 
 **Wave 5** _(blocked on Wave 4 completion)_
 
-- [ ] 05-08-PLAN.md — Wave 5: client-surface wire-up (PendingUploadsScreen + UploadStatusChip incl. the 'Paused — no Wi-Fi' variant + the §21.7 resolution; Home-tile real data; recordingEvents \_events consumer + uploadReconcile sweep + the HumynUploadModule.reupload @ReactMethod + the auto-enqueue/pause/resume/logout wiring; the end-to-end upload smoke runbook) — UP-05, UP-10, UP-11, UP-12, UP-13, UP-14, UP-15, UP-16, VERIFY-06
+- [x] 05-08-PLAN.md — Wave 5: client-surface wire-up (PendingUploadsScreen + UploadStatusChip incl. the 'Paused — no Wi-Fi' variant + the §21.7 resolution; Home-tile real data; recordingEvents \_events consumer + uploadReconcile sweep + the HumynUploadModule.reupload @ReactMethod + the auto-enqueue/pause/resume/logout wiring; the end-to-end upload smoke runbook) — UP-05, UP-10, UP-11, UP-12, UP-13, UP-14, UP-15, UP-16, VERIFY-06
 
 ### Phase 6: Tasks, History, Home Tiles & Lexical Search
 
