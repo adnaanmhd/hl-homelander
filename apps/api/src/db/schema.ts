@@ -63,6 +63,12 @@ export const taskRequestStatusEnum = pgEnum('task_request_status', [
   'accepted',
 ]);
 
+// Server→client recording-status events (Plan 05-03). The hash-verify worker
+// appends a row when it flips qa_status: 'verified' (hashes matched) or
+// 're-upload' (hash-mismatch — the client must re-upload). Delivered via the
+// `events-outbox` onSend hook (Plan 05-05); the client de-dups on (recording_id, event_type).
+export const recordingEventTypeEnum = pgEnum('recording_event_type', ['verified', 're-upload']);
+
 // === Tables ===
 
 // users — Phase 1 root entity
@@ -324,6 +330,32 @@ export const recordingsToVerify = pgTable('recordings_to_verify', {
   enqueuedAt: timestamp('enqueued_at', { withTimezone: true }).notNull().defaultNow(),
   attempts: integer('attempts').notNull().default(0),
 });
+
+// recording_events_outbox — server→client recording-status events (Plan 05-03).
+// The hash-verify worker writes a row inside the same transaction that flips
+// qa_status; the `events-outbox` onSend hook (Plan 05-05) drains undelivered
+// rows for the authenticated user and attaches them to the response, then marks
+// delivered_at. The partial index `WHERE delivered_at IS NULL` (in the migration
+// SQL — Drizzle can't express partial indexes) keeps the drain query cheap.
+export const recordingEventsOutbox = pgTable(
+  'recording_events_outbox',
+  {
+    id: varchar('id', { length: 26 }).primaryKey(), // ULID
+    userId: varchar('user_id', { length: 26 })
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    recordingId: varchar('recording_id', { length: 26 })
+      .notNull()
+      .references(() => recordings.id, { onDelete: 'cascade' }),
+    eventType: recordingEventTypeEnum('event_type').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+  },
+  (t) => ({
+    // The partial WHERE delivered_at IS NULL lives in the migration SQL.
+    userCreatedIdx: index('recording_events_outbox_user_created_idx').on(t.userId, t.createdAt),
+  }),
+);
 
 // takedown_log — append-only audit row per processed ANPD/DPB takedown request
 // (D-LEGAL-04). Migration 0005 creates this table; Phase 1 enforces append-only
