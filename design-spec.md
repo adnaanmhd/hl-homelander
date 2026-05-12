@@ -809,7 +809,13 @@ These came up during the audit; surface to PM/eng before Figma handoff.
 4. **Permission denied** branches — full denied / partial / open-settings link copy not in prototype.
 5. **Send Request submission feedback** — success / error / pending states undefined.
 6. **Player real states** — currently a mock. Need playback, scrub, pause, error, expired-link.
-7. **Pending uploads** — only shows a single fake row; need: queued, paused (no wifi), failed-with-retry, completed.
+7. **Pending uploads** — ~~only shows a single fake row; need: queued, paused (no wifi), failed-with-retry, completed.~~ **RESOLVED (Phase 5, D-10):** the upload-queue screen (`PendingUploadsScreen`, reached from the Home "Pending uploads" tile §9b) reuses the History row layout (§13/§16) with per-file rows — 64×64 thumbnail + name (15 / 600) + meta line (recording duration, 12px secondary, mono) + a status chip. Chip mapping (no new tokens / curves — the chip family is §13's `chip-progress` / `chip-failed` / `chip-success` plus ONE new neutral variant):
+   - **Uploading…** (`chip-progress`; the active row appends "47%") — state uploading/finalizing/pending.
+   - **Uploaded — verifying…** (`chip-progress`, distinct label) — state awaiting-verify, i.e. the bundle is in S3 + in the server-side hash-verify queue; the distinct label keeps the user from thinking it's still transferring.
+   - **Upload failed** (`chip-failed`) + a "Retry" affordance (re-uploads from the still-present local copy) — state dead-letter.
+   - **✓ Uploaded** (`chip-success`) — state verified; **transient** — the row is dropped the moment its bundle is verified (D-10 discretion), so this only flashes briefly.
+   - **Paused — no Wi-Fi** — the ONE new chip variant, in the identical chip geometry/type ramp using the existing neutral palette (`--line` surface / `--text2` text); shown while the upload coordinator is paused for connectivity.
+   - **No cancel affordance anywhere** (uploads are not user-abortable; UP-11). The Home "Pending uploads" tile (§9b) renders the real rows; its `count > 0` visibility logic, pull-to-refresh, and the offline banner are **Phase 6** (HOME-01..06).
 8. **Profile editing** — age and gender flows are visually present but not built.
 9. **Help Center** — three of four items are placeholders.
 10. **Background interrupt on recording** — pause/resume UX undefined.
