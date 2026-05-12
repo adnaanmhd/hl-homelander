@@ -225,13 +225,13 @@
 
 ### Backend Hash-Verify Worker
 
-- [ ] **VERIFY-01**: Worker subscribes to S3 multipart-complete events via EventBridge → SQS → BullMQ on Redis
-- [ ] **VERIFY-02**: Worker re-hashes both the MP4 and the IMU CSV from S3 and compares against the manifest hashes (`file_sha256`, `imu_sha256` from the metadata JSON)
-- [ ] **VERIFY-03**: On match, worker flips `recordings.qa_status = 'verified'` and emits a `verified` event for the client
-- [ ] **VERIFY-04**: On mismatch, worker flips `qa_status = 'hash-mismatch'` and emits a `re-upload` event for the client
+- [x] **VERIFY-01**: Worker subscribes to S3 multipart-complete events via EventBridge → SQS → BullMQ on Redis
+- [x] **VERIFY-02**: Worker re-hashes both the MP4 and the IMU CSV from S3 and compares against the manifest hashes (`file_sha256`, `imu_sha256` from the metadata JSON)
+- [x] **VERIFY-03**: On match, worker flips `recordings.qa_status = 'verified'` and emits a `verified` event for the client
+- [x] **VERIFY-04**: On mismatch, worker flips `qa_status = 'hash-mismatch'` and emits a `re-upload` event for the client
 - [ ] **VERIFY-05**: Verified events are delivered piggy-backed on every API response (no FCM/APNs at MVP)
 - [ ] **VERIFY-06**: App-launch reconciliation sweep queries backend for the verified-but-undeleted set and deletes any local files the user no longer needs **[research]**
-- [ ] **VERIFY-07**: Worker scales on queue depth (BullMQ + ECS at MVP; switch to S3 EventBridge → Lambda is a v2 concern)
+- [x] **VERIFY-07**: Worker scales on queue depth (BullMQ + ECS at MVP; switch to S3 EventBridge → Lambda is a v2 concern)
 
 ### Anti-fraud
 
@@ -543,13 +543,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | API-15      | Phase 1 | Complete              |
 | API-16      | Phase 1 | Complete              |
 | API-17      | Phase 1 | Complete              |
-| VERIFY-01   | Phase 5 | Pending               |
-| VERIFY-02   | Phase 5 | Pending               |
-| VERIFY-03   | Phase 5 | Pending               |
-| VERIFY-04   | Phase 5 | Pending               |
+| VERIFY-01   | Phase 5 | Complete              |
+| VERIFY-02   | Phase 5 | Complete              |
+| VERIFY-03   | Phase 5 | Complete              |
+| VERIFY-04   | Phase 5 | Complete              |
 | VERIFY-05   | Phase 5 | Pending               |
 | VERIFY-06   | Phase 5 | Pending               |
-| VERIFY-07   | Phase 5 | Pending               |
+| VERIFY-07   | Phase 5 | Complete              |
 | FRAUD-01    | Phase 1 | Complete              |
 | FRAUD-02    | Phase 1 | Complete              |
 | FRAUD-03    | v2      | Deferred 2026-05-11   |
