@@ -89,3 +89,7 @@ None — plan executed as written. (The plan offered a choice on the "row moved 
 
 - The new finalize tests reproduce the WR-01 stuck-recording scenario against **real LocalStack** (no S3 mocking — the existing test file's convention): the "video multipart already completed" case calls `CompleteMultipartUploadCommand` before `/finalize`; the "video object also gone" case `AbortMultipartUploadCommand`s it first (so `CompleteMultipartUpload` → `NoSuchUpload`, `HeadObject` → `NotFound` → propagates). One expected `ERROR: unhandled_error` log line surfaces on that propagation path — it's the route correctly re-throwing a genuine S3 failure.
 - The `verify-recording.test.ts` TOCTOU case flips the row to `takedown` before calling `verifyRecording` (we can't interleave mid-call) — so it exercises the early `qaStatus !== 'uploaded'` guard rather than the in-transaction `AND qa_status='uploaded'` predicate directly; the test pins the invariant that matters ("a non-`uploaded` row is never written to `verified` and never gets an outbox event"). The SQL predicate is the second line of defence behind that early guard and is the must-have per the plan.
+
+## Self-Check: PASSED
+
+All 11 listed files exist; all 4 commits (`1e276a0`, `fd04f20`, `d9e4f12`, `d801e7e`) are in the log.
