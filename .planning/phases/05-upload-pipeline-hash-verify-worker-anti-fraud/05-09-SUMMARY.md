@@ -109,6 +109,12 @@ None — no external service configuration required.
 - `POST /recordings/:id/parts` exists and is ready for Plan 05-10 (the mobile upload coordinator's "call `/recordings/:id/parts` on a re-drain instead of re-`/init`" change — wave 2, depends on this route).
 - No blockers.
 
+## Self-Check: PASSED
+
+- Files created: `apps/api/src/routes/recordings/parts.ts`, `apps/api/test/routes/recordings/parts.test.ts`, `.planning/phases/05-upload-pipeline-hash-verify-worker-anti-fraud/05-09-SUMMARY.md` — all present.
+- Commits: `ecbf426` (Task 1), `432a567` (Task 2), `c3253ce` (summary) — all present in git log.
+- `cd apps/api && pnpm vitest run test/routes/recordings/init.test.ts test/routes/recordings/parts.test.ts` → 2 files, 11 tests, all pass. Full api suite: 39 files, 161 tests, all pass. `pnpm tsc --noEmit` clean (apps/api + shared/types).
+
 ---
 
 _Phase: 05-upload-pipeline-hash-verify-worker-anti-fraud_
