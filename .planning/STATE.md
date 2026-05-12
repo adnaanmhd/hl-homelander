@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
+status: executing
 stopped_at: Completed 05-07-PLAN.md
-last_updated: '2026-05-12T14:44:03.422Z'
-last_activity: 2026-05-12
+last_updated: '2026-05-12T16:09:32.926Z'
+last_activity: '2026-05-12T16:09:32.816Z — Phase 5 gaps Wave 1 complete (05-09, 05-11, 05-12, 05-13 merged)'
 progress:
   total_phases: 7
-  completed_phases: 5
-  total_plans: 66
-  completed_plans: 66
-  percent: 100
+  completed_phases: 4
+  total_plans: 71
+  completed_plans: 70
+  percent: 99
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-07)
 
 **Core value:** On-device capture quality is non-negotiable — every uploaded segment must hit the locked spec (1080p / 30 FPS / ≥110° dFOV / IMU sustained ≥100 Hz / ±1 ms timestamp alignment) or the bytes are worthless for training.
-**Current focus:** Phase 05 — upload-pipeline-hash-verify-worker-anti-fraud
+**Current focus:** Phase 5 gap closure — Wave 1 done, executing Wave 2 (05-10)
 
 ## Current Position
 
 Phase: 05 (upload-pipeline-hash-verify-worker-anti-fraud) — EXECUTING
-Plan: 8 of 8
-Status: Phase complete — ready for verification
+Plan: 1 of 13
+Status: Executing Phase 05
 
 Phase 2 operator smoke-walk history (carried forward):
 
@@ -47,7 +47,7 @@ Phase 3 hardware UAT pending (7 items, all on real Pixel 7a/8a) — these RETIRE
 - #6 CAP-18 byte-for-byte SHA round-trip — §3 on-disk SHA ↔ metadata assertion (Phase 5 owns the device→S3 leg)
 - #7 CAP-13 onSessionStart/Stop upload-pause seam — §3 session start/stop event log assertion (log-only at Phase 4; Phase 5 wires the pause)
 
-Last activity: 2026-05-12
+Last activity: 2026-05-12T16:09:32.816Z — Phase 5 gaps Wave 1 complete (05-09, 05-11, 05-12, 05-13 merged)
 
 Progress: Phase 4 — **complete (2026-05-12)**. 12/12 plans landed; gsd-verifier returned `human_needed` (5/5 success criteria code-verified); the on-hardware acceptance gate (`04-MANUAL-SMOKE.md`) was walked on a Pixel 10a — first walk 2026-05-12 verdict NO (4 findings) → `/gsd-debug phase4-smoke-fixes` round fixed all 4 + a 5th bug found mid-fix (auto-segment-rotate deadlock) → re-walk verdict **YES** (`04-HUMAN-UAT.md` → resolved 5/5; `04-VERIFICATION.md` → verified). The original "[BLOCKING] §5b ±1 ms drift" gate was relaxed by the owner 2026-05-12 to measure-and-record (ultrawide-recording path; CLAUDE.md drift banner + `ULTRAWIDE-DRIFT-FINDINGS.md`). Non-blocking follow-ups in `04-COSMETIC-GAPS.md` — **owner-folded into Phase 5 Wave 1** (the cosmetic-cleanup wave that runs before the upload work, mirroring how `02-COSMETIC-GAPS.md` was Phase 3's Wave 1; the "Phase-5 upload must tolerate a crash-recovered segment's `duration_seconds:0` + null drift" item goes in the Phase 5 plan proper, not Wave 1). Phase 5 (upload pipeline, hash-verify worker & anti-fraud) not yet planned — next: `/gsd-discuss-phase 5` (it should carry the Wave-1-cosmetic-cleanup disposition), then `/gsd-plan-phase 5`.
 
