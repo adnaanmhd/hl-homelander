@@ -25,6 +25,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowNetworkCapabilities
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -57,6 +58,8 @@ class UploadCoordinatorTest {
     private val putCalls = ConcurrentHashMap<String, AtomicInteger>() // path → count
     private val lastFinalizeBody = java.util.concurrent.atomic.AtomicReference<JSONObject?>(null)
     @Volatile private var failAllPuts = false
+    /** When > 0, the `/recordings/init` response is parked this many ms (used by the drain-serialisation test). */
+    @Volatile private var initHeadersDelayMs = 0L
 
     @Before
     fun setUp() {
@@ -73,7 +76,10 @@ class UploadCoordinatorTest {
                     path == "/recordings/init" -> {
                         initCalls.incrementAndGet()
                         val partsCount = JSONObject(request.body.readUtf8()).getInt("partsCount")
-                        MockResponse().setResponseCode(201).setBody(initBody(partsCount))
+                        MockResponse().setResponseCode(201).setBody(initBody(partsCount)).apply {
+                            val d = initHeadersDelayMs
+                            if (d > 0) setHeadersDelay(d, TimeUnit.MILLISECONDS)
+                        }
                     }
                     path.endsWith("/reupload") -> {
                         reuploadCalls.incrementAndGet()
@@ -308,6 +314,47 @@ class UploadCoordinatorTest {
         val p1 = fin.getJSONArray("videoParts").getJSONObject(0)
         assertEquals(1, p1.getInt("partNumber"))
         assertEquals("\"already-done\"", p1.getString("etag"))
+    }
+
+    @Test
+    fun `drainNow is serialised - two concurrent drains, only one does the upload work (CR-03)`() {
+        // The CR-03 defect: drainNow() is public + called off three threads (FGS
+        // HandlerThread / UIDT-job Thread / drainExecutor) with no mutual exclusion
+        // — two could run uploadOne(row) on the same row, re-POSTing /init, racing
+        // the queue file, clobbering row.uploadId. The ReentrantLock.tryLock() fix:
+        // a second concurrent drain returns immediately (no-op).
+        store.enqueue(row("01JCOORDREC8XXXXXXXXXXXXXX"))
+        // Park the first drain inside uploadOne for ~400 ms (the /recordings/init
+        // response is delayed) so the second thread reliably arrives mid-drain.
+        initHeadersDelayMs = 400L
+
+        val coord = coordinator()
+        val t2WallMs = java.util.concurrent.atomic.AtomicLong(Long.MAX_VALUE)
+        val t1 = Thread { coord.drainNow() }
+        val t2 = Thread {
+            val start = System.nanoTime()
+            coord.drainNow()
+            t2WallMs.set((System.nanoTime() - start) / 1_000_000L)
+        }
+        t1.start()
+        Thread.sleep(50) // let t1 get past tryLock() and into the parked /init
+        t2.start()
+        t1.join(5_000)
+        t2.join(5_000)
+
+        // Exactly ONE drain did the upload work — no double /init, no double /finalize.
+        assertEquals("only one /recordings/init (the lock blocked the second drain)", 1, initCalls.get())
+        assertEquals("only one /finalize", 1, finalizeCalls.get())
+        // No part was PUT twice.
+        assertEquals(1, putCalls["/s3/video/1"]?.get())
+        assertEquals(1, putCalls["/s3/video/2"]?.get())
+        assertEquals(1, putCalls["/s3/imu/1"]?.get())
+        // The queue has exactly one row, in the expected post-drain state — no duplicate row.
+        val back = store.read()
+        assertEquals("one row, not duplicated", 1, back.size)
+        assertEquals(UploadState.AWAITING_VERIFY, back[0].state)
+        // The loser of the tryLock() returned promptly — well before the 400 ms /init delay.
+        assertTrue("t2 lost the drainLock and returned promptly (was ${t2WallMs.get()}ms)", t2WallMs.get() < 300L)
     }
 
     @Test
