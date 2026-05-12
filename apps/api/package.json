@@ -22,7 +22,9 @@
     "legal:hash": "tsx scripts/legal-hash.ts",
     "dsr:build-export": "tsx scripts/dsr-export.ts",
     "worker:hash-verify": "node dist/workers/hash-verify.js",
-    "worker:hash-verify:dev": "tsx watch src/workers/hash-verify.ts"
+    "worker:hash-verify:dev": "tsx watch src/workers/hash-verify.ts",
+    "worker:sqs-poller": "node dist/workers/sqs-poller.js",
+    "worker:sqs-poller:dev": "tsx watch src/workers/sqs-poller.ts"
   },
   "dependencies": {
     "@humyn/shared-types": "workspace:*",

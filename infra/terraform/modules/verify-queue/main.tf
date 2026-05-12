@@ -233,9 +233,11 @@ resource "aws_ecs_task_definition" "worker" {
       }
     },
     {
-      # Thin SQS long-poll → enqueueVerify(recordingId) → DeleteMessage. Kept as a
-      # 2nd container in the same task (cheap; shares the worker's lifecycle). If
-      # it hiccups, the recordings_to_verify row + the verify-sweep cron re-enqueue.
+      # Thin SQS long-poll → enqueueVerify(recordingId) → DeleteMessage — the prod
+      # EventBridge→SQS→BullMQ trigger leg, implemented in apps/api/src/workers/sqs-poller.ts
+      # (Plan 05-12). 2nd container in the same task (cheap; shares the worker's
+      # lifecycle); if it hiccups, the recordings_to_verify row + the verify-sweep
+      # cron re-enqueue.
       name      = "sqs-poller"
       image     = var.worker_image
       command   = ["node", "dist/workers/sqs-poller.js"]
