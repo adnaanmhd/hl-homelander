@@ -15,14 +15,12 @@ import java.io.RandomAccessFile
 
 /**
  * Plan 03-09 Task 2 — `CaptureLaunchSweep` orphan recovery sweep
- * (D-FS-04 from CONTEXT.md). Updated 2026-05-12 for the Phase-4 on-hardware
- * smoke fix round (bugs 3(b)/3(c)):
- *   - an orphan `.mp4` + valid `.session.json` is now actually RE-FINALIZED:
- *       • playable mp4 (`ftyp` + `moov` + ≥1 `moof`) → `{base}.json` written,
- *         sidecar deleted, base reported as "recovered";
- *       • stub / incomplete mp4 (the force-quit case the smoke walk hit: a
- *         778-byte stub with no `moov`) → triple discarded, NOT "recovered".
- *   - an orphan `.session.json` with NO matching `.mp4` is now swept (Pass 3).
+ * (D-FS-04 from CONTEXT.md). Updated 2026-05-12 for Phase-5 D-03: the boot
+ * sweep no longer re-finalizes ANY crash orphan — every orphan `.mp4` (with or
+ * without a parseable `.session.json` sidecar, playable or stub) is DISCARDED
+ * (mp4 + csv + sidecar), so no degenerate-metadata bundle (duration_seconds:0 /
+ * null drift) can reach the upload queue. `run()` therefore always returns an
+ * empty list. (Pass 3 still sweeps lone `.session.json`s with no `.mp4`.)
  *
  * `application = Application::class` — bypasses MainApplication.onCreate
  * SoLoader.init NPE under Robolectric (canonical Phase 3 pattern).
@@ -112,7 +110,11 @@ class CaptureLaunchSweepTest {
     }
 
     @Test
-    fun `orphan playable-mp4 with valid sidecar is re-finalized into a triple`() {
+    fun `orphan playable-mp4 with valid sidecar is DISCARDED (D-03 — no degenerate bundle)`() {
+        // Phase-5 D-03: even a post-30s playable crash fragment carries
+        // degenerate metadata (duration_seconds:0 / null drift) — it must NOT
+        // be re-finalized into an upload-able triple. The whole triple is
+        // deleted and nothing is reported as "recovered".
         val base = "20260510_002b"
         val mp4 = File(recordingsDir, "$base.mp4").also { writePlayableMp4(it) }
         val csv = File(recordingsDir, "$base.csv").apply { writeText("fake csv bytes") }
@@ -121,11 +123,11 @@ class CaptureLaunchSweepTest {
 
         val recovered = CaptureLaunchSweep(filesDir).run()
 
-        assertTrue("mp4 preserved", mp4.exists())
-        assertTrue("csv preserved", csv.exists())
-        assertTrue("metadata json written from the sidecar", File(recordingsDir, "$base.json").exists())
-        assertFalse("sidecar deleted once the triple is complete", sidecar.exists())
-        assertEquals("re-finalized base is reported as recovered", listOf(base), recovered)
+        assertFalse("playable crash fragment is discarded under D-03", mp4.exists())
+        assertFalse("csv discarded with the fragment", csv.exists())
+        assertFalse("sidecar discarded with the fragment", sidecar.exists())
+        assertFalse("no metadata json is written (no re-finalize)", File(recordingsDir, "$base.json").exists())
+        assertTrue("run() returns an empty list — nothing is recovered any more", recovered.isEmpty())
     }
 
     @Test
@@ -212,17 +214,16 @@ class CaptureLaunchSweepTest {
     }
 
     // -------------------------------------------------------------------------
-    // Phase 4 D-LIFE-04 — run() returns the bases that were actually
-    // re-finalized into usable triples (a stub-mp4 orphan is discarded, not
-    // "recovered"). MainApplication.onCreate stashes them in
-    // CaptureLaunchSweep.pendingRecovery → HumynCaptureModule emits the
-    // one-shot onCrashRecovery event for the Home toast (and exposes the same
-    // list via getPendingRecovery() — see HumynCapture.test.ts). The on-device
-    // emit path can't be exercised under Robolectric — 04-MANUAL-SMOKE.md §4(e).
+    // Phase 4 D-LIFE-04 wiring — run() is still typed List<String>; post-D-03 it
+    // ALWAYS returns an empty list (nothing is re-finalized any more).
+    // MainApplication.onCreate still stashes it in CaptureLaunchSweep.pendingRecovery
+    // → HumynCaptureModule still drains it / emits onCrashRecovery — that path is
+    // now effectively dead code (the list is always empty), kept as a safety net.
+    // The on-device emit path can't be exercised under Robolectric — 04-MANUAL-SMOKE.md §4(e).
     // -------------------------------------------------------------------------
 
     @Test
-    fun `run returns the base of a re-finalized playable orphan`() {
+    fun `run returns an empty list even for a playable orphan-with-sidecar (D-03)`() {
         val base = "20260510_900"
         File(recordingsDir, "$base.mp4").also { writePlayableMp4(it) }
         File(recordingsDir, "$base.csv").apply { writeText("fake csv bytes") }
@@ -230,12 +231,13 @@ class CaptureLaunchSweepTest {
 
         val recovered = CaptureLaunchSweep(filesDir).run()
 
-        assertEquals(listOf(base), recovered)
+        assertTrue("D-03: nothing is ever recovered", recovered.isEmpty())
+        assertFalse("the playable fragment was discarded", File(recordingsDir, "$base.mp4").exists())
     }
 
     @Test
-    fun `run does not return bases for stub-mp4 or corrupt-sidecar or no-sidecar orphans`() {
-        // Stub mp4 (force-quit case) — discarded, not a recovery candidate.
+    fun `run returns empty for stub-mp4, corrupt-sidecar, no-sidecar and complete-triple inputs`() {
+        // Stub mp4 (force-quit case) — discarded.
         val stub = "20260510_900s"
         File(recordingsDir, "$stub.mp4").also { writeStubMp4(it) }
         File(recordingsDir, "$stub.csv").apply { writeText("x") }
@@ -249,7 +251,7 @@ class CaptureLaunchSweepTest {
         val nosidecar = "20260510_902"
         File(recordingsDir, "$nosidecar.mp4").apply { writeText("x") }
         File(recordingsDir, "$nosidecar.csv").apply { writeText("x") }
-        // A complete triple — not an orphan at all.
+        // A complete triple — not an orphan at all; left untouched.
         val complete = "20260510_903"
         File(recordingsDir, "$complete.mp4").apply { writeText("x") }
         File(recordingsDir, "$complete.csv").apply { writeText("x") }
@@ -257,11 +259,12 @@ class CaptureLaunchSweepTest {
 
         val recovered = CaptureLaunchSweep(filesDir).run()
 
-        assertTrue("no recovery candidates among stub/corrupt/no-sidecar/complete", recovered.isEmpty())
+        assertTrue("nothing is ever recovered (D-03)", recovered.isEmpty())
+        assertTrue("complete triple untouched", File(recordingsDir, "$complete.mp4").exists())
     }
 
     @Test
-    fun `run returns all re-finalized bases when several exist`() {
+    fun `run returns empty even with several playable orphans (D-03 — all discarded)`() {
         val a = "20260510_910"
         val b = "20260510_911"
         for (base in listOf(a, b)) {
@@ -270,26 +273,29 @@ class CaptureLaunchSweepTest {
             SidecarManager.write(File(recordingsDir, "$base.session.json"), fixtureSidecarPayload(base))
         }
 
-        val recovered = CaptureLaunchSweep(filesDir).run().sorted()
+        val recovered = CaptureLaunchSweep(filesDir).run()
 
-        assertEquals(listOf(a, b), recovered)
+        assertTrue("all discarded — nothing recovered", recovered.isEmpty())
+        assertFalse(File(recordingsDir, "$a.mp4").exists())
+        assertFalse(File(recordingsDir, "$b.mp4").exists())
     }
 
     @Test
-    fun `pendingRecovery holder round-trips a recovered list`() {
+    fun `pendingRecovery holder round-trips an (always empty) recovered list`() {
         // Mirrors MainApplication.onCreate → HumynCaptureModule.onHostResume:
-        // onCreate sets the holder from run(); onHostResume reads it (and emits).
+        // onCreate sets the holder from run() (now always empty under D-03);
+        // onHostResume reads it (and would emit, but never does — dead code).
         val base = "20260510_920"
         File(recordingsDir, "$base.mp4").also { writePlayableMp4(it) }
         File(recordingsDir, "$base.csv").apply { writeText("x") }
         SidecarManager.write(File(recordingsDir, "$base.session.json"), fixtureSidecarPayload(base))
 
         CaptureLaunchSweep.pendingRecovery = CaptureLaunchSweep(filesDir).run()
-        assertEquals(listOf(base), CaptureLaunchSweep.pendingRecovery)
+        assertEquals(emptyList<String>(), CaptureLaunchSweep.pendingRecovery)
 
         // Drain (what onHostResume / getPendingRecovery surface).
         val drained = CaptureLaunchSweep.pendingRecovery
-        assertEquals(listOf(base), drained)
+        assertEquals(emptyList<String>(), drained)
         CaptureLaunchSweep.pendingRecovery = null
         assertTrue("holder cleared after drain", CaptureLaunchSweep.pendingRecovery == null)
     }
