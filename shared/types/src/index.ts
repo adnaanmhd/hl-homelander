@@ -9,4 +9,4 @@ export * from './events.js';
 export * from './feedback.js';
 export * from './CompatResult.js';
 export * from './CaptureSessionOpts.js';
-export const SHARED_TYPES_VERSION = '0.7.0' as const;
+export const SHARED_TYPES_VERSION = '0.8.0' as const;

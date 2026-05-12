@@ -122,3 +122,41 @@ export const RecordingServerEventSchema = z.object({
   event_type: z.enum(['verified', 're-upload']),
 });
 export type RecordingServerEvent = z.infer<typeof RecordingServerEventSchema>;
+
+// The `_events` envelope (Plan 05-05). The `events-outbox` onSend hook adds this
+// optional key to every authenticated JSON object response. Strict response
+// schemas on authed carrier routes must `.extend(EventsEnvelopeSchema.shape)`
+// (Pattern 22) so the serializer accepts the key.
+export const EventsEnvelopeSchema = z.object({
+  _events: z.array(RecordingServerEventSchema).optional(),
+});
+export type EventsEnvelope = z.infer<typeof EventsEnvelopeSchema>;
+
+// POST /recordings/:id/reupload (UP-16) — re-issue presigned multipart URLs for
+// a hash-mismatch row. Body mirrors the relevant slice of RecordingsInitRequest
+// (the row + the deterministic keys already exist; only partsCount can change).
+export const RecordingReuploadRequestSchema = z.object({
+  partsCount: z.number().int().min(1).max(1000),
+});
+export type RecordingReuploadRequest = z.infer<typeof RecordingReuploadRequestSchema>;
+
+// The re-upload response is the same shape as /recordings/init's — fresh
+// uploadIds + per-part presigned URLs + the metadata PUT.
+export const RecordingReuploadResponseSchema = RecordingsInitResponseSchema;
+export type RecordingReuploadResponse = z.infer<typeof RecordingReuploadResponseSchema>;
+
+// GET /recordings/verified-ids?since=<cursor> (VERIFY-06) — the app-launch
+// reconciliation sweep surface. `since` is an opaque cursor = the last-seen
+// recording_id (its (verified_at, id) tuple is resolved server-side).
+export const VerifiedIdsQuerySchema = z.object({
+  since: z.string().length(26).optional(),
+});
+export type VerifiedIdsQuery = z.infer<typeof VerifiedIdsQuerySchema>;
+
+export const VerifiedIdsResponseSchema = z
+  .object({
+    ids: z.array(z.string().length(26)),
+    next_cursor: z.string().length(26).nullable(),
+  })
+  .extend(EventsEnvelopeSchema.shape); // also an `_events` carrier
+export type VerifiedIdsResponse = z.infer<typeof VerifiedIdsResponseSchema>;

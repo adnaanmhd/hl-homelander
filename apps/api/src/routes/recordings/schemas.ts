@@ -3,6 +3,7 @@
 // client expectations documented in REQUIREMENTS.md.
 
 import { z } from 'zod';
+import { RecordingServerEventSchema } from '@humyn/shared-types';
 
 // API-08 input
 export const RecordingsListQuerySchema = z.object({
@@ -23,6 +24,9 @@ export const RecordingsListItemSchema = z.object({
 export const RecordingsListResponseSchema = z.object({
   items: z.array(RecordingsListItemSchema),
   next_cursor: z.string().length(26).nullable(),
+  // Pattern 22 — the `events-outbox` onSend hook (Plan 05-05) may add this key
+  // to this authenticated response; the strict serializer must accept it.
+  _events: z.array(RecordingServerEventSchema).optional(),
 });
 export type RecordingsListResponse = z.infer<typeof RecordingsListResponseSchema>;
 
