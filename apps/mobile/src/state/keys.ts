@@ -15,6 +15,12 @@ export const KEYS = {
   COMPAT_LAST_RESULT: 'compat.lastResult.v1',
   APP_VERSION_CACHE: 'appVersion.cache.v1',
   TELEMETRY_RING: 'telemetry.ring.v1',
+  // Plan 05-07 (UP-09) — the first-upload battery-optimization walkthrough.
+  // `..._SHOWN` is set once the user dismisses the screen; `..._VERSION` records
+  // the app version it was last shown for, so a force-upgrade re-shows it (MIUI
+  // may revert the exemption on an app update — idea-brief.md §7.4).
+  UPLOAD_FIRST_PROMPT_SHOWN: 'upload.firstPromptShown.v1',
+  UPLOAD_FIRST_PROMPT_VERSION: 'upload.firstPromptVersion.v1',
 } as const;
 
 /**
