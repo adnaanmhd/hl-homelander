@@ -223,6 +223,82 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
     }
 
     // -------------------------------------------------------------------------
+    // Battery-optimization exemption + OEM autostart (UP-09) — drives the
+    // BatteryOptimizationScreen first-upload walkthrough.
+    // -------------------------------------------------------------------------
+
+    /** `true` iff the app is already whitelisted from battery optimizations. */
+    @ReactMethod
+    fun isBatteryOptimizationExempt(promise: Promise) {
+        bgExecutor.execute {
+            try {
+                promise.resolve(BatteryOptimizationHelper.isExempt(reactApplicationContext))
+            } catch (t: Throwable) {
+                promise.reject("BATT_OPT_CHECK_FAILED", t.message ?: "isBatteryOptimizationExempt failed", t)
+            }
+        }
+    }
+
+    /** Open the AOSP "allow unrestricted" prompt (falls back to the settings list). */
+    @ReactMethod
+    fun requestBatteryOptimizationExemption(promise: Promise) {
+        bgExecutor.execute {
+            try {
+                BatteryOptimizationHelper.requestExempt(reactApplicationContext)
+                promise.resolve(null)
+            } catch (t: Throwable) {
+                promise.reject("BATT_OPT_REQUEST_FAILED", t.message ?: "requestBatteryOptimizationExemption failed", t)
+            }
+        }
+    }
+
+    /** `true` if a known OEM "autostart" activity resolves on this device. */
+    @ReactMethod
+    fun oemAutostartAvailable(promise: Promise) {
+        bgExecutor.execute {
+            try {
+                promise.resolve(BatteryOptimizationHelper.oemAutostartAvailable(reactApplicationContext))
+            } catch (t: Throwable) {
+                promise.reject("OEM_AUTOSTART_CHECK_FAILED", t.message ?: "oemAutostartAvailable failed", t)
+            }
+        }
+    }
+
+    /** Launch the OEM autostart screen if one resolves; resolves `true`/`false` (never crashes). */
+    @ReactMethod
+    fun openOemAutostart(promise: Promise) {
+        bgExecutor.execute {
+            try {
+                promise.resolve(BatteryOptimizationHelper.openOemAutostartIfAvailable(reactApplicationContext))
+            } catch (t: Throwable) {
+                promise.reject("OEM_AUTOSTART_OPEN_FAILED", t.message ?: "openOemAutostart failed", t)
+            }
+        }
+    }
+
+    /**
+     * Explicitly signal the FGS whether uploads are active (Plan 05-08 / the
+     * walkthrough may want to toggle this directly — `enqueue()` already sends
+     * the seam intent on a fresh enqueue). `true` while recording is NOT active
+     * → the FGS does the `dataSync` type-downgrade + starts the drain.
+     */
+    @ReactMethod
+    fun setUploadActive(active: Boolean, promise: Promise) {
+        bgExecutor.execute {
+            try {
+                val ctx = reactApplicationContext.applicationContext
+                val intent = Intent(ctx, HumynForegroundService::class.java)
+                    .setAction(HumynForegroundService.ACTION_SET_UPLOAD_ACTIVE)
+                    .putExtra(HumynForegroundService.EXTRA_UPLOAD_ACTIVE, active)
+                ctx.startService(intent)
+                promise.resolve(null)
+            } catch (t: Throwable) {
+                promise.reject("UPLOAD_SET_ACTIVE_FAILED", t.message ?: "setUploadActive failed", t)
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // Event emission
     // -------------------------------------------------------------------------
 

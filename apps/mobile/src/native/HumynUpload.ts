@@ -81,6 +81,15 @@ interface HumynUploadNativeModule {
   getQueue(): Promise<UploadQueueRow[]>;
   /** Mark each recordingId verified, unlink local files, drop the row (UP-15 / VERIFY-06). */
   clearVerified(recordingIds: string[]): Promise<void>;
+  // --- Plan 05-07 — battery-optimization exemption + OEM autostart (UP-09) ---
+  /** `true` iff the app is already whitelisted from battery optimizations. */
+  isBatteryOptimizationExempt(): Promise<boolean>;
+  /** Open the AOSP "allow unrestricted" prompt (falls back to the settings list). */
+  requestBatteryOptimizationExemption(): Promise<void>;
+  /** `true` if a known OEM "autostart" activity resolves on this device. */
+  oemAutostartAvailable(): Promise<boolean>;
+  /** Launch the OEM autostart screen if one resolves; resolves `true`/`false` (never crashes). */
+  openOemAutostart(): Promise<boolean>;
 }
 
 function ensure(): HumynUploadNativeModule {
@@ -120,6 +129,53 @@ export const HumynUpload = {
       return await ensure().getQueue();
     } catch {
       return [];
+    }
+  },
+
+  // --- Plan 05-07 — battery-optimization exemption + OEM autostart (UP-09) ---
+  /** Open the AOSP "allow unrestricted battery" prompt. Throws if the module is absent. */
+  requestBatteryOptimizationExemption: (): Promise<void> =>
+    ensure().requestBatteryOptimizationExemption(),
+  /** `true` iff already exempt. Throws if the module is absent. */
+  isBatteryOptimizationExempt: (): Promise<boolean> => ensure().isBatteryOptimizationExempt(),
+  /** `true` if a known OEM autostart screen resolves on this device. Throws if the module is absent. */
+  oemAutostartAvailable: (): Promise<boolean> => ensure().oemAutostartAvailable(),
+  /** Launch the OEM autostart screen if one resolves; `true`/`false` (never crashes natively). Throws if the module is absent. */
+  openOemAutostart: (): Promise<boolean> => ensure().openOemAutostart(),
+
+  // Boot-/screen-safe variants — never throw (a build without the native module,
+  // a JSDOM test, an iOS build where these aren't implemented). Used by
+  // BatteryOptimizationScreen so it renders without the module.
+  /** Safe: `false` (treat as "not exempt — show the prompt") when the module is unavailable. */
+  isBatteryOptimizationExemptSafe: async (): Promise<boolean> => {
+    try {
+      return await ensure().isBatteryOptimizationExempt();
+    } catch {
+      return false;
+    }
+  },
+  /** Safe: no-op when the module is unavailable. */
+  requestBatteryOptimizationExemptionSafe: async (): Promise<void> => {
+    try {
+      await ensure().requestBatteryOptimizationExemption();
+    } catch {
+      /* no native module — nothing to do */
+    }
+  },
+  /** Safe: `false` (don't render the OEM deep-link button) when the module is unavailable. */
+  oemAutostartAvailableSafe: async (): Promise<boolean> => {
+    try {
+      return await ensure().oemAutostartAvailable();
+    } catch {
+      return false;
+    }
+  },
+  /** Safe: `false` when the module is unavailable. */
+  openOemAutostartSafe: async (): Promise<boolean> => {
+    try {
+      return await ensure().openOemAutostart();
+    } catch {
+      return false;
     }
   },
 } as const;
