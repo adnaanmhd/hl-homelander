@@ -54,12 +54,20 @@ class UploadCoordinatorTest {
     /** Counters the dispatcher updates so tests can assert call shapes. */
     private val initCalls = AtomicInteger(0)
     private val reuploadCalls = AtomicInteger(0)
+    private val partsCalls = AtomicInteger(0)
     private val finalizeCalls = AtomicInteger(0)
     private val putCalls = ConcurrentHashMap<String, AtomicInteger>() // path → count
     private val lastFinalizeBody = java.util.concurrent.atomic.AtomicReference<JSONObject?>(null)
+    private val lastPartsBody = java.util.concurrent.atomic.AtomicReference<JSONObject?>(null)
     @Volatile private var failAllPuts = false
     /** When > 0, the `/recordings/init` response is parked this many ms (used by the drain-serialisation test). */
     @Volatile private var initHeadersDelayMs = 0L
+    /** Override the `/recordings/init` response code (0 = default 201 + presigned body). */
+    @Volatile private var initResponseCode = 0
+    /** Override the `/recordings/:id/parts` response code (0 = default 200 + presigned body echoing the supplied ids). */
+    @Volatile private var partsResponseCode = 0
+    /** When non-null, the `/recordings/:id/parts` body is returned verbatim with a 200 (used by the non-JSON-leak test). */
+    @Volatile private var partsRawBody: String? = null
 
     @Before
     fun setUp() {
@@ -76,15 +84,38 @@ class UploadCoordinatorTest {
                     path == "/recordings/init" -> {
                         initCalls.incrementAndGet()
                         val partsCount = JSONObject(request.body.readUtf8()).getInt("partsCount")
-                        MockResponse().setResponseCode(201).setBody(initBody(partsCount)).apply {
-                            val d = initHeadersDelayMs
-                            if (d > 0) setHeadersDelay(d, TimeUnit.MILLISECONDS)
+                        val code = initResponseCode
+                        if (code != 0) {
+                            MockResponse().setResponseCode(code).setBody("{}")
+                        } else {
+                            MockResponse().setResponseCode(201).setBody(initBody(partsCount)).apply {
+                                val d = initHeadersDelayMs
+                                if (d > 0) setHeadersDelay(d, TimeUnit.MILLISECONDS)
+                            }
                         }
                     }
                     path.endsWith("/reupload") -> {
                         reuploadCalls.incrementAndGet()
                         val partsCount = JSONObject(request.body.readUtf8()).getInt("partsCount")
                         MockResponse().setResponseCode(200).setBody(initBody(partsCount))
+                    }
+                    path.endsWith("/parts") -> {
+                        partsCalls.incrementAndGet()
+                        val body = JSONObject(request.body.readUtf8())
+                        lastPartsBody.set(body)
+                        val code = partsResponseCode
+                        val raw = partsRawBody
+                        when {
+                            code != 0 -> MockResponse().setResponseCode(code).setBody("{}")
+                            raw != null -> MockResponse().setResponseCode(200).setBody(raw)
+                            else -> {
+                                // Echo the row's existing uploadId/imuUploadId back unchanged (Plan 05-09's /parts contract).
+                                val partsCount = body.getInt("partsCount")
+                                val imuUploadId = body.getString("imuUploadId")
+                                MockResponse().setResponseCode(200)
+                                    .setBody(initBody(partsCount, uploadId = "VID-UPLOAD-ID", imuUploadId = imuUploadId))
+                            }
+                        }
                     }
                     path.endsWith("/finalize") -> {
                         finalizeCalls.incrementAndGet()
@@ -127,7 +158,11 @@ class UploadCoordinatorTest {
     private fun base() = server.url("/").toString().trimEnd('/')
 
     /** A presigned-URL payload pointing back at the MockWebServer's `/s3/...` paths. */
-    private fun initBody(partsCount: Int): String {
+    private fun initBody(
+        partsCount: Int,
+        uploadId: String = "VID-UPLOAD-ID",
+        imuUploadId: String = "IMU-UPLOAD-ID",
+    ): String {
         fun urls(prefix: String) = JSONArray().apply {
             (1..partsCount).forEach { n ->
                 put(JSONObject().put("partNumber", n).put("url", server.url("/s3/$prefix/$n").toString()))
@@ -135,8 +170,8 @@ class UploadCoordinatorTest {
         }
         return JSONObject().apply {
             put("recordingId", "x")
-            put("uploadId", "VID-UPLOAD-ID")
-            put("imuUploadId", "IMU-UPLOAD-ID")
+            put("uploadId", uploadId)
+            put("imuUploadId", imuUploadId)
             put("partsCount", partsCount)
             put("partUrls", urls("video"))
             put("imuPartUrls", urls("imu"))
@@ -355,6 +390,235 @@ class UploadCoordinatorTest {
         assertEquals(UploadState.AWAITING_VERIFY, back[0].state)
         // The loser of the tryLock() returned promptly — well before the 400 ms /init delay.
         assertTrue("t2 lost the drainLock and returned promptly (was ${t2WallMs.get()}ms)", t2WallMs.get() < 300L)
+    }
+
+    // -------------------------------------------------------------------------
+    // Plan 05-10 — re-drain uses POST /recordings/:id/parts (not re-/init);
+    // row.reupload cleared right after postReupload; 409 from /parts and /init →
+    // dead-letter; parseInitResponse doesn't leak presigned URLs on a non-JSON body.
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `reDrain uses parts route not init - DONE part not re-PUT, uploadId unchanged (CR-01, UP-04)`() {
+        // A row that has already been /init'd once (uploadId set) and has part 1 DONE.
+        val recId = "01JCOORDRECAXXXXXXXXXXXXXXX"
+        val (mp4, csv, json) = writeBundle(recId, mp4Bytes = 12_000_000) // ~12 MB → 2 parts at 8 MiB
+        store.enqueue(
+            UploadRow(
+                recordingId = recId, ownerUserId = "userA",
+                mp4Path = mp4.path, csvPath = csv.path, jsonPath = json.path,
+                taskId = "T".repeat(26), isPractice = false,
+            ),
+        )
+        val r = store.read()[0].also {
+            it.uploadId = "VID-UPLOAD-ID"
+            it.imuUploadId = "IMU-UPLOAD-ID"
+            it.partsCount = 2
+            it.chunkBytes = WIFI_CHUNK_BYTES
+            it.reupload = false
+            it.state = UploadState.UPLOADING
+            it.metadataPut = PartStatus.PENDING
+            it.videoParts.add(PartState(1, PartStatus.DONE, etag = "\"etag-1\""))
+            it.videoParts.add(PartState(2))
+            it.imuParts.add(PartState(1))
+        }
+        store.upsert(r)
+
+        val coord = coordinator()
+        coord.drainNow()
+
+        // The re-drain hit /recordings/:id/parts — NOT /recordings/init.
+        assertEquals("one /recordings/:id/parts", 1, partsCalls.get())
+        assertEquals("no /recordings/init on a re-drain", 0, initCalls.get())
+        // The /parts request body carried { partsCount, imuUploadId } matching the row.
+        val pb = lastPartsBody.get()!!
+        assertEquals(2, pb.getInt("partsCount"))
+        assertEquals("IMU-UPLOAD-ID", pb.getString("imuUploadId"))
+        // The DONE part 1 was not re-PUT; part 2 + IMU were.
+        assertNull("DONE part 1 must not be re-PUT", putCalls["/s3/video/1"])
+        assertEquals(1, putCalls["/s3/video/2"]?.get())
+        assertEquals(1, putCalls["/s3/imu/1"]?.get())
+        // /finalize carries part 1's cached etag + part 2's fresh etag, against the SAME upload ids.
+        val fin = lastFinalizeBody.get()!!
+        assertEquals(2, fin.getJSONArray("videoParts").length())
+        assertEquals("\"etag-1\"", fin.getJSONArray("videoParts").getJSONObject(0).getString("etag"))
+        assertTrue(fin.getJSONArray("videoParts").getJSONObject(1).getString("etag").startsWith("\"etag-"))
+        assertEquals("IMU-UPLOAD-ID", fin.getString("imuUploadId"))
+        // Row: uploadId unchanged, ends AWAITING_VERIFY.
+        val back = store.read().first()
+        assertEquals("VID-UPLOAD-ID", back.uploadId)
+        assertEquals("IMU-UPLOAD-ID", back.imuUploadId)
+        assertEquals(UploadState.AWAITING_VERIFY, back.state)
+    }
+
+    @Test
+    fun `reupload drain clears the reupload flag then a re-drain uses parts not reupload (WARNING 4)`() {
+        // First drain of a hash-mismatch re-upload — row.reupload = true, parts all PENDING
+        // (mimicking the post-`reupload`-@ReactMethod state — Plan 05-08).
+        val recId = "01JCOORDRECBXXXXXXXXXXXXXXX"
+        val (mp4, csv, json) = writeBundle(recId, mp4Bytes = 5_000_000) // ~5 MB → 1 part at 8 MiB
+        store.enqueue(
+            UploadRow(
+                recordingId = recId, ownerUserId = "userA",
+                mp4Path = mp4.path, csvPath = csv.path, jsonPath = json.path,
+                taskId = "T".repeat(26), isPractice = false,
+            ),
+        )
+        store.upsert(
+            store.read()[0].also {
+                it.reupload = true
+                it.uploadId = "old-vid"
+                it.imuUploadId = "old-imu"
+                it.partsCount = 1
+                it.chunkBytes = WIFI_CHUNK_BYTES
+                it.state = UploadState.PENDING
+                it.videoParts.add(PartState(1))
+                it.imuParts.add(PartState(1))
+            },
+        )
+
+        val coord = coordinator()
+        coord.drainNow()
+
+        // First drain → /reupload (NOT /parts, NOT /init); after it the flag is cleared.
+        assertEquals("one /reupload", 1, reuploadCalls.get())
+        assertEquals("no /parts on the first re-upload drain", 0, partsCalls.get())
+        assertEquals("no /init on the first re-upload drain", 0, initCalls.get())
+        run {
+            val back = store.read().first()
+            assertEquals("reupload flag cleared right after postReupload", false, back.reupload)
+            assertEquals("VID-UPLOAD-ID", back.uploadId) // the fresh /reupload id was persisted
+            assertEquals(UploadState.AWAITING_VERIFY, back.state)
+        }
+
+        // Now simulate a mid-flight kill of a SECOND re-upload drain: a row with reupload=false,
+        // uploadId set, parts DONE — the next drain must take the /parts branch, NOT /reupload.
+        reuploadCalls.set(0); partsCalls.set(0); initCalls.set(0); finalizeCalls.set(0)
+        putCalls.clear(); lastFinalizeBody.set(null)
+        store.upsert(
+            UploadRow(
+                recordingId = recId, ownerUserId = "userA",
+                mp4Path = mp4.path, csvPath = csv.path, jsonPath = json.path,
+                taskId = "T".repeat(26), isPractice = false,
+                state = UploadState.UPLOADING,
+                uploadId = "new-vid", imuUploadId = "new-imu",
+                partsCount = 1, chunkBytes = WIFI_CHUNK_BYTES,
+                metadataPut = PartStatus.DONE,
+                reupload = false,
+                videoParts = mutableListOf(PartState(1, PartStatus.DONE, etag = "\"e-v\"")),
+                imuParts = mutableListOf(PartState(1, PartStatus.DONE, etag = "\"e-i\"")),
+            ),
+        )
+        coord.drainNow()
+
+        assertEquals("re-drain of a process-killed re-upload uses /parts", 1, partsCalls.get())
+        assertEquals("re-drain of a process-killed re-upload does NOT call /reupload again", 0, reuploadCalls.get())
+        assertEquals(0, initCalls.get())
+        // Nothing re-PUT — both parts are DONE.
+        assertTrue("no part PUT (all DONE)", putCalls.keys.none { it.startsWith("/s3/video/") || it.startsWith("/s3/imu/") })
+        val fin = lastFinalizeBody.get()!!
+        assertEquals("\"e-v\"", fin.getJSONArray("videoParts").getJSONObject(0).getString("etag"))
+        assertEquals("\"e-i\"", fin.getJSONArray("imuParts").getJSONObject(0).getString("etag"))
+        assertEquals(UploadState.AWAITING_VERIFY, store.read().first().state)
+    }
+
+    @Test
+    fun `a 409 from the parts route dead-letters the row, no infinite loop`() {
+        partsResponseCode = 409
+        val recId = "01JCOORDRECCXXXXXXXXXXXXXXX"
+        val (mp4, csv, json) = writeBundle(recId, mp4Bytes = 12_000_000)
+        store.enqueue(
+            UploadRow(
+                recordingId = recId, ownerUserId = "userA",
+                mp4Path = mp4.path, csvPath = csv.path, jsonPath = json.path,
+                taskId = "T".repeat(26), isPractice = false,
+            ),
+        )
+        store.upsert(
+            store.read()[0].also {
+                it.uploadId = "VID-UPLOAD-ID"
+                it.imuUploadId = "IMU-UPLOAD-ID"
+                it.partsCount = 2
+                it.chunkBytes = WIFI_CHUNK_BYTES
+                it.reupload = false
+                it.state = UploadState.UPLOADING
+                it.videoParts.add(PartState(1))
+                it.videoParts.add(PartState(2))
+                it.imuParts.add(PartState(1))
+            },
+        )
+        val coord = coordinator()
+        coord.drainNow()
+        assertEquals(UploadState.DEAD_LETTER, store.read().first().state)
+        assertNotNull(store.read().first().deadLetterReason)
+        // A second drain makes NO further requests — the DEAD_LETTER row is skipped.
+        val before = server.requestCount
+        coord.drainNow()
+        assertEquals("no requests on a 2nd drain of a dead-lettered row", before, server.requestCount)
+    }
+
+    @Test
+    fun `a 409 from the init route dead-letters the row, no infinite loop`() {
+        initResponseCode = 409
+        store.enqueue(row("01JCOORDRECDXXXXXXXXXXXXXXX")) // uploadId == null → first drain hits /init
+        val coord = coordinator()
+        coord.drainNow()
+        assertEquals(UploadState.DEAD_LETTER, store.read().first().state)
+        assertNotNull(store.read().first().deadLetterReason)
+        val before = server.requestCount
+        coord.drainNow()
+        assertEquals("no requests on a 2nd drain of a dead-lettered row", before, server.requestCount)
+    }
+
+    @Test
+    fun `a non-JSON parts response does not leak presigned URLs and is treated as transient`() {
+        partsRawBody = "<html>oops https://s3.example/bucket/key?X-Amz-Signature=abc123&X-Amz-Credential=xyz</html>"
+        val recId = "01JCOORDRECEXXXXXXXXXXXXXXX"
+        val (mp4, csv, json) = writeBundle(recId, mp4Bytes = 12_000_000)
+        store.enqueue(
+            UploadRow(
+                recordingId = recId, ownerUserId = "userA",
+                mp4Path = mp4.path, csvPath = csv.path, jsonPath = json.path,
+                taskId = "T".repeat(26), isPractice = false,
+            ),
+        )
+        store.upsert(
+            store.read()[0].also {
+                it.uploadId = "VID-UPLOAD-ID"
+                it.imuUploadId = "IMU-UPLOAD-ID"
+                it.partsCount = 2
+                it.chunkBytes = WIFI_CHUNK_BYTES
+                it.reupload = false
+                it.state = UploadState.UPLOADING
+                it.videoParts.add(PartState(1))
+                it.videoParts.add(PartState(2))
+                it.imuParts.add(PartState(1))
+            },
+        )
+        val coord = coordinator()
+        coord.drainNow()
+        // Transient — the row is NOT dead-lettered; it stays for the next drain.
+        val back = store.read().first()
+        assertTrue("non-JSON /parts body is a transient error, not a dead-letter", back.state != UploadState.DEAD_LETTER)
+        assertNull("no dead-letter reason", back.deadLetterReason)
+
+        // And the exception parseInitResponse throws carries ONLY the static label — no body content.
+        // Call the same parser the coordinator uses, reflectively, with the leaky body.
+        val m = UploadCoordinator::class.java.getDeclaredMethod("parseInitResponse", String::class.java, String::class.java)
+        m.isAccessible = true
+        val ex = try {
+            m.invoke(coord, partsRawBody, "/recordings/:id/parts")
+            null
+        } catch (e: java.lang.reflect.InvocationTargetException) {
+            e.targetException
+        }
+        assertNotNull("parseInitResponse must throw on a non-JSON body", ex)
+        assertTrue("must be an IOException", ex is java.io.IOException)
+        val msg = ex!!.message ?: ""
+        assertEquals("/recordings/:id/parts response not valid JSON", msg)
+        assertTrue("the message must not contain 'http'", !msg.contains("http"))
+        assertTrue("the message must not contain 'X-Amz'", !msg.contains("X-Amz"))
+        assertTrue("the message must not contain '<html'", !msg.contains("<html"))
     }
 
     @Test
