@@ -156,10 +156,10 @@
 - [x] **UP-09**: System requests battery-optimization exemption at first upload and walks the user through OEM-specific steps for Xiaomi (MIUI), Oppo (ColorOS), Vivo (FunTouch), Samsung (OneUI), and stock Android **[research]**
 - [x] **UP-10**: Uploads pause during active recording and resume on stop
 - [x] **UP-11**: User cannot manually cancel an upload
-- [ ] **UP-12**: Per-file upload progress is visible from the Pending Uploads tile → upload-queue screen (MP4 filename / duration / thumbnail / state)
+- [x] **UP-12**: Per-file upload progress is visible from the Pending Uploads tile → upload-queue screen (MP4 filename / duration / thumbnail / state)
 - [x] **UP-13**: Logout cancels in-flight upload but **preserves** the local queue; same-user re-login resumes uploads
-- [ ] **UP-14**: Local files are NEVER deleted before the backend posts the `verified` event for that segment
-- [ ] **UP-15**: On `verified` event, app deletes the local MP4 + CSV + JSON for that segment
+- [x] **UP-14**: Local files are NEVER deleted before the backend posts the `verified` event for that segment
+- [x] **UP-15**: On `verified` event, app deletes the local MP4 + CSV + JSON for that segment
 - [x] **UP-16**: On `re-upload` event (hash mismatch), app re-uploads using the still-present local copy
 - [x] **UP-17**: Cellular uploads are allowed by default at MVP (no Wi-Fi-only toggle)
 - [x] **UP-18**: System sends `null` for `ip_address`; server populates from request headers
@@ -492,10 +492,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UP-09       | Phase 5 | Complete              |
 | UP-10       | Phase 5 | Complete              |
 | UP-11       | Phase 5 | Complete              |
-| UP-12       | Phase 5 | Pending               |
+| UP-12       | Phase 5 | Complete              |
 | UP-13       | Phase 5 | Complete              |
-| UP-14       | Phase 5 | Pending               |
-| UP-15       | Phase 5 | Pending               |
+| UP-14       | Phase 5 | Complete              |
+| UP-15       | Phase 5 | Complete              |
 | UP-16       | Phase 5 | Complete              |
 | UP-17       | Phase 5 | Complete              |
 | UP-18       | Phase 5 | Complete              |
