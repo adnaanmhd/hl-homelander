@@ -50,6 +50,10 @@ export const RecordingSchema = RecordingCreateSchema.extend({
   uploadCompletedAt: z.string().datetime().nullable(),
   verifiedAt: z.string().datetime().nullable(),
   createdAt: z.string().datetime(),
+  // On the RESPONSE the server returns the value it populated on /init (UP-18) —
+  // a string IP (or null if it was somehow never set). The CREATE request still
+  // requires `ipAddress: null` (the client never sends one).
+  ipAddress: z.string().nullable(),
 });
 export type Recording = z.infer<typeof RecordingSchema>;
 

@@ -12,6 +12,7 @@ import { CompleteMultipartUploadCommand } from '@aws-sdk/client-s3';
 import { db, schema } from '../../db/index.js';
 import { getS3Client, RECORDINGS_BUCKET, recordingKeys } from '../../lib/s3-client.js';
 import { canTransition } from '../../lib/recording-state.js';
+import { enqueueVerify } from '../../lib/queue.js';
 import { RecordingFinalizeSchema, RecordingSchema } from '@humyn/shared-types';
 import { buildProblemDetail, PROBLEM_SLUGS } from '../../lib/problem-detail.js';
 
@@ -53,7 +54,8 @@ function toRecordingResponse(r: RecordingRow): z.infer<typeof RecordingSchema> {
     uploadCompletedAt: r.uploadCompletedAt?.toISOString() ?? null,
     verifiedAt: r.verifiedAt?.toISOString() ?? null,
     createdAt: r.createdAt.toISOString(),
-    ipAddress: null,
+    // UP-18 — return the server-populated IP (set on /init), not a hard-coded null.
+    ipAddress: r.ipAddress,
   };
 }
 
@@ -166,6 +168,24 @@ export default async function finalizeRoute(app: FastifyInstance): Promise<void>
           .limit(1);
         return after[0]!;
       });
+
+      // Dev shim (Pitfall 6): under LocalStack the S3 'Object Created' →
+      // EventBridge rule → SQS → poller leg is flaky, so we enqueue the verify
+      // job directly. In prod (AWS_ENDPOINT_URL unset) that leg IS the trigger
+      // and /finalize does NOT enqueue — but enqueueVerify uses jobId =
+      // recordingId, so even a stray double-enqueue collapses to one job, and
+      // the recordings_to_verify row + the verify-sweep cron are the durable
+      // backstop either way. Fire-and-forget: a Redis hiccup must not block (or
+      // fail) the /finalize response — the verify-sweep cron re-enqueues from
+      // the recordings_to_verify row.
+      if (process.env.AWS_ENDPOINT_URL) {
+        void enqueueVerify(rec.id).catch((err) => {
+          app.log.warn(
+            { err, recordingId: rec.id },
+            'dev-shim enqueueVerify failed — verify-sweep cron will retry',
+          );
+        });
+      }
 
       return reply.send(toRecordingResponse(updated));
     },

@@ -171,6 +171,11 @@ export default async function recordingsInitRoute(app: FastifyInstance): Promise
           flavor,
           s3UploadId: videoMu.UploadId,
           partsCount: body.partsCount,
+          // UP-18 — the client sends ip_address: null; the server populates it.
+          // req.ip honors Fastify's trustProxy setting (a no-op until the prod
+          // ALB is fronted with trustProxy configured to the proxy CIDR — until
+          // then req.ip is the socket peer, correct in dev / direct connections).
+          ipAddress: req.ip,
         })
         .onConflictDoNothing();
 

@@ -5,6 +5,7 @@ import { ulid } from 'ulid';
 import { eq, sql } from 'drizzle-orm';
 import { S3Client, CreateMultipartUploadCommand, UploadPartCommand } from '@aws-sdk/client-s3';
 import { db, schema } from '../../src/db/index.js';
+import { getQueue, getRedisConnection } from '../../src/lib/queue.js';
 import { buildApp } from '../../src/app.js';
 
 const TEST_USER_ID = '01HVTREC3000000000000000US';
@@ -62,6 +63,18 @@ afterAll(async () => {
   await db.delete(schema.users).where(eq(schema.users.id, TEST_USER_ID));
   await db.delete(schema.tasks).where(eq(schema.tasks.id, TEST_TASK_ID));
   await app.close();
+  // /finalize's LocalStack dev shim opens the BullMQ queue + ioredis singleton
+  // (Plan 05-05) — close them so the test process exits cleanly.
+  try {
+    await getQueue().close();
+  } catch {
+    /* not opened */
+  }
+  try {
+    getRedisConnection().disconnect();
+  } catch {
+    /* not opened */
+  }
 });
 
 describe('POST /recordings/:id/finalize', () => {
