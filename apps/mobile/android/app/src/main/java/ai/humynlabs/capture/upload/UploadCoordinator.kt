@@ -16,6 +16,7 @@ import java.util.concurrent.Future
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.locks.ReentrantLock
 
 /**
  * Phase 5 / Plan 05-06 — the upload-queue drainer.
@@ -104,6 +105,23 @@ class UploadCoordinator(
     private val drainExecutor: ExecutorService = Executors.newSingleThreadExecutor { r ->
         Thread(r, "humyn-upload-drain").apply { isDaemon = true }
     }
+
+    /**
+     * Serialises [drainNow]. `drainNow()` is `public` and called DIRECTLY off
+     * three threads — `HumynForegroundService.startUploadDrain()` (its
+     * `HandlerThread`), `UploadJobService.onStartJob()` (a fresh `Thread`), and
+     * `HumynUploadModule.drain()` (the [drainExecutor]). Without mutual exclusion
+     * two of them could run `uploadOne(row)` on the same row simultaneously —
+     * each re-POSTing `/recordings/init`, each laying out `row.videoParts`, each
+     * writing the shared mutable `row` back, `row.uploadId` clobbered by whichever
+     * finishes last (the CR-03 defect). `drainNow()` acquires this with
+     * `tryLock()` — a second concurrent drain returns immediately (its work is
+     * already covered by the in-progress drain, and the FGS / JobService callers
+     * re-check `queueHasWork()` afterwards, so a skipped drain is not a skipped
+     * upload). `tryLock()` (not `lock()`) means a contender never blocks; the
+     * lock is released in a `finally` wrapping the whole body.
+     */
+    private val drainLock = ReentrantLock()
     private val partExecutor: ExecutorService = Executors.newFixedThreadPool(6) { r ->
         Thread(r, "humyn-upload-part").apply { isDaemon = true }
     }
@@ -139,35 +157,54 @@ class UploadCoordinator(
 
     /**
      * Synchronous drain — exposed for the FGS thread (Plan 05-07) which calls it
-     * directly on its own background thread, and for tests. Iterates the queue,
-     * uploads each eligible row, dead-letters on a [DeadLetterException], leaves
-     * a transient failure as-is (the next drain retries).
+     * directly on its own background thread, the UIDT `UploadJobService` thread,
+     * and for tests. Iterates the queue, uploads each eligible row, dead-letters
+     * on a [DeadLetterException], leaves a transient failure as-is (the next drain
+     * retries).
+     *
+     * Serialised by [drainLock] via `tryLock()` — if a drain is already running
+     * (on any of the three caller threads), this call returns immediately. That's
+     * safe: the in-progress drain already covers all the queued work, and the FGS
+     * / `UploadJobService` callers re-check `queueHasWork()` after `drainNow()`
+     * returns, so a "lost" (skipped) drain is not a lost upload. The lock is
+     * released in a `finally` wrapping the entire body — any exception (including
+     * a `DeadLetterException` rethrown out of `uploadOne` and caught here per-row)
+     * still releases it.
      */
     fun drainNow() {
-        if (isPaused()) return
-        val sub = getCurrentSub() ?: return
-        if (!networkMonitor.hasNetwork()) return
-        for (row in queueStore.read()) {
-            if (isPaused()) break
-            if (row.ownerUserId != sub) continue
-            if (row.state == UploadState.AWAITING_VERIFY ||
-                row.state == UploadState.VERIFIED ||
-                row.state == UploadState.DEAD_LETTER
-            ) {
-                continue
+        if (!drainLock.tryLock()) {
+            Log.d(TAG, "drainNow skipped — a drain is already running")
+            return
+        }
+        try {
+            if (isPaused()) return
+            val sub = getCurrentSub() ?: return
+            if (!networkMonitor.hasNetwork()) return
+            for (row in queueStore.read()) {
+                if (isPaused()) break
+                if (row.ownerUserId != sub) continue
+                if (row.state == UploadState.AWAITING_VERIFY ||
+                    row.state == UploadState.VERIFIED ||
+                    row.state == UploadState.DEAD_LETTER
+                ) {
+                    continue
+                }
+                try {
+                    uploadOne(row)
+                } catch (e: DeadLetterException) {
+                    row.state = UploadState.DEAD_LETTER
+                    row.deadLetterReason = e.message ?: "upload failed"
+                    queueStore.upsert(row)
+                    emitQueueChanged()
+                    lastEmitMs.remove(row.recordingId)
+                } catch (e: Exception) {
+                    // Transient — leave the row PENDING/UPLOADING; the next drain retries.
+                    // (Never log the presigned URLs — T-5-06-02. recordingId is a ULID, safe.)
+                    Log.w(TAG, "row ${row.recordingId} upload failed transiently: ${e.message}")
+                }
             }
-            try {
-                uploadOne(row)
-            } catch (e: DeadLetterException) {
-                row.state = UploadState.DEAD_LETTER
-                row.deadLetterReason = e.message ?: "upload failed"
-                queueStore.upsert(row)
-                emitQueueChanged()
-            } catch (e: Exception) {
-                // Transient — leave the row PENDING/UPLOADING; the next drain retries.
-                // (Never log the presigned URLs — T-5-06-02. recordingId is a ULID, safe.)
-                Log.w(TAG, "row ${row.recordingId} upload failed transiently: ${e.message}")
-            }
+        } finally {
+            drainLock.unlock()
         }
     }
 
@@ -266,7 +303,7 @@ class UploadCoordinator(
                     chunkUploader.uploadPart(row.videoParts, partNumber, mp4, offset, length, url) {
                         maybeEmitProgress(row, totalBytes)
                     }
-                    synchronized(queueStore) { queueStore.upsert(row) }
+                    queueStore.upsert(row)
                 } finally {
                     partSemaphore.release()
                 }
@@ -283,7 +320,7 @@ class UploadCoordinator(
                     chunkUploader.uploadPart(row.imuParts, 1, csv, 0, csv.length(), imuUrl) {
                         maybeEmitProgress(row, totalBytes)
                     }
-                    synchronized(queueStore) { queueStore.upsert(row) }
+                    queueStore.upsert(row)
                 } finally {
                     partSemaphore.release()
                 }
@@ -469,9 +506,12 @@ class UploadCoordinator(
          * The process-wide shared coordinator. `HumynUploadModule`, the FGS
          * (`HumynForegroundService` — Plan 05-07's upload-drain-on-the-FGS-thread)
          * and the UIDT `UploadJobService` all call [drainNow] on this ONE
-         * instance so only one drain runs at a time (the drain is also serialised
-         * internally on `drainExecutor`). Built lazily from the application
-         * context; wired to the process-lived [UploadAuthContext] / [UploadControlState].
+         * instance; `drainNow()` is serialised by a `ReentrantLock` (`tryLock()` —
+         * a second concurrent drain returns immediately), so only one drain runs
+         * at a time regardless of which thread (FGS `HandlerThread` / UIDT
+         * `UploadJobService` `Thread` / the `drainExecutor`) enters first. Built
+         * lazily from the application context; wired to the process-lived
+         * [UploadAuthContext] / [UploadControlState].
          * Emitters default to no-op until `HumynUploadModule` installs the real
          * ones via [setEmitters] (the FGS / JobService threads have no JS bridge).
          */
