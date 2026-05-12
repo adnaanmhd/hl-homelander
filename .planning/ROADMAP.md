@@ -188,7 +188,7 @@ Plans:
 3. The first-upload OEM battery-optimization walkthrough surfaces per-vendor deep-links and steps for Xiaomi (MIUI), Oppo (ColorOS), Vivo (FunTouch), Samsung (OneUI), and stock Android, the Pending Uploads tile shows per-file progress (filename / duration / thumbnail / state), and cellular uploads are allowed by default with no Wi-Fi-only toggle
 4. The hash-verify worker (BullMQ + Redis + ECS, scaled on queue depth) consumes S3 multipart-complete events via EventBridge → SQS, re-hashes both MP4 and IMU CSV, flips `recordings.qa_status` to `'verified'` (emit `verified` event) on match or `'hash-mismatch'` (emit `re-upload` event) on mismatch; events deliver piggy-backed on the next API response, the app deletes local MP4 + CSV + JSON only on `verified`, re-uploads from the still-present local copy on `re-upload`, and an app-launch reconciliation sweep cleans local files for any verified-but-undeleted set
 
-**Plans:** 7/8 plans executed
+**Plans:** 8/8 initial plans executed; 5 gap-closure plans (05-09..05-13) added 2026-05-12 (verification `gaps_found`, code-review blockers CR-01/02/03 + warnings)
 
 Plans:
 
@@ -214,6 +214,19 @@ Plans:
 **Wave 5** _(blocked on Wave 4 completion)_
 
 - [x] 05-08-PLAN.md — Wave 5: client-surface wire-up (PendingUploadsScreen + UploadStatusChip incl. the 'Paused — no Wi-Fi' variant + the §21.7 resolution; Home-tile real data; recordingEvents \_events consumer + uploadReconcile sweep + the HumynUploadModule.reupload @ReactMethod + the auto-enqueue/pause/resume/logout wiring; the end-to-end upload smoke runbook) — UP-05, UP-10, UP-11, UP-12, UP-13, UP-14, UP-15, UP-16, VERIFY-06
+
+**Gap-closure waves** _(added 2026-05-12 — close `05-VERIFICATION.md` `gaps_found` + code-review CR-01/CR-02/CR-03 + WR-01/WR-02/WR-03/sqs-poller; run via `/gsd-execute-phase 5 --gaps-only`)_
+
+**Gap Wave 1** _(parallel — no file overlap)_
+
+- [ ] 05-09-PLAN.md — server: idempotent `POST /recordings/init` (SELECT-first, never a 2nd CreateMultipartUpload) + new `POST /recordings/:id/parts` re-presign route (CR-02 + server half of CR-01) — UP-01, UP-04
+- [ ] 05-11-PLAN.md — Kotlin: `UploadCoordinator.drainNow()` serialised by a `ReentrantLock.tryLock()` + drop the bogus `synchronized(queueStore)` wrappers + re-verify DEF-5-01 (CR-03) — UP-06, UP-01, UP-04
+- [ ] 05-12-PLAN.md — server: add `apps/api/src/workers/sqs-poller.ts` (the prod EventBridge→SQS→BullMQ leg the Terraform references) + npm scripts + the S3-event key parser (VERIFY-01) — VERIFY-01
+- [ ] 05-13-PLAN.md — server: retry-safe `/finalize` (NoSuchUpload-tolerant + HeadObject confirm — WR-01) + TOCTOU-safe `verify-recording` qa_status flip (`AND qa_status='uploaded'` + rowCount gate — WR-02) + `events-outbox` only touches 2xx application/json (WR-03) + `verified-ids` cursor user-gate (IN-05) — UP-01, VERIFY-03, VERIFY-04, VERIFY-05
+
+**Gap Wave 2** _(blocked on Gap Wave 1 — depends on 05-09's new route + 05-11's drain-lock; both touch `UploadCoordinator.kt`)_
+
+- [ ] 05-10-PLAN.md — Kotlin: `UploadCoordinator.uploadOne()` calls `POST /recordings/:id/parts` on a re-drain (instead of re-`/init`) — preserves already-DONE parts' ETags; a 409/404 from `/parts` → dead-letter; harden `parseInitResponse` against leaking presigned URLs (CR-01 mobile half + WR-06) — UP-01, UP-04
 
 ### Phase 6: Tasks, History, Home Tiles & Lexical Search
 
