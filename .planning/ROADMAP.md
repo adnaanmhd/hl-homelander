@@ -226,7 +226,7 @@ Plans:
 
 **Gap Wave 2** _(blocked on Gap Wave 1 — depends on 05-09's new route + 05-11's drain-lock; both touch `UploadCoordinator.kt`)_
 
-- [ ] 05-10-PLAN.md — Kotlin: `UploadCoordinator.uploadOne()` calls `POST /recordings/:id/parts` on a re-drain (instead of re-`/init`) — preserves already-DONE parts' ETags; a 409/404 from `/parts` → dead-letter; harden `parseInitResponse` against leaking presigned URLs (CR-01 mobile half + WR-06) — UP-01, UP-04
+- [x] 05-10-PLAN.md — Kotlin: `UploadCoordinator.uploadOne()` calls `POST /recordings/:id/parts` on a re-drain (instead of re-`/init`) — preserves already-DONE parts' ETags; a 409/404 from `/parts` → dead-letter; harden `parseInitResponse` against leaking presigned URLs (CR-01 mobile half + WR-06) — UP-01, UP-04
 
 ### Phase 6: Tasks, History, Home Tiles & Lexical Search
 
