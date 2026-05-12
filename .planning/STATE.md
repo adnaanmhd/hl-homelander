@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Completed 05-02-PLAN.md
-last_updated: '2026-05-12T11:43:44.584Z'
+last_updated: '2026-05-12T11:53:40.494Z'
 last_activity: 2026-05-12
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 66
-  completed_plans: 61
-  percent: 92
+  completed_plans: 62
+  percent: 94
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 05 (upload-pipeline-hash-verify-worker-anti-fraud) — EXECUTING
-Plan: 4 of 8
+Plan: 5 of 8
 Status: Ready to execute
 
 Phase 2 operator smoke-walk history (carried forward):
@@ -115,6 +115,7 @@ _Updated after each plan completion_
 | Phase 05 P05-01 | 30min | 3 tasks | 9 files |
 | Phase 05 P02 | 50min | 3 tasks | 10 files |
 | Phase 05 P03 | 10min | 5 tasks | 20 files |
+| Phase 05 P04 | ~25m | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -258,6 +259,8 @@ Recent decisions affecting current work:
 - [Phase ?]: Plan 05-03: hash-verify worker foundation — BullMQ-on-Redis queue (lib/queue.ts lazy singletons, jobId=recordingId idempotent enqueue), recording_events_outbox table+enum+migration 0006 (pushed), hash-mismatch→pending state edge, streamed-SHA-256 helper, verifyRecording (re-hash → qa_status flip + outbox event in one tx, idempotent), standalone Worker('verify') ECS entrypoint, verify-sweep cron
 - [Phase ?]: Migration numbered 0006 not 0008 — live DB only had 0001..0005; active convention is hand-written numbered SQL via tsx scripts/migrate.ts
 - [Phase ?]: ioredis imported via named export (import { Redis } from 'ioredis') — default import resolves to the namespace under NodeNext, not constructable
+- [Phase ?]: Cellular S3 part size = 5 MiB (NOT spec's 2 MB) — S3 minimum non-final part is 5 MiB; UploadModels.kt header documents the deviation; idea-brief.md §7.1 / REQ UP-02 unchanged
+- [Phase ?]: HumynUpload upload queue is a native-owned JSON-on-disk file (filesDir/upload-queue/queue.json), not a 2nd react-native-mmkv instance (D-STATE-01) — JS reads via the bridge
 
 ### Quick Tasks Completed
 
@@ -316,7 +319,7 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-12T11:43:26.174Z
+Last session: 2026-05-12T11:53:34.192Z
 Last activity: 2026-05-11 — Completed 04-08-PLAN.md: recording-lifecycle support modules (useRecordingLifecycle §10 policy table + practice 60s cap + checkStartGuards; ttsVoice REC-14 fallback chain + speakCue; durationFormat REC-04/HOME-06; **DEV**-gated debug entry to RecordingScreen on TasksPlaceholder; 39 new tests)
 Stopped at: Completed 05-02-PLAN.md
 

@@ -200,7 +200,7 @@ Plans:
 **Wave 2** _(blocked on Wave 1 completion)_
 
 - [x] 05-03-PLAN.md — Wave 2: backend infra + hash-verify worker (Redis container + bullmq/ioredis/sqs deps + lib/queue.ts; recording_events_outbox table + enum + migration + [BLOCKING] schema push; recording-state hash-mismatch→pending edge; sha256-stream; recording-events; verify-recording; workers/hash-verify.ts; cron/verify-sweep.ts; shared-types stub; Vitest scaffolds) — VERIFY-01..04, VERIFY-07
-- [ ] 05-04-PLAN.md — Wave 2: HumynUpload Android native-module foundation (HumynUploadModule/Package + register in MainApplication; UploadQueueStore native-owned JSON queue with the D-08 practice filter + the UP-13 owner-pin; UploadModels chunk-size 8MiB/5MiB + partsCountFor; manifest perms + UploadJobService <service>; native/HumynUpload.ts; UploadQueueStoreTest) — UP-02, UP-05, UP-11, UP-13, UP-17
+- [x] 05-04-PLAN.md — Wave 2: HumynUpload Android native-module foundation (HumynUploadModule/Package + register in MainApplication; UploadQueueStore native-owned JSON queue with the D-08 practice filter + the UP-13 owner-pin; UploadModels chunk-size 8MiB/5MiB + partsCountFor; manifest perms + UploadJobService <service>; native/HumynUpload.ts; UploadQueueStoreTest) — UP-02, UP-05, UP-11, UP-13, UP-17
 
 **Wave 3** _(blocked on Wave 2 completion)_
 

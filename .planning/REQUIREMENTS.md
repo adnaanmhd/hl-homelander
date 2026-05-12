@@ -146,22 +146,22 @@
 ### Upload Pipeline
 
 - [ ] **UP-01**: System uploads each segment's three files (MP4 + IMU CSV + metadata JSON) via S3 multipart with presigned URLs
-- [ ] **UP-02**: Chunk size = 8 MB on Wi-Fi (last chunk may be smaller); 2 MB on cellular (per research **[research]**) (cellular S3 part size = 5 MiB — reconciled to S3's 5-MiB minimum non-final part size, 2026-05-12; idea-brief.md §7.1 still states 2 MB, not edited)
+- [x] **UP-02**: Chunk size = 8 MB on Wi-Fi (last chunk may be smaller); 2 MB on cellular (per research **[research]**) (cellular S3 part size = 5 MiB — reconciled to S3's 5-MiB minimum non-final part size, 2026-05-12; idea-brief.md §7.1 still states 2 MB, not edited)
 - [ ] **UP-03**: Concurrency = 3 chunks in parallel per file × 2 files in parallel
 - [ ] **UP-04**: Failed chunks retry independently with exponential backoff (2 / 4 / 8 / 16 / 32 / 64 s → dead-letter); no whole-file restart
-- [ ] **UP-05**: Uploads start automatically once a recording stops
+- [x] **UP-05**: Uploads start automatically once a recording stops
 - [ ] **UP-06**: Uploads run in a foreground service that survives backgrounding and force-quit; on Android 14+ the service type downgrades from `camera|microphone|dataSync` (during recording) → `dataSync` (post-recording) → stops after 5 min idle **[research]**
 - [ ] **UP-07**: On Android 15+, true-background uploads run via a UIDT JobService (`setUserInitiated(true)` + `RUN_USER_INITIATED_JOBS` permission) to survive the 6-hour `dataSync` cap **[research]**
 - [x] **UP-08**: On iOS, uploads run via `URLSessionConfiguration.background(withIdentifier:)` with `sessionSendsLaunchEvents = true` and `isDiscretionary = false`; multipart-complete POST runs as a foreground `dataTask` from inside `urlSessionDidFinishEvents`
 - [ ] **UP-09**: System requests battery-optimization exemption at first upload and walks the user through OEM-specific steps for Xiaomi (MIUI), Oppo (ColorOS), Vivo (FunTouch), Samsung (OneUI), and stock Android **[research]**
 - [ ] **UP-10**: Uploads pause during active recording and resume on stop
-- [ ] **UP-11**: User cannot manually cancel an upload
+- [x] **UP-11**: User cannot manually cancel an upload
 - [ ] **UP-12**: Per-file upload progress is visible from the Pending Uploads tile → upload-queue screen (MP4 filename / duration / thumbnail / state)
-- [ ] **UP-13**: Logout cancels in-flight upload but **preserves** the local queue; same-user re-login resumes uploads
+- [x] **UP-13**: Logout cancels in-flight upload but **preserves** the local queue; same-user re-login resumes uploads
 - [ ] **UP-14**: Local files are NEVER deleted before the backend posts the `verified` event for that segment
 - [ ] **UP-15**: On `verified` event, app deletes the local MP4 + CSV + JSON for that segment
 - [ ] **UP-16**: On `re-upload` event (hash mismatch), app re-uploads using the still-present local copy
-- [ ] **UP-17**: Cellular uploads are allowed by default at MVP (no Wi-Fi-only toggle)
+- [x] **UP-17**: Cellular uploads are allowed by default at MVP (no Wi-Fi-only toggle)
 - [ ] **UP-18**: System sends `null` for `ip_address`; server populates from request headers
 - [ ] **UP-19**: System uses TCP_MAXSEG=1280 + 30-second no-progress abandon-and-retry-with-fresh-socket on cellular to defeat MTU-blackhole retry storms on Jio (CGNAT) and Vivo Brasil **[research]**
 
@@ -482,22 +482,22 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REC-15      | Phase 4 | Done (04-07)          |
 | REC-16      | Phase 4 | Done (04-08)          |
 | UP-01       | Phase 5 | Pending               |
-| UP-02       | Phase 5 | Pending               |
+| UP-02       | Phase 5 | Complete              |
 | UP-03       | Phase 5 | Pending               |
 | UP-04       | Phase 5 | Pending               |
-| UP-05       | Phase 5 | Pending               |
+| UP-05       | Phase 5 | Complete              |
 | UP-06       | Phase 5 | Pending               |
 | UP-07       | Phase 5 | Pending               |
 | UP-08       | Phase 5 | Complete              |
 | UP-09       | Phase 5 | Pending               |
 | UP-10       | Phase 5 | Pending               |
-| UP-11       | Phase 5 | Pending               |
+| UP-11       | Phase 5 | Complete              |
 | UP-12       | Phase 5 | Pending               |
-| UP-13       | Phase 5 | Pending               |
+| UP-13       | Phase 5 | Complete              |
 | UP-14       | Phase 5 | Pending               |
 | UP-15       | Phase 5 | Pending               |
 | UP-16       | Phase 5 | Pending               |
-| UP-17       | Phase 5 | Pending               |
+| UP-17       | Phase 5 | Complete              |
 | UP-18       | Phase 5 | Pending               |
 | UP-19       | Phase 5 | Pending               |
 | HIST-01     | Phase 6 | Pending               |
