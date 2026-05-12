@@ -5,6 +5,7 @@
 import type { FastifyInstance } from 'fastify';
 import recordingsInitRoute from './init.js';
 import completePartRoute from './complete-part.js';
+import recordingsRePresignRoute from './parts.js';
 import finalizeRoute from './finalize.js';
 import rejectRoute from './reject.js';
 import recordingsReuploadRoute from './reupload.js';
@@ -15,6 +16,10 @@ import recordingsGetRoute from './get.js';
 export default async function recordingsRoutes(app: FastifyInstance): Promise<void> {
   await app.register(recordingsInitRoute);
   await app.register(completePartRoute);
+  // POST /recordings/:id/parts — re-presign video + IMU part URLs against the
+  // existing multipart uploads (Plan 05-09; the coordinator's preferred re-drain
+  // route — preserves DONE parts' ETags; vs. re-/init which restarts the IMU stream)
+  await app.register(recordingsRePresignRoute);
   await app.register(finalizeRoute);
   await app.register(rejectRoute);
   await app.register(recordingsReuploadRoute); // POST /recordings/:id/reupload (Plan 05-05)
