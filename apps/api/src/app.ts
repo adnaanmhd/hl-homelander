@@ -7,6 +7,7 @@ import errorHandlerPlugin from './plugins/error-handler.js';
 import authPlugin from './plugins/auth.js';
 import rateLimitPlugin from './plugins/rate-limit.js';
 import idempotencyPlugin from './plugins/idempotency.js';
+import eventsOutboxPlugin from './plugins/events-outbox.js';
 import healthzRoutes from './routes/healthz.js';
 import readyzRoutes from './routes/readyz.js';
 import authRoutes from './routes/auth/index.js';
@@ -35,6 +36,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(rateLimitPlugin); // 4. anonymous-tier IP rate limit (pre-auth)
   await app.register(authPlugin); // 5. JWT verifier + requireAuth decorator
   await app.register(idempotencyPlugin); // 6. depends on auth — pulls user.sub
+  await app.register(eventsOutboxPlugin); // 7. depends on auth — drains recording_events_outbox onto authed responses
 
   // Routes
   await app.register(healthzRoutes);

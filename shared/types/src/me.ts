@@ -5,6 +5,7 @@
 
 import { z } from 'zod';
 import { UserSchema } from './user.js';
+import { EventsEnvelopeSchema } from './recording.js';
 
 export const MeResponseSchema = UserSchema.pick({
   id: true,
@@ -19,7 +20,9 @@ export const MeResponseSchema = UserSchema.pick({
   deletedAt: true,
   deleteGraceUntil: true,
   createdAt: true,
-});
+  // Pattern 22 — `GET /me` / `PATCH /me` are authenticated carriers for the
+  // `events-outbox` onSend hook (Plan 05-05); accept the optional `_events` key.
+}).extend(EventsEnvelopeSchema.shape);
 export type MeResponse = z.infer<typeof MeResponseSchema>;
 
 // DELETE /me?confirm=DELETE — accidental-click guard (CONTEXT-discretion).
