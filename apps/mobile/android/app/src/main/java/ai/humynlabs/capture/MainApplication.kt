@@ -25,6 +25,7 @@ import ai.humynlabs.capture.handdetector.HumynHandDetectorPackage
 import ai.humynlabs.capture.phonestate.HumynPhoneStatePackage
 import ai.humynlabs.capture.screenbrightness.HumynScreenBrightnessPackage
 import ai.humynlabs.capture.updater.HumynUpdaterPackage
+import ai.humynlabs.capture.upload.HumynUploadPackage
 
 /**
  * RN 0.83 / Hermes / New Architecture Application entry point.
@@ -49,6 +50,7 @@ class MainApplication : Application(), ReactApplication {
                 packages.add(HumynBatteryPackage())          // Plan 04-02 — battery level/charging signal (body in 04-05)
                 packages.add(HumynScreenBrightnessPackage()) // Plan 04-02 — REC-08 per-window brightness (body in 04-05)
                 packages.add(HumynBeepPackage())             // Plan 04-02 — REC-10 pre-baked alert tones (body in 04-05)
+                packages.add(HumynUploadPackage())           // Plan 05-04 — Phase 5 background upload pipeline
                 return packages
             }
 
