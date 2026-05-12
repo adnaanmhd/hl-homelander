@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 5 context gathered
-last_updated: '2026-05-12T10:54:40.677Z'
-last_activity: 2026-05-12 -- Phase 5 planning complete
+last_updated: '2026-05-12T11:16:31.381Z'
+last_activity: 2026-05-12
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 66
-  completed_plans: 58
-  percent: 88
+  completed_plans: 59
+  percent: 89
 ---
 
 # Project State
@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-07)
 
 **Core value:** On-device capture quality is non-negotiable — every uploaded segment must hit the locked spec (1080p / 30 FPS / ≥110° dFOV / IMU sustained ≥100 Hz / ±1 ms timestamp alignment) or the bytes are worthless for training.
-**Current focus:** Phase 05 — upload pipeline, hash-verify worker & anti-fraud (not started). Phase 04 closed 2026-05-12.
+**Current focus:** Phase 05 — upload-pipeline-hash-verify-worker-anti-fraud
 
 ## Current Position
 
-Phase: 5
-Plan: Not started
+Phase: 05 (upload-pipeline-hash-verify-worker-anti-fraud) — EXECUTING
+Plan: 2 of 8
 Status: Ready to execute
 
 Phase 2 operator smoke-walk history (carried forward):
@@ -47,7 +47,7 @@ Phase 3 hardware UAT pending (7 items, all on real Pixel 7a/8a) — these RETIRE
 - #6 CAP-18 byte-for-byte SHA round-trip — §3 on-disk SHA ↔ metadata assertion (Phase 5 owns the device→S3 leg)
 - #7 CAP-13 onSessionStart/Stop upload-pause seam — §3 session start/stop event log assertion (log-only at Phase 4; Phase 5 wires the pause)
 
-Last activity: 2026-05-12 -- Phase 5 planning complete
+Last activity: 2026-05-12
 
 Progress: Phase 4 — **complete (2026-05-12)**. 12/12 plans landed; gsd-verifier returned `human_needed` (5/5 success criteria code-verified); the on-hardware acceptance gate (`04-MANUAL-SMOKE.md`) was walked on a Pixel 10a — first walk 2026-05-12 verdict NO (4 findings) → `/gsd-debug phase4-smoke-fixes` round fixed all 4 + a 5th bug found mid-fix (auto-segment-rotate deadlock) → re-walk verdict **YES** (`04-HUMAN-UAT.md` → resolved 5/5; `04-VERIFICATION.md` → verified). The original "[BLOCKING] §5b ±1 ms drift" gate was relaxed by the owner 2026-05-12 to measure-and-record (ultrawide-recording path; CLAUDE.md drift banner + `ULTRAWIDE-DRIFT-FINDINGS.md`). Non-blocking follow-ups in `04-COSMETIC-GAPS.md` — **owner-folded into Phase 5 Wave 1** (the cosmetic-cleanup wave that runs before the upload work, mirroring how `02-COSMETIC-GAPS.md` was Phase 3's Wave 1; the "Phase-5 upload must tolerate a crash-recovered segment's `duration_seconds:0` + null drift" item goes in the Phase 5 plan proper, not Wave 1). Phase 5 (upload pipeline, hash-verify worker & anti-fraud) not yet planned — next: `/gsd-discuss-phase 5` (it should carry the Wave-1-cosmetic-cleanup disposition), then `/gsd-plan-phase 5`.
 
@@ -112,6 +112,7 @@ _Updated after each plan completion_
 | Phase 04 P07 | 28min | 2 tasks | 22 files |
 | Phase 04 P08 | ~18min | 3 tasks | 9 files |
 | Phase 04 P09 | ~13min | 3 tasks | 9 files |
+| Phase 05 P05-01 | 30min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -245,6 +246,9 @@ Recent decisions affecting current work:
 - [Phase 04]: Plan 04-08: `src/screens/recording/useRecordingLifecycle.ts` = the `idea-brief.md §10` lifecycle-edge policy table as a hook over AppState (`background`/`inactive` while active → `onStop('background')`), `Orientation.addDeviceOrientationListener` (`PORTRAIT`/`PORTRAIT-UPSIDEDOWN` while active → `onStop('orientation')` + toast "keep the phone in landscape"), `HumynPhoneState.onAudioFocusChanged` (the A12 answered-vs-declined heuristic: `loss` → stop; `transient_loss` → arm a 7 000 ms timer → `onStop('phone_call')` if it fires; `gain` within 7 s cancels — NO stop, REC-13), `HumynBattery.onBatteryChanged` (`≤0.05` _crossing_ → `onStop('battery_critical')` REC-11; `≤0.15` _crossing_ → `setAlert('battery',true)` + toast + `playTone('battery_alert')` + `Vibration.vibrate([0,100,50,100])` + `voiceCue` — NO stop, REC-10), `HumynCapture.onError` (`storage_full`→stop+toast / `permission_revoked`→stop), `HumynCapture.onThermalAbort` (`voiceCue('Phone too hot, stopping recording')` + `setAlert('thermal',true)` + `playTone('thermal_alert')` + `Vibration.vibrate(800)` — does NOT stop; HC self-stops), the practice 60 s hard cap (a standalone `setTimeout` armed when `isPractice && active`, fires at exactly 60 s of recording — ONB-05, takes precedence), the `loggedOut` flag → `onStop('logout')`, and `checkStartGuards()` (REC-16 `freeSpace<5e9`→blocked + `lastBatteryLevel<0.05 && !charging`→blocked + a 60 s periodic storage re-poll). LEAK-CLEAN teardown — every sub `.remove()`d / `clearTimeout` / `clearInterval` + `HumynPhoneState.stop()` + `HumynBattery.stop()` in the single `useEffect` cleanup (Pitfall 5). REC-09: no DND / notification-policy / telephony API — the §10 docstring names those APIs descriptively, never as the literal `ACCESS_NOTIFICATION_POLICY`/`READ_PHONE_STATE` symbols (the T-4.8-02 grep gate is clean — same docstring-grep-trap precedent as plans 04-02/04-05). Emits `logEvent('recording_stopped', { reason })` on every stop path (no PII; `recording_stopped` was already in `EVENT_NAMES` from plan 04-06). `src/lib/ttsVoice.ts` = `pickAndSetEnInVoice()` (REC-14 chain: `en-IN` & looks-female → any `en-IN` → `en-US` & looks-female → first `language.startsWith('en')`; `notInstalled` filtered; `setDefaultRate(1.0, true)` — the raw-passthrough rate-scale correction from 04-RESEARCH Pattern 4 — + `setDefaultPitch(0.95)`; empty `voices()` → engine default, still sets rate/pitch) + `speakCue(text)` (`Tts.speak` with `androidParams.KEY_PARAM_VOLUME:0.85`; the `Options` typedef workaround `iosVoiceId:'', rate:1.0`). `src/lib/durationFormat.ts` = `formatContributionDuration(ms)` = `formatDuration(Math.floor(ms/1000))` — delegates to `services/durationFormatter.formatDuration` (the existing HOME-06 formatter; the plan's read_first pointed at `profileService` but the formatter lives in `durationFormatter.ts`) so `90_000→'1m'`, `3_930_000→'1h 5m'` (REC-04). `TasksPlaceholderScreen.tsx` gained a `__DEV__`-gated long-press (>800 ms) on the heading that `navigation.push('Recording', { taskId:'cooking_chop_vegetables', taskName:'Practice — Chop vegetables', isPractice:false, taskCategory:'cooking', taskSetting:'indoor' })` — the ENTIRE handler AND the `Pressable` wrapper inside the `__DEV__` guard (Pitfall 7 / T-4.8-01 — dead-code-eliminated in release builds); the `TasksPlaceholderScreen.visual.test.tsx` gained `vi.stubGlobal('__DEV__', false)` so the baseline pins the production rendering (Rule 1 — the new `__DEV__` wrapper changed the dev DOM tree). 39 new tests (durationFormat 10, ttsVoice 9, useRecordingLifecycle 18 via `renderHook` + fake timers, devAffordance 2 incl. `__DEV__===false`); `tsc --noEmit` clean across mobile+api+shared/types; full mobile suite green except the pre-existing D4-01 carry-forwards (HomeSkeletonScreen hex + visual + `setPermsGranted`) — out of scope. Plan 04-09 mounts `useRecordingLifecycle` + calls `pickAndSetEnInVoice()`/`speakCue`/`formatContributionDuration` + owns removing the D4-01 `HomeSkeletonScreen` `__DEV__` smoke seam.
 - [Phase 04]: Plan 04-09: gate-pass→active uses a tunable SETTLE_MS=80ms camera-handoff delay; plan 04-10's smoke runbook re-measures imu_video_drift on this new VC→HumynCapture handoff ([BLOCKING])
 - [Phase 04]: Plan 04-09: D4-01 closed — Phase-3 **DEV** smoke seam removed from HomeSkeletonScreen; full mobile suite now 0 failed / 0 errors
+- [Phase ?]: Phase-5 D-03: CaptureLaunchSweep discards all crash-truncated orphan fragments (even a playable post-30s one); run() always returns []; no degenerate-metadata bundle reaches the upload queue
+- [Phase ?]: Phase-5 D-05: a device-distress mid-record stop (battery ≤5% / thermal abort) navigates to Home (MainTabs), or PracticeComplete mid-practice; a normal sub-60s manual discard keeps RESET_FOR_FRESH on the recording screen
+- [Phase ?]: Phase-5 D-07: crash-recovery toast duration reverted 15s → 5s; App.tsx-mount toast architecture unchanged; listener is now dead code (D-03) kept as a safety net
 
 ### Quick Tasks Completed
 
@@ -303,7 +307,7 @@ Decisions to resolve during phase planning (per research SUMMARY.md):
 
 ## Session Continuity
 
-Last session: 2026-05-12T09:15:50.754Z
+Last session: 2026-05-12T11:16:23.492Z
 Last activity: 2026-05-11 — Completed 04-08-PLAN.md: recording-lifecycle support modules (useRecordingLifecycle §10 policy table + practice 60s cap + checkStartGuards; ttsVoice REC-14 fallback chain + speakCue; durationFormat REC-04/HOME-06; **DEV**-gated debug entry to RecordingScreen on TasksPlaceholder; 39 new tests)
 Stopped at: Phase 5 context gathered
 
