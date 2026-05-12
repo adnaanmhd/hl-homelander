@@ -1,7 +1,13 @@
 // Recording state machine — single source of truth for allowed qa_status
-// transitions at the API layer. Migration 0003 (this plan) extended the
-// qa_status enum with 'rejected' so /recordings/:id/reject can transition
-// pending uploads when the client cancels.
+// transitions at the API layer. Migration 0003 extended the qa_status enum with
+// 'rejected' so /recordings/:id/reject can transition pending uploads when the
+// client cancels.
+//
+// Migration 0006 (Plan 05-03) adds the `hash-mismatch → pending` edge so
+// POST /recordings/:id/reupload can move a mismatched row back into the upload
+// lifecycle (UP-16). `isTerminal('hash-mismatch')` stays true — it's terminal
+// until the client re-uploads; the re-upload runs a fresh /init → /finalize
+// cycle that transitions pending → uploaded → verified again.
 
 import { schema } from '../db/index.js';
 
@@ -13,7 +19,7 @@ const ALLOWED: Record<QaStatus, QaStatus[]> = {
   pending: ['uploaded', 'rejected', 'takedown'],
   uploaded: ['verified', 'hash-mismatch', 'rejected', 'takedown'],
   verified: ['takedown'],
-  'hash-mismatch': ['takedown'],
+  'hash-mismatch': ['pending', 'takedown'], // 'pending' added in Plan 05-03 — re-upload re-enters the lifecycle
   rejected: ['takedown'],
   takedown: [],
 };
