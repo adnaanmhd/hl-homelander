@@ -11,18 +11,18 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import java.io.File
+import java.io.RandomAccessFile
 
 /**
  * Plan 03-09 Task 2 — `CaptureLaunchSweep` orphan recovery sweep
- * (D-FS-04 from CONTEXT.md).
- *
- * Behavior contract (PLAN.md `<behavior>`):
- *  - recordings/[base].mp4 without matching .json:
- *      - if .session.json sidecar exists AND parseable, leave for Phase 4 re-finalize
- *      - if sidecar corrupt or missing, delete the triple
- *  - recordings/[base].json (non-sidecar) without matching .mp4, delete (orphan JSON)
- *  - practice/[any] files older than 24 h, delete; fresh ones kept
- *  - complete triples (.mp4 + .csv + .json), untouched
+ * (D-FS-04 from CONTEXT.md). Updated 2026-05-12 for the Phase-4 on-hardware
+ * smoke fix round (bugs 3(b)/3(c)):
+ *   - an orphan `.mp4` + valid `.session.json` is now actually RE-FINALIZED:
+ *       • playable mp4 (`ftyp` + `moov` + ≥1 `moof`) → `{base}.json` written,
+ *         sidecar deleted, base reported as "recovered";
+ *       • stub / incomplete mp4 (the force-quit case the smoke walk hit: a
+ *         778-byte stub with no `moov`) → triple discarded, NOT "recovered".
+ *   - an orphan `.session.json` with NO matching `.mp4` is now swept (Pass 3).
  *
  * `application = Application::class` — bypasses MainApplication.onCreate
  * SoLoader.init NPE under Robolectric (canonical Phase 3 pattern).
@@ -51,6 +51,28 @@ class CaptureLaunchSweepTest {
         ),
     )
 
+    /** Write a single ISO-BMFF box (`size:uint32` + `type:4cc` + `body`). */
+    private fun writeBox(raf: RandomAccessFile, type: String, body: ByteArray) {
+        require(type.length == 4)
+        raf.writeInt(8 + body.size)
+        raf.write(type.toByteArray(Charsets.US_ASCII))
+        raf.write(body)
+    }
+
+    /** A minimal "playable-looking" fragmented mp4: `ftyp` + `moov` + `moof` + `mdat`. */
+    private fun writePlayableMp4(file: File) {
+        RandomAccessFile(file, "rw").use { raf ->
+            raf.setLength(0)
+            writeBox(raf, "ftyp", "isom".toByteArray(Charsets.US_ASCII) + byteArrayOf(0, 0, 0, 0))
+            writeBox(raf, "moov", ByteArray(32)) // body contents irrelevant to the scanner
+            writeBox(raf, "moof", ByteArray(16))
+            writeBox(raf, "mdat", ByteArray(64))
+        }
+    }
+
+    /** A force-quit stub: a short blob with no `moov`/`moof` (mirrors the on-hardware 778-byte stub). */
+    private fun writeStubMp4(file: File) = file.writeBytes(ByteArray(778))
+
     @Before
     fun setUp() {
         filesDir = File(RuntimeEnvironment.getApplication().filesDir, "sweep-test-${System.nanoTime()}")
@@ -73,18 +95,37 @@ class CaptureLaunchSweepTest {
     }
 
     @Test
-    fun `orphan mp4 with valid sidecar leaves triple intact`() {
+    fun `orphan stub-mp4 with valid sidecar is discarded (force-quit case)`() {
         val base = "20260510_002"
-        val mp4 = File(recordingsDir, "$base.mp4").apply { writeText("fake mp4 bytes") }
+        val mp4 = File(recordingsDir, "$base.mp4").also { writeStubMp4(it) }
         val csv = File(recordingsDir, "$base.csv").apply { writeText("fake csv bytes") }
         val sidecar = File(recordingsDir, "$base.session.json")
         SidecarManager.write(sidecar, fixtureSidecarPayload(base))
 
-        CaptureLaunchSweep(filesDir).run()
+        val recovered = CaptureLaunchSweep(filesDir).run()
 
-        assertTrue("mp4 should be preserved (Phase 4 re-finalize candidate)", mp4.exists())
-        assertTrue("csv should be preserved", csv.exists())
-        assertTrue("sidecar should be preserved", sidecar.exists())
+        assertFalse("stub mp4 is unrecoverable → discarded", mp4.exists())
+        assertFalse("csv discarded with the stub", csv.exists())
+        assertFalse("sidecar discarded with the stub", sidecar.exists())
+        assertTrue("a discarded stub is NOT a recovery candidate", recovered.isEmpty())
+        assertFalse("no metadata json was written for a stub", File(recordingsDir, "$base.json").exists())
+    }
+
+    @Test
+    fun `orphan playable-mp4 with valid sidecar is re-finalized into a triple`() {
+        val base = "20260510_002b"
+        val mp4 = File(recordingsDir, "$base.mp4").also { writePlayableMp4(it) }
+        val csv = File(recordingsDir, "$base.csv").apply { writeText("fake csv bytes") }
+        val sidecar = File(recordingsDir, "$base.session.json")
+        SidecarManager.write(sidecar, fixtureSidecarPayload(base))
+
+        val recovered = CaptureLaunchSweep(filesDir).run()
+
+        assertTrue("mp4 preserved", mp4.exists())
+        assertTrue("csv preserved", csv.exists())
+        assertTrue("metadata json written from the sidecar", File(recordingsDir, "$base.json").exists())
+        assertFalse("sidecar deleted once the triple is complete", sidecar.exists())
+        assertEquals("re-finalized base is reported as recovered", listOf(base), recovered)
     }
 
     @Test
@@ -112,6 +153,20 @@ class CaptureLaunchSweepTest {
         CaptureLaunchSweep(filesDir).run()
 
         assertFalse("orphan json should be deleted", json.exists())
+    }
+
+    @Test
+    fun `orphan session-json sidecar with no mp4 is swept (bug 3c)`() {
+        val base = "20260510_021403_004"
+        val sidecar = File(recordingsDir, "$base.session.json")
+        SidecarManager.write(sidecar, fixtureSidecarPayload(base))
+        // A lone CSV residue with no mp4 either.
+        val csv = File(recordingsDir, "$base.csv").apply { writeText("imu csv residue") }
+
+        CaptureLaunchSweep(filesDir).run()
+
+        assertFalse("lone .session.json with no .mp4 should be deleted", sidecar.exists())
+        assertFalse("lone .csv residue should be deleted too", csv.exists())
     }
 
     @Test
@@ -157,19 +212,19 @@ class CaptureLaunchSweepTest {
     }
 
     // -------------------------------------------------------------------------
-    // Phase 4 D-LIFE-04 (plan 04-10) — run() returns the orphan-with-valid-
-    // sidecar bases (the re-finalize candidates) so MainApplication can stash
-    // them in CaptureLaunchSweep.pendingRecovery → HumynCaptureModule emits the
-    // one-shot onCrashRecovery event for the Home toast. The on-device emit path
-    // (Arguments.createMap / RCTDeviceEventEmitter) can't be exercised under
-    // Robolectric — that's covered by 04-MANUAL-SMOKE.md §4(e). These tests lock
-    // the run()-return contract.
+    // Phase 4 D-LIFE-04 — run() returns the bases that were actually
+    // re-finalized into usable triples (a stub-mp4 orphan is discarded, not
+    // "recovered"). MainApplication.onCreate stashes them in
+    // CaptureLaunchSweep.pendingRecovery → HumynCaptureModule emits the
+    // one-shot onCrashRecovery event for the Home toast (and exposes the same
+    // list via getPendingRecovery() — see HumynCapture.test.ts). The on-device
+    // emit path can't be exercised under Robolectric — 04-MANUAL-SMOKE.md §4(e).
     // -------------------------------------------------------------------------
 
     @Test
-    fun `run returns the base of an orphan mp4 with a valid sidecar`() {
+    fun `run returns the base of a re-finalized playable orphan`() {
         val base = "20260510_900"
-        File(recordingsDir, "$base.mp4").apply { writeText("fake mp4 bytes") }
+        File(recordingsDir, "$base.mp4").also { writePlayableMp4(it) }
         File(recordingsDir, "$base.csv").apply { writeText("fake csv bytes") }
         SidecarManager.write(File(recordingsDir, "$base.session.json"), fixtureSidecarPayload(base))
 
@@ -179,13 +234,18 @@ class CaptureLaunchSweepTest {
     }
 
     @Test
-    fun `run does not return bases for corrupt-sidecar or no-sidecar orphans`() {
-        // Orphan with corrupt sidecar — discarded, not a recovery candidate.
+    fun `run does not return bases for stub-mp4 or corrupt-sidecar or no-sidecar orphans`() {
+        // Stub mp4 (force-quit case) — discarded, not a recovery candidate.
+        val stub = "20260510_900s"
+        File(recordingsDir, "$stub.mp4").also { writeStubMp4(it) }
+        File(recordingsDir, "$stub.csv").apply { writeText("x") }
+        SidecarManager.write(File(recordingsDir, "$stub.session.json"), fixtureSidecarPayload(stub))
+        // Orphan with corrupt sidecar — discarded.
         val corrupt = "20260510_901"
         File(recordingsDir, "$corrupt.mp4").apply { writeText("x") }
         File(recordingsDir, "$corrupt.csv").apply { writeText("x") }
         File(recordingsDir, "$corrupt.session.json").apply { writeText("{ broken") }
-        // Orphan with no sidecar — discarded, not a recovery candidate.
+        // Orphan with no sidecar — discarded.
         val nosidecar = "20260510_902"
         File(recordingsDir, "$nosidecar.mp4").apply { writeText("x") }
         File(recordingsDir, "$nosidecar.csv").apply { writeText("x") }
@@ -197,15 +257,15 @@ class CaptureLaunchSweepTest {
 
         val recovered = CaptureLaunchSweep(filesDir).run()
 
-        assertTrue("no recovery candidates among corrupt/no-sidecar/complete", recovered.isEmpty())
+        assertTrue("no recovery candidates among stub/corrupt/no-sidecar/complete", recovered.isEmpty())
     }
 
     @Test
-    fun `run returns all orphan-with-valid-sidecar bases when several exist`() {
+    fun `run returns all re-finalized bases when several exist`() {
         val a = "20260510_910"
         val b = "20260510_911"
         for (base in listOf(a, b)) {
-            File(recordingsDir, "$base.mp4").apply { writeText("x") }
+            File(recordingsDir, "$base.mp4").also { writePlayableMp4(it) }
             File(recordingsDir, "$base.csv").apply { writeText("x") }
             SidecarManager.write(File(recordingsDir, "$base.session.json"), fixtureSidecarPayload(base))
         }
@@ -218,19 +278,19 @@ class CaptureLaunchSweepTest {
     @Test
     fun `pendingRecovery holder round-trips a recovered list`() {
         // Mirrors MainApplication.onCreate → HumynCaptureModule.onHostResume:
-        // onCreate sets the holder from run(); onHostResume reads it once + nulls it.
+        // onCreate sets the holder from run(); onHostResume reads it (and emits).
         val base = "20260510_920"
-        File(recordingsDir, "$base.mp4").apply { writeText("x") }
+        File(recordingsDir, "$base.mp4").also { writePlayableMp4(it) }
         File(recordingsDir, "$base.csv").apply { writeText("x") }
         SidecarManager.write(File(recordingsDir, "$base.session.json"), fixtureSidecarPayload(base))
 
         CaptureLaunchSweep.pendingRecovery = CaptureLaunchSweep(filesDir).run()
         assertEquals(listOf(base), CaptureLaunchSweep.pendingRecovery)
 
-        // Drain (what onHostResume does).
+        // Drain (what onHostResume / getPendingRecovery surface).
         val drained = CaptureLaunchSweep.pendingRecovery
-        CaptureLaunchSweep.pendingRecovery = null
         assertEquals(listOf(base), drained)
+        CaptureLaunchSweep.pendingRecovery = null
         assertTrue("holder cleared after drain", CaptureLaunchSweep.pendingRecovery == null)
     }
 }

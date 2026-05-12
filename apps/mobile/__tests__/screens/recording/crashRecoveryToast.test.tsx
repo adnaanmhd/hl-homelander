@@ -1,25 +1,23 @@
-// Crash-recovery boot listener → Home toast (D-LIFE-04, plan 04-10).
+// Crash-recovery boot listener → Home toast (D-LIFE-04, plan 04-10; hardened
+// 2026-05-12 Phase-4 smoke bug 3(a)).
 //
-// Coverage:
-//   1. installBootRecoveryListener() subscribes to HumynCapture.onCrashRecovery
-//      (NativeEventEmitter.addListener('onCrashRecovery', …)).
-//   2. Firing the captured listener with { recovered: ['…'] } shows the
-//      "Recording recovered after force-quit — uploading." toast AND removes
-//      the subscription (one-shot per app launch).
-//   3. Firing again (after the first fire) with { recovered: [] } does NOT
-//      show a new toast — the subscription is already gone.
-//   4. A malformed payload ({ recovered: 'not-an-array' }) does NOT show a
-//      toast (the Array.isArray guard — Security "trust the payload blindly").
-//   5. An empty { recovered: [] } on the first fire does NOT show a toast (but
-//      still removes the subscription — one-shot regardless).
-//   6. When HumynCapture isn't registered (no NativeModules.HumynCapture),
-//      installBootRecoveryListener() swallows the throw — boot never crashes.
+// installBootRecoveryListener() now has TWO channels:
+//   1. HumynCapture.getPendingRecovery() — synchronous query (the reliable
+//      channel; no boot-timing race);
+//   2. HumynCapture.onCrashRecovery(listener) — the one-shot event (legacy).
+// The Home toast "Recording recovered after force-quit — uploading." fires the
+// first time EITHER channel reports `recovered.length > 0` (validated as a
+// string[]), then any further reports are ignored (one-shot per app launch).
+// When a toast actually shows, the event subscription is removed so a redundant
+// emit (both channels read the same native holder) can't re-toast; an EMPTY /
+// malformed report does NOT remove the sub (the other channel is still the
+// fallback).
 //
-// Pattern: per-test `vi.doMock('react-native', …)` injecting NativeModules +
-// a stub NativeEventEmitter constructor whose addListener captures the listener
-// and returns a subscription with a spy `.remove()`. Mirrors HumynCapture.test.ts's
-// setupEmitterMock() constructor-spy pattern. The Toast host is rendered so the
-// toast text becomes assertable; `showToast` flows through the real module.
+// Pattern: per-test `vi.doMock('react-native', …)` injecting NativeModules
+// (with a `getPendingRecovery` spy) + a stub NativeEventEmitter constructor
+// whose addListener captures the listener and returns a subscription with a spy
+// `.remove()`. The Toast host is rendered so the toast text becomes assertable;
+// `showToast` flows through the real module.
 
 import React from 'react';
 import { render, screen, cleanup, act } from '@testing-library/react';
@@ -29,11 +27,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 let capturedEvent: string | null = null;
 let capturedListener: ((e: unknown) => void) | null = null;
 let removeSpy: ReturnType<typeof vi.fn>;
+let getPendingRecoverySpy: ReturnType<typeof vi.fn>;
 
-// Minimal RN host-component shim (mirrors vitest.setup.ts's makeComponent) so
-// Toast.tsx + the Text primitive render under jsdom even though this test fully
-// replaces the `react-native` module (to inject NativeModules + a stub
-// NativeEventEmitter constructor).
+// Minimal RN host-component shim (mirrors vitest.setup.ts's makeComponent).
 function makeComponent(name: string) {
   return React.forwardRef<HTMLDivElement, Record<string, unknown> & { children?: React.ReactNode }>(
     function HostComponent(props, ref) {
@@ -45,19 +41,18 @@ function makeComponent(name: string) {
   );
 }
 
-function setupRn(opts: { registered: boolean }) {
+function setupRn(opts: { registered: boolean; pending?: unknown }) {
   capturedEvent = null;
   capturedListener = null;
   removeSpy = vi.fn();
+  getPendingRecoverySpy = vi.fn(async () => ({
+    recovered: 'pending' in opts ? opts.pending : [],
+  }));
   const addListener = vi.fn((name: string, listener: (e: unknown) => void) => {
     capturedEvent = name;
     capturedListener = listener;
     return { remove: removeSpy };
   });
-  // Mirror real RN's NativeEventEmitter: it requires a non-null native module
-  // (it reads `nativeModule.addListener` for the event-count bookkeeping). When
-  // HumynCapture isn't registered, constructing the emitter throws — which is
-  // exactly the throw bootRecoveryListener's try/catch swallows.
   function EmitterCtor(this: { addListener: typeof addListener }, nativeModule?: unknown) {
     if (nativeModule == null) {
       throw new Error('NativeEventEmitter requires a non-null argument on Android');
@@ -65,7 +60,9 @@ function setupRn(opts: { registered: boolean }) {
     this.addListener = addListener;
   }
   vi.doMock('react-native', () => ({
-    NativeModules: opts.registered ? { HumynCapture: {} } : {},
+    NativeModules: opts.registered
+      ? { HumynCapture: { getPendingRecovery: getPendingRecoverySpy } }
+      : {},
     NativeEventEmitter: EmitterCtor,
     View: makeComponent('View'),
     Text: makeComponent('Text'),
@@ -79,11 +76,18 @@ function setupRn(opts: { registered: boolean }) {
 }
 
 async function loadModulesAndRenderHost() {
-  // Import AFTER doMock so HumynCapture.ts binds the mocked react-native.
   const boot = await import('../../../src/boot/bootRecoveryListener');
   const Toast = await import('../../../src/components/Toast');
   render(<Toast.ToastHost />);
   return { boot, Toast };
+}
+
+// Flush pending microtasks (the getPendingRecovery().then(...) chain) under
+// fake timers — `vi.advanceTimersByTimeAsync(0)` drains the microtask queue.
+async function flushMicrotasks() {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(0);
+  });
 }
 
 describe('bootRecoveryListener → Home crash-recovery toast (D-LIFE-04)', () => {
@@ -99,71 +103,96 @@ describe('bootRecoveryListener → Home crash-recovery toast (D-LIFE-04)', () =>
     cleanup();
   });
 
-  it('subscribes to onCrashRecovery and shows the toast on a valid payload', async () => {
+  it('subscribes to onCrashRecovery and shows the toast on a valid event payload', async () => {
     setupRn({ registered: true });
     const { boot } = await loadModulesAndRenderHost();
     act(() => {
       boot.installBootRecoveryListener();
     });
+    await flushMicrotasks();
+    expect(getPendingRecoverySpy).toHaveBeenCalledTimes(1);
     expect(capturedEvent).toBe('onCrashRecovery');
     expect(typeof capturedListener).toBe('function');
-    // Fire with a valid recovered list.
+    // getPendingRecovery resolved [] → no toast yet, sub still alive.
+    expect(screen.queryByLabelText('toast')).toBeNull();
+    expect(removeSpy).not.toHaveBeenCalled();
+    // The event channel delivers a valid recovered list → toast + sub removed.
     act(() => {
       capturedListener!({ recovered: ['20260511_120000_001'] });
     });
     const toast = screen.getByLabelText('toast');
     expect(toast.textContent).toContain('Recording recovered after force-quit — uploading.');
-    // One-shot: the subscription was removed after the first fire.
     expect(removeSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('a second fire after the one-shot does not show a new toast', async () => {
-    setupRn({ registered: true });
-    const { boot, Toast } = await loadModulesAndRenderHost();
+  it('shows the toast from the synchronous getPendingRecovery channel', async () => {
+    setupRn({ registered: true, pending: ['20260511_120000_009'] });
+    const { boot } = await loadModulesAndRenderHost();
     act(() => {
       boot.installBootRecoveryListener();
     });
+    await flushMicrotasks();
+    const toast = screen.getByLabelText('toast');
+    expect(toast.textContent).toContain('Recording recovered after force-quit — uploading.');
+    // A toast showed → the event subscription was removed (no double-toast).
+    expect(removeSpy).toHaveBeenCalledTimes(1);
+    // A redundant event emit afterwards does not re-toast (sub removed).
     act(() => {
-      capturedListener!({ recovered: ['a'] });
+      capturedListener?.({ recovered: ['x'] });
     });
-    // Let the first toast fade.
-    act(() => {
-      vi.advanceTimersByTime(Toast.DEFAULT_TOAST_MS + 1);
-    });
-    expect(screen.queryByLabelText('toast')).toBeNull();
-    // Fire again — the listener already removed itself, but even if it were
-    // re-invoked the recovered:[] payload short-circuits anyway.
-    act(() => {
-      capturedListener!({ recovered: [] });
-    });
-    expect(screen.queryByLabelText('toast')).toBeNull();
+    // Still exactly one toast surface.
+    expect(screen.getAllByLabelText('toast')).toHaveLength(1);
   });
 
-  it('a non-array recovered payload does NOT show a toast (Array.isArray guard)', async () => {
+  it('a second event fire after the one-shot does not show a new toast', async () => {
     setupRn({ registered: true });
     const { boot } = await loadModulesAndRenderHost();
     act(() => {
       boot.installBootRecoveryListener();
     });
+    await flushMicrotasks();
+    act(() => {
+      capturedListener!({ recovered: ['a'] });
+    });
+    // RECOVERY_TOAST_MS is 15 s (it fires while the SplashScreen bootstrap is
+    // still up, so it has to outlast it) — advance well past that.
+    act(() => {
+      vi.advanceTimersByTime(20_000);
+    });
+    expect(screen.queryByLabelText('toast')).toBeNull();
+    act(() => {
+      capturedListener!({ recovered: ['b'] });
+    });
+    expect(screen.queryByLabelText('toast')).toBeNull();
+  });
+
+  it('a non-array event payload does NOT show a toast and does NOT remove the sub', async () => {
+    setupRn({ registered: true });
+    const { boot } = await loadModulesAndRenderHost();
+    act(() => {
+      boot.installBootRecoveryListener();
+    });
+    await flushMicrotasks();
     act(() => {
       capturedListener!({ recovered: 'not-an-array' });
     });
     expect(screen.queryByLabelText('toast')).toBeNull();
-    // Still one-shot: the subscription was removed after the (no-op) fire.
-    expect(removeSpy).toHaveBeenCalledTimes(1);
+    // Sub stays alive — the other channel is still the fallback.
+    expect(removeSpy).not.toHaveBeenCalled();
   });
 
-  it('an empty recovered list does NOT show a toast (but still self-removes)', async () => {
+  it('an empty event payload does NOT show a toast and does NOT remove the sub', async () => {
     setupRn({ registered: true });
     const { boot } = await loadModulesAndRenderHost();
     act(() => {
       boot.installBootRecoveryListener();
     });
+    await flushMicrotasks();
     act(() => {
       capturedListener!({ recovered: [] });
     });
     expect(screen.queryByLabelText('toast')).toBeNull();
-    expect(removeSpy).toHaveBeenCalledTimes(1);
+    expect(removeSpy).not.toHaveBeenCalled();
   });
 
   it('a recovered list containing a non-string is rejected', async () => {
@@ -172,6 +201,7 @@ describe('bootRecoveryListener → Home crash-recovery toast (D-LIFE-04)', () =>
     act(() => {
       boot.installBootRecoveryListener();
     });
+    await flushMicrotasks();
     act(() => {
       capturedListener!({ recovered: ['ok', 42 as unknown as string] });
     });
@@ -181,14 +211,13 @@ describe('bootRecoveryListener → Home crash-recovery toast (D-LIFE-04)', () =>
   it('swallows the throw when HumynCapture is not registered', async () => {
     setupRn({ registered: false });
     const { boot } = await loadModulesAndRenderHost();
-    // Must not throw.
     let teardown: (() => void) | undefined;
     act(() => {
       teardown = boot.installBootRecoveryListener();
     });
+    await flushMicrotasks();
     expect(typeof teardown).toBe('function');
-    // No listener was captured (the addListener call never reached because
-    // ensure() threw inside onCrashRecovery).
+    // No listener was captured (onCrashRecovery's ensure() threw).
     expect(capturedListener).toBeNull();
     // The teardown is a safe no-op.
     expect(() => teardown!()).not.toThrow();

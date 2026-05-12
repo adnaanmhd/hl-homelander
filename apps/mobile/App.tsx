@@ -34,11 +34,6 @@ enableScreens(true);
 // Sync hydrate before render — MMKV is sync, Zustand setState is sync.
 hydrate();
 
-// D-LIFE-04 — one-shot crash-recovery boot listener (shows the Home toast when
-// the Phase-3 app-launch sweep re-finalized orphan segments). Best-effort;
-// swallows when HumynCapture isn't registered (JSDOM / a build without it).
-installBootRecoveryListener();
-
 // React Navigation's LinkingOptions is parameterised over the global
 // ParamList — Phase 2 hasn't declared one yet (lands in plan 02-15). The
 // linking.ts module hand-types its own NestedPathMap variant; cast at the
@@ -47,6 +42,15 @@ installBootRecoveryListener();
 import type { LinkingOptions } from '@react-navigation/native';
 
 export default function App() {
+  // D-LIFE-04 — install the one-shot crash-recovery boot listener AFTER the
+  // first commit, so <ToastHost /> is already mounted when
+  // getPendingRecovery() resolves and shows the Home toast (Phase-4 smoke
+  // bug 3(a) — the toast was silently missing). Best-effort; swallows when
+  // HumynCapture isn't registered (JSDOM / a build without it).
+  React.useEffect(() => {
+    const teardown = installBootRecoveryListener();
+    return teardown;
+  }, []);
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" />

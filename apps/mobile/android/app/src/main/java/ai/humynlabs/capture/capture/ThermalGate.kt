@@ -66,6 +66,17 @@ class ThermalGate(ctx: Context) {
     }
 
     /**
+     * Synchronous read of `PowerManager.getCurrentThermalStatus()` — the same
+     * source [preFlight] uses (and the same one `cmd thermalservice
+     * override-status N` reliably moves on every Android build). The Phase-4
+     * mid-record polling fallback in [CaptureSession] calls this every 5 s
+     * because the `OnThermalStatusChangedListener` callback does NOT fire for
+     * the `override-status` test path on this Android-16 build (and may lag
+     * on a real HAL escalation on some OEM ROMs).
+     */
+    fun currentStatus(): Int = pm.currentThermalStatus
+
+    /**
      * Subscribe to mid-record thermal escalation. The callback fires on
      * the default Android binder thread that the OS uses to dispatch
      * `OnThermalStatusChangedListener` callbacks (the system's main

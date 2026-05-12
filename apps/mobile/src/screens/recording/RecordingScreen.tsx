@@ -508,6 +508,14 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
   // camera (opened on entering 'ready' above) is ready.
   // ===========================================================================
   const gateEnteredRef = useRef(false);
+  // Cosmetic fix (Phase-4 smoke): monotonic gate-start/confirm timestamps,
+  // captured here from effects rather than relying on the reducer's
+  // `state.gate.{startedAt,confirmedAt}` for the metadata `start_gate.duration_ms`
+  // — a gate-PASS run once stamped 59929 ms (≈ the whole recording) because
+  // `state.gate.startedAt` wasn't reliably populated before `confirmedAt` on the
+  // pass path, so `confirmedAt - 0` leaked the absolute performance.now() value.
+  const gateStartMsRef = useRef<number | null>(null);
+  const gateConfirmedMsRef = useRef<number | null>(null);
   useEffect(() => {
     if (state.substate !== 'gate') {
       gateEnteredRef.current = false;
@@ -515,6 +523,8 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
     }
     if (gateEnteredRef.current) return;
     gateEnteredRef.current = true;
+    gateStartMsRef.current = nowMs();
+    gateConfirmedMsRef.current = null;
     logEvent('recording_gate_started', { locale: deviceLocale() });
     // HAND-08 — no native hand-gate (HandLandmarker missing OR the gate camera
     // module didn't register OR the camera failed to open) → silent bypass (same
@@ -555,6 +565,10 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
     }
     if (transitionStartedRef.current) return;
     transitionStartedRef.current = true;
+    // Stamp the confirm time the instant we observe phase === 'confirmed'
+    // (before the SETTLE_MS handoff dance below), so the start_gate duration
+    // reflects the gate window, not the gate + camera handoff.
+    if (gateConfirmedMsRef.current == null) gateConfirmedMsRef.current = nowMs();
 
     let cancelled = false;
     const run = async (): Promise<void> => {
@@ -578,7 +592,14 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
       resetCameraState();
       await new Promise<void>((r) => setTimeout(r, SETTLE_MS));
       if (cancelled) return;
-      const gateDurationMs = (state.gate.confirmedAt ?? 0) - (state.gate.startedAt ?? 0);
+      // Use the monotonic refs captured by the gate-enter / gate-confirm
+      // effects above; clamp to [0, 5 min] so a missing start (shouldn't
+      // happen, but defensively) or a clock anomaly can't leak a bogus
+      // multi-minute value into start_gate.duration_ms (cosmetic fix).
+      const gateStartMs = gateStartMsRef.current;
+      const gateConfirmedMs = gateConfirmedMsRef.current ?? nowMs();
+      const gateDurationMs =
+        gateStartMs == null ? 0 : Math.max(0, Math.min(gateConfirmedMs - gateStartMs, 300_000));
       const u = useAppStore.getState();
       try {
         const opts = buildCaptureOpts({

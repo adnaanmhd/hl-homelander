@@ -119,6 +119,54 @@ class HumynBatteryModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    /**
+     * REC-16 — synchronous one-shot read of the current battery level +
+     * charging state, independent of [start]/[stop]. `ACTION_BATTERY_CHANGED`
+     * is a sticky broadcast, so `registerReceiver(null, filter)` returns the
+     * last sticky intent immediately with no receiver actually registered.
+     *
+     * Bug-2 fix (Phase-4 on-hardware smoke): `useRecordingLifecycle`'s
+     * `checkStartGuards()` previously relied on `lastBatteryLevelRef`, which is
+     * only populated by the `onBatteryChanged` subscription that mounts when the
+     * recording enters the `gate` substate — i.e. AFTER the pre-flight start
+     * guard already ran. So the guard always saw "no reading yet" (`-1`) and
+     * never blocked. The fix reads the level here, on demand, before deciding.
+     *
+     * Resolves `{ level: Double 0..1, isCharging: Boolean }`. `level` is `-1.0`
+     * (and `isCharging` false) if the sticky intent is unavailable or malformed
+     * — the JS guard treats a negative level as "unknown, don't block on it"
+     * (HC's own pre-flight `storage_full`/`thermal` rejections are the backstop).
+     */
+    @ReactMethod
+    fun getCurrentLevel(promise: Promise) {
+        try {
+            val sticky = reactApplicationContext.registerReceiver(
+                null,
+                IntentFilter(Intent.ACTION_BATTERY_CHANGED),
+            )
+            val level = sticky?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+            val scale = sticky?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+            val status = sticky?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+            val pct = if (level >= 0 && scale > 0) level.toDouble() / scale.toDouble() else -1.0
+            val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                status == BatteryManager.BATTERY_STATUS_FULL
+            promise.resolve(
+                Arguments.createMap().apply {
+                    putDouble("level", pct)
+                    putBoolean("isCharging", isCharging)
+                },
+            )
+        } catch (t: Throwable) {
+            // Never throw out of the start guard — fall through to "unknown".
+            promise.resolve(
+                Arguments.createMap().apply {
+                    putDouble("level", -1.0)
+                    putBoolean("isCharging", false)
+                },
+            )
+        }
+    }
+
     override fun invalidate() {
         // Pitfall 5 — unregister the receiver if still registered when the
         // catalyst instance goes away.

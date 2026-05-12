@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
+import android.util.Log
 import android.view.Surface
 import androidx.annotation.VisibleForTesting
 import com.facebook.react.bridge.Arguments
@@ -77,8 +78,35 @@ class CaptureSession private constructor(
 
     private val sessionThread = HandlerThread("HumynCapture-Session").apply { start() }
     private val sessionHandler = Handler(sessionThread.looper)
+    /**
+     * Dedicated thread for Camera2 framework callbacks (`CameraDevice.StateCallback`,
+     * `CameraCaptureSession.StateCallback`). MUST be distinct from [sessionHandler]:
+     * `openCameraSync` / `openCaptureSession` block on a `CountDownLatch` that the
+     * callback counts down — and `rotateSegment()` (the auto-segment cut) calls
+     * those from the [sessionHandler] thread itself. If the callbacks dispatched
+     * onto [sessionHandler], that thread would be blocked in `latch.await()` while
+     * the camera framework's `onOpened`/`onConfigured` post sat behind it on the
+     * same looper → 2 s `camera_open_timeout` on every auto-cut (Phase-4 on-hardware
+     * smoke — the auto-segment rotate never completed). First-segment open didn't
+     * hit this because `start()` runs on the capture executor, not [sessionHandler].
+     */
+    private val cameraCbThread = HandlerThread("HumynCapture-CameraCb").apply { start() }
+    private val cameraCbHandler = Handler(cameraCbThread.looper)
     private val thermalGate = ThermalGate(ctx)
     private var thermalSubscription: AutoCloseable? = null
+    /**
+     * Bug-4 fix (Phase-4 on-hardware smoke) — `cmd thermalservice
+     * override-status N` reliably moves `PowerManager.getCurrentThermalStatus()`
+     * (so the pre-flight refuse works) but on this Android-16 build does NOT
+     * deliver `OnThermalStatusChangedListener` callbacks for the override, so
+     * the mid-record graceful-stop never fired. Belt-and-suspenders: a 5 s
+     * synchronous poll of the thermal status on the session HandlerThread, in
+     * addition to the listener. `thermalAbortFired` de-duplicates so the
+     * listener and the poll can't both kick off the graceful stop. Mirrors the
+     * JS-side periodic storage/battery guard in `useRecordingLifecycle`.
+     */
+    @Volatile private var thermalAbortFired: Boolean = false
+    private var thermalPollRunnable: Runnable? = null
     private val segmentTimer = SegmentTimer()
 
     /** The pump-loop HandlerThread lifecycle is per-segment (see openSegment / closeSegmentResources). */
@@ -93,6 +121,22 @@ class CaptureSession private constructor(
 
         /** Silent gap between segments at auto-cut (D-SEG-03). */
         private const val SEGMENT_ROTATE_GAP_MS = 500L
+
+        /**
+         * REC-07 — recordings shorter than 60 s are discarded (not uploaded,
+         * not in History, not counted). HumynCapture owns the on-disk deletion
+         * at finalize: when stop() closes the SOLE segment of a session and its
+         * wall-clock duration is below this floor, [discardSegmentArtifacts]
+         * deletes the segment's mp4 / csv / json / .session.json instead of
+         * running FinalizeWorker. A session that already auto-segmented at least
+         * once is by definition ≥10 min, so a trailing short segment there is
+         * still real captured data and is kept (segments are independent
+         * upload units — CAP-09).
+         */
+        private const val MIN_KEPT_DURATION_MS = 60_000L
+
+        /** Mid-record thermal poll cadence — see [thermalPollRunnable]. */
+        private const val THERMAL_POLL_INTERVAL_MS = 5_000L
 
         /**
          * Start a new CaptureSession. Runs the full pre-flight + first-segment
@@ -158,17 +202,18 @@ class CaptureSession private constructor(
         // 5. NOW it is safe to subscribe to mid-record thermal escalation
         //    (CAP-12). The listener fires on the system binder dispatch
         //    thread when status >= SEVERE; we DO NOT block in the callback —
-        //    we emit the JS event immediately and post the graceful stop
-        //    to the session's HandlerThread. By this point currentSegment
-        //    is guaranteed non-null so the emitted segmentId is correlable.
-        thermalSubscription = thermalGate.subscribeMidRecord { status ->
-            val payload = Arguments.createMap().apply {
-                putString("segmentId", currentSegment?.segmentId ?: "")
-                putInt("currentStatus", status)
-            }
-            emit("onThermalAbort", payload)
-            sessionHandler.postDelayed({ if (!stopping) stop() }, THERMAL_GRACEFUL_STOP_MS)
-        }
+        //    we hand off to onThermalEscalation which emits the JS event and
+        //    posts the graceful stop to the session's HandlerThread. By this
+        //    point currentSegment is guaranteed non-null so the emitted
+        //    segmentId is correlable.
+        thermalSubscription = thermalGate.subscribeMidRecord { status -> onThermalEscalation(status) }
+        // Bug-4 fix — also poll the thermal status synchronously every 5 s,
+        // because `cmd thermalservice override-status N` does not deliver
+        // listener callbacks on this Android-16 build (the pre-flight refuse
+        // path that reads getCurrentThermalStatus() directly does work). The
+        // poll runs on the session HandlerThread (its looper is alive for the
+        // whole session); de-duplicated against the listener via thermalAbortFired.
+        startThermalPoll()
 
         // 6. Schedule the next auto-cut. The cut callback runs on
         //    SegmentTimer's HandlerThread; we post the rotateSegment work
@@ -193,6 +238,7 @@ class CaptureSession private constructor(
             thermalSubscription?.close()
         } catch (_: Throwable) { /* best-effort */ }
         thermalSubscription = null
+        stopThermalPoll()
         // CR-05 fix — null `currentSegment` BEFORE invoking closeSegmentResources.
         // The previous ordering left currentSegment set during close; the pump's
         // `currentSegment === seg` defense-in-depth check would stay true while
@@ -214,6 +260,7 @@ class CaptureSession private constructor(
         // partially-allocated case. Best-effort by definition.
         for (t in pumpThreads) try { t.quitSafely() } catch (_: Throwable) { /* best-effort */ }
         pumpThreads.clear()
+        try { cameraCbThread.quitSafely() } catch (_: Throwable) { /* best-effort */ }
         try { sessionThread.quitSafely() } catch (_: Throwable) { /* best-effort */ }
     }
 
@@ -338,6 +385,7 @@ class CaptureSession private constructor(
             try { camDevice?.close() } catch (_: Throwable) {}
             // Surface the open failure to JS — Phase 4's RecordingScreen
             // catches this on the start() Promise reject path.
+            Log.e("HumynCapture", "openSegment failed → onError code=segment_open_failed", t)
             val payload = Arguments.createMap().apply {
                 putString("code", "segment_open_failed")
                 putString("message", t.message ?: "")
@@ -425,7 +473,7 @@ class CaptureSession private constructor(
                 openError = IllegalStateException("camera_open_failed:$error")
                 latch.countDown()
             }
-        }, sessionHandler)
+        }, cameraCbHandler)
         if (!latch.await(CAMERA_OPEN_TIMEOUT_S, TimeUnit.SECONDS)) {
             throw IllegalStateException("camera_open_timeout")
         }
@@ -555,7 +603,7 @@ class CaptureSession private constructor(
                     latch.countDown()
                 }
             },
-            sessionHandler,
+            cameraCbHandler,
         )
         if (!latch.await(CAMERA_OPEN_TIMEOUT_S, TimeUnit.SECONDS)) {
             throw IllegalStateException("capture_session_configure_timeout")
@@ -701,6 +749,7 @@ class CaptureSession private constructor(
             // and stop() later has nothing to close. Surface the error to
             // JS so RecordingScreen can show a recoverable error and
             // ensure stop() can still run cleanly.
+            Log.e("HumynCapture", "rotateSegment failed → onError code=rotate_failed", t)
             val payload = Arguments.createMap().apply {
                 putString("code", "rotate_failed")
                 putString("message", t.message ?: "")
@@ -732,18 +781,29 @@ class CaptureSession private constructor(
         currentSegment = null
         if (segN != null) {
             closeSegmentResources(segN)
-            // Synchronously await finalize so the FGS doesn't shut down before
-            // metadata writes. 30 s budget is well above the ~0.9 s SHA streaming
-            // for a 600 MB segment (idea-brief.md §6.7).
-            val latch = CountDownLatch(1)
-            finalizeExecutor.execute {
-                try { FinalizeWorker.finalize(segN, emit) } finally { latch.countDown() }
+            val durationMs = (segN.endedAtNs - segN.startedAtNs) / 1_000_000L
+            if (segmentsCompleted == 0 && durationMs < MIN_KEPT_DURATION_MS) {
+                // REC-07 — the whole recording is the sole segment AND under
+                // 60 s: discard it on disk (HumynCapture owns the deletion at
+                // finalize). RecordingScreen has already shown the "Recording
+                // too short — discarded." toast off its own durationMs; the
+                // files must not survive into Phase 5's upload queue.
+                discardSegmentArtifacts(segN)
+            } else {
+                // Synchronously await finalize so the FGS doesn't shut down before
+                // metadata writes. 30 s budget is well above the ~0.9 s SHA streaming
+                // for a 600 MB segment (idea-brief.md §6.7).
+                val latch = CountDownLatch(1)
+                finalizeExecutor.execute {
+                    try { FinalizeWorker.finalize(segN, emit) } finally { latch.countDown() }
+                }
+                try { latch.await(30, TimeUnit.SECONDS) } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                }
+                segmentsCompleted++
             }
-            try { latch.await(30, TimeUnit.SECONDS) } catch (_: InterruptedException) {
-                Thread.currentThread().interrupt()
-            }
-            segmentsCompleted++
         }
+        stopThermalPoll()
         try { thermalSubscription?.close() } catch (_: Throwable) {}
         thermalSubscription = null
 
@@ -756,6 +816,7 @@ class CaptureSession private constructor(
         try { segmentTimer.release() } catch (_: Throwable) {}
         for (t in pumpThreads) try { t.quitSafely() } catch (_: Throwable) {}
         pumpThreads.clear()
+        try { cameraCbThread.quitSafely() } catch (_: Throwable) {}
         try { sessionThread.quitSafely() } catch (_: Throwable) {}
     }
 
@@ -820,6 +881,63 @@ class CaptureSession private constructor(
         // finalize path computes durationMs without re-reading the clock
         // (issue #10 mandate: SystemClock.elapsedRealtimeNanos exclusively).
         seg.endedAtNs = SystemClock.elapsedRealtimeNanos()
+    }
+
+    /**
+     * Bug-4 fix — single chokepoint for a mid-record thermal escalation
+     * (`status ≥ SEVERE`), invoked by BOTH the OS `OnThermalStatusChangedListener`
+     * AND the 5 s polling fallback. Idempotent via [thermalAbortFired] — the
+     * first caller emits `onThermalAbort` (so JS can fire the voice cue / pill /
+     * tone / haptic per D-THERM-01) and posts the 2.5 s graceful self-stop;
+     * subsequent callers are no-ops. Never blocks (the listener fires on the OS
+     * binder thread; the poll on the session HandlerThread).
+     */
+    private fun onThermalEscalation(status: Int) {
+        Log.w("HumynCapture", "onThermalEscalation(status=$status) thermalAbortFired=$thermalAbortFired stopping=$stopping")
+        if (thermalAbortFired || stopping) return
+        thermalAbortFired = true
+        val payload = Arguments.createMap().apply {
+            putString("segmentId", currentSegment?.segmentId ?: "")
+            putInt("currentStatus", status)
+        }
+        emit("onThermalAbort", payload)
+        sessionHandler.postDelayed({ if (!stopping) stop() }, THERMAL_GRACEFUL_STOP_MS)
+    }
+
+    /** Bug-4 fix — start the 5 s thermal-status poll on the session HandlerThread. */
+    private fun startThermalPoll() {
+        val r = object : Runnable {
+            override fun run() {
+                if (stopping || thermalAbortFired) return
+                val status = thermalGate.currentStatus()
+                if (status >= android.os.PowerManager.THERMAL_STATUS_SEVERE) {
+                    onThermalEscalation(status)
+                    return
+                }
+                sessionHandler.postDelayed(this, THERMAL_POLL_INTERVAL_MS)
+            }
+        }
+        thermalPollRunnable = r
+        sessionHandler.postDelayed(r, THERMAL_POLL_INTERVAL_MS)
+    }
+
+    /** Bug-4 fix — cancel the thermal poll (idempotent). */
+    private fun stopThermalPoll() {
+        thermalPollRunnable?.let { sessionHandler.removeCallbacks(it) }
+        thermalPollRunnable = null
+    }
+
+    /**
+     * REC-07 — delete every artifact of a discarded (<60 s sole) segment:
+     * the MP4, the IMU CSV, any metadata JSON that somehow already exists,
+     * and the `.session.json` sidecar (so the app-launch sweep doesn't later
+     * treat the leftover sidecar as a re-finalize candidate). Best-effort —
+     * a missing file is a no-op; we never throw out of stop()'s teardown.
+     */
+    private fun discardSegmentArtifacts(seg: Segment) {
+        for (f in listOf(seg.mp4File, seg.csvFile, seg.jsonFile, seg.sidecarFile)) {
+            try { if (f.exists()) f.delete() } catch (_: Throwable) { /* best-effort */ }
+        }
     }
 
     private fun emitSegmentStart(seg: Segment) {
