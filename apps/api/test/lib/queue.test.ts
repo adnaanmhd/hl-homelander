@@ -23,7 +23,7 @@ describe('lib/queue', () => {
       // No Redis configured in this environment — singleton/name checks above cover the rest.
       return;
     }
-    const recordingId = '01HVTQUEUE000000000000000ZZ';
+    const recordingId = '01HVTQUEUETESTREC0000000ZZ';
     const q = getQueue();
     await q.remove(recordingId).catch(() => {});
     await enqueueVerify(recordingId);

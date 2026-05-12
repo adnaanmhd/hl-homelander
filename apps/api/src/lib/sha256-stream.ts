@@ -2,10 +2,10 @@
 //
 // The hash-verify worker is the ONLY component allowed to read recording bytes,
 // and it does so read-only, streamed: GetObject().Body (a Node Readable) piped
-// through crypto.createHash('sha256') via stream/promises.pipeline. It NEVER
-// calls .transformToByteArray() / never Buffer-collects a multi-GB object, and
-// it never writes anything back. The Fastify API never reads recording bytes at
-// all (it lets AWS reassemble the multipart upload — see routes/recordings/finalize.ts).
+// through crypto.createHash('sha256') via stream/promises.pipeline. It never
+// buffer-collects a multi-GB object into memory, and it never writes anything
+// back. The Fastify API never reads recording bytes at all (it lets AWS
+// reassemble the multipart upload — see routes/recordings/finalize.ts).
 //
 // Don't rely on an S3-stored checksum: s3-client.ts runs requestChecksumCalculation:
 // 'WHEN_REQUIRED' for LocalStack compat, so uploads didn't store x-amz-checksum-sha256
