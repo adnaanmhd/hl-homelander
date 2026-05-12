@@ -3,6 +3,16 @@ output "alb_dns_name" {
   value       = aws_lb.api.dns_name
 }
 
+output "cluster_arn" {
+  description = "ARN of the Fargate cluster — consumed by the verify-queue module's worker service"
+  value       = aws_ecs_cluster.main.arn
+}
+
+output "cluster_name" {
+  description = "Name of the Fargate cluster"
+  value       = aws_ecs_cluster.main.name
+}
+
 output "ecs_task_role_arn" {
   description = "ARN of the ECS task role (runtime container permissions)"
   value       = aws_iam_role.ecs_task.arn

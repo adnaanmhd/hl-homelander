@@ -80,3 +80,13 @@ module "ecs" {
 
   acm_cert_arn = var.acm_cert_arn
 }
+
+# Plan 05-05: the hash-verify worker pipeline (`modules/verify-queue` —
+# SQS/DLQ + EventBridge rule + the 2nd ECS task def for `node
+# dist/workers/hash-verify.js` + the VERIFY-07 backlog-per-task autoscale
+# policy, plus `modules/redis` for the BullMQ store) is instantiated in the
+# PROD env only. In local dev: `docker compose up redis`, run
+# `pnpm --filter @humyn/api worker:hash-verify:dev` locally, and
+# `POST /recordings/:id/finalize` enqueues the BullMQ job directly via the
+# AWS_ENDPOINT_URL dev shim — see Pitfall 6 (LocalStack's S3→EventBridge→SQS
+# path is flaky). Staging can adopt the module later if a pre-prod soak is wanted.
