@@ -195,7 +195,7 @@ Plans:
 **Wave 1**
 
 - [x] 05-01-PLAN.md — Wave 1: Android+RN cleanup code (D-03 CaptureLaunchSweep discards crash-truncated fragments; D-05 device-distress→Home nav; D-07 recovery-toast 5s revert + annotation)
-- [ ] 05-02-PLAN.md — Wave 1: docs/housekeeping (FRAUD-05/06 → §v2; phase re-title; ROADMAP trims + the rescinded duration_seconds:0 note; CLAUDE.md Redis carve-out + backend pins; STACK.md Redis pin; 04-MANUAL-SMOKE refresh + design-spec/UI-SPEC owner deviations; the Wave-1 cleanup smoke runbook; VALIDATION.md per-task map)
+- [x] 05-02-PLAN.md — Wave 1: docs/housekeeping (FRAUD-05/06 → §v2; phase re-title; ROADMAP trims + the rescinded duration_seconds:0 note; CLAUDE.md Redis carve-out + backend pins; STACK.md Redis pin; 04-MANUAL-SMOKE refresh + design-spec/UI-SPEC owner deviations; the Wave-1 cleanup smoke runbook; VALIDATION.md per-task map)
 
 **Wave 2** _(blocked on Wave 1 completion)_
 
