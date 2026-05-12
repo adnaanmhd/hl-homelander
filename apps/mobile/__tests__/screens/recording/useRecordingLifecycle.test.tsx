@@ -248,7 +248,7 @@ describe('useRecordingLifecycle — §10 policy table', () => {
     expect(c.onStop).toHaveBeenCalledWith('permission_revoked');
   });
 
-  it('HumynCapture.onThermalAbort → voiceCue + setAlert("thermal",true) + beep + vibrate(800), NO onStop', () => {
+  it('HumynCapture.onThermalAbort while active → voiceCue + setAlert("thermal",true) + beep + vibrate(800) + onStop("thermal") (D-05 device-distress)', () => {
     const c = makeCallbacks();
     setup({ substate: 'active', callbacks: c.callbacks });
     act(() => h.holder.thermalListener?.({}));
@@ -256,6 +256,17 @@ describe('useRecordingLifecycle — §10 policy table', () => {
     expect(c.setAlert).toHaveBeenCalledWith('thermal', true);
     expect(h.playTone).toHaveBeenCalledWith('thermal_alert');
     expect(h.vibrate).toHaveBeenCalledWith(800);
+    // D-05 — the thermal abort is now a device-distress STOP (the screen routes
+    // it to Home / PracticeComplete, not back to the on-screen 'ready' reset).
+    expect(c.onStop).toHaveBeenCalledWith('thermal');
+  });
+
+  it('HumynCapture.onThermalAbort while NOT active (e.g. gate) → alert/beep only, NO onStop', () => {
+    const c = makeCallbacks();
+    setup({ substate: 'gate', callbacks: c.callbacks });
+    act(() => h.holder.thermalListener?.({}));
+    expect(c.voiceCue).toHaveBeenCalledWith('Phone too hot, stopping recording');
+    expect(c.setAlert).toHaveBeenCalledWith('thermal', true);
     expect(c.onStop).not.toHaveBeenCalled();
   });
 

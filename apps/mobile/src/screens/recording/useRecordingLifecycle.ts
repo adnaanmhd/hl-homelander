@@ -326,12 +326,23 @@ export function useRecordingLifecycle(args: UseRecordingLifecycleArgs): {
     });
     subs.push(errSub);
 
-    // --- HumynCapture thermal abort: alert only; HC self-stops -------------
+    // --- HumynCapture thermal abort: alert + stop (device distress, D-05) --
+    // HC's pipeline self-stops within ~2.5s of THROTTLING_SEVERE; we surface the
+    // alert pill / voice cue / haptic immediately, then drive onStop('thermal')
+    // so the screen finalizes (HumynCapture.stop() is recall-safe — a
+    // 'no_active_session' reject when HC already self-stopped is harmless) and
+    // routes per D-05 (device-distress → Home / PracticeComplete, never back to
+    // the on-screen 'ready' reset). There is no separate onSessionStop listener
+    // wired today, so the thermal `StopReason` is delivered from here.
     const thermalSub = onThermalAbort(() => {
       cb().voiceCue(VOICE_THERMAL);
       cb().setAlert('thermal', true);
       playTone('thermal_alert').catch(() => undefined);
       Vibration.vibrate(800);
+      if (isActive()) {
+        logEvent('recording_stopped', { reason: 'thermal' });
+        cb().onStop('thermal');
+      }
     });
     subs.push(thermalSub);
 

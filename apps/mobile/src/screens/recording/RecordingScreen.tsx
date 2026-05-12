@@ -338,6 +338,11 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
       handlingStopRef.current = true;
       const durationMs = stateRef.current.durationMs;
       const practice = stateRef.current.isPractice;
+      // D-05 — a device-distress stop (battery ≤5% / thermal abort) routes the
+      // user to Home (or PracticeComplete mid-practice — see below) instead of
+      // back to the on-screen 'ready'/'rotate-prompt' reset; a NORMAL sub-60s
+      // manual discard keeps its current RESET_FOR_FRESH behaviour.
+      const isDeviceDistress = _reason === 'battery_critical' || _reason === 'thermal';
       // End the reducer state first so the chrome stops the timer immediately.
       dispatch({ type: 'STOP' });
       // IN-09 — capture the stop() rejection rather than swallowing it. A
@@ -363,15 +368,22 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
       // it must STAY landscape-locked (readable rotate-prompt; no 2nd take in
       // portrait) — that branch deliberately does NOT unlock.
       if (practice) {
+        // D-05: a device-distress stop mid-practice still lands on PracticeComplete
+        // — the simplest sane destination (Home may not exist for a brand-new user
+        // mid-onboarding). The practice branch runs before the duration check, so
+        // a battery/thermal stop during practice is handled here regardless.
         Orientation.unlockAllOrientations();
-        logEvent('recording_stopped');
+        logEvent('recording_stopped', { ...(isDeviceDistress ? { reason: _reason } : {}) });
         speakCue('Recording stopped');
         navigateToPracticeComplete(navigation);
         return;
       }
       if (durationMs >= 60_000) {
+        // ≥60s real recording — the segment IS saved (HumynCapture finalized it),
+        // so even a device-distress stop here keeps the "added to your contribution"
+        // toast and navigates Home (this branch already did that — D-05 leaves it).
         Orientation.unlockAllOrientations();
-        logEvent('recording_stopped');
+        logEvent('recording_stopped', { ...(isDeviceDistress ? { reason: _reason } : {}) });
         speakCue('Recording stopped');
         showToast(
           stopErr
@@ -381,9 +393,20 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         navigateToHome(navigation);
         return;
       }
-      // Real recording under 1 minute — discarded (HumynCapture owns the file
-      // deletion at finalize per REC-07 / 03-CONTEXT D-FS-*; the screen shows
-      // the toast then returns to the landscape gate for a fresh attempt — REC-05).
+      // Real recording under 1 minute.
+      if (isDeviceDistress) {
+        // D-05 — battery ≤5% / thermal abort: don't drop the user back on the
+        // 'ready' substate one tap from another (doomed) recording; finalize+discard
+        // happened above (HumynCapture owns the file deletion at finalize per REC-07)
+        // and we route to Home.
+        Orientation.unlockAllOrientations();
+        logEvent('recording_stopped', { reason: _reason });
+        showToast('Recording stopped — your phone needs attention.');
+        navigateToHome(navigation);
+        return;
+      }
+      // Normal sub-60s manual discard — the screen shows the toast then returns to
+      // the landscape gate for a fresh attempt (REC-05); it STAYS landscape-locked.
       logEvent('recording_too_short');
       showToast('Recording too short — discarded.');
       handlingStopRef.current = false;

@@ -51,6 +51,7 @@ const {
   mockNavigate,
   mockParentNavigate,
   mockParentReset,
+  lifecycleCallbacksRef,
 } = vi.hoisted(() => {
   const deviceOrientationListeners: Array<(o: string) => void> = [];
   return {
@@ -91,6 +92,11 @@ const {
     mockNavigate: vi.fn(),
     mockParentNavigate: vi.fn(),
     mockParentReset: vi.fn(),
+    // Captures the `callbacks` object the screen passes to useRecordingLifecycle
+    // so a test can drive `onStop(reason)` directly (the §10 lifecycle hook is
+    // mocked out, so this is the only way to reach handleStop with a non-'manual'
+    // StopReason — e.g. 'battery_critical' / 'thermal' for the D-05 routing).
+    lifecycleCallbacksRef: { current: null as null | { onStop: (r: string) => void } },
   };
 });
 
@@ -168,10 +174,14 @@ vi.mock('react-native-fs', () => {
   return { default: RNFS, ...RNFS };
 });
 
-vi.mock('../../../src/screens/recording/useRecordingLifecycle', () => ({
-  useRecordingLifecycle: () => ({ checkStartGuards: mockCheckStartGuards }),
-  default: () => ({ checkStartGuards: mockCheckStartGuards }),
-}));
+vi.mock('../../../src/screens/recording/useRecordingLifecycle', () => {
+  const useRecordingLifecycle = (args: { callbacks: { onStop: (r: string) => void } }) => {
+    // Stash the live callbacks so a test can fire onStop('battery_critical') etc.
+    lifecycleCallbacksRef.current = args?.callbacks ?? null;
+    return { checkStartGuards: mockCheckStartGuards };
+  };
+  return { useRecordingLifecycle, default: useRecordingLifecycle };
+});
 
 vi.mock('../../../src/native/AppFlavor', () => ({
   getFlavorContext: () => ({
@@ -577,6 +587,102 @@ describe('RecordingScreen — §7h post-stop routing', () => {
     // RESET_FOR_FRESH now lands on 'rotate-prompt' (not 'ready') so a 2nd take
     // re-runs the landscape gate — debug session handgate-never-passes.
     await waitFor(() => expect(screen.getByLabelText('rotate-prompt')).toBeTruthy());
+  });
+
+  // --- D-05 — device-distress mid-record stop → Home, not the on-screen reset --
+
+  it('real recording <60s stopped by battery_critical → Home (MainTabs), NOT RESET_FOR_FRESH', async () => {
+    _routeParams = {
+      taskId: 'cooking_chop',
+      taskName: 'Chop vegetables',
+      taskCategory: 'cooking',
+      taskSetting: 'indoor',
+      isPractice: false,
+    };
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('active', { startedAt: 0, durationMs: 20_000 })}
+        />,
+      );
+    });
+    await act(async () => {
+      lifecycleCallbacksRef.current?.onStop('battery_critical');
+    });
+    await waitFor(() =>
+      expect(mockParentNavigate.mock.calls.some((c) => c[0] === 'MainTabs')).toBe(true),
+    );
+    expect(screen.getByText('Recording stopped — your phone needs attention.')).toBeTruthy();
+    // It did NOT fall back to the on-screen rotate-prompt reset.
+    expect(screen.queryByLabelText('rotate-prompt')).toBeNull();
+  });
+
+  it('real recording <60s stopped by thermal abort → Home (MainTabs), NOT RESET_FOR_FRESH', async () => {
+    _routeParams = {
+      taskId: 'cooking_chop',
+      taskName: 'Chop vegetables',
+      taskCategory: 'cooking',
+      taskSetting: 'indoor',
+      isPractice: false,
+    };
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('active', { startedAt: 0, durationMs: 25_000 })}
+        />,
+      );
+    });
+    await act(async () => {
+      lifecycleCallbacksRef.current?.onStop('thermal');
+    });
+    await waitFor(() =>
+      expect(mockParentNavigate.mock.calls.some((c) => c[0] === 'MainTabs')).toBe(true),
+    );
+    expect(screen.queryByLabelText('rotate-prompt')).toBeNull();
+  });
+
+  it('a NORMAL sub-60s manual discard still does RESET_FOR_FRESH (stays on screen — D-05 leaves it)', async () => {
+    _routeParams = {
+      taskId: 'cooking_chop',
+      taskName: 'Chop vegetables',
+      taskCategory: 'cooking',
+      taskSetting: 'indoor',
+      isPractice: false,
+    };
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('active', { startedAt: 0, durationMs: 20_000 })}
+        />,
+      );
+    });
+    await act(async () => {
+      lifecycleCallbacksRef.current?.onStop('manual');
+    });
+    await waitFor(() => expect(screen.getByText('Recording too short — discarded.')).toBeTruthy());
+    await waitFor(() => expect(screen.getByLabelText('rotate-prompt')).toBeTruthy());
+    expect(mockParentNavigate.mock.calls.some((c) => c[0] === 'MainTabs')).toBe(false);
+  });
+
+  it('practice recording stopped by battery_critical → PracticeComplete (D-05 — simplest sane destination mid-onboarding)', async () => {
+    _routeParams = { taskId: '__practice__', taskName: 'Practice — 60 sec', isPractice: true };
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('active', { startedAt: 0, durationMs: 10_000 })}
+        />,
+      );
+    });
+    await act(async () => {
+      lifecycleCallbacksRef.current?.onStop('battery_critical');
+    });
+    await waitFor(() => {
+      const wentTo =
+        mockParentReset.mock.calls.length > 0 ||
+        mockParentNavigate.mock.calls.some((c) => c[0] === 'PracticeComplete') ||
+        mockNavigate.mock.calls.some((c) => c[0] === 'PracticeComplete');
+      expect(wentTo).toBe(true);
+    });
   });
 });
 
