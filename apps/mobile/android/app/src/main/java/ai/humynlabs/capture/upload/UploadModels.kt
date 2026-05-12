@@ -119,6 +119,14 @@ data class UploadRow(
     val enqueuedAt: Long = System.currentTimeMillis(),
     var lastProgressAt: Long = System.currentTimeMillis(),
     var deadLetterReason: String? = null,
+    /**
+     * `true` once a server `hash-mismatch` event (Plan 05-08) flags this row for
+     * a re-upload — `UploadCoordinator` then calls `POST /recordings/:id/reupload`
+     * (re-using the recordings row) instead of `POST /recordings/init`. Cleared
+     * when the re-upload finishes (the row goes `AWAITING_VERIFY` again). At
+     * Plan-05-06 nothing sets it; it's the seam Plan 05-08 wires.
+     */
+    var reupload: Boolean = false,
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("recordingId", recordingId)
@@ -139,6 +147,7 @@ data class UploadRow(
         put("enqueuedAt", enqueuedAt)
         put("lastProgressAt", lastProgressAt)
         if (deadLetterReason != null) put("deadLetterReason", deadLetterReason)
+        if (reupload) put("reupload", true)
     }
 
     companion object {
@@ -177,6 +186,7 @@ data class UploadRow(
             } else {
                 null
             },
+            reupload = o.optBoolean("reupload", false),
         )
     }
 }
