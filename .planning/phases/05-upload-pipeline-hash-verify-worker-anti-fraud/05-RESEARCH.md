@@ -763,24 +763,32 @@ fun scheduleUidt(ctx: Context) {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Are practice recordings uploaded to S3 at all at MVP?**
 
    - What we know: practice triples live under `files/practice/`, `task_id == __practice__`; the `.session.json` sidecar carries `is_practice: true`; `idea-brief.md` says practice "does not count towards your contribution"; D-08 says the upload _filter_ keys off the practice path/task_id.
-   - What's unclear: "filter" could mean "don't upload" or "upload to a separate prefix, don't QA". The `__practice__` task_id isn't a real `tasks` row, so a practice recording would fail the `recordings.taskId` FK (`references(() => tasks.id)`) — strong signal practice recordings are _not_ meant to hit `/recordings/init` at all.
+   - What's unclear: "filter" could mean "don't upload" or "upload to a separate prefix, don't QA". The `__practice__` task*id isn't a real `tasks` row, so a practice recording would fail the `recordings.taskId` FK (`references(() => tasks.id)`) — strong signal practice recordings are \_not* meant to hit `/recordings/init` at all.
    - Recommendation: **practice recordings are deleted locally after the practice flow completes; they never enter the upload queue.** The upload filter = "skip any triple under `files/practice/` or with `task_id == __practice__`". Confirm with the owner in discuss/planning; it's a one-line filter either way.
+   - **RESOLVED:** CONTEXT.md D-08 + Plan 05-04's `UploadQueueStore.enqueue()` practice filter (refuses any row whose `paths.mp4` is under `files/practice/` OR whose `taskId == "__practice__"`). Practice triples never enter the upload queue and never hit `/recordings/init`; the JS auto-enqueue path (Plan 05-08) also skips `__practice__` as a belt-and-suspenders.
 
 2. **UP-16 re-upload mechanism: reuse the row + new `/reupload` endpoint, or mint a fresh `recordingId`?**
 
    - What we know: `recording-state.ts` has no `hash-mismatch → uploaded` edge; `init.ts` `onConflictDoNothing`s an existing row; `recordingKeys()` is deterministic; S3 versioning is on.
    - Recommendation: **add a `hash-mismatch → pending` transition + a `POST /recordings/:id/reupload` endpoint** (resets to `pending`, mints fresh multipart uploads to the same keys, returns the `/init` shape). Second mismatch → `dead-letter`. See Pitfall 9. Confirm in planning.
+   - **RESOLVED:** Plan 05-03 adds the `recording-state.ts` `hash-mismatch → pending` edge (migration 0008 ships the schema half); Plan 05-05 adds `POST /recordings/:id/reupload` which reuses the existing row + the deterministic `recordingKeys()` (no fresh `recordingId`) and returns the `/init` shape. There is NO server-side "dead-letter after N re-uploads" cap (D-04a — the upload path is uncapped per account; the client surfaces `chip-failed` after its own retry budget, Plan 05-06/05-08).
 
 3. **`ip_address` server-population — where exactly?** `idea-brief.md §7.4` says "server populates `ip_address` post-upload from the upload request". The only authenticated request the _upload_ makes is `/init` (and `/finalize`). `init.ts` currently doesn't capture `req.ip` into the row, and `toRecordingResponse()` hard-codes `ipAddress: null`. Recommendation: capture `req.ip` (honoring the trust-proxy config) into `recordings.ipAddress` at `/init` time (or `/finalize` time). Trivial; just needs to be a task.
 
+   - **RESOLVED:** Plan 05-05 Task 2 sets `recordings.ipAddress = req.ip` on the `/recordings/init` INSERT (honoring Fastify `trustProxy` if configured) and changes `finalize.ts`'s `toRecordingResponse()` from `ipAddress: null` to `ipAddress: r.ipAddress` (UP-18). _(Unrelated note: the UP-02 "2 MB cellular" figure is reconciled to S3's 5-MiB minimum non-final part size — see Pitfall 2 + Plan 05-04's `UploadModels.kt` header + the 2026-05-12 dated note added to REQUIREMENTS.md UP-02 / the ROADMAP Phase-5 Success Criterion #1 by Plan 05-02.)_
+
 4. **Does the upload-queue screen show "completed-this-session" rows briefly?** (CONTEXT.md leaves this to planner's call within the design system.) The History pattern shows `chip-success`. Recommendation: drop a row the moment its bundle is `verified` (the History screen — Phase 6 — is where completed recordings live); the Pending Uploads screen is strictly "in flight / failed / paused". Low-risk either way.
 
+   - **RESOLVED:** Plan 05-08 (D-10 discretion) — a Pending-Uploads row is DROPPED the moment its bundle is `verified` (no completed-this-session retention); `chip-success` "✓ Uploaded" only flashes transiently before the row disappears. Completed recordings live on the History screen (Phase 6).
+
 5. **Bull-Board for the worker queue — Phase 5 or Phase 7?** CONTEXT.md D-04b says Bull-Board is "a separate Phase-7 observability item". So: **not Phase 5.** Just confirming the planner doesn't accidentally pull it in.
+
+   - **RESOLVED:** CONTEXT.md D-04b — Bull-Board (the worker-queue dashboard) is a Phase-7 observability item (tracked toward OBS-04), NOT Phase 5. No Bull-Board work ships this phase.
 
 ---
 
