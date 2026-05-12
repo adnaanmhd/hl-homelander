@@ -21,6 +21,13 @@ export const KEYS = {
   // may revert the exemption on an app update — idea-brief.md §7.4).
   UPLOAD_FIRST_PROMPT_SHOWN: 'upload.firstPromptShown.v1',
   UPLOAD_FIRST_PROMPT_VERSION: 'upload.firstPromptVersion.v1',
+  // Plan 05-08 (VERIFY-06 / UP-14/15/16) — the `_events`-envelope + reconcile sweep.
+  // `..._RECONCILE_CURSOR` is the `verified-ids` pagination cursor (opaque server token);
+  // `..._PROCESSED_EVENTS` is a JSON array of `${recording_id}:${event_type}` keys the
+  // client has already acted on (FIFO-trimmed) so a redelivered `_events` row is a no-op
+  // (T-5-08-01). Both live on the SHARED encrypted MMKV instance (D-STATE-01 — no new instance).
+  UPLOAD_RECONCILE_CURSOR: 'upload.reconcileCursor.v1',
+  UPLOAD_PROCESSED_EVENTS: 'upload.processedEvents.v1',
 } as const;
 
 /**

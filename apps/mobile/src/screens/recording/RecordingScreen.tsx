@@ -74,6 +74,9 @@ import { useAppStore } from '../../state/appStore';
 import { secureMmkv } from '../../state/mmkv';
 import { KEYS } from '../../state/keys';
 import { logEvent } from '../../util/analytics';
+import { HumynUpload } from '../../native/HumynUpload';
+import { decodeGoogleSubFromJwt } from '../../lib/jwtSub';
+import { shouldShowBatteryOptimizationPrompt } from '../onboarding/BatteryOptimizationScreen';
 
 interface NavigationLike {
   goBack(): void;
@@ -181,6 +184,12 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
   // Per-segment telemetry IDs kept current from CAPTURE_STARTED + onSegment*
   // events (no UI; D-SEG-01 — the 10-min auto-segment cut is SILENT).
   const segMetaRef = useRef<{ recordingId?: string; filenameBase?: string }>({});
+  // The signed-in `sub` at capture time (UP-13 owner-pin baked into the upload row).
+  const ownerSubRef = useRef<string>(decodeGoogleSubFromJwt(useAppStore.getState().jwt));
+  // Set by onSegmentComplete on the first-ever auto-enqueue when the
+  // battery-optimization walkthrough hasn't been shown yet (UP-09); handleStop's
+  // navigate-to-Home path pushes the BatteryOptimizationScreen modal.
+  const surfaceBatteryPromptRef = useRef(false);
 
   // --- transient screen UI (toast / voice-cue pill) -------------------------
   const [toast, setToast] = useState<{ text: string; visible: boolean }>({
@@ -358,6 +367,20 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
           code: (stopErr as { code?: string } | undefined)?.code ?? 'unknown',
         });
       }
+      // UP-10 / UP-13 — uploads are paused while recording (HumynCapture.start →
+      // HumynUpload.pause); on stop, resume — EXCEPT a logout stop, which keeps
+      // them paused (abort in-flight PUTs, but PRESERVE the queue + local files;
+      // a same-user re-login resumes via uploadReconcile's jwt subscriber). Both
+      // try/caught — the module may be absent in some builds.
+      try {
+        if (_reason === 'logout') {
+          void HumynUpload.pause().catch(() => undefined);
+        } else {
+          void HumynUpload.resume().catch(() => undefined);
+        }
+      } catch {
+        /* no HumynUpload native module — nothing to pause/resume */
+      }
       await HumynScreenBrightness.set(-1).catch(() => undefined);
       // The two navigate-away paths (practice → PracticeComplete, real ≥60s →
       // Home) must unlock orientation HERE, synchronously, before navigating —
@@ -382,6 +405,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         // ≥60s real recording — the segment IS saved (HumynCapture finalized it),
         // so even a device-distress stop here keeps the "added to your contribution"
         // toast and navigates Home (this branch already did that — D-05 leaves it).
+        // The segment was auto-enqueued by the onSegmentComplete hook above.
         Orientation.unlockAllOrientations();
         logEvent('recording_stopped', { ...(isDeviceDistress ? { reason: _reason } : {}) });
         speakCue('Recording stopped');
@@ -391,6 +415,17 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
             : `${formatContributionDuration(durationMs)} added to your contribution.`,
         );
         navigateToHome(navigation);
+        // UP-09 — surface the battery-optimization walkthrough ONCE, on the
+        // first-ever auto-enqueue, after landing on Home (not on the recording
+        // surface). The ref was set by the onSegmentComplete hook.
+        if (surfaceBatteryPromptRef.current) {
+          surfaceBatteryPromptRef.current = false;
+          try {
+            navigation.navigate('BatteryOptimization');
+          } catch {
+            /* navigator may not have the route in some builds — non-fatal */
+          }
+        }
         return;
       }
       // Real recording under 1 minute.
@@ -666,6 +701,14 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
           return;
         }
         segMetaRef.current = { recordingId: r.recordingId, filenameBase: r.filenameBase };
+        // UP-10 — pause background uploads while recording (the camera/encoders
+        // own the radio + CPU). handleStop resumes on stop. Best-effort; the
+        // module may be absent in some builds.
+        try {
+          void HumynUpload.pause().catch(() => undefined);
+        } catch {
+          /* no HumynUpload native module — nothing to pause */
+        }
         dispatch({ type: 'CAPTURE_STARTED', now: nowMs() });
       } catch (e) {
         const code = (e as { code?: string } | undefined)?.code;
@@ -695,19 +738,43 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
 
   // recording/segment telemetry hooks (onSegmentComplete/onSegmentStart) are
   // SILENT (CAP-10 / D-SEG-01 — no gate re-run, no voice cue), subscribed only
-  // to keep the telemetry IDs current.
+  // to keep the telemetry IDs current. onSegmentComplete is ALSO the Phase-5
+  // auto-enqueue hook (UP-05): each finalized {base}.{mp4,csv,json} triple is
+  // handed to HumynUpload.enqueue(...) — including the silent 10-min auto-segment
+  // cuts — so every segment uploads, not just the final one. The native enqueue
+  // refuses practice rows (D-08, Plan 05-04) but we also skip __practice__ on the
+  // JS side. The first-ever enqueue surfaces the BatteryOptimizationScreen once
+  // (gated on shouldShowBatteryOptimizationPrompt(), Plan 05-07) — pushed as a
+  // modal after the recording finishes (we stash a flag here; handleStop's
+  // navigate-away does the actual push so it lands on top of Home, not the
+  // recording surface).
   useEffect(() => {
     const startSub = HumynCapture.onSegmentStart((e) => {
       segMetaRef.current = { recordingId: e.recordingId, filenameBase: e.filenameBase };
     });
     const completeSub = HumynCapture.onSegmentComplete((e) => {
       segMetaRef.current = { ...segMetaRef.current, recordingId: e.recordingId };
+      if (isPractice || taskId === '__practice__') return; // D-08 — practice never uploads
+      try {
+        void HumynUpload.enqueue(
+          e.recordingId,
+          e.mp4Path,
+          e.csvPath,
+          e.jsonPath,
+          taskId,
+          /* isPractice= */ false,
+          ownerSubRef.current,
+        ).catch(() => undefined);
+        if (shouldShowBatteryOptimizationPrompt()) surfaceBatteryPromptRef.current = true;
+      } catch {
+        /* no HumynUpload native module (iOS / JSDOM) — nothing to enqueue */
+      }
     });
     return () => {
       startSub.remove();
       completeSub.remove();
     };
-  }, []);
+  }, [isPractice, taskId]);
 
   // ===========================================================================
   // active duration TICK — drives the timer + the minute-bar.
