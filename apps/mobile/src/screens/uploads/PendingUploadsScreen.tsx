@@ -25,8 +25,8 @@
 //                              only surfaced via the `__test_offlineOverride`
 //                              hatch / a future parent-fed flag.
 //
-// NO cancel affordance anywhere — uploads are not user-abortable (UP-11). The
-// only interactive element is the per-row "Retry" on a dead-letter row.
+// No abort/stop affordance anywhere — uploads are not user-abortable (UP-11).
+// The only interactive element is the per-row "Retry" on a dead-letter row.
 //
 // Data: `HumynUpload.getQueueSafe()` once on mount + an `onUploadQueueChanged`
 // subscription + an `onUploadProgress` subscription — all `.remove()`'d on
