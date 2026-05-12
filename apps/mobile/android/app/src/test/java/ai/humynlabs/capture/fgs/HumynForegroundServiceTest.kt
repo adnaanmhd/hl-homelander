@@ -51,6 +51,46 @@ class HumynForegroundServiceTest {
     }
 
     @Test
+    fun `FGS_TYPE_UPLOADING is dataSync-only`() {
+        // Plan 05-07 — the type-downgrade target. DATA_SYNC-only; the second
+        // startForeground with this narrower mask drops the camera/mic indicators.
+        assertEquals(
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+            HumynForegroundService.FGS_TYPE_UPLOADING,
+        )
+    }
+
+    @Test
+    fun `FGS_TYPE_UPLOADING is a strict subset of FGS_TYPE_RECORDING (manifest superset unchanged)`() {
+        // The upload bitmask must be entirely contained in the recording superset
+        // (= the manifest "camera|microphone|dataSync" string) — Plan 05-07 adds
+        // the downgrade WITHOUT changing the manifest type.
+        assertEquals(
+            "FGS_TYPE_UPLOADING must be ⊆ FGS_TYPE_RECORDING — the manifest " +
+                "foregroundServiceType string stays \"camera|microphone|dataSync\".",
+            HumynForegroundService.FGS_TYPE_UPLOADING,
+            HumynForegroundService.FGS_TYPE_RECORDING and HumynForegroundService.FGS_TYPE_UPLOADING,
+        )
+        // ... and the recording superset is STILL the camera|microphone|dataSync OR.
+        assertEquals(
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA or
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+            HumynForegroundService.FGS_TYPE_RECORDING,
+        )
+    }
+
+    @Test
+    fun `onTimeout(int, int) is overridden (Android 15 dataSync 6h cap handoff)`() {
+        // The API-35 onTimeout(startId, fgsType) override must exist — it's the
+        // hand-off to the UIDT UploadJobService when the 6 h dataSync cap fires.
+        val m = HumynForegroundService::class.java.getDeclaredMethod(
+            "onTimeout", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType,
+        )
+        assertNotNull("HumynForegroundService must override onTimeout(int, int).", m)
+    }
+
+    @Test
     fun `notification channel is created with IMPORTANCE_LOW`() {
         val ctx = RuntimeEnvironment.getApplication()
         HumynForegroundNotification.ensureChannel(ctx)
@@ -75,13 +115,17 @@ class HumynForegroundServiceTest {
 
     @Test
     fun `setUploadActive toggles flag without throwing (D-FGS-02 seam)`() {
-        // Phase 3 itself never calls setUploadActive — Plan 03-09's
-        // HumynCaptureModule wires the start/stop calls but the
-        // upload-mode toggle is a Phase 5 contract. The seam must exist
-        // and accept both true and false without throwing.
-        val svc = HumynForegroundService()
+        // Plan 05-07 wires this — setUploadActive(true) when recording is not
+        // active does the dataSync type-downgrade + kicks the drain;
+        // setUploadActive(false) starts the 5-min idle countdown. The seam must
+        // accept both without throwing (built via the Robolectric controller so
+        // the Service has a base context — applicationContext is non-null).
+        val controller = org.robolectric.Robolectric.buildService(HumynForegroundService::class.java)
+        val svc = controller.create().get()
         svc.setUploadActive(true)
         svc.setUploadActive(false)
+        svc.onRecordingFinalized()
         // Reaching here without exception is the assertion.
+        controller.destroy()
     }
 }

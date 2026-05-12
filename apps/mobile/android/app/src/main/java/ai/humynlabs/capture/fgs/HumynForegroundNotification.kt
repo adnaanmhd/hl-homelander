@@ -64,4 +64,21 @@ object HumynForegroundNotification {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setSilent(true)
             .build()
+
+    /**
+     * The "Uploading recordings…" variant shown once the FGS downgrades to
+     * `dataSync`-only (Plan 05-07 — the type-downgrade lifecycle). Same channel,
+     * same silent/low-priority posture; generic copy (no recording id / task
+     * name / count beyond a vague plural — T-5-07-05). Uses
+     * `android.R.drawable.stat_sys_upload` so the upload state reads at a glance.
+     */
+    fun buildUploading(ctx: Context): Notification =
+        NotificationCompat.Builder(ctx, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.stat_sys_upload)
+            .setContentTitle("Uploading recordings…")
+            .setContentText("Keeping your captures safe — you can use other apps")
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setSilent(true)
+            .build()
 }

@@ -1,5 +1,6 @@
 package ai.humynlabs.capture.upload
 
+import android.content.Context
 import android.util.Log
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
@@ -63,10 +64,11 @@ import java.util.concurrent.atomic.AtomicReference
  * `/finalize`, `/reupload` get the `Authorization: Bearer` header.
  */
 class UploadCoordinator(
-    private val queueStore: UploadQueueStore,
+    /** The durable queue store this coordinator drains — also reused by `HumynUploadModule` so there's a single lock. */
+    val queueStore: UploadQueueStore,
     private val networkMonitor: NetworkMonitor,
-    private val emitProgress: (recordingId: String, bytesUploaded: Long, bytesTotal: Long) -> Unit,
-    private val emitQueueChanged: () -> Unit,
+    emitProgress: (recordingId: String, bytesUploaded: Long, bytesTotal: Long) -> Unit,
+    emitQueueChanged: () -> Unit,
     private val getApiBaseUrl: () -> String?,
     private val getBearerToken: () -> String?,
     private val getCurrentSub: () -> String?,
@@ -74,6 +76,29 @@ class UploadCoordinator(
     /** Test seam — short backoff so tests don't sleep 2/4/8 s. */
     private val chunkUploader: ChunkUploader = ChunkUploader(DEFAULT_HTTP_CLIENT),
 ) {
+
+    /**
+     * Event-emission hooks. Mutable so the shared singleton (built via
+     * [getShared] from the FGS / the UIDT JobService — neither of which has a
+     * live React bridge) starts with no-op emitters, and `HumynUploadModule`
+     * installs the real `RCTDeviceEventEmitter`-backed ones in its `init` via
+     * [setEmitters]. Marked `@Volatile` because the FGS thread / a JobService
+     * thread / the JS thread can all touch them.
+     */
+    @Volatile
+    private var emitProgress: (recordingId: String, bytesUploaded: Long, bytesTotal: Long) -> Unit = emitProgress
+
+    @Volatile
+    private var emitQueueChanged: () -> Unit = emitQueueChanged
+
+    /** Install the real event emitters (called by `HumynUploadModule` once the bridge is up). */
+    fun setEmitters(
+        emitProgress: (recordingId: String, bytesUploaded: Long, bytesTotal: Long) -> Unit,
+        emitQueueChanged: () -> Unit,
+    ) {
+        this.emitProgress = emitProgress
+        this.emitQueueChanged = emitQueueChanged
+    }
 
     private val apiClient: OkHttpClient = DEFAULT_HTTP_CLIENT
     private val drainExecutor: ExecutorService = Executors.newSingleThreadExecutor { r ->
@@ -98,6 +123,19 @@ class UploadCoordinator(
     fun drain() {
         drainExecutor.execute { drainNow() }
     }
+
+    /**
+     * `true` if the durable queue still has at least one row that isn't already
+     * `VERIFIED` or `DEAD_LETTER` — i.e. there's transfer work outstanding. Used
+     * by `HumynForegroundService` to decide whether to keep the upload FGS alive
+     * (Plan 05-07's 5-min idle stop + the Android-15 `onTimeout` → UIDT handoff),
+     * and by `UploadJobService` to decide `jobFinished(params, wantsReschedule)`.
+     * Tolerant of a corrupt/missing queue file (`queueStore.read()` returns empty).
+     */
+    fun queueHasWork(): Boolean =
+        queueStore.read().any {
+            it.state != UploadState.VERIFIED && it.state != UploadState.DEAD_LETTER
+        }
 
     /**
      * Synchronous drain — exposed for the FGS thread (Plan 05-07) which calls it
@@ -426,6 +464,45 @@ class UploadCoordinator(
     companion object {
         private const val TAG = "HumynUploadCoord"
         private const val PROGRESS_DEBOUNCE_MS = 5_000L
+
+        /**
+         * The process-wide shared coordinator. `HumynUploadModule`, the FGS
+         * (`HumynForegroundService` — Plan 05-07's upload-drain-on-the-FGS-thread)
+         * and the UIDT `UploadJobService` all call [drainNow] on this ONE
+         * instance so only one drain runs at a time (the drain is also serialised
+         * internally on `drainExecutor`). Built lazily from the application
+         * context; wired to the process-lived [UploadAuthContext] / [UploadControlState].
+         * Emitters default to no-op until `HumynUploadModule` installs the real
+         * ones via [setEmitters] (the FGS / JobService threads have no JS bridge).
+         */
+        @Volatile
+        private var shared: UploadCoordinator? = null
+
+        @JvmStatic
+        fun getShared(context: Context): UploadCoordinator {
+            shared?.let { return it }
+            return synchronized(this) {
+                shared ?: run {
+                    val appCtx = context.applicationContext
+                    val store = UploadQueueStore(appCtx)
+                    // The FGS / JobService get a NetworkMonitor whose resume callback
+                    // just kicks this same coordinator's drain (when the module is
+                    // alive its own monitor also wakes the drain — harmless double-poke).
+                    val monitor = NetworkMonitor(appCtx) { shared?.drain() }
+                    runCatching { monitor.register() }
+                    UploadCoordinator(
+                        queueStore = store,
+                        networkMonitor = monitor,
+                        emitProgress = { _, _, _ -> },
+                        emitQueueChanged = { },
+                        getApiBaseUrl = UploadAuthContext::apiBaseUrl,
+                        getBearerToken = UploadAuthContext::bearerToken,
+                        getCurrentSub = UploadAuthContext::sub,
+                        isPaused = UploadControlState::isPaused,
+                    ).also { shared = it }
+                }
+            }
+        }
 
         /**
          * The shared OkHttp client for the upload pipeline: the best-effort

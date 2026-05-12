@@ -55,8 +55,20 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
     /** Single-thread executor — file I/O off the JS thread, one op at a time. */
     private val bgExecutor = Executors.newSingleThreadExecutor()
 
-    /** The native-owned durable queue (JSON-on-disk under filesDir/upload-queue). */
-    private val queueStore = UploadQueueStore(reactContext.applicationContext)
+    /**
+     * The process-wide shared transfer engine (Plan 05-06 + 05-07): drains the
+     * queue, runs the multipart flow with bounded concurrency, persists per-part
+     * state, dead-letters cleanly. The SAME instance the FGS
+     * (`HumynForegroundService`) and the UIDT `UploadJobService` call — so only
+     * one drain runs at a time and there's a single queue-store lock. The auth
+     * context (API base URL + bearer JWT + signed-in sub) is pushed in via
+     * [setUploadContext] (the JWT lives in encrypted MMKV — the bridge injects
+     * it rather than reaching MMKV from Kotlin).
+     */
+    private val coordinator = UploadCoordinator.getShared(reactContext.applicationContext)
+
+    /** The native-owned durable queue (JSON-on-disk under filesDir/upload-queue) — shared with the coordinator. */
+    private val queueStore = coordinator.queueStore
 
     /**
      * The paused flag. Mirrors [UploadControlState] (the process-lived
@@ -66,33 +78,11 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
      */
     private val paused = AtomicBoolean(UploadControlState.isPaused())
 
-    /** Event-driven network monitor — wakes the coordinator when connectivity returns. */
-    private val networkMonitor by lazy {
-        NetworkMonitor(reactContext.applicationContext, ::onConnectivityRegained)
-    }
-
-    /**
-     * The transfer engine (Plan 05-06): drains the queue, runs the multipart
-     * flow with bounded concurrency, persists per-part state, dead-letters
-     * cleanly. The auth context (API base URL + bearer JWT + signed-in sub) is
-     * pushed in via [setUploadContext] (the JWT lives in encrypted MMKV — the
-     * bridge injects it rather than reaching MMKV from Kotlin).
-     */
-    private val coordinator by lazy {
-        UploadCoordinator(
-            queueStore = queueStore,
-            networkMonitor = networkMonitor,
-            emitProgress = ::emitProgress,
-            emitQueueChanged = ::emitQueueChanged,
-            getApiBaseUrl = UploadAuthContext::apiBaseUrl,
-            getBearerToken = UploadAuthContext::bearerToken,
-            getCurrentSub = UploadAuthContext::sub,
-            isPaused = UploadControlState::isPaused,
-        )
-    }
-
     init {
-        runCatching { networkMonitor.register() }
+        // Install the real RCTDeviceEventEmitter-backed emitters on the shared
+        // coordinator (it starts with no-op emitters for the FGS / JobService
+        // threads that have no JS bridge).
+        runCatching { coordinator.setEmitters(::emitProgress, ::emitQueueChanged) }
     }
 
     override fun getName(): String = NAME
@@ -268,11 +258,6 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
     // Internals
     // -------------------------------------------------------------------------
 
-    /** Connectivity regained → wake the coordinator (unless paused). */
-    private fun onConnectivityRegained() {
-        if (!UploadControlState.isPaused()) runCatching { coordinator.drain() }
-    }
-
     private fun signalUploadActiveBestEffort() {
         runCatching {
             val ctx = reactApplicationContext.applicationContext
@@ -323,8 +308,11 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
 
     override fun invalidate() {
         runCatching { bgExecutor.shutdownNow() }
-        runCatching { coordinator.shutdown() }
-        runCatching { networkMonitor.unregister() }
+        // The coordinator is the process-wide shared instance (also used by the
+        // FGS / the UIDT JobService) — do NOT shut it down on a catalyst reload;
+        // just detach the JS-bridge emitters so a torn-down ReactContext isn't
+        // touched. A fresh module instance reinstalls them in its init.
+        runCatching { coordinator.setEmitters({ _, _, _ -> }, { }) }
         super.invalidate()
     }
 }
