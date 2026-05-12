@@ -25,11 +25,17 @@ import java.util.concurrent.locks.ReentrantLock
  * that still needs work and is owned by the currently signed-in user, runs the
  * Phase-1 multipart flow:
  *
- *   1. `POST /recordings/init` (or `/recordings/:id/reupload` for a hash-mismatch
- *      re-upload — Plan 05-08 sets `reupload` state) with
+ *   1. `POST /recordings/init` (first drain — idempotent since Plan 05-09: a
+ *      re-/init for a still-`pending` row returns the SAME `uploadId`, so a lost
+ *      `201` self-heals), or `POST /recordings/:id/parts` (a re-drain, Plan
+ *      05-09 — re-presign URLs against the EXISTING video+IMU multipart uploads,
+ *      no `CreateMultipartUpload`, preserves already-DONE parts' ETags), or
+ *      `POST /recordings/:id/reupload` (the FIRST drain of a hash-mismatch
+ *      re-upload — Plan 05-08 sets `reupload` state; `row.reupload` is cleared
+ *      right after so a re-drain of *that* takes the `/parts` branch too) — with
  *      `partsCount = partsCountFor(videoSizeBytes, chunkBytesForNetwork(isCellular))`
  *      decided ONCE here and pinned on the row → gets `partUrls` / `imuPartUrls`
- *      / `metadataUrl` / `uploadId` / `imuUploadId`. (UP-01)
+ *      / `metadataUrl` / `uploadId` / `imuUploadId`. (UP-01, UP-04)
  *   2. PUT `metadata.json` to `metadataUrl` (one shot).
  *   3. PUT each video part to its presigned URL and the single IMU part to its
  *      presigned URL, behind a 6-permit [Semaphore] used as 3 video ∥ + 3 IMU ∥
@@ -238,11 +244,12 @@ class UploadCoordinator(
             throw DeadLetterException("recording ${row.recordingId}: a bundle file is missing on disk", null)
         }
 
-        // 1. /init (or /reupload) — decide partsCount ONCE on the first call and
-        //    pin it (`row.partsCount` / `row.chunkBytes`); a re-drain re-issues
-        //    fresh (non-expired) presigned URLs but KEEPS the row's per-part
-        //    {etag,status} (a DONE part is never re-PUT, UP-04).
-        val isReupload = row.reupload // Plan 05-08's "re-upload after hash-mismatch" marker
+        // 1. /init (or /reupload, or — on a re-drain — /:id/parts) — decide
+        //    partsCount ONCE on the first call and pin it (`row.partsCount` /
+        //    `row.chunkBytes`); a re-drain re-issues fresh (non-expired) presigned
+        //    URLs against the EXISTING video+IMU multipart uploads but KEEPS the
+        //    row's per-part {etag,status} (a DONE part is never re-PUT, UP-04).
+        val wasReupload = row.reupload // Plan 05-08's "re-upload after hash-mismatch" marker — captured BEFORE the `when` reads it
         if (row.chunkBytes == null) {
             row.chunkBytes = chunkBytesForNetwork(networkMonitor.isCellular())
         }
@@ -259,15 +266,32 @@ class UploadCoordinator(
         }
         if (row.imuParts.isEmpty()) row.imuParts.add(PartState(1))
 
-        val initResp: InitResponse = if (isReupload) {
-            postReupload(baseUrl, row, partsCount)
-        } else {
-            postInit(baseUrl, row, jsonFile, partsCount)
+        // re-upload (hash-mismatch) first → /recordings/:id/reupload (mints fresh ids; the reupload @ReactMethod
+        // already reset every part to PENDING + dropped cached ETags — Plan 05-08; we clear row.reupload right
+        // after so a re-drain of this row preserves its DONE parts' ETags via /parts, not another /reupload).
+        // Otherwise: a re-drain (row.uploadId != null) → /recordings/:id/parts (re-presign against the EXISTING
+        // video+IMU uploadIds — keeps already-DONE parts' ETags valid; UP-04). First drain (row.uploadId == null)
+        // → /recordings/init (idempotent since Plan 05-09 — a re-/init returns the SAME uploadId, so a lost 201
+        // self-heals).
+        val initResp: InitResponse = when {
+            row.reupload -> postReupload(baseUrl, row, partsCount)
+            row.uploadId != null -> postRePresign(baseUrl, row, partsCount)
+            else -> postInit(baseUrl, row, jsonFile, partsCount)
         }
         row.uploadId = initResp.uploadId
         row.imuUploadId = initResp.imuUploadId
         row.state = UploadState.UPLOADING
         queueStore.upsert(row)
+
+        // Clear the re-upload marker IMMEDIATELY — now that the fresh /reupload ids are persisted, a subsequent
+        // re-drain of this same row (process-killed mid-flight) must take the /recordings/:id/parts branch
+        // (re-presign against those ids → preserves any re-upload parts that have already landed) instead of
+        // calling /reupload again (fresh ids → orphaned ETags → /finalize InvalidPart → spin forever — CR-01 on
+        // the re-upload path, WARNING 4). The redundant row.reupload = false in the success tail is harmless.
+        if (wasReupload) {
+            row.reupload = false
+            queueStore.upsert(row)
+        }
 
         if (isPaused()) return
 
@@ -445,8 +469,19 @@ class UploadCoordinator(
             put("capturedAt", m.optString("start_timestamp", ""))
         }
         executeTracked(authedJsonRequest("$baseUrl/recordings/init", body)).use { resp ->
+            // Post-CR-02 (Plan 05-09) `/recordings/init` is idempotent: a re-/init for an existing `pending` row
+            // owned by the caller returns 200 with the SAME uploadId (a lost-201 self-heals). A 409 only happens
+            // when the row moved to a non-`pending` state (e.g. an ops takedown) — genuinely terminal; a 403 is a
+            // wrong-owner mismatch (shouldn't ever happen from this client). Both are non-retryable → dead-letter
+            // instead of looping (CR-02). A 5xx / network error is still transient (the next drain retries).
+            if (resp.code == 409 || resp.code == 403) {
+                throw DeadLetterException(
+                    "/recordings/init -> ${resp.code} (recording not resumable — moved to a non-pending state, or owner mismatch)",
+                    null,
+                )
+            }
             if (!resp.isSuccessful) throw IOException("/recordings/init -> ${resp.code}")
-            return parseInitResponse(resp.body?.string().orEmpty())
+            return parseInitResponse(resp.body?.string().orEmpty(), "/recordings/init")
         }
     }
 
@@ -455,28 +490,63 @@ class UploadCoordinator(
         val body = JSONObject().put("partsCount", partsCount)
         executeTracked(authedJsonRequest("$baseUrl/recordings/${row.recordingId}/reupload", body)).use { resp ->
             if (!resp.isSuccessful) throw IOException("/recordings/${row.recordingId}/reupload -> ${resp.code}")
-            return parseInitResponse(resp.body?.string().orEmpty())
+            return parseInitResponse(resp.body?.string().orEmpty(), "/recordings/:id/reupload")
         }
     }
 
-    private fun parseInitResponse(text: String): InitResponse {
-        val o = JSONObject(text)
-        fun parts(key: String): List<PartUrl> {
-            val arr = o.optJSONArray(key) ?: JSONArray()
-            val out = mutableListOf<PartUrl>()
-            for (i in 0 until arr.length()) {
-                val po = arr.optJSONObject(i) ?: continue
-                out.add(PartUrl(po.getInt("partNumber"), po.getString("url")))
+    /**
+     * Re-drain path (Plan 05-09's `POST /recordings/:id/parts`): re-presign the video + IMU part URLs against
+     * the EXISTING multipart uploads — NO `CreateMultipartUpload`, NO DB write, NO state change — so every
+     * already-DONE part keeps its valid ETag (UP-04, the slow-cellular resume guarantee). The response shape is
+     * identical to `/init`'s (`RecordingsInitResponseSchema`); it echoes back the row's own `uploadId` /
+     * `imuUploadId` unchanged. A `404` (row gone) / `409` (row no longer `pending` — `/finalize` already
+     * consumed the upload, or an ops takedown) is terminal: the upload can't be resumed against that upload-id
+     * and the server won't re-presign → `DeadLetterException` (the row dead-letters → chip-failed → the user can
+     * Retry, which routes through `reupload` if the server is in `hash-mismatch`). A `5xx` / network error is
+     * transient (the next drain retries).
+     */
+    private fun postRePresign(baseUrl: String, row: UploadRow, partsCount: Int): InitResponse {
+        val imuId = row.imuUploadId
+            ?: throw DeadLetterException("re-presign needs imuUploadId; row ${row.recordingId} has none", null)
+        val body = JSONObject().put("partsCount", partsCount).put("imuUploadId", imuId)
+        executeTracked(authedJsonRequest("$baseUrl/recordings/${row.recordingId}/parts", body)).use { resp ->
+            if (resp.code == 404 || resp.code == 409) {
+                throw DeadLetterException("/recordings/${row.recordingId}/parts -> ${resp.code} (upload not resumable)", null)
             }
-            return out
+            if (!resp.isSuccessful) throw IOException("/recordings/${row.recordingId}/parts -> ${resp.code}")
+            return parseInitResponse(resp.body?.string().orEmpty(), "/recordings/:id/parts")
         }
-        return InitResponse(
-            uploadId = o.getString("uploadId"),
-            imuUploadId = o.getString("imuUploadId"),
-            partUrls = parts("partUrls"),
-            imuPartUrls = parts("imuPartUrls"),
-            metadataUrl = o.getString("metadataUrl"),
-        )
+    }
+
+    /**
+     * Parse a `/recordings/init` | `/recordings/:id/reupload` | `/recordings/:id/parts` JSON body into an
+     * [InitResponse]. On a near-miss non-JSON body (e.g. a proxy error page that happens to embed presigned URLs
+     * with `X-Amz-Signature` query params), `org.json.JSONException` carries a snippet of the body in its message
+     * — re-throw a body-free `IOException` carrying only the static [label] so the transient-error log in
+     * `drainNow` (which logs `e.message`) never leaks a presigned URL (T-5-06-02 / WR-06).
+     */
+    private fun parseInitResponse(text: String, label: String): InitResponse {
+        return try {
+            val o = JSONObject(text)
+            fun parts(key: String): List<PartUrl> {
+                val arr = o.optJSONArray(key) ?: JSONArray()
+                val out = mutableListOf<PartUrl>()
+                for (i in 0 until arr.length()) {
+                    val po = arr.optJSONObject(i) ?: continue
+                    out.add(PartUrl(po.getInt("partNumber"), po.getString("url")))
+                }
+                return out
+            }
+            InitResponse(
+                uploadId = o.getString("uploadId"),
+                imuUploadId = o.getString("imuUploadId"),
+                partUrls = parts("partUrls"),
+                imuPartUrls = parts("imuPartUrls"),
+                metadataUrl = o.getString("metadataUrl"),
+            )
+        } catch (e: org.json.JSONException) {
+            throw IOException("$label response not valid JSON")
+        }
     }
 
     private fun postFinalize(baseUrl: String, row: UploadRow) {
