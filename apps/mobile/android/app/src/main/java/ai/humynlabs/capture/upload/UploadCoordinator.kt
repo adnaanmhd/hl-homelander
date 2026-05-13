@@ -289,6 +289,10 @@ class UploadCoordinator(
         row.imuUploadId = initResp.imuUploadId
         row.state = UploadState.UPLOADING
         queueStore.upsert(row)
+        // Wave-2 #7 — JS keys `isActive = (state === 'uploading')` to render the
+        // determinate-progress bar + percent chip; without an emit here the JS
+        // side stays on the stale `pending` snapshot, the bar never renders.
+        emitQueueChanged()
 
         // Clear the re-upload marker IMMEDIATELY — now that the fresh /reupload ids are persisted, a subsequent
         // re-drain of this same row (process-killed mid-flight) must take the /recordings/:id/parts branch
@@ -385,6 +389,12 @@ class UploadCoordinator(
         // 4. /finalize.
         row.state = UploadState.FINALIZING
         queueStore.upsert(row)
+        // Wave-2 #7 — pair with the UPLOADING-state emit above so JS sees the
+        // row's transition out of `uploading` (which drops the in-flight bar)
+        // BEFORE the AWAITING_VERIFY emit lands. Without it the bar can briefly
+        // jump back to "Uploading… %" between FINALIZING and AWAITING_VERIFY
+        // on slow networks where finalize takes more than a paint frame.
+        emitQueueChanged()
         postFinalize(baseUrl, row)
 
         // 5. AWAITING_VERIFY — stays in the queue until a verified/re-upload event (Plan 05-08).
@@ -593,7 +603,11 @@ class UploadCoordinator(
 
     companion object {
         private const val TAG = "HumynUploadCoord"
-        private const val PROGRESS_DEBOUNCE_MS = 5_000L
+        // Wave-2 #7 — debounce dropped 5000 → 500 ms so a fast (~2-s) LocalStack
+        // upload emits ~4 ticks (visible bar movement) instead of one. Still
+        // 20× under the per-part RTT on CGNAT cellular (Item 4 walk), so the
+        // native bus pressure stays at <2 events/s/recording.
+        private const val PROGRESS_DEBOUNCE_MS = 500L
 
         /**
          * The process-wide shared coordinator. `HumynUploadModule`, the FGS
