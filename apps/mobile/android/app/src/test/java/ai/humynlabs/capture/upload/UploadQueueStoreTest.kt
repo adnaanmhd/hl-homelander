@@ -264,6 +264,82 @@ class UploadQueueStoreTest {
     }
 
     @Test
+    fun `read() persists migrated idempotency keys back to disk so subsequent reads return the same keys (Wave-1.5 Item 7)`() {
+        val (store, dir) = newStore()
+        // Write a queue.json containing ONE row with no per-route key fields
+        // (the pre-commit-5c0b2d8 legacy shape). The first read should mint
+        // 4 fresh UUIDv4s + write them back to disk; the second read should
+        // return the SAME 4 keys (not freshly-minted ones).
+        val rid = "01JLEGACY01XXXXXXXXXXXXXXX"
+        val legacyJson = JSONArray().apply {
+            put(
+                JSONObject().apply {
+                    put("recordingId", rid)
+                    put("ownerUserId", "userA")
+                    put("mp4Path", "/data/files/recordings/$rid.mp4")
+                    put("csvPath", "/data/files/recordings/$rid.csv")
+                    put("jsonPath", "/data/files/recordings/$rid.json")
+                    put("taskId", "01HVDEVSEEDTASK00000000000")
+                    put("isPractice", false)
+                    put("state", "PENDING")
+                    put("videoParts", JSONArray())
+                    put("imuParts", JSONArray())
+                    put("metadataPut", "PENDING")
+                    put("enqueuedAt", 1L)
+                    put("lastProgressAt", 1L)
+                    // NO `*IdempotencyKey` fields.
+                },
+            )
+        }.toString()
+        File(dir, "queue.json").writeText(legacyJson)
+
+        // First read: should mint 4 fresh UUIDv4s + persist them back to disk.
+        val firstRead = store.read()
+        assertEquals(1, firstRead.size)
+        val firstRow = firstRead[0]
+        val firstInit = firstRow.initIdempotencyKey
+        val firstParts = firstRow.partsIdempotencyKey
+        val firstFinalize = firstRow.finalizeIdempotencyKey
+        val firstReupload = firstRow.reuploadIdempotencyKey
+        val v4 = Regex("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
+        listOf(firstInit, firstParts, firstFinalize, firstReupload).forEach { k ->
+            assertTrue("must mint a UUIDv4; got $k", v4.matches(k))
+        }
+        // The on-disk queue.json now contains all 4 fields with the captured values
+        // (re-parse the raw JSON to confirm — using the public JSON API, not store.read()).
+        val onDisk = JSONArray(File(dir, "queue.json").readText())
+        assertEquals(1, onDisk.length())
+        val rowJson = onDisk.getJSONObject(0)
+        assertEquals(firstInit, rowJson.getString("initIdempotencyKey"))
+        assertEquals(firstParts, rowJson.getString("partsIdempotencyKey"))
+        assertEquals(firstFinalize, rowJson.getString("finalizeIdempotencyKey"))
+        assertEquals(firstReupload, rowJson.getString("reuploadIdempotencyKey"))
+
+        // Second read: must return the SAME 4 keys (no fresh mint — persist-back closed the storm).
+        val secondRead = store.read()
+        assertEquals(1, secondRead.size)
+        val secondRow = secondRead[0]
+        assertEquals("init key stable across reads", firstInit, secondRow.initIdempotencyKey)
+        assertEquals("parts key stable across reads", firstParts, secondRow.partsIdempotencyKey)
+        assertEquals("finalize key stable across reads", firstFinalize, secondRow.finalizeIdempotencyKey)
+        assertEquals("reupload key stable across reads", firstReupload, secondRow.reuploadIdempotencyKey)
+        // The row's _migratedOnLoad flag is `false` on the second read (no migration happened).
+        assertFalse("row._migratedOnLoad must be false after the persist-back has happened", secondRow._migratedOnLoad)
+    }
+
+    @Test
+    fun `read() does NOT re-write a row that already has all 4 per-route keys`() {
+        // A row written by enqueue (constructed in-process, never migrated) should
+        // not trigger the persist-back hook. Assert via the row._migratedOnLoad
+        // flag — false on a freshly-written row's first read.
+        val (store, _) = newStore()
+        store.enqueue(row("01JNOTLEGACY1XXXXXXXXXXXXXX"))
+        val firstRead = store.read()
+        assertEquals(1, firstRead.size)
+        assertFalse("a fresh in-process-enqueued row's _migratedOnLoad must be false", firstRead[0]._migratedOnLoad)
+    }
+
+    @Test
     fun `fromJson mints four fresh UUIDv4s when a pre-Wave-1.5 row on disk has no per-route keys`() {
         // Shape (a): the pre-commit-5c0b2d8 row layout — NO `*IdempotencyKey`
         // fields at all (the currently-stuck `01KRFXGAWCMVQ89PJ2PBXSVAKK` from

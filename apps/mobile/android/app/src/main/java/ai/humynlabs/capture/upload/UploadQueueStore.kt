@@ -36,15 +36,68 @@ class UploadQueueStore(private val context: Context) {
     private val partial = File(dir, "queue.json.partial")
     private val lock = Any()
 
-    /** Read all queue rows. Missing file → empty; corrupt file → empty + log. */
+    /**
+     * Re-entry guard for the Wave-1.5 Item 7 migration-persist-back hook in
+     * [read]: when [upsert] / [enqueue] / [bootstrap] internally call [read],
+     * they MUST NOT re-trigger the migration upsert (`upsert` itself reads
+     * from disk → fromJson re-mints fresh UUIDv4s for the still-legacy on-disk
+     * row → infinite recursion). The first read on any thread does the
+     * migration; nested reads on the same thread just return the parsed rows
+     * unchanged. Cleared in `finally`.
+     */
+    private val migrating = ThreadLocal.withInitial { false }
+
+    /**
+     * Read all queue rows. Missing file → empty; corrupt file → empty + log.
+     *
+     * Wave-1.5 Item 7 — after parsing, persist any row whose `_migratedOnLoad`
+     * flag was set by `UploadRow.fromJson` (i.e. one or more of the four
+     * `*IdempotencyKey` fields was minted from a missing on-disk value). The
+     * write is the existing atomic-rename writer (`writeAtomic`); subsequent
+     * reads then return the SAME minted keys. Closes the per-`read()`-mints-
+     * fresh-UUID storm + the process-kill-between-`/init`-and-`/parts` edge:
+     * without this, a row from the pre-Wave-1.5 on-disk shape would mint a
+     * fresh UUIDv4 on every `read()`, the next drain's `/init` would land
+     * with key K1, the process-kill→next-boot would re-mint key K2, and the
+     * subsequent `/parts` POST against the same row would carry K2 ≠ K1 →
+     * 409 idempotency-key-conflict. The persist-back makes the keys stable
+     * across boots.
+     *
+     * Re-entry guard: flag is cleared BEFORE the `upsert(row)` call so the
+     * upserted row, when re-read from disk by a recursive call inside upsert,
+     * is not re-migrated. The flag is in-memory only (not in toJson).
+     */
     fun read(): MutableList<UploadRow> = synchronized(lock) {
         if (!file.exists()) return mutableListOf()
-        return try {
+        val rows: MutableList<UploadRow> = try {
             rowsFromJsonString(file.readText())
         } catch (t: Throwable) {
             Log.w(TAG, "queue.json unreadable — treating as empty", t)
-            mutableListOf()
+            return mutableListOf()
         }
+        // Wave-1.5 Item 7 — persist any row whose fromJson set _migratedOnLoad.
+        // Guarded by a thread-local so a nested read() inside upsert() (which
+        // re-parses the still-legacy on-disk row) doesn't recurse infinitely.
+        if (migrating.get()) return rows
+        val migrated = rows.filter { it._migratedOnLoad }
+        if (migrated.isEmpty()) return rows
+        migrating.set(true)
+        try {
+            for (row in migrated) {
+                row._migratedOnLoad = false
+                Log.i(TAG, "row ${row.recordingId} idempotency-key migration persisted (Wave-1.5 Item 7)")
+                try {
+                    upsert(row)
+                } catch (t: Throwable) {
+                    // Surface but don't fail the read — the next read retries; the in-memory rows
+                    // still carry the minted keys for THIS drain.
+                    Log.w(TAG, "migrate persist-back failed for ${row.recordingId}; will retry on next read", t)
+                }
+            }
+        } finally {
+            migrating.set(false)
+        }
+        return rows
     }
 
     /** Atomic write: `.partial` then rename. Caller holds [lock]. */
