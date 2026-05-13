@@ -32,6 +32,9 @@ export const EventCreateSchema = z.object({
   // Properties bag — capped at 32 keys, each value < 256 chars.
   // Total bytes also capped at the route handler (4 KB). Schema-creep guard.
   properties: z.record(z.string(), z.string().max(256)).default({}),
-  occurredAt: z.string().datetime(),
+  // ISO 8601 with optional numeric offset — match `RecordingsInitRequestSchema.capturedAt`
+  // so a device emitting local-time-with-offset (e.g. `+05:30`) isn't 400'd by
+  // Zod's default `Z`-only datetime gate. (Debug session: init-400-capturedat-offset.)
+  occurredAt: z.string().datetime({ offset: true }),
 });
 export type EventCreate = z.infer<typeof EventCreateSchema>;

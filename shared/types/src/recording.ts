@@ -31,7 +31,11 @@ export const RecordingCreateSchema = z.object({
   imuVideoDriftMeanMs: z.number().int().nullable().optional(),
   imuVideoDriftP99Ms: z.number().int().nullable().optional(),
   imuMinRateHzObservedP1: z.number().int().nullable().optional(),
-  capturedAt: z.string().datetime(),
+  // The device's MetadataComposer writes ISO 8601 with a NUMERIC OFFSET (e.g.
+  // `+05:30`) — Zod's default `.datetime()` is `{ offset: false }` which only
+  // accepts a trailing `Z`. Offsets are valid ISO 8601; allow them on inbound
+  // client-supplied datetimes. (Debug session: init-400-capturedat-offset.)
+  capturedAt: z.string().datetime({ offset: true }),
   // ip_address is null from client per UP-18; server populates
   ipAddress: z.null(),
 });
@@ -77,7 +81,10 @@ export const RecordingsInitRequestSchema = z.object({
     .regex(/^[0-9a-f]{64}$/),
   fileSizeBytes: z.number().int().min(0),
   imuSizeBytes: z.number().int().min(0),
-  capturedAt: z.string().datetime(),
+  // Match RecordingCreateSchema.capturedAt — allow ISO 8601 with a numeric
+  // offset (the device emits `+05:30`, etc.), not just `Z`. (Debug session:
+  // init-400-capturedat-offset.)
+  capturedAt: z.string().datetime({ offset: true }),
 });
 export type RecordingsInitRequest = z.infer<typeof RecordingsInitRequestSchema>;
 
