@@ -9,6 +9,13 @@
 // state is absent the builder THROWS rather than emitting `consent: true` —
 // metadata JSON must never claim consent that wasn't recorded.
 //
+// Profile-data — `contributor.name` and `contributor.email` are NEVER
+// defaulted to `''` either: empty/whitespace values throw with
+// `code: 'profile_incomplete'`. The Kotlin bridge re-validates the same
+// two fields with `requireNonEmpty` (CaptureSessionOptsBridge.kt:84-85,
+// T-3.3-01) — this JS-side guard is the surface that turns the failure
+// into a clear user-facing toast instead of an opaque bridge rejection.
+//
 // `dfovDegrees` comes from `compat.lastResult.v1.checks.ultrawideDfov.measuredDeg`
 // (Phase 2 D-COMPAT-05 already validates it's positive); `startGate.{passed,
 // skipped,bypassed,durationMs}` from the gate result; `startGate.{consecutive
@@ -61,10 +68,33 @@ export interface BuildCaptureOptsArgs {
 /**
  * Build the `CaptureSessionOpts` for `HumynCapture.start()`. Throws if
  * `args.user.consentPresent` is false (V11 — consent is never defaulted).
+ * Also throws (code 'profile_incomplete') if args.user.name or args.user.email
+ * is empty/whitespace — V11-mirror; Kotlin re-validates at the bridge.
  */
 export function buildCaptureOpts(args: BuildCaptureOptsArgs): CaptureSessionOpts {
   if (!args.user.consentPresent) {
     throw new Error('Cannot start a capture session without recorded consent');
+  }
+  // V11-mirror — `contributor.name` / `contributor.email` are NEVER
+  // defaulted to `''`. The Kotlin bridge re-validates with the same
+  // `requireNonEmpty` (CaptureSessionOptsBridge.kt:84-85, T-3.3-01), but
+  // the JS guard makes the failure mode actionable: a clear user-facing
+  // toast (RecordingScreen catch maps `code: 'profile_incomplete'` to
+  // "Please complete your profile.") instead of an opaque bridge rejection
+  // with `invalid_opts: name` that drops the user back to the ready
+  // substate with no diagnosis. The propagation fix in Plan 05-15 Task 2
+  // prevents this throw in normal flow; this is the last-line safety net.
+  if (args.user.name == null || args.user.name.trim().length === 0) {
+    throw Object.assign(
+      new Error('Cannot start a capture session without a contributor profile name'),
+      { code: 'profile_incomplete' as const },
+    );
+  }
+  if (args.user.email == null || args.user.email.trim().length === 0) {
+    throw Object.assign(
+      new Error('Cannot start a capture session without a contributor profile email'),
+      { code: 'profile_incomplete' as const },
+    );
   }
   return {
     taskId: args.taskId,
