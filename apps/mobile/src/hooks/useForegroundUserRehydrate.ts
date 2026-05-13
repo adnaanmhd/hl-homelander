@@ -26,6 +26,7 @@ import { useEffect } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { useAppStore } from '../state/appStore';
 import { fetchMe } from '../services/profileService';
+import { coalesceDisplayName } from '../lib/userDisplayName';
 import { logEvent } from '../util/analytics';
 
 export function useForegroundUserRehydrate(): void {
@@ -38,7 +39,7 @@ export function useForegroundUserRehydrate(): void {
           setUser({
             id: me.id,
             email: me.email,
-            name: me.name,
+            name: coalesceDisplayName(me.name, me.email),
             avatarUrl: me.avatarUrl,
           });
         } catch (e) {

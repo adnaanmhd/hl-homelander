@@ -32,6 +32,7 @@ import {
 import { formatDuration } from '../../services/durationFormatter';
 import { getFlavorContext } from '../../native/AppFlavor';
 import { useAppStore } from '../../state/appStore';
+import { coalesceDisplayName } from '../../lib/userDisplayName';
 import { InlineEditField } from './InlineEditField';
 
 // ---------------------------------------------------------------------------
@@ -105,7 +106,7 @@ export function ProfileScreen(): React.JSX.Element {
         setUser({
           id: meRes.id,
           email: meRes.email,
-          name: meRes.name,
+          name: coalesceDisplayName(meRes.name, meRes.email),
           avatarUrl: meRes.avatarUrl,
         });
         setLifetime({ totalSeconds: contribRes.totalSeconds, taskCount: contribRes.taskCount });
