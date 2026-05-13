@@ -37,7 +37,13 @@ import { useTabTopBarProps } from '../../hooks/useTabTopBarProps';
 import { colors, radii, spacing, typography } from '../../ui/tokens';
 import { decodeGoogleSubFromJwt } from '../../lib/jwtSub';
 import { formatDuration } from '../../services/durationFormatter';
-import { HumynUpload, onUploadQueueChanged, type UploadQueueRow } from '../../native/HumynUpload';
+import {
+  HumynUpload,
+  onUploadProgress,
+  onUploadQueueChanged,
+  type UploadProgressEvent,
+  type UploadQueueRow,
+} from '../../native/HumynUpload';
 
 // (Phase 3 smoke seam removed in Phase 4 — the real RecordingScreen now wires
 //  the HumynCapture start path; trail: deferred-items.md D4-01 + commit 15d8a16.)
@@ -75,6 +81,10 @@ export default function HomeSkeletonScreen() {
   const currentSub = useMemo(() => decodeGoogleSubFromJwt(jwt), [jwt]);
 
   const [pendingRows, setPendingRows] = useState<UploadQueueRow[]>([]);
+  // Wave-1.5 Item 4 — per-row upload progress, populated by the native
+  // onUploadProgress event (UploadCoordinator.kt maybeEmitProgress; debounced
+  // to ≤ once/5s natively). Mirrors PendingUploadsScreen's pattern.
+  const [progressById, setProgressById] = useState<Record<string, number>>({});
 
   const mine = useCallback(
     (all: UploadQueueRow[]) => all.filter((r) => r.ownerUserId === currentSub),
@@ -91,9 +101,15 @@ export default function HomeSkeletonScreen() {
     const sub = onUploadQueueChanged((all) => {
       if (mounted) setPendingRows(mine(all));
     });
+    const subProgress = onUploadProgress((e: UploadProgressEvent) => {
+      if (!mounted) return;
+      const pct = e.bytesTotal > 0 ? (e.bytesUploaded / e.bytesTotal) * 100 : 0;
+      setProgressById((prev) => ({ ...prev, [e.recordingId]: pct }));
+    });
     return () => {
       mounted = false;
       sub.remove();
+      subProgress.remove();
     };
   }, [mine]);
 
@@ -151,24 +167,47 @@ export default function HomeSkeletonScreen() {
               No uploads pending.
             </Text>
           ) : (
-            pendingRows.slice(0, 3).map((row) => (
-              <View
-                key={row.recordingId}
-                accessibilityLabel="pending-uploads-tile-row"
-                style={styles.cardRow}
-              >
-                <View accessibilityLabel="pending-uploads-tile-thumb" style={styles.thumb}>
-                  <Text style={styles.thumbGlyph}>▶</Text>
+            pendingRows.slice(0, 3).map((row) => {
+              const isActive = row.state === 'uploading';
+              const pct = isActive ? progressById[row.recordingId] : undefined;
+              return (
+                <View
+                  key={row.recordingId}
+                  accessibilityLabel="pending-uploads-tile-row"
+                  style={styles.cardRowWrap}
+                >
+                  <View style={styles.cardRow}>
+                    <View accessibilityLabel="pending-uploads-tile-thumb" style={styles.thumb}>
+                      <Text style={styles.thumbGlyph}>▶</Text>
+                    </View>
+                    <View style={styles.cardRowBody}>
+                      <Text numberOfLines={1} style={styles.cardRowName}>
+                        {fileName(row.mp4Path)}
+                      </Text>
+                      <Text style={styles.cardRowMeta}>{rowMeta(row)}</Text>
+                    </View>
+                    <UploadStatusChip variant={chipVariantFor(row)} percent={pct} />
+                  </View>
+                  {isActive && pct != null ? (
+                    // Wave-1.5 Item 4 — sibling determinate progress bar. Token-aligned
+                    // (`colors.line` track + `colors.chipProgressText` fill, no new design
+                    // tokens — D-10/D-10a). Mirrors PendingUploadsScreen.
+                    <View
+                      accessibilityLabel="pending-uploads-tile-progress-track"
+                      style={styles.progressTrack}
+                    >
+                      <View
+                        accessibilityLabel="pending-uploads-tile-progress-fill"
+                        style={[
+                          styles.progressFill,
+                          { width: `${Math.max(0, Math.min(100, Math.round(pct)))}%` },
+                        ]}
+                      />
+                    </View>
+                  ) : null}
                 </View>
-                <View style={styles.cardRowBody}>
-                  <Text numberOfLines={1} style={styles.cardRowName}>
-                    {fileName(row.mp4Path)}
-                  </Text>
-                  <Text style={styles.cardRowMeta}>{rowMeta(row)}</Text>
-                </View>
-                <UploadStatusChip variant={chipVariantFor(row)} />
-              </View>
-            ))
+              );
+            })
           )}
           {pendingRows.length > 3 ? (
             <Text variant="caption" tone="secondary" style={styles.viewAll}>
@@ -194,10 +233,29 @@ const styles = StyleSheet.create({
     padding: spacing.mdl,
     gap: spacing.md,
   },
+  // Wave-1.5 Item 4 — the per-row wrapper holds the chipRow + the sibling
+  // progress bar below it (when the row is uploading + has a progress event).
+  cardRowWrap: {
+    gap: spacing.s,
+  },
   cardRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+  },
+  // Wave-1.5 Item 4 — token-aligned progress bar (no new design tokens):
+  // `colors.line` track (the existing neutral row separator color) +
+  // `colors.chipProgressText` fill (matches the chip-percent text color).
+  progressTrack: {
+    height: 3,
+    backgroundColor: colors.line,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: 3,
+    backgroundColor: colors.chipProgressText,
+    borderRadius: 999,
   },
   thumb: {
     width: 36,
