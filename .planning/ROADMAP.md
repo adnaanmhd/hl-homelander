@@ -248,9 +248,43 @@ Plans:
 3. The Home screen shows the first-time empty hero ("Record your first task") + zero-state tiles for new users and the dynamic hero (lifetime contribution numeric + task count + Start Recording CTA) + real-data tiles for returning users; recording-duration and tasks-recorded tiles toggle across today / yesterday / this week / this month / all time / custom range using the canonical duration formatter (`<1m → Xs`, `<1h → Xm`, `≥1h → Xh Ym` floored to previous minute), Pending Uploads tile is visible only when count > 0 and tapping opens the upload-queue screen, pull-to-refresh on tiles fetches fresh `/contributions` data, and a non-blocking offline banner appears in the Pending Uploads tile when network is unreachable
 4. Every successful recording (≥60 s) appears in History grouped by day newest-first, filterable across the same six time-range options, with rows showing filename + duration + task name + recorded-at timestamp (`May 4, 2026 | 15:49`) + upload-state chip (Uploaded at / In progress / Paused due to network / Failed-with-retry) + first-frame thumbnail + disabled "Feedback (coming soon)" slot
 5. Tapping a thumbnail opens the in-app fullscreen player (play / pause / seek only — no download / share / export / delete) while the local MP4 still exists; once the `verified` event clears the local copy, the thumbnail remains but tap shows "This recording has been securely uploaded. Local copy cleared."; empty-state copy renders correctly with no-recordings vs filter-applied variants
-   **Plans**: TBD
+   **Plans:** 11 plans
    **UI hint**: yes
-   **Phase 5 carry-over (folded 2026-05-13):** `HumynBeep` / SoundPool tones + haptics silent on Android 16 / Pixel 10a — observed during Phase 5 Item 5 Wave-1-cleanup walk (`.planning/phases/05-upload-pipeline-hash-verify-worker-anti-fraud/05-COSMETIC-GAPS.md`, the `D-06 SoundPool tones + Vibrate silent…` entry). The en-US female-leaning TTS voice path passes (the explicit Item 5 UAT acceptance criterion); the 520 Hz battery-15 % beep + 440→560→680 Hz thermal sequence + [100,50,100]ms battery + 800 ms thermal vibrate are all silent at MAX media volume. Likely root cause is in `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/audiocue/HumynBeep.kt` (the SoundPool wiring) or the `Vibrator` permission/channel routing on Android 16. Phase 6's recording-surface plan should include a single small plan to (a) instrument SoundPool + Vibrator state on cue invocation, (b) restore audibility / haptic feedback. NOT a Phase 5 functional defect — voice + visual cues + the graceful self-stop all fire correctly, so it never blocks capture or upload; this is observability degradation only.
+
+Plans:
+
+**Wave 1** _(Phase-5 carry-over D-09; mirrors 04-COSMETIC-GAPS.md as Phase 5 Wave 1 and 02-COSMETIC-GAPS.md as Phase 3 Wave 1)_
+
+- [ ] 06-01-PLAN.md — D-09 HumynBeep/Vibrator audibility restore on Android 16 / Pixel 10a (USAGE_MEDIA flip + VIBRATE manifest + Robolectric)
+
+**Wave 2** _(parallel — backend; depends on Wave 1)_
+
+- [ ] 06-02-PLAN.md — Backend lexical-only /tasks/search + pg_trgm migration 0007 + drizzle-kit push + Vitest (TASK-03, TASK-10)
+- [ ] 06-03-PLAN.md — /recordings + /contributions/timeseries start/end + new /recordings/:id/stream-url + REQUIREMENTS HIST-07/08/09 rewording (HOME-03/04, HIST-01/03/07/08/09)
+
+**Wave 3** _(parallel — JS foundation + native player; depends on Wave 1)_
+
+- [ ] 06-04-PLAN.md — ThumbnailExtractor.kt + FinalizeWorker step 7.5 + JS-side thumbnailLedger.ts (HIST-06)
+- [ ] 06-05-PLAN.md — tokens.ts extension + TaskIcon.native.tsx port + appStore slices + timeRange/historyGrouping services + 4 API service wrappers (TASK-03, TASK-08, HOME-03/04, HIST-02/03, HOME-06)
+- [ ] 06-06-PLAN.md — HumynPlayer native module (5 Kotlin files) + media3-exoplayer:1.10.0 dep + JS bridge (HIST-07/08/09)
+
+**Wave 4** _(parallel — Tasks + Home screens; depends on Wave 3; MainTabs.tsx swap deferred to Wave 5 to avoid 3-way same-wave file conflict)_
+
+- [ ] 06-07-PLAN.md — TasksScreen + TaskDetailsSheet + SendRequestSheet + 4 components (TASK-01..10)
+- [ ] 06-08-PLAN.md — HomeScreen + HomeHero + ContributionTile + OfflineBanner + FilterSheet (HOME-01..06, 09, 10)
+
+**Wave 5** _(History screen + the atomic 3-way MainTabs.tsx swap; depends on Waves 3+4)_
+
+- [ ] 06-09-PLAN.md — HistoryScreen + HistoryRow + HistoryDayHeader + FilterChip + RecordingScreen ledger write wireup + MainTabs swap for all three tabs (HIST-01..06, 10, 11)
+
+**Wave 6** _(Player wireup; depends on Wave 5)_
+
+- [ ] 06-10-PLAN.md — PlayerScreen + RootNativeStack Player route + route-registry update (HIST-07/08/09 close)
+
+**Wave 7** _(manual-smoke + operator sign-off; depends on Waves 1-6)_
+
+- [ ] 06-11-PLAN.md — 06-MANUAL-SMOKE.md runbook + ROADMAP/STATE refresh + operator-walk checkpoint
+      **Phase 5 carry-over (folded 2026-05-13):** `HumynBeep` / SoundPool tones + haptics silent on Android 16 / Pixel 10a — observed during Phase 5 Item 5 Wave-1-cleanup walk (`.planning/phases/05-upload-pipeline-hash-verify-worker-anti-fraud/05-COSMETIC-GAPS.md`, the `D-06 SoundPool tones + Vibrate silent…` entry). The en-US female-leaning TTS voice path passes (the explicit Item 5 UAT acceptance criterion); the 520 Hz battery-15 % beep + 440→560→680 Hz thermal sequence + [100,50,100]ms battery + 800 ms thermal vibrate are all silent at MAX media volume. Likely root cause is in `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/audiocue/HumynBeep.kt` (the SoundPool wiring) or the `Vibrator` permission/channel routing on Android 16. Phase 6's recording-surface plan should include a single small plan to (a) instrument SoundPool + Vibrator state on cue invocation, (b) restore audibility / haptic feedback. NOT a Phase 5 functional defect — voice + visual cues + the graceful self-stop all fire correctly, so it never blocks capture or upload; this is observability degradation only.
 
 ### Phase 7: Observability & APK Distribution Hardening
 
@@ -278,5 +312,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 3. HumynCapture Native Module (Bytes-on-disk)              | 11/11          | Complete    | 2026-05-11 |
 | 4. HandDetector, Recording UX & Practice Tutorial          | 12/12          | Complete    | 2026-05-12 |
 | 5. Upload Pipeline & Hash-Verify Worker                    | 15/15          | Complete    | 2026-05-13 |
-| 6. Tasks, History, Home Tiles & Lexical Search             | 0/TBD          | Not started | -          |
+| 6. Tasks, History, Home Tiles & Lexical Search             | 0/11           | Planned     | -          |
 | 7. Observability & APK Distribution Hardening              | 0/TBD          | Not started | -          |
