@@ -10,9 +10,10 @@
 
 ## §1 Pre-flight
 
-- [ ] Install the **Phase-5 build** — `cd apps/mobile/android && ./gradlew installApkRolloutDebug` (or the release/staging build per the `__DEV__` caveat in `04-MANUAL-SMOKE.md` §1 if a substate's `__DEV__`-gated affordance is in the way).
+- [ ] Install the **Phase-5 build** — `cd apps/mobile/android && ./gradlew installApkRolloutDebug` (or the release/staging build per the `__DEV__` caveat in `04-MANUAL-SMOKE.md` §1 if a substate's `__DEV__`-gated affordance is in the way). **`installApkRolloutDebug` packages an offline `--dev false` JS bundle** (the RN Gradle plugin treats the flavored variant as non-debuggable, so `createBundleApkRolloutDebugJsAndAssets` runs and that bundle ships in the APK) — to keep the `__DEV__`-gated affordances live (e.g. the Tasks-tab long-press in §2 below, and the RN dev menu), ALSO start Metro in `apps/mobile` (`pnpm start`) and run `adb reverse tcp:8081 tcp:8081` so the app loads the dev bundle from the host. (If `API_BASE_URL` is `http://localhost:8080`, also `adb reverse tcp:8080 tcp:8080`.)
 - [ ] Bring up the dev stack: `docker compose up -d postgres redis localstack` (the `redis` container is the BullMQ store for the hash-verify worker; LocalStack is S3). Confirm all three are healthy (`docker ps`).
 - [ ] Run the schema migration (lands `recording_events_outbox` + the `recording_event_type` enum + the partial index): `pnpm --filter @humyn/api db:migrate` (or `db:push`, matching the repo convention). Sanity: `psql "$DATABASE_URL" -c '\d recording_events_outbox'` shows the 6 cols; `psql "$DATABASE_URL" -c '\dT recording_event_type'` shows `verified` / `re-upload`.
+- [ ] **Seed the canonical dev task** — `pnpm --filter @humyn/api seed:dev-task`. Idempotent; inserts/refreshes the reserved task `id=01HVDEVSEEDTASK00000000000` (slug `dev-seed-chop-vegetables`). The `__DEV__` Tasks-tab long-press affordance (§2) sends this `taskId` on `POST /recordings/init`; the upload coordinator 400s forever without it (debug session `debug-task-id-init-400`).
 - [ ] Run the API + the worker locally:
   - API: `pnpm --filter @humyn/api dev` (tsx watch — serves `/recordings/init`, `/finalize`, `/reupload`, `/verified-ids`, `/contributions`, `/me`; the events-outbox onSend hook is registered).
   - Hash-verify worker: `pnpm --filter @humyn/api worker:hash-verify:dev` (tsx watch — drains the BullMQ queue; re-hashes the S3 object vs the metadata SHA → `verified` or `hash-mismatch`; appends an outbox event in the same transaction).
@@ -26,7 +27,7 @@
 
 Requirements: **UP-05** (auto-enqueue on stop), **UP-06** (FGS survival), **UP-10** (pause-while-recording / resume-on-stop), **UP-12** (Pending Uploads screen/tile), **UP-14** (locals not deleted before `verified`), **UP-15** (locals deleted on `verified`), **VERIFY-01..06** (worker re-hash, `_events` delivery, reconciliation sweep).
 
-- [ ] Start a non-practice recording (the `__DEV__` Tasks-tab long-press affordance is fine), reach the **active substate**, let it run **≥ 60 s**, then stop via the X-modal ("Stop").
+- [ ] Start a non-practice recording (the `__DEV__` Tasks-tab long-press affordance on `"Tasks — coming in Phase 6."` is the documented entry — it requires the §1 dev-task seed AND Metro/`adb reverse tcp:8081` so the dev bundle is what's loaded), reach the **active substate**, let it run **≥ 60 s**, then stop via the X-modal ("Stop").
   - [ ] On stop: confirm the toast `"{Hh Mm} added to your contribution."` (NOT `"Recording too short — discarded."`) and the app lands on **Home**.
   - [ ] Confirm the recording **auto-enqueued**: the Home **"Pending uploads"** section shows the row (filename + duration + a status chip); tap the section → the **Pending Uploads** screen shows the row with **"Uploading…"** (or **"Uploading… 47%"** mid-transfer). There is **NO cancel affordance** anywhere (UP-11).
   - [ ] `adb shell run-as ai.humynlabs.capture.apk cat files/upload-queue/queue.json` shows the row with `ownerUserId` = the signed-in `sub` (UP-13 owner-pin).
