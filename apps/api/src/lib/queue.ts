@@ -8,7 +8,12 @@
 //
 // `enqueueVerify` uses `jobId = recordingId` so a double-enqueue (a redelivered
 // SQS message + the verify-sweep cron firing on the same row) collapses to one
-// BullMQ job — see threat T-5-03-01 in the plan.
+// BullMQ job — see threat T-5-03-01 in the plan. The re-upload boundary is the
+// one site where this dedupe gets in the way (a re-upload's prior verify
+// completed in bull:verify:completed → the second enqueue silently no-ops);
+// the `/reupload` handler explicitly removes the prior job before its response.
+// See `routes/recordings/reupload.ts` + debug session
+// `.planning/debug/enqueue-verify-jobid-dedupe.md`.
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 
