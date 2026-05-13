@@ -19,7 +19,49 @@
 
   Combined effect: without dev request logs the on-device debug loop kept needing a host-side `safeParse` script (`apps/api/scripts/repro-init-400.ts`) to confirm 400 reasons. Pin (1) above as a Phase-5 cleanup item; (2) is a process gotcha the dev-stack startup script can defuse.
 
+## Wave-1.5 follow-on items (surfaced 2026-05-13 afternoon — §2 walk paused before completion)
+
+After landing the three Phase-5-fix `fix(05)` commits (`48dea49` seeded-task / `692e295` datetime offset / `5c0b2d8` Idempotency-Key header) and re-attempting §2 with all four `adb reverse` tunnels open, two more functional gaps + three more setup/cosmetic gaps surfaced. The walk was paused; the items below belong to a Phase-5 Wave-1.5 batch-fix plan before re-walking §2 cleanly. (See the runbook §6 walk-log entry for the same date for the play-by-play.)
+
+### Functional (blocks §2 happy path; must fix before re-walk)
+
+- **Idempotency-Key is reused per-`UploadRow` across `/init`, `/parts`, `/finalize`, `/reupload` → 409 on the second call.** The third debug session (`init-400-no-idempotency-key`) gave each `UploadRow` exactly one `idempotencyKey` and threaded it across every POST. But `apps/api/src/plugins/idempotency.ts` keys the cache by `(user_id, key)` and treats the stored `requestHash` (= `sha256(method + '\n' + path + '\n' + body)`) as an equality check: same key + different `(method, path, body)` → 409 `idempotency-key-conflict`. So /init succeeded (cached as init-201), then /finalize with the same key + a different body shape → 409 → 6 retries → DEAD_LETTER. Live repro: on the §2 attempt at 11:39 (recording `01KRFZ91Y3E315AJVG75KXJZE6`), parts all uploaded (10 etags landed on LocalStack), `metadata.json` PUT, then `/finalize -> 409` → `/parts -> 409 (upload not resumable)` → `deadLetterReason` pinned.
+
+  **Fix:** one key per `(row, request type)`. Concretely: replace `UploadRow.idempotencyKey: String` with four fields — `initIdempotencyKey`, `partsIdempotencyKey`, `finalizeIdempotencyKey`, `reuploadIdempotencyKey` (or a `Map<String,String>` keyed by route name). Each minted once at first call, reused across retries of that route only. Update migration to upgrade existing on-disk rows (mint all four). Update the unit tests in `UploadCoordinatorTest.kt` to assert each route carries its OWN key + the route's key is stable across retries.
+
+- **"Retry" affordance on a client-side dead-lettered row calls `POST /recordings/:id/reupload` → 409.** The server-side `/reupload` (`apps/api/src/routes/recordings/reupload.ts:125-138`) only accepts a row in `qa_status='hash-mismatch'` (`canTransition` enforces the `hash-mismatch → pending` edge only). But a CLIENT-side dead-letter (e.g. parts PUT failures during the /init→parts phase) leaves the server-side row in `qa_status='pending'` with a valid `s3UploadId` — the /reupload path returns `409 Cannot re-upload from state pending`. The Retry-tap path therefore can't unstick a pending-row dead-letter, and `drainNow` explicitly skips rows in `DEAD_LETTER` state (`UploadCoordinator.kt:191-195`) so the row is orphaned until manual cleanup.
+
+  The runbook §3 says "the dead-letter Retry affordance hits the same path: …calls `HumynUpload.reupload(recordingId)`" — that's incorrect for the client-side dead-letter case (the canonical worker-hash-mismatch path it IS correct for).
+
+  **Fix:** the native `HumynUpload.reupload(recordingId)` for a row whose `state == DEAD_LETTER && server-side qa_status == 'pending'` should be a LOCAL reset (`row.state = UPLOADING`, clear `deadLetterReason`, leave `uploadId`/`videoParts`/`imuParts`/etc. alone) and trigger a drain — which will take the `row.uploadId != null → postRePresign` branch (`/recordings/:id/parts` to re-presign part URLs against the existing `uploadId`, keeping any DONE part ETags). Only fire `POST /recordings/:id/reupload` when the row was dead-lettered by a server `re-upload` event (the hash-mismatch path).
+
+  Plus: the runbook §3 wording needs to be split into two scenarios — worker-hash-mismatch (existing) and client-side dead-letter Retry (new, with the LOCAL-reset semantics above).
+
+### Setup / runbook gaps (no code fix; runbook §1 amend)
+
+- **`adb reverse tcp:4566 tcp:4566` missing from §1.** The dev API builds presigned S3 URLs using `AWS_ENDPOINT_URL=http://localhost:4566` from `apps/api/.env`, then hands them to the device verbatim. On the device, `localhost:4566` resolves to the device itself → connection refused → 6 part-PUT retries → DEAD_LETTER (live during this walk, recording `01KRFXGAWCMVQ89PJ2PBXSVAKK`). §1 already mentions setting up `adb reverse tcp:8080` for the API; it needs the analogous tcp:4566 line for LocalStack and tcp:8081 for Metro (per the `installApkRolloutDebug` ships-offline-bundle gap below). Suggested §1 patch: a single bullet "Tunnels — `adb reverse tcp:8080 tcp:8080&& adb reverse tcp:8081 tcp:8081 && adb reverse tcp:4566 tcp:4566` (API / Metro / LocalStack)".
+
+- **`installApkRolloutDebug` ships a `--dev false` offline JS bundle.** Already known from session 1's runbook touch-up — the apkRollout flavor isn't in the RN gradle plugin's default `debuggableVariants` list, so `createBundleApkRolloutDebugJsAndAssets` runs and packages a `--dev false` bundle into the APK. Without `adb reverse tcp:8081 tcp:8081` + Metro running, the app falls back to that bundle → `__DEV__ === false` → every `__DEV__`-gated affordance (including the Tasks-tab long-press) is dead-code-eliminated. The runbook §1 update from session 1 mentioned this; restate in the consolidated §1 amend.
+
+- **Canonical dev-seed task not part of §1 pre-flight.** `pnpm --filter @humyn/api seed:dev-task` (added in session 1) must run before the walk so the `DEBUG_TEST_TASK.taskId = '01HVDEVSEEDTASK00000000000'` can satisfy `recordings.task_id → tasks.id` FK on /init. The session-1 runbook touch-up mentions this; reinforce in the consolidated §1 amend.
+
+### Cosmetic / process
+
+- **Idempotency-key migration mints a fresh UUID per `read()`, doesn't persist back.** The session-3 fix added a `fromJson` migration that mints a UUID for legacy rows missing `idempotencyKey`; but each read mints a NEW one, and only the FIRST mutation (the /init's upsert) persists it to disk. JS-side `getQueueSafe()` reads from disk and mints a transient UUID in memory that never reaches the wire. For the canonical single-row-in-flight case this is harmless (the coordinator's read holds the row across the whole drain). For a process-kill BETWEEN /init and /parts, the next-boot read mints a fresh key — `/parts` retries with a different key + different body → 409 (same root-cause family as the per-route problem above). **Fix:** in the migration branch of `UploadQueueStore.fromJson`, persist the minted key back to disk in-place (atomic write-back) so subsequent reads return the same key. Same applies after the per-route key split — if any of the four keys is missing on a legacy load, mint + persist.
+
+- **Cold-start drain on a stale-on-disk queue.** On a force-stop relaunch with a row already in queue.json, the coordinator never auto-drains it. JS `installUploadReconcile()` boot path calls `pushUploadContext()` (without `resume:true`); only `enqueue`, `appStore.jwt` change, RecordingScreen `resume()`, or a Pending-Uploads-screen Retry tap kicks the drain. **Fix:** at boot (e.g. inside `installUploadReconcile()`'s initial `reconcileOnce`), if `HumynUpload.getQueueSafe()` returns any row whose state is in {PENDING, UPLOADING}, call `HumynUpload.resume()` to kick the drain. (Or expose a dedicated `HumynUpload.drainNow()` bridge method and call that from boot — cleaner contract than re-using resume's overload.) Surfaced live in the 2026-05-13 walk after the Idempotency-Key APK install.
+
+### Observability nits — three more from this afternoon
+
+- **`drainNow` exits silently on `isPaused()`.** The drain loop has three `if (isPaused()) return` checkpoints (lines 287, 298, 309) that exit with no log line, making "did the drain skip or did it finish" indistinguishable in logcat. A single `Log.d(TAG, "drainNow paused after $stage — will retry next kick")` per checkpoint would have cut today's diagnosis time substantially. Cheap to add; ship with the per-route-key fix.
+
+- **Dead-letter event isn't logged.** When the catch handler flips a row to `DEAD_LETTER`, it persists `deadLetterReason` to disk but doesn't `Log.w` the transition. Today's walk discovered the dead-letter only by re-reading queue.json (no logcat line). A `Log.w(TAG, "row ${row.recordingId} DEAD_LETTER: ${e.message}")` at line ~206 (in the `catch (e: DeadLetterException)` branch) is a 1-line fix.
+
+- **Migration-warn pollution.** Each queue-`read()` re-mints + warns for legacy rows. On a single boot today we saw 6 migration warns for ONE row across 3 readers. Once the migration persists back to disk (above), this stops naturally; the surrounding fix should also de-dup so a `read()` that doesn't mutate the row doesn't log.
+
 ## Disposition
 
-- All three items are Phase-5-owned cleanup; none gate the §2 upload-smoke walk re-run after the `init-400-capturedat-offset` fix lands.
-- Folded into a future Wave (alongside any other Phase-5 cosmetic gaps that surface during the §2/§3 walks) per the same pattern as `04-COSMETIC-GAPS.md` → Phase-5 Wave 1 ([[project_phase5_wave1_cosmetic_fixup]]).
+- The first **functional** sub-section (per-route idempotency key split + Retry-on-client-side-dead-letter local reset) **blocks the §2 re-walk** — must land in Wave 1.5 before the on-device half can complete.
+- The setup / runbook items are **runbook patches only**; consolidate into a single `§1 Pre-flight` revision.
+- The cosmetic / process items are nice-to-have but not blockers; bundle into the same Wave 1.5 commit family.
+- Folded into a future Wave (alongside any other Phase-5 cosmetic gaps) per the same pattern as `04-COSMETIC-GAPS.md` → Phase-5 Wave 1 ([[project_phase5_wave1_cosmetic_fixup]]).
