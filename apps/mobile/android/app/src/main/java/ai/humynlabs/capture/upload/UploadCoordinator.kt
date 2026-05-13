@@ -429,12 +429,18 @@ class UploadCoordinator(
 
     /**
      * Build an authed JSON POST request. The Idempotency-Key header (a stable
-     * per-UploadRow UUIDv4, persisted in queue.json) is REQUIRED — the API's
-     * global idempotency pre-handler (apps/api/src/plugins/idempotency.ts)
-     * rejects every POST/PATCH without one with a 400. The SAME key is sent on
-     * every retry for a given row → same key + same body ⇒ cached 2xx response
-     * replayed, which is what makes the hook idempotent. Different body with
-     * the same key ⇒ server returns 409 (treat as a contract bug).
+     * PER-ROUTE UUIDv4 from the UploadRow, persisted in queue.json) is REQUIRED
+     * — the API's global idempotency pre-handler (apps/api/src/plugins/
+     * idempotency.ts) rejects every POST/PATCH without one with a 400. Per-route
+     * key — `row.initIdempotencyKey` for `/init`, `row.partsIdempotencyKey` for
+     * `/parts`, `row.finalizeIdempotencyKey` for `/finalize`,
+     * `row.reuploadIdempotencyKey` for `/reupload`. Per-route split closes
+     * Wave-1.5 Item 1 (the server caches by `(user_id, key)` + hashes
+     * `(method,path,body)` for equality — a single per-row key reused across
+     * routes hits a 409 on the second route, the bug observed 2026-05-13 on
+     * recording `01KRFZ91Y3E315AJVG75KXJZE6`). The SAME key is sent on every
+     * retry of ITS OWN route → same key + same (method,path,body) ⇒ cached 2xx
+     * response replayed, which is what makes the hook idempotent.
      */
     private fun authedJsonRequest(url: String, bodyJson: JSONObject, idempotencyKey: String): Request {
         val token = getBearerToken()
@@ -478,7 +484,7 @@ class UploadCoordinator(
             put("imuSizeBytes", m.optLong("imu_size_bytes", File(row.csvPath).length()))
             put("capturedAt", m.optString("start_timestamp", ""))
         }
-        executeTracked(authedJsonRequest("$baseUrl/recordings/init", body, row.idempotencyKey)).use { resp ->
+        executeTracked(authedJsonRequest("$baseUrl/recordings/init", body, row.initIdempotencyKey)).use { resp ->
             // Post-CR-02 (Plan 05-09) `/recordings/init` is idempotent: a re-/init for an existing `pending` row
             // owned by the caller returns 200 with the SAME uploadId (a lost-201 self-heals). A 409 only happens
             // when the row moved to a non-`pending` state (e.g. an ops takedown) — genuinely terminal; a 403 is a
@@ -498,7 +504,7 @@ class UploadCoordinator(
     private fun postReupload(baseUrl: String, row: UploadRow, partsCount: Int): InitResponse {
         // POST /recordings/:id/reupload — body is just { partsCount } (Plan 05-05).
         val body = JSONObject().put("partsCount", partsCount)
-        executeTracked(authedJsonRequest("$baseUrl/recordings/${row.recordingId}/reupload", body, row.idempotencyKey)).use { resp ->
+        executeTracked(authedJsonRequest("$baseUrl/recordings/${row.recordingId}/reupload", body, row.reuploadIdempotencyKey)).use { resp ->
             if (!resp.isSuccessful) throw IOException("/recordings/${row.recordingId}/reupload -> ${resp.code}")
             return parseInitResponse(resp.body?.string().orEmpty(), "/recordings/:id/reupload")
         }
@@ -519,7 +525,7 @@ class UploadCoordinator(
         val imuId = row.imuUploadId
             ?: throw DeadLetterException("re-presign needs imuUploadId; row ${row.recordingId} has none", null)
         val body = JSONObject().put("partsCount", partsCount).put("imuUploadId", imuId)
-        executeTracked(authedJsonRequest("$baseUrl/recordings/${row.recordingId}/parts", body, row.idempotencyKey)).use { resp ->
+        executeTracked(authedJsonRequest("$baseUrl/recordings/${row.recordingId}/parts", body, row.partsIdempotencyKey)).use { resp ->
             if (resp.code == 404 || resp.code == 409) {
                 throw DeadLetterException("/recordings/${row.recordingId}/parts -> ${resp.code} (upload not resumable)", null)
             }
@@ -573,7 +579,7 @@ class UploadCoordinator(
             put("imuParts", partsArray(row.imuParts))
             put("imuUploadId", row.imuUploadId ?: "")
         }
-        executeTracked(authedJsonRequest("$baseUrl/recordings/${row.recordingId}/finalize", body, row.idempotencyKey)).use { resp ->
+        executeTracked(authedJsonRequest("$baseUrl/recordings/${row.recordingId}/finalize", body, row.finalizeIdempotencyKey)).use { resp ->
             if (!resp.isSuccessful) throw IOException("/recordings/${row.recordingId}/finalize -> ${resp.code}")
         }
     }
