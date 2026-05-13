@@ -136,3 +136,21 @@ Functional regressions (broken behavior, spec violations) are NOT cosmetic — t
 ## Note — the UP-08 iOS clause
 
 Per Plan 05-02's runbook note: UP-08's iOS clause (the iOS `URLSession` background-config upload path + the iOS native-module analogues) is a **documented gap** — nothing iOS is built in Phase 5 (MVP is Android-only via the signed APK; the iOS App Store channel is deferred — see CLAUDE.md "MVP descoped 2026-05-11" + `.planning/REQUIREMENTS.md` §v2 IOS-01..07). This runbook is Android-only by design.
+
+---
+
+## 2026-05-13 evening close-out (Walk log addendum)
+
+Phase 5 UAT walked end-to-end on Pixel 10a (`5C161JEA304304`, Android 16, apkRollout-Debug HEAD `e51984d` — post-Wave-2 #5/#6/#7). Items walked this evening: 2 (force-quit + FGS type downgrade), 5 (Wave-1 cleanup), 4 (CGNAT MSS-clamp + UP-19 watchdog over real Jio cellular via cloudflared tunnels). Items 1 + 6 from this morning carry forward. Item 3 PARTIAL with the OEM-device-sweep deferred to Phase 7.
+
+Wave-2 follow-on items from `05-COSMETIC-GAPS.md` landed as commits:
+
+- **Wave-2 #7** — upload progress chip + determinate fill (`c1c5f4f`).
+- **Wave-2 #6** — verified-event 30-s auto-poll on Home (`5c18791`).
+- **Wave-2 #5** — drainer in-loop transient retry + tile-tap drainNowSafe kick (`e51984d`).
+
+New cosmetic finding from Item 5: `HumynBeep` / SoundPool tones + haptics silent on Android 16 / Pixel 10a (voice path passes; the UAT explicit acceptance criterion is the voice — so Item 5 PASSES, the tones+haptics regression is a Phase-7 cleanup carry-over). Logged in `05-COSMETIC-GAPS.md`.
+
+Item 4 cellular walk evidence: recording `01KRH652NZ0TRF645KNR0K4440` (64 video parts + 1 IMU + metadata, 5 MiB cellular chunks), uploaded over real Jio cellular via two cloudflared `trycloudflare.com` tunnels, with 39 total `no-progress watchdog fired` logcat entries across the upload's lifecycle as the cellular link stalled repeatedly. Final state: `qa_status='verified'` at 17:44:31 UTC; outbox `verified` event delivered at 17:44:40 UTC by the Wave-2 #6 30-s foreground poll. Teardown (revert flavor env to localhost, rebuild + reinstall APK, kill cloudflared, restart API with clean .env, owner back to wifi) completed successfully.
+
+Final summary: passed 5 (Items 1, 2, 4, 5, 6), partial 1 (Item 3 — OEM sweep deferred to Phase 7), skipped 0, pending 0, issues 0, blocked 0. Phase-level `phase.complete` is owner-controlled — NOT auto-issued by this UAT close-out.
