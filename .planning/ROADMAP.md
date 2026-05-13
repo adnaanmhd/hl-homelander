@@ -250,6 +250,7 @@ Plans:
 5. Tapping a thumbnail opens the in-app fullscreen player (play / pause / seek only — no download / share / export / delete) while the local MP4 still exists; once the `verified` event clears the local copy, the thumbnail remains but tap shows "This recording has been securely uploaded. Local copy cleared."; empty-state copy renders correctly with no-recordings vs filter-applied variants
    **Plans**: TBD
    **UI hint**: yes
+   **Phase 5 carry-over (folded 2026-05-13):** `HumynBeep` / SoundPool tones + haptics silent on Android 16 / Pixel 10a — observed during Phase 5 Item 5 Wave-1-cleanup walk (`.planning/phases/05-upload-pipeline-hash-verify-worker-anti-fraud/05-COSMETIC-GAPS.md`, the `D-06 SoundPool tones + Vibrate silent…` entry). The en-US female-leaning TTS voice path passes (the explicit Item 5 UAT acceptance criterion); the 520 Hz battery-15 % beep + 440→560→680 Hz thermal sequence + [100,50,100]ms battery + 800 ms thermal vibrate are all silent at MAX media volume. Likely root cause is in `apps/mobile/android/app/src/main/java/ai/humynlabs/capture/audiocue/HumynBeep.kt` (the SoundPool wiring) or the `Vibrator` permission/channel routing on Android 16. Phase 6's recording-surface plan should include a single small plan to (a) instrument SoundPool + Vibrator state on cue invocation, (b) restore audibility / haptic feedback. NOT a Phase 5 functional defect — voice + visual cues + the graceful self-stop all fire correctly, so it never blocks capture or upload; this is observability degradation only.
 
 ### Phase 7: Observability & APK Distribution Hardening
 
@@ -261,6 +262,7 @@ Plans:
 1. The full event funnel from `engineering-handoff.md` §11 (signup*\*, permission*\_, compat\__, recording*\*, gate*_, upload\__, history*\*, profile*_, help\_\_) emits via Firebase Analytics, native + JVM crashes + ANRs report via Firebase Crashlytics, the backend emits structured CloudWatch logs with per-device-model + per-OS-version + per-locale cohorting, the Bull-Board dashboard surfaces queue depth + retry counts + DLQ for the hash-verify worker, and Sentry / Datadog / third-party RUM are explicitly absent at MVP
 2. The signed-APK distribution pipeline is production-hardened — the `apkRollout` flavor builds a release-signed APK with its distinct `applicationId`, `HumynUpdater` downloads + SHA-256-verifies + installs the next APK via `PackageInstaller`, `GET /app/version` drives the force-upgrade gate against `min_supported` plus the dismissible banner below `latest`, and a release / signing / key-rotation runbook is documented (Play Store + iOS App Store distribution channels deferred — see REQUIREMENTS.md §v2: DIST-05, DIST-06, IOS-01..07)
    **Plans**: TBD
+   **Phase 5 carry-over (folded 2026-05-13):** OEM battery-optimization deep-link device sweep (Xiaomi MIUI/HyperOS Autostart, Oppo ColorOS background-permission, Vivo FunTouch high-power-mode, Samsung OneUI Sleeping-Apps allowlist) — Phase 5 Item 3 PASSED for the AOSP/Pixel fallback (Item 3 entry in `.planning/phases/05-upload-pipeline-hash-verify-worker-anti-fraud/05-HUMAN-UAT.md`); the per-OEM deep-link paths were NOT walked because no Xiaomi / Oppo / Vivo / Samsung devices were available in the Phase 5 walk session. Target devices for the India + Brazil rollout: Xiaomi Redmi/Mi, Oppo F/A series, Vivo Y/V series, Samsung A series — at least one device per OEM. The on-device walk should re-walk Phase 5's `BatteryOptimizationScreen` flow (the first-upload modal) plus visually confirm that the OEM Autostart Pressable resolves on each device + that the per-vendor help-center walkthrough copy still matches the live OEM Settings UI. Phase 5's UP-09 contract holds in code (AOSP fallback is the always-present floor); this is structurally a test-coverage carry-over, NOT a code defect. Fits naturally with Phase 7's signed-APK pre-rollout regression pass.
 
 ## Progress
 
@@ -274,7 +276,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation, Backend & Distribution Recon                | 13/13          | Complete    | 2026-05-08 |
 | 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 22/22          | Complete    | 2026-05-10 |
 | 3. HumynCapture Native Module (Bytes-on-disk)              | 11/11          | Complete    | 2026-05-11 |
-| 4. HandDetector, Recording UX & Practice Tutorial          | 10/10          | In progress | -          |
-| 5. Upload Pipeline & Hash-Verify Worker                    | 7/8            | In Progress |            |
+| 4. HandDetector, Recording UX & Practice Tutorial          | 12/12          | Complete    | 2026-05-12 |
+| 5. Upload Pipeline & Hash-Verify Worker                    | 15/15          | Complete    | 2026-05-13 |
 | 6. Tasks, History, Home Tiles & Lexical Search             | 0/TBD          | Not started | -          |
 | 7. Observability & APK Distribution Hardening              | 0/TBD          | Not started | -          |
