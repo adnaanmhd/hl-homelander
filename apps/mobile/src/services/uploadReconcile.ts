@@ -75,6 +75,22 @@ export async function reconcileOnce(): Promise<number> {
   // Refresh the coordinator's auth context before the authed GET (a JWT refresh
   // since the last sweep is picked up here).
   await pushUploadContext();
+  // Wave-1.5 Item 8 — cold-start drain on stale queue. installApk re-launch
+  // after a force-quit leaves a row in {pending, uploading} on disk; nothing
+  // else kicks the drainer (enqueue / JWT change / RecordingScreen.resume /
+  // Pending-Uploads Retry are all user-driven), so the row sits forever.
+  // Kick the drainer if there's stale work. Order matters: pushUploadContext
+  // first (the coordinator needs getCurrentSub() to drain); drainNowSafe after.
+  // Wrapped in try/catch + boot-safe via drainNowSafe — never crashes boot.
+  try {
+    const queue = await HumynUpload.getQueueSafe();
+    const hasStale = queue.some((r) => r.state === 'pending' || r.state === 'uploading');
+    if (hasStale) {
+      await HumynUpload.drainNowSafe();
+    }
+  } catch {
+    /* boot-safe — never crash the reconcile sweep over a queue read */
+  }
   try {
     const since = secureMmkv.getString(KEYS.UPLOAD_RECONCILE_CURSOR);
     const resp = await apiClient.get<VerifiedIdsResponse>('/recordings/verified-ids', {

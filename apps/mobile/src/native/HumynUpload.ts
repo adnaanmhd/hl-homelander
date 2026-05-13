@@ -106,6 +106,14 @@ interface HumynUploadNativeModule {
    * (services/recordingEvents.ts) and the dead-letter "Retry" affordance.
    */
   reupload(recordingId: string): Promise<void>;
+  /**
+   * Wave-1.5 Item 8 — cold-start drain kick (no unpause). Used by
+   * `installUploadReconcile()` on boot: if `getQueueSafe()` returns a row in
+   * {PENDING, UPLOADING}, kick the drainer. Distinct from `resume()`: does NOT
+   * flip the paused flag (a pause is sticky; a boot-time drain MUST NOT
+   * silently unpause). If the coordinator is paused, the drain is a no-op.
+   */
+  drainNow(): Promise<void>;
   // --- Plan 05-07 — battery-optimization exemption + OEM autostart (UP-09) ---
   /** `true` iff the app is already whitelisted from battery optimizations. */
   isBatteryOptimizationExempt(): Promise<boolean>;
@@ -153,6 +161,19 @@ export const HumynUpload = {
   clearVerified: (recordingIds: string[]): Promise<void> => ensure().clearVerified(recordingIds),
   /** Flip a row into re-upload mode (UP-16). Throws if the module is absent. */
   reupload: (recordingId: string): Promise<void> => ensure().reupload(recordingId),
+  /**
+   * Wave-1.5 Item 8 — kick the drainer (no unpause). Throws if the module is
+   * absent. Distinct from `resume()`: does NOT flip the paused flag.
+   */
+  drainNow: (): Promise<void> => ensure().drainNow(),
+  /** Boot-safe `drainNow()` — never throws; no-op when the module is absent. */
+  drainNowSafe: async (): Promise<void> => {
+    try {
+      await ensure().drainNow();
+    } catch {
+      /* no native module / JSDOM — non-fatal */
+    }
+  },
   /** Boot-safe `getQueue()` — never throws; `[]` if the module is unavailable. */
   getQueueSafe: async (): Promise<UploadQueueRow[]> => {
     try {
