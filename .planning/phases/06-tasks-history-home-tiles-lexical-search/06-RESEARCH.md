@@ -955,37 +955,39 @@ export function onError(l: (e: PlayerErrorEvent) => void): EmitterSubscription {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> All five questions resolved during planning. The selected choice for each is now adopted in the Phase-6 plans (cross-reference noted per question). No outstanding planner discretion left.
 
 ### Q-1. **D-08 Stream URL — CloudFront-signed or S3 presigned?**
 
 - **What we know:** D-08 wording in CONTEXT mentions `PRESIGNED_TTL_SECONDS` from `apps/api/src/lib/s3-client.ts`, suggesting S3 presigned. But the shipped `/recordings/:id` route already mints **CloudFront-signed** URLs via `@aws-sdk/cloudfront-signer` (`apps/api/src/routes/recordings/get.ts:88-95`). The S3 presigned path is used for upload PUTs, not downloads.
 - **What's unclear:** Does the owner want the new route to use CloudFront-signed (prod parity with `/recordings/:id`) or S3 presigned (mentioned in CONTEXT)?
-- **Recommendation:** **Use CloudFront-signed.** Prod parity with the existing route, cheaper egress, cache hits, reuses the same env contract. The CONTEXT mention of `PRESIGNED_TTL_SECONDS` is plausibly a docs reference, not a binding signer choice. Planner should confirm with owner during planning or default to CloudFront with a SUMMARY-trail explanation. (Note: `PRESIGNED_TTL_SECONDS = 15 * 60` in s3-client.ts; D-08 says 5 min. Either way the planner must set the new route's TTL to 5 min per D-08.)
+- **RESOLVED:** **CloudFront-signed** — prod parity with the existing `/recordings/:id` route, cheaper egress, cache hits, reuses the same env contract. `PRESIGNED_TTL_SECONDS` in CONTEXT was a docs reference, not a binding signer choice. The new `/recordings/:id/stream-url` route sets TTL to 5 min per D-08. Adopted in **Plan 06-03 Task 3**.
 
 ### Q-2. **TaskIcon must be ported to `lucide-react-native`.**
 
 - **What we know:** `design-system/task-icons/TaskIcon.tsx:67` imports from `lucide-react` (web library, not the RN port). The repo already has a working `lucide-react-native`-based `Icon` primitive at `apps/mobile/src/ui/primitives/Icon.tsx`.
 - **What's unclear:** Should the planner edit the design-system `TaskIcon.tsx` to use `lucide-react-native`, OR add a `TaskIcon.native.tsx` sibling for RN consumers and leave the web version alone for future web/desktop builds?
-- **Recommendation:** **Add a `TaskIcon.native.tsx` sibling.** Metro and React Native's platform-specific module resolution will pick `.native.tsx` over `.tsx` automatically. The web version stays alive for §v2 ARCH-V2-02 (web/desktop/tablet review-only client). No mapping.ts change needed; the `LucideIconName` union is identical between `lucide-react` and `lucide-react-native`. Plan in Wave 4.
+- **RESOLVED:** **Add a `TaskIcon.native.tsx` sibling.** Metro's platform-specific module resolution picks `.native.tsx` over `.tsx` automatically. The web version stays alive for §v2 ARCH-V2-02 (web/desktop/tablet review-only client). No `mapping.ts` change needed; the `LucideIconName` union is identical between `lucide-react` and `lucide-react-native`. Adopted in **Plan 06-05** (Wave 3).
 
 ### Q-3. **Custom-range date picker library.**
 
 - **What we know:** Design-spec §16b says "native HTML date inputs (`max=today`)" — but HTML date inputs are a poor UX on phones.
 - **What's unclear:** Which native date picker should the planner pick? `@react-native-community/datetimepicker` is the de-facto pick.
-- **Recommendation:** Use the platform's native date picker via `@react-native-community/datetimepicker` (or accept the design-spec verbatim and ship a `<TextInput>`). Defer to planner; not load-bearing for the data model. Cite the design-spec literal as the spec; ship the cleanest platform picker.
+- **RESOLVED:** Planner's discretion — chosen pick lands in **Plan 06-08 FilterSheet.tsx** (custom-range branch). Default: `@react-native-community/datetimepicker` (de-facto RN pick). Not load-bearing for the data model; the canonical contract is the `{ start, end }` ISO-date pair fed to `services/timeRange.ts` and onto `/contributions/timeseries?start=&end=` (D-03). If the picker library is skipped at planning time, the fallback is a `<TextInput>` per design-spec §16b verbatim.
 
 ### Q-4. **Day-grouping calendar boundary.**
 
 - **What we know:** Design-spec §13 says day-group headers are e.g. **"Today"**, **"Yesterday"**, **"This week"**, **"May 2026"** — they switch labels based on recency.
 - **What's unclear:** When is a row "this week" vs. "May 2026"? Researcher reads §13 to mean: rows from today and yesterday get their own headers; rows from earlier this week share a "This week" header; older rows in the same month share the month header (e.g., "May 2026"); older months get their own headers.
-- **Recommendation:** Planner picks a precise rule and codifies it in `services/historyGrouping.ts`. Researcher's read is workable and matches design-spec's example list. Worth a single planning-time clarification with the owner if ambiguous.
+- **RESOLVED:** Researcher's read is adopted: rows from today → "Today"; yesterday → "Yesterday"; days 2–6 within current ISO-week → "This week"; older rows within the current calendar month → the month name (e.g., "May 2026"); older months → their own month header. Codified in **Plan 06-05 `services/historyGrouping.ts`**.
 
 ### Q-5. **`SearchX` icon availability in `lucide-react-native@1.14.0`.**
 
 - **What we know:** TASK-10 / design-spec §10 State 4 specifies the `SearchX` icon for the no-results empty state.
 - **What's unclear:** Whether `SearchX` exists in lucide-react-native 1.14.0 (it's confirmed in lucide-react ≥0.400 web).
-- **Recommendation:** Spot-check by writing `import { SearchX } from 'lucide-react-native'` in a test file during the Wave 4 planning. If absent, use `Search` + a strikethrough overlay or fall back to `XCircle`.
+- **RESOLVED:** Spot-check at execute time — **Plan 06-07 Task 2** writes `import { SearchX } from 'lucide-react-native'` and lets the TypeScript build settle the question. If the export is absent in 1.14.0, fall back to `Search` + strikethrough overlay (or `XCircle`). Documented in Plan 06-07 acceptance criteria.
 
 ---
 
