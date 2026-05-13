@@ -740,7 +740,7 @@ class UploadCoordinatorTest {
     }
 
     @Test
-    fun `LOCAL reset of a client-side DEAD_LETTER row routes to slash parts not slash reupload (Wave-1.5 Item 2)`() {
+    fun `LOCAL reset of a client-side DEAD_LETTER row routes to slash parts not slash reupload Wave-1-5 Item 2`() {
         // Wave-1.5 Item 2: HumynUpload.reupload(recordingId) on a row with
         // state=DEAD_LETTER && uploadId!=null && !reupload does a LOCAL reset
         // (state→UPLOADING, deadLetterReason=null, KEEP uploadId/imuUploadId/
