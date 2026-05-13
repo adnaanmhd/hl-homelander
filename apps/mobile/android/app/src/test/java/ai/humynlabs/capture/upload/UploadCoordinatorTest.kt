@@ -71,6 +71,8 @@ class UploadCoordinatorTest {
     @Volatile private var partsResponseCode = 0
     /** When non-null, the `/recordings/:id/parts` body is returned verbatim with a 200 (used by the non-JSON-leak test). */
     @Volatile private var partsRawBody: String? = null
+    /** Wave-2 #5 — when > 0, the next N `/recordings/init` calls return 503 (transient), then the default 201 takes over. */
+    private val flakyInitCount = AtomicInteger(0)
 
     @Before
     fun setUp() {
@@ -89,12 +91,20 @@ class UploadCoordinatorTest {
                         request.getHeader("Idempotency-Key")?.let { idempotencyKeysByPath["/recordings/init"] = it }
                         val partsCount = JSONObject(request.body.readUtf8()).getInt("partsCount")
                         val code = initResponseCode
-                        if (code != 0) {
-                            MockResponse().setResponseCode(code).setBody("{}")
-                        } else {
-                            MockResponse().setResponseCode(201).setBody(initBody(partsCount)).apply {
-                                val d = initHeadersDelayMs
-                                if (d > 0) setHeadersDelay(d, TimeUnit.MILLISECONDS)
+                        val flakyRemaining = flakyInitCount.get()
+                        when {
+                            code != 0 -> MockResponse().setResponseCode(code).setBody("{}")
+                            flakyRemaining > 0 -> {
+                                flakyInitCount.decrementAndGet()
+                                // 503 → parseInitResponse throws IOException → uploadOne propagates → drainNow's
+                                // per-row transient catch (Wave-2 #5 retry loop) sleeps and retries.
+                                MockResponse().setResponseCode(503).setBody("transient")
+                            }
+                            else -> {
+                                MockResponse().setResponseCode(201).setBody(initBody(partsCount)).apply {
+                                    val d = initHeadersDelayMs
+                                    if (d > 0) setHeadersDelay(d, TimeUnit.MILLISECONDS)
+                                }
                             }
                         }
                     }
@@ -245,6 +255,8 @@ class UploadCoordinatorTest {
             getCurrentSub = { currentSub },
             isPaused = paused,
             chunkUploader = cu,
+            // Wave-2 #5 — 1 ms so the in-loop retry test doesn't sleep 5 s.
+            transientRetryDelayMs = 1L,
         )
     }
 
@@ -800,6 +812,46 @@ class UploadCoordinatorTest {
         assertEquals(UploadState.AWAITING_VERIFY, back.state)
         assertEquals("VID-UPLOAD-ID", back.uploadId)
         assertEquals("IMU-UPLOAD-ID", back.imuUploadId)
+    }
+
+    @Test
+    fun `Wave-2 #5 - a transient on slash init triggers the bounded in-loop retry then succeeds`() {
+        // First /recordings/init returns 503 (transient — parseInitResponse
+        // throws IOException; not a 4xx DeadLetterException). The drainer's
+        // per-row retry loop (Wave-2 #5) sleeps transientRetryDelayMs (1 ms in
+        // tests) and re-attempts uploadOne, which re-POSTs /init. Second call
+        // returns the normal 201 → happy-path /finalize → row ends
+        // AWAITING_VERIFY. Without the retry loop the row would sit
+        // PENDING/UPLOADING forever and the test would see only 1 /init and 0
+        // /finalize.
+        flakyInitCount.set(1)
+        store.enqueue(row("01JRETRYW25XXXXXXXXXXXXXXX"))
+        coordinator().drainNow()
+
+        assertEquals("two /init calls (flaky 503 then retried 201)", 2, initCalls.get())
+        assertEquals("zero /reupload", 0, reuploadCalls.get())
+        assertEquals("one /finalize after the retry succeeds", 1, finalizeCalls.get())
+        // Row reached AWAITING_VERIFY — proof the retry took the happy path.
+        assertEquals(UploadState.AWAITING_VERIFY, store.read().first().state)
+    }
+
+    @Test
+    fun `Wave-2 #5 - exhausting the retry budget leaves the row recoverable, does NOT dead-letter`() {
+        // 3 /init attempts all return 503. The retry loop exits without
+        // calling /finalize. The row STAYS in its pre-attempt state (uploadId
+        // == null, state == PENDING) so the next external drain trigger (cold
+        // start, JWT change, FGS heartbeat, UIDT JobService, tile-tap kick)
+        // picks it up. Critically, transient exhaustion is NOT a dead-letter
+        // event — only DeadLetterException (a 4xx contract violation) is.
+        flakyInitCount.set(3)
+        store.enqueue(row("01JRETRYW25EXHXXXXXXXXXXXXX"))
+        coordinator().drainNow()
+
+        assertEquals("three /init attempts (the retry budget)", 3, initCalls.get())
+        assertEquals("no /finalize fired", 0, finalizeCalls.get())
+        val back = store.read().first()
+        assertTrue("row is recoverable, NOT dead-lettered", back.state != UploadState.DEAD_LETTER)
+        assertNull("no dead-letter reason on transient exhaustion", back.deadLetterReason)
     }
 
     @Test

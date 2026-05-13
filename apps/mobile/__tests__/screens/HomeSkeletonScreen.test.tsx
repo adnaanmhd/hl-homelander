@@ -64,9 +64,16 @@ vi.mock('../../src/state/appStore', () => ({
   useAppStore: <T,>(selector: (s: typeof mockState) => T) => selector(mockState),
 }));
 
+// Wave-2 #5 — `drainNowSafe` is exercised by the tile-tap kick test. Spy
+// declared via vi.hoisted so the factory below can reference it.
+const { drainNowSafeMock } = vi.hoisted(() => ({
+  drainNowSafeMock: vi.fn(async () => undefined),
+}));
+
 vi.mock('../../src/native/HumynUpload', () => ({
   HumynUpload: {
     getQueueSafe: vi.fn(async () => mockQueue.rows),
+    drainNowSafe: drainNowSafeMock,
   },
   onUploadQueueChanged: vi.fn(() => ({ remove: hooks.queueChangedRemove })),
   onUploadProgress: vi.fn(
@@ -142,6 +149,7 @@ describe('HomeSkeletonScreen', () => {
     hooks.progressListener = null;
     navigateMock.mockReset();
     reconcileOnceMock.mockClear();
+    drainNowSafeMock.mockClear();
     focusCleanups.length = 0;
   });
 
@@ -267,6 +275,27 @@ describe('HomeSkeletonScreen', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  // Wave-2 #5 — tile-tap kicks the drainer in addition to navigating.
+
+  it('pending-uploads-tile tap also kicks HumynUpload.drainNowSafe (Wave-2 #5)', async () => {
+    const fireEvent = (await import('@testing-library/react')).fireEvent;
+    const { getByLabelText } = render(<HomeSkeletonScreen />);
+    fireEvent.click(getByLabelText('pending-uploads-tile'));
+    expect(drainNowSafeMock).toHaveBeenCalledTimes(1);
+    expect(navigateMock).toHaveBeenCalledWith('MainTabs', { screen: 'History' });
+  });
+
+  it('pending-uploads-tile tap still navigates when drainNowSafe rejects (Wave-2 #5 — never starves nav)', async () => {
+    drainNowSafeMock.mockRejectedValueOnce(new Error('no native module'));
+    const fireEvent = (await import('@testing-library/react')).fireEvent;
+    const { getByLabelText } = render(<HomeSkeletonScreen />);
+    fireEvent.click(getByLabelText('pending-uploads-tile'));
+    // Synchronously navigates even though the drainNowSafe promise is rejected
+    // (the `.catch(() => undefined)` swallows; the navigate call sits after the
+    // void-prefixed drainNowSafe invocation in the same press handler).
+    expect(navigateMock).toHaveBeenCalledWith('MainTabs', { screen: 'History' });
   });
 
   it('swallows reconcileOnce errors without crashing the poll loop (Wave-2 #6)', () => {
