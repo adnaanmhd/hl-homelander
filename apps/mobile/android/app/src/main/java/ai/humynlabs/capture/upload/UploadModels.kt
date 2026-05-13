@@ -104,16 +104,20 @@ data class PartState(
  * — `UploadQueueStore.bootstrap(currentSub)` only resumes rows whose
  * `ownerUserId == currentSub` (UP-13 cross-account guard on a shared phone).
  *
- * `idempotencyKey` is a stable UUIDv4 minted ONCE at row construction (enqueue)
- * and reused across every server-side POST for this row's lifetime
- * (`/recordings/init`, `/recordings/:id/parts`, `/recordings/:id/reupload`,
- * `/recordings/:id/finalize`) — that's what makes the API's global
- * idempotency pre-handler (`apps/api/src/plugins/idempotency.ts`) cache and
- * replay the SAME response on a retry (same key + same body → cached response).
- * Format: lowercase hex UUIDv4 per the server's `UUID_V4_REGEX`. NOT the
- * recordingId (a ULID, not a UUIDv4 — would be 400-rejected). Persisted to
- * `queue.json` so it survives a process kill. (S3 PUTs to presigned URLs
- * do NOT hit the API → no header needed there.)
+ * `{init,parts,finalize,reupload}IdempotencyKey` are four PER-ROUTE stable
+ * UUIDv4s minted ONCE at row construction. Each is sent as the
+ * `Idempotency-Key` header on every retry of ITS OWN route — the server's
+ * global idempotency pre-handler (`apps/api/src/plugins/idempotency.ts`)
+ * caches by `(user_id, key)` AND hashes `(method,path,body)` for equality —
+ * same key + different `(method,path,body)` ⇒ 409 idempotency-key-conflict.
+ * Per-route keys make every (key,body) pair stable across retries. Wave-1.5
+ * Item 1 closes a 2026-05-13 walk-time bug where a single per-row key reused
+ * across the 4 routes hit a 409 from `/finalize` after `/init`+all part PUTs
+ * had succeeded (recording `01KRFZ91Y3E315AJVG75KXJZE6`). Format: lowercase
+ * hex UUIDv4 per the server's `UUID_V4_REGEX`. NOT the recordingId (a ULID,
+ * not a UUIDv4 — would be 400-rejected). Persisted to `queue.json` so they
+ * survive a process kill. (S3 PUTs to presigned URLs do NOT hit the API →
+ * no header needed there.)
  */
 data class UploadRow(
     val recordingId: String,
@@ -143,13 +147,46 @@ data class UploadRow(
      */
     var reupload: Boolean = false,
     /**
-     * Stable UUIDv4 sent as `Idempotency-Key` on every API POST for this row.
-     * Minted once at construction; reused across retries (same key + same body →
-     * cached server response, the entire point of the hook). NOT the recordingId
-     * (which is a ULID — would fail the server's UUIDv4 validator).
+     * Stable UUIDv4 sent as `Idempotency-Key` on every `POST /recordings/init`
+     * for this row. Minted once at construction; reused only across retries of
+     * THIS route. Per-route split (not a single per-row key) because the
+     * server's global idempotency pre-handler caches by `(user_id, key)` and
+     * rejects on body mismatch — same key + different `(method,path,body)` ⇒
+     * 409 idempotency-key-conflict; per-route keys make every (key,body) pair
+     * stable. Fix surfaces Wave-1.5 Item 1, see 05-COSMETIC-GAPS.md + the
+     * 2026-05-13 walk log (recording `01KRFZ91Y3E315AJVG75KXJZE6`).
      */
-    var idempotencyKey: String = UUID.randomUUID().toString(),
+    var initIdempotencyKey: String = UUID.randomUUID().toString(),
+    /**
+     * Stable UUIDv4 sent as `Idempotency-Key` on every
+     * `POST /recordings/:id/parts`. Minted once at construction; reused only
+     * across retries of THIS route. See [initIdempotencyKey] for the rationale.
+     */
+    var partsIdempotencyKey: String = UUID.randomUUID().toString(),
+    /**
+     * Stable UUIDv4 sent as `Idempotency-Key` on every
+     * `POST /recordings/:id/finalize`. Minted once at construction; reused only
+     * across retries of THIS route. See [initIdempotencyKey] for the rationale.
+     */
+    var finalizeIdempotencyKey: String = UUID.randomUUID().toString(),
+    /**
+     * Stable UUIDv4 sent as `Idempotency-Key` on every
+     * `POST /recordings/:id/reupload`. Minted once at construction; reused only
+     * across retries of THIS route. See [initIdempotencyKey] for the rationale.
+     */
+    var reuploadIdempotencyKey: String = UUID.randomUUID().toString(),
 ) {
+    /**
+     * Transient in-memory signal from `fromJson` to `UploadQueueStore.read()`:
+     * `true` if any of the four `*IdempotencyKey` fields was minted from a
+     * missing on-disk value. Not persisted to `toJson` — `UploadQueueStore.read()`
+     * checks the flag and upserts the row back to disk so subsequent reads
+     * return the SAME minted keys (Wave-1.5 Item 7 — closes the per-`read()`-
+     * mints-fresh-UUID storm + the process-kill-between-/init-and-/parts edge).
+     * Cleared by the store after the upsert. Owner: `UploadQueueStore`.
+     */
+    internal var _migratedOnLoad: Boolean = false
+
     fun toJson(): JSONObject = JSONObject().apply {
         put("recordingId", recordingId)
         put("ownerUserId", ownerUserId)
@@ -170,7 +207,10 @@ data class UploadRow(
         put("lastProgressAt", lastProgressAt)
         if (deadLetterReason != null) put("deadLetterReason", deadLetterReason)
         if (reupload) put("reupload", true)
-        put("idempotencyKey", idempotencyKey)
+        put("initIdempotencyKey", initIdempotencyKey)
+        put("partsIdempotencyKey", partsIdempotencyKey)
+        put("finalizeIdempotencyKey", finalizeIdempotencyKey)
+        put("reuploadIdempotencyKey", reuploadIdempotencyKey)
     }
 
     companion object {
@@ -185,28 +225,42 @@ data class UploadRow(
         }
 
         fun fromJson(o: JSONObject): UploadRow {
-            // Migration: existing rows on disk written before idempotencyKey was added
-            // won't have the field. Mint a fresh UUIDv4 and warn once per row so the
-            // stuck-on-disk row (e.g. `01KRFXGAWCMVQ89PJ2PBXSVAKK` in the Phase-5
-            // smoke walk) can drain on next boot. NB: in the post-migration steady
-            // state every row carries an idempotencyKey, so this branch is silent.
-            val rawKey = if (o.has("idempotencyKey") && !o.isNull("idempotencyKey")) {
-                o.optString("idempotencyKey", "")
-            } else {
-                ""
-            }
-            val key = if (rawKey.isBlank()) {
+            // Migration (Wave-1.5 Items 1 + 7): existing on-disk rows from before
+            // the per-route split — including rows written by commit `5c0b2d8`'s
+            // single-`idempotencyKey` shape — won't carry the four per-route
+            // fields. Mint a fresh UUIDv4 for each missing field and warn once
+            // per row so the stuck-on-disk row can drain on the next boot. The
+            // legacy single `idempotencyKey` field is deliberately IGNORED — do
+            // NOT propagate it into all four routes, because that re-introduces
+            // the cross-route 409 bug (Wave-1.5 Item 1, walk recording
+            // `01KRFZ91Y3E315AJVG75KXJZE6`). Each route gets its OWN fresh key.
+            //
+            // The `_migratedOnLoad` transient flag is set when ANY of the four
+            // fields was minted from a missing value; `UploadQueueStore.read()`
+            // checks the flag and persists the row back to disk so subsequent
+            // reads return the SAME minted keys (Wave-1.5 Item 7 — closes the
+            // per-`read()`-mints-fresh-UUID storm + the process-kill between
+            // `/init` and `/parts`). The persist-back is owned by
+            // UploadQueueStore.read(); fromJson only sets the flag.
+            val recordingId = o.getString("recordingId")
+            var migrated = false
+            fun readOrMint(field: String): String {
+                val raw = if (o.has(field) && !o.isNull(field)) o.optString(field, "") else ""
+                if (raw.isNotBlank()) return raw
                 val minted = UUID.randomUUID().toString()
+                migrated = true
                 Log.w(
                     MODELS_TAG,
-                    "row ${o.optString("recordingId", "<unknown>")} missing idempotencyKey on load — minted $minted (one-shot migration)",
+                    "row $recordingId missing $field on load — minted $minted (Wave-1.5 one-shot migration)",
                 )
-                minted
-            } else {
-                rawKey
+                return minted
             }
-            return UploadRow(
-                recordingId = o.getString("recordingId"),
+            val initKey = readOrMint("initIdempotencyKey")
+            val partsKey = readOrMint("partsIdempotencyKey")
+            val finalizeKey = readOrMint("finalizeIdempotencyKey")
+            val reuploadKey = readOrMint("reuploadIdempotencyKey")
+            val row = UploadRow(
+                recordingId = recordingId,
                 ownerUserId = o.optString("ownerUserId", ""),
                 mp4Path = o.optString("mp4Path", ""),
                 csvPath = o.optString("csvPath", ""),
@@ -231,8 +285,13 @@ data class UploadRow(
                     null
                 },
                 reupload = o.optBoolean("reupload", false),
-                idempotencyKey = key,
+                initIdempotencyKey = initKey,
+                partsIdempotencyKey = partsKey,
+                finalizeIdempotencyKey = finalizeKey,
+                reuploadIdempotencyKey = reuploadKey,
             )
+            row._migratedOnLoad = migrated
+            return row
         }
     }
 }

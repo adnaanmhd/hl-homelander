@@ -186,6 +186,22 @@ export default function PendingUploadsScreen({
                 </Pressable>
               ) : null}
             </View>
+            {isActive && pct != null ? (
+              // Wave-1.5 Item 4 — sibling determinate progress bar. Token-aligned
+              // (`colors.line` track + `colors.chipProgressText` fill — no new
+              // design tokens, D-10/D-10a). Only renders for an `uploading`
+              // row with a recorded progress event (the native 5s-debounced
+              // onUploadProgress; UploadCoordinator.kt maybeEmitProgress).
+              <View accessibilityLabel="pending-upload-progress-track" style={styles.progressTrack}>
+                <View
+                  accessibilityLabel="pending-upload-progress-fill"
+                  style={[
+                    styles.progressFill,
+                    { width: `${Math.max(0, Math.min(100, Math.round(pct)))}%` },
+                  ]}
+                />
+              </View>
+            ) : null}
             {item.deadLetterReason ? (
               <Text style={styles.deadReason} accessibilityLabel="pending-upload-deadletter-reason">
                 {item.deadLetterReason}
@@ -287,6 +303,23 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontFamily: typography.fontFamily.semibold,
     color: colors.accent,
+  },
+  // Wave-1.5 Item 4 — sibling determinate progress bar. Tokens reused, no new
+  // design tokens introduced (D-10/D-10a): `colors.line` is the track (the
+  // existing neutral row-border color); `colors.chipProgressText` is the fill
+  // (the same fill the chip-percent text uses, so the bar reads as the chip's
+  // visual extension).
+  progressTrack: {
+    height: 3,
+    backgroundColor: colors.line,
+    borderRadius: 999,
+    marginTop: spacing.s,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: 3,
+    backgroundColor: colors.chipProgressText,
+    borderRadius: 999,
   },
   deadReason: {
     fontSize: 12,

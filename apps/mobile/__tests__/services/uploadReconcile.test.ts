@@ -31,6 +31,7 @@ const { hooks, appStateListeners } = vi.hoisted(() => ({
     resume: vi.fn().mockResolvedValue(undefined),
     pause: vi.fn().mockResolvedValue(undefined),
     setUploadContextSafe: vi.fn().mockResolvedValue(undefined),
+    drainNowSafe: vi.fn().mockResolvedValue(undefined),
   },
   appStateListeners: [] as ((s: string) => void)[],
 }));
@@ -46,6 +47,7 @@ vi.mock('../../src/native/HumynUpload', () => ({
     resume: hooks.resume,
     pause: hooks.pause,
     setUploadContextSafe: hooks.setUploadContextSafe,
+    drainNowSafe: hooks.drainNowSafe,
   },
 }));
 
@@ -75,6 +77,7 @@ describe('uploadReconcile (Plan 05-08 — VERIFY-06)', () => {
     hooks.resume.mockResolvedValue(undefined);
     hooks.pause.mockResolvedValue(undefined);
     hooks.setUploadContextSafe.mockResolvedValue(undefined);
+    hooks.drainNowSafe.mockResolvedValue(undefined);
     hooks.getQueueSafe.mockResolvedValue([]);
     vi.spyOn(AppState, 'addEventListener').mockImplementation(((
       _event: unknown,
@@ -184,5 +187,46 @@ describe('uploadReconcile (Plan 05-08 — VERIFY-06)', () => {
     await flush();
     expect(hooks.pause).toHaveBeenCalled();
     teardown();
+  });
+
+  // Wave-1.5 Item 8 — cold-start drain on stale queue.
+  it('reconcileOnce kicks drainNowSafe when a pending row is on disk (Wave-1.5 Item 8)', async () => {
+    hooks.getQueueSafe.mockResolvedValue([{ ...queueRow('R1'), state: 'pending' }]);
+    hooks.apiGet.mockResolvedValue({ ids: [], next_cursor: null });
+    await reconcileOnce();
+    expect(hooks.drainNowSafe).toHaveBeenCalledTimes(1);
+  });
+
+  it('reconcileOnce kicks drainNowSafe when an uploading row is on disk (Wave-1.5 Item 8)', async () => {
+    hooks.getQueueSafe.mockResolvedValue([{ ...queueRow('R1'), state: 'uploading' }]);
+    hooks.apiGet.mockResolvedValue({ ids: [], next_cursor: null });
+    await reconcileOnce();
+    expect(hooks.drainNowSafe).toHaveBeenCalledTimes(1);
+  });
+
+  it('reconcileOnce does NOT kick drainNowSafe when only awaiting-verify/verified rows are queued', async () => {
+    hooks.getQueueSafe.mockResolvedValue([
+      { ...queueRow('R1'), state: 'awaiting-verify' },
+      { ...queueRow('R2'), state: 'verified' },
+    ]);
+    hooks.apiGet.mockResolvedValue({ ids: [], next_cursor: null });
+    await reconcileOnce();
+    expect(hooks.drainNowSafe).not.toHaveBeenCalled();
+  });
+
+  it('reconcileOnce does NOT kick drainNowSafe when the queue is empty', async () => {
+    hooks.getQueueSafe.mockResolvedValue([]);
+    hooks.apiGet.mockResolvedValue({ ids: [], next_cursor: null });
+    await reconcileOnce();
+    expect(hooks.drainNowSafe).not.toHaveBeenCalled();
+  });
+
+  it('reconcileOnce is boot-safe when getQueueSafe throws — does not crash, does not kick drainNowSafe', async () => {
+    hooks.getQueueSafe.mockRejectedValue(new Error('native module missing'));
+    hooks.apiGet.mockResolvedValue({ ids: [], next_cursor: null });
+    // Must not throw.
+    const cleared = await reconcileOnce();
+    expect(cleared).toBe(0);
+    expect(hooks.drainNowSafe).not.toHaveBeenCalled();
   });
 });

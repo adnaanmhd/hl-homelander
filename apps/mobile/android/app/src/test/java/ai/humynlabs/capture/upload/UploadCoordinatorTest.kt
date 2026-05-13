@@ -650,15 +650,19 @@ class UploadCoordinatorTest {
     }
 
     @Test
-    fun `every API POST carries the row's stable Idempotency-Key UUIDv4 (init+finalize on the first drain)`() {
+    fun `every API POST carries its OWN per-route Idempotency-Key UUIDv4 (init+finalize on the first drain)`() {
         // Regression for the 'POST /recordings/init -> 400 Idempotency-Key required'
         // gate that blocked the Phase-5 on-device UAT walk three times. Every
         // POST/PATCH must carry an Idempotency-Key header that the server's
-        // UUID_V4_REGEX accepts (apps/api/src/lib/idempotency-store.ts), and the
-        // SAME row's key must be reused across all four POSTs so a retry hits the
-        // server-side cache and replays the original 2xx response.
+        // UUID_V4_REGEX accepts (apps/api/src/lib/idempotency-store.ts), and
+        // each route uses its OWN per-route key (Wave-1.5 Item 1 — single per-row
+        // key + 4 different bodies = 409 idempotency-key-conflict on the 2nd
+        // route; the 2026-05-13 walk's recording `01KRFZ91Y3E315AJVG75KXJZE6`
+        // showed `/init` → 201 then `/finalize` → 409 because both used the same
+        // key with different bodies).
         val r = row("01JCOORDIDEM1XXXXXXXXXXXXXX")
-        val expectedKey = r.idempotencyKey
+        val expectedInitKey = r.initIdempotencyKey
+        val expectedFinalizeKey = r.finalizeIdempotencyKey
         store.enqueue(r)
         coordinator().drainNow()
 
@@ -667,19 +671,24 @@ class UploadCoordinatorTest {
         val initKey = idempotencyKeysByPath["/recordings/init"]
         assertNotNull("/recordings/init must send an Idempotency-Key header (server's pre-handler 400s without it)", initKey)
         assertTrue("/recordings/init Idempotency-Key must be a UUIDv4; got $initKey", uuidV4.matches(initKey!!))
-        assertEquals("/recordings/init key must equal the row's stable idempotencyKey", expectedKey, initKey)
+        assertEquals("/recordings/init key must equal the row's initIdempotencyKey", expectedInitKey, initKey)
 
         val finalizeKey = idempotencyKeysByPath["/finalize"]
         assertNotNull("/finalize must send an Idempotency-Key header", finalizeKey)
-        assertEquals("/finalize key must equal /init's key (same row → same key)", expectedKey, finalizeKey)
+        assertTrue("/finalize Idempotency-Key must be a UUIDv4; got $finalizeKey", uuidV4.matches(finalizeKey!!))
+        assertEquals("/finalize key must equal the row's finalizeIdempotencyKey", expectedFinalizeKey, finalizeKey)
+
+        // Cross-route distinctness — the bug being closed.
+        assertNotEquals("init and finalize keys MUST be distinct (Wave-1.5 Item 1)", initKey, finalizeKey)
     }
 
     @Test
-    fun `a re-drain via slash parts reuses the same Idempotency-Key as the original slash init`() {
+    fun `a re-drain via slash parts uses the row's partsIdempotencyKey (distinct from init)`() {
         // Same row, two drains. First drain: /init has uploadId=null → /init.
         // Second drain after a process-kill simulation (uploadId set): /parts.
-        // Both POSTs carry the row's SAME stable key — that's the contract that
-        // makes a lost-201 self-heal via the server's idempotency cache.
+        // Each route carries ITS OWN stable per-route key (Wave-1.5 Item 1 —
+        // the server caches by (user_id, key) + hashes (method,path,body); a
+        // single per-row key reused across routes hits a 409).
         val r = row("01JCOORDIDEM2XXXXXXXXXXXXXX").also {
             it.uploadId = "VID-UPLOAD-ID"
             it.imuUploadId = "IMU-UPLOAD-ID"
@@ -691,14 +700,172 @@ class UploadCoordinatorTest {
             it.videoParts.add(PartState(2))
             it.imuParts.add(PartState(1))
         }
-        val expectedKey = r.idempotencyKey
+        val expectedPartsKey = r.partsIdempotencyKey
+        val expectedInitKey = r.initIdempotencyKey
         store.enqueue(r)
         coordinator().drainNow()
 
         assertEquals("re-drain takes /parts, not /init", 0, initCalls.get())
         val partsKey = idempotencyKeysByPath["/parts"]
         assertNotNull("/parts must send an Idempotency-Key header", partsKey)
-        assertEquals("/parts key must equal the row's stable idempotencyKey", expectedKey, partsKey)
+        assertEquals("/parts key must equal the row's partsIdempotencyKey", expectedPartsKey, partsKey)
+        assertNotEquals(
+            "/parts key MUST differ from the row's initIdempotencyKey (per-route split, Wave-1.5 Item 1)",
+            expectedInitKey, partsKey,
+        )
+    }
+
+    @Test
+    fun `each route's Idempotency-Key is stable across a synthetic retry of the same route`() {
+        // Drive a row through /init, then capture the key; clear the captured key,
+        // drive ANOTHER drain that takes the /parts branch (re-presign — same row,
+        // different route); confirm /init's would-have-been retry key is stable in
+        // the row (since /init isn't called again, we assert via the row's pinned
+        // field — the contract is "the SAME UUIDv4 the row was constructed with").
+        val r = row("01JCOORDIDEM3XXXXXXXXXXXXXX")
+        val initKeyAtConstruction = r.initIdempotencyKey
+        val partsKeyAtConstruction = r.partsIdempotencyKey
+        store.enqueue(r)
+        val coord = coordinator()
+        coord.drainNow()
+        // First drain captured.
+        val firstInitKey = idempotencyKeysByPath["/recordings/init"]
+        assertEquals("first /init carries the row's initIdempotencyKey", initKeyAtConstruction, firstInitKey)
+        // The row, now on disk after the first drain, still has the same per-route keys
+        // (toJson/fromJson round-trip preserves them — Wave-1.5 Item 1).
+        val rowOnDisk = store.read().first()
+        assertEquals("initIdempotencyKey survives the round-trip through queue.json", initKeyAtConstruction, rowOnDisk.initIdempotencyKey)
+        assertEquals("partsIdempotencyKey survives the round-trip through queue.json", partsKeyAtConstruction, rowOnDisk.partsIdempotencyKey)
+    }
+
+    @Test
+    fun `LOCAL reset of a client-side DEAD_LETTER row routes to slash parts not slash reupload (Wave-1.5 Item 2)`() {
+        // Wave-1.5 Item 2: HumynUpload.reupload(recordingId) on a row with
+        // state=DEAD_LETTER && uploadId!=null && !reupload does a LOCAL reset
+        // (state→UPLOADING, deadLetterReason=null, KEEP uploadId/imuUploadId/
+        // parts/etags). The drainer then takes the postRePresign branch (/parts),
+        // NOT /reupload (which would 409 — the server's reupload.ts:125-138
+        // requires qa_status='hash-mismatch'). We assert the drain OUTCOME of a
+        // row in the post-LOCAL-reset state — that's the contract the
+        // HumynUploadModule branching produces.
+        val recId = "01JLOCALRESET01XXXXXXXXXXXX"
+        val (mp4, csv, json) = writeBundle(recId, mp4Bytes = 12_000_000) // ~12 MB → 2 parts
+        store.enqueue(
+            UploadRow(
+                recordingId = recId, ownerUserId = "userA",
+                mp4Path = mp4.path, csvPath = csv.path, jsonPath = json.path,
+                taskId = "T".repeat(26), isPractice = false,
+            ),
+        )
+        // Post-LOCAL-reset state: state=UPLOADING (was DEAD_LETTER), uploadId
+        // preserved, parts preserved with their ETags, metadataPut=DONE
+        // preserved, reupload=false, deadLetterReason=null.
+        store.upsert(
+            store.read()[0].also {
+                it.uploadId = "VID-UPLOAD-ID"
+                it.imuUploadId = "IMU-UPLOAD-ID"
+                it.partsCount = 2
+                it.chunkBytes = WIFI_CHUNK_BYTES
+                it.reupload = false
+                it.state = UploadState.UPLOADING
+                it.deadLetterReason = null
+                it.metadataPut = PartStatus.DONE
+                it.videoParts.add(PartState(1, PartStatus.DONE, etag = "\"etag-vid-1\""))
+                it.videoParts.add(PartState(2, PartStatus.DONE, etag = "\"etag-vid-2\""))
+                it.imuParts.add(PartState(1, PartStatus.DONE, etag = "\"etag-imu-1\""))
+            },
+        )
+        val coord = coordinator()
+        coord.drainNow()
+
+        // The post-LOCAL-reset drain hit /parts (re-presign), NOT /reupload (no full reset).
+        assertEquals("LOCAL-reset drain takes /parts", 1, partsCalls.get())
+        assertEquals("LOCAL-reset drain does NOT call /reupload", 0, reuploadCalls.get())
+        assertEquals("LOCAL-reset drain does NOT call /init", 0, initCalls.get())
+        // The /parts Idempotency-Key is the row's partsIdempotencyKey (Wave-1.5 Item 1).
+        val rowAfterUpsert = store.read().first()
+        val partsKey = idempotencyKeysByPath["/parts"]
+        assertNotNull("/parts must send an Idempotency-Key", partsKey)
+        assertEquals("/parts uses partsIdempotencyKey", rowAfterUpsert.partsIdempotencyKey, partsKey)
+        // No part was re-PUT — all were DONE before; the re-presign just re-issues fresh URLs.
+        assertTrue("no part PUT (all DONE)", putCalls.keys.none { it.startsWith("/s3/video/") || it.startsWith("/s3/imu/") })
+        // /finalize fired with the original ETags preserved (UP-04 guarantee).
+        val fin = lastFinalizeBody.get()!!
+        assertEquals("\"etag-vid-1\"", fin.getJSONArray("videoParts").getJSONObject(0).getString("etag"))
+        assertEquals("\"etag-vid-2\"", fin.getJSONArray("videoParts").getJSONObject(1).getString("etag"))
+        assertEquals("\"etag-imu-1\"", fin.getJSONArray("imuParts").getJSONObject(0).getString("etag"))
+        // Row ends AWAITING_VERIFY; uploadId preserved across the drain.
+        val back = store.read().first()
+        assertEquals(UploadState.AWAITING_VERIFY, back.state)
+        assertEquals("VID-UPLOAD-ID", back.uploadId)
+        assertEquals("IMU-UPLOAD-ID", back.imuUploadId)
+    }
+
+    @Test
+    fun `four distinct keys across init parts finalize reupload (no cross-route reuse)`() {
+        // Drive a row through /init → /finalize (Wave 1 happy path) and a separate
+        // row through /reupload → /finalize (Wave 1 hash-mismatch path) and a
+        // third row through a re-drain → /parts. Across the three rows, capture
+        // the four route-keyed Idempotency-Keys and assert all 4 captured values
+        // are distinct UUIDv4s and are uniquely matched to ONE route each.
+        val uuidV4 = Regex("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
+
+        // 1. /init + /finalize via a fresh row (Wave 1 happy path).
+        val r1 = row("01JCOORDIDEM4XXXXXXXXXXXXXX")
+        store.enqueue(r1)
+        coordinator().drainNow()
+        val initKey = idempotencyKeysByPath["/recordings/init"]
+        // /finalize captured here; we'll re-capture below for the reupload row to assert distinctness.
+        val finalizeKey1 = idempotencyKeysByPath["/finalize"]
+
+        // 2. Re-drain a separate row to drive /parts.
+        idempotencyKeysByPath.clear()
+        val r2 = row("01JCOORDIDEM5XXXXXXXXXXXXXX").also {
+            it.uploadId = "VID-UPLOAD-ID"
+            it.imuUploadId = "IMU-UPLOAD-ID"
+            it.partsCount = 2
+            it.chunkBytes = WIFI_CHUNK_BYTES
+            it.videoParts.add(PartState(1, PartStatus.DONE, etag = "\"e1\""))
+            it.videoParts.add(PartState(2))
+            it.imuParts.add(PartState(1))
+        }
+        store.enqueue(r2)
+        coordinator().drainNow()
+        val partsKey = idempotencyKeysByPath["/parts"]
+
+        // 3. Re-upload a third row to drive /reupload.
+        idempotencyKeysByPath.clear()
+        val r3 = row("01JCOORDIDEM6XXXXXXXXXXXXXX").also {
+            it.reupload = true
+            it.uploadId = "old-vid"
+            it.imuUploadId = "old-imu"
+            it.partsCount = 1
+            it.chunkBytes = WIFI_CHUNK_BYTES
+            it.state = UploadState.PENDING
+            it.videoParts.add(PartState(1))
+            it.imuParts.add(PartState(1))
+        }
+        store.enqueue(r3)
+        coordinator().drainNow()
+        val reuploadKey = idempotencyKeysByPath["/reupload"]
+        val finalizeKey3 = idempotencyKeysByPath["/finalize"]
+
+        // All four captured keys are present + UUIDv4-shaped.
+        assertNotNull("/init key captured", initKey)
+        assertNotNull("/parts key captured", partsKey)
+        assertNotNull("/finalize key captured (from row 1 OR 3)", finalizeKey1 ?: finalizeKey3)
+        assertNotNull("/reupload key captured", reuploadKey)
+        listOf(initKey, partsKey, finalizeKey1, reuploadKey).forEach {
+            if (it != null) assertTrue("UUIDv4 shape: $it", uuidV4.matches(it))
+        }
+        // Cross-route distinctness — no two routes use the same captured key.
+        val captured = listOfNotNull(initKey, partsKey, finalizeKey1, reuploadKey)
+        assertEquals("four distinct keys across the four routes", captured.size, captured.toSet().size)
+        // And specifically: every row was constructed with 4 distinct keys.
+        listOf(r1, r2, r3).forEach { r ->
+            val perRow = setOf(r.initIdempotencyKey, r.partsIdempotencyKey, r.finalizeIdempotencyKey, r.reuploadIdempotencyKey)
+            assertEquals("row ${r.recordingId} has 4 distinct per-route keys", 4, perRow.size)
+        }
     }
 
 }
