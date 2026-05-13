@@ -33,24 +33,18 @@ Five total root causes (3 fixed inline + 2 outstanding) + adjacent cosmetic / se
 ### 1. End-to-end upload (Pixel 7a/8a-class + dev backend) + the hash-mismatch path
 
 expected: On a Pixel 7a/8a-class device with the dev backend up (Postgres + Redis + LocalStack + worker), record a ≥60 s task → the bundle (mp4 + IMU CSV + metadata.json) auto-enqueues; the Pending Uploads tile/screen shows "Uploading…" progressing, then the row drops once verified. Bundle lands in S3 (`aws --endpoint-url=http://localhost:4566 s3 ls s3://humyn-recordings-dev/recordings/`), the BullMQ hash-verify worker re-hashes, `recordings.qa_status='verified'`, the next authed API response carries `_events: [{recording_id, event_type:'verified'}]`, the local mp4+csv+json are deleted, the row disappears from the queue. Then corrupt the S3 object → hash-mismatch → `re-upload` event → re-upload-from-local → re-verify. Runbook: `.planning/runbooks/05-upload-smoke.md`.
-result: issue
-reported: "recording could not start"
-severity: blocker
-device: Pixel 10a (5C161JEA304304), Android 16, build apkRollout-Debug
-evidence: |
-Logcat at 13:51:00.179 — `E HumynCapture: start() failed — code=invalid_opts msg=invalid_opts: name`
-Stack: CaptureSessionOptsBridge.requireNonEmpty(CaptureSessionOptsBridge.kt:150)
-← CaptureSessionOptsBridge.fromBridge(CaptureSessionOptsBridge.kt:84) // `requireNonEmpty(contributorMap, "name")`
-← HumynCaptureModule.start$lambda$0(HumynCaptureModule.kt:138)
-JS-side root cause: RecordingScreen.tsx:695 emits `user.name: u.user?.name ?? ''` from `useAppStore.getState().user.name`,
-where `UserDisplay.name` is `string | null` (appStore.ts:51). A signed-in user whose store `name` is null/empty
-(sign-in path didn't populate it, or the dev `tester@example.com` user round-tripped without name) yields `''`,
-which the Kotlin bridge rejects with `invalid_opts: name` before HumynCapture.start ever opens Camera2 for the
-HEVC pipeline. Backend half (server users table) shows `name='Tester'` non-empty — so the regression is mobile-side.
-Other RecordingScreen pre-conditions all passed: HumynGateCamera opened on RearWide, hand gate confirmed (call
-reached `await HumynCapture.start(opts)` per RecordingScreen.tsx:703), MMKV humyn.secure mmap'd, consent guard
-passed (`u.consent != null` was truthy or buildCaptureOpts would have thrown 'Cannot start a capture session
-without recorded consent' instead). Item 1 cannot run further; items 2–5 are downstream of a successful start.
+result: partial
+reported: "§2 happy path PASSES on Pixel 10a (post-Plan-05-15 build) — record → S3 → worker `verified` → `_events` → locals deleted → row gone. §3 hash-mismatch leg not yet exercised (clearVerified deleted the locals for 01KRGA1B5H8BSRNFPSRHQFTHQ8; needs another recording)."
+severity: passed-pending-§3
+device: Pixel 10a (5C161JEA304304), Android 16, build apkRollout-Debug (commits c551138..d143a75)
+prior_issue_resolution: |
+The 2026-05-13 morning `invalid_opts: name` blocker (CaptureSessionOptsBridge.requireNonEmpty :150 ← :84 ← HumynCaptureModule.kt:138) is RESOLVED by Plan 05-15 / Gap Wave 3 (4 commits 2da5465..ff19694, fast-forward-merged into main as 4e2897a). Wave-1.5 plan 05-14 + Plan 05-15 together closed the morning walk's regressions. The §2 re-walk this afternoon successfully drove the full happy path end-to-end with the new build.
+§2_happy_path_evidence: |
+Recording `01KRGA1B5H8BSRNFPSRHQFTHQ8`: fresh sign-in after `adb shell pm clear` wiped the stale-JWT state — new user row `01KRG9XG7VCSAYN823Q96FJ216` created via POST /auth/google (`name='Adnaan Mohammed', email='m.adnaan161@gmail.com'`); Plan-05-15 coalesceDisplayName propagation path active (Google's displayName came through non-empty on this run, so the email-local-part fallback wasn't exercised — see §3 / future). RecordingScreen → hand gate → HumynCapture.start() proceeded past CaptureSessionOptsBridge.fromBridge into the HEVC pipeline (no `invalid_opts: name`); Camera2 opened on RearWide ultrawide, ECOSession created at 1920×1080, recording ran ~93 s (duration_ms=92748). Stop → contribution toast → Home (toast killed-by-transition is a pre-existing 05-COSMETIC-GAPS item, not regressed). Auto-enqueued with 11 video parts + 1 IMU part + metadata.json; all 4 per-route Idempotency-Keys minted as distinct UUIDv4s (Wave-1.5 Plan 05-14 Item 1 holds — no cross-route 409). FGS started with `dataSync` type; Wave-1.5 drainNow cold-start kick fired. Bundle landed in S3 at `recordings/01KRG9XG7VCSAYN823Q96FJ216/01KRGA1B5H8BSRNFPSRHQFTHQ8/` — video.mp4 (90,288,788 B), imu.csv (4,019,618 B), metadata.json (2,313 B). `recordings.qa_status='uploaded'` after /finalize 200, IP server-populated (UP-18), `recordings_to_verify` row written. BullMQ hash-verify worker had an INDEPENDENT stale-state issue (Drizzle pool + tsx-watch interaction); manual restart (`pkill` + `nohup pnpm --filter @humyn/api worker:hash-verify:dev`) drained the queue in 0.6 s — `qa_status='verified'`, `verified_at='2026-05-13 09:26:27.124+00'`, outbox event `verified` written. **Stale-worker recovery is a dev-stack quirk, NOT a Phase 5 defect**; runbook §1 candidate footnote. App-to-foreground → next authed call piggybacked `_events: [{event_type:'verified'}]` → `HumynUpload.clearVerified` unlinked the local triple and dropped the queue row. Post-delivery snapshot: `files/recordings/` empty, `queue.json: []`, `recordings_to_verify` drained, contributions row written (`duration_ms=92748, recording_count=1, task_count=1`). ✓
+§2_cosmetic_observations: |
+(1) Tap on the (now empty) Pending uploads tile routed correctly to MainTabs/History per the Wave-1.5 rewire — but History is `HistoryPlaceholderScreen.tsx` (Phase 6 "Coming soon" stub). Expected, not a Phase 5 defect. Logged to 05-COSMETIC-GAPS.md. (2) No live progress bar observed on the Pending Uploads row — the ~90 MB / 11-part multipart PUT to LocalStack@localhost completed in ~3 s, faster than the user could navigate to Home; by then the row was in AWAITING_VERIFY state (no continuous progress to render). Dev-environment artifact; the Wave-1.5 Item 4 progress chip + determinate fill will be exercisable on the §4 CGNAT-cellular walk. Logged to 05-COSMETIC-GAPS.md.
+§3_remaining: |
+The hash-mismatch leg of Item 1 is NOT yet exercised. After §2's `verified` event delivery, the local triple for `01KRGA1B5H8BSRNFPSRHQFTHQ8` is gone, so we can't re-upload-from-local for that recording. §3 needs either (a) a fresh recording where we corrupt the S3 object + reset qa_status before the `_events: verified` is delivered to the device, OR (b) keep a future recording's app in background long enough to corrupt-and-reverify before clearVerified runs. Either path requires another on-device recording.
 
 ### 2. Force-quit / OS-evict recovery + Android-14 FGS type downgrade + Android-15 UIDT onTimeout handoff
 
