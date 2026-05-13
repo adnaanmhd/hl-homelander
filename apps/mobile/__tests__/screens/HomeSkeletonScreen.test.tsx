@@ -204,4 +204,22 @@ describe('HomeSkeletonScreen', () => {
     });
     expect(await findByText(/Uploading… 47%/)).toBeTruthy();
   });
+
+  // Wave-1.5 Item 6 — Home pending-uploads-tile tap routes to MainTabs/History.
+
+  it('pending-uploads-tile tap routes to MainTabs → History (Wave-1.5 Item 6)', async () => {
+    const fireEvent = (await import('@testing-library/react')).fireEvent;
+    const { getByLabelText } = render(<HomeSkeletonScreen />);
+    fireEvent.click(getByLabelText('pending-uploads-tile'));
+    expect(navigateMock).toHaveBeenCalledWith('MainTabs', { screen: 'History' });
+  });
+
+  it('pending-uploads-tile tap does NOT route to the standalone PendingUploads orphan screen', async () => {
+    const fireEvent = (await import('@testing-library/react')).fireEvent;
+    const { getByLabelText } = render(<HomeSkeletonScreen />);
+    fireEvent.click(getByLabelText('pending-uploads-tile'));
+    // Old (Phase-5-08) route was navigation.navigate('PendingUploads') — Wave-1.5 Item 6 removes it.
+    expect(navigateMock).not.toHaveBeenCalledWith('PendingUploads');
+    expect(navigateMock).not.toHaveBeenCalledWith('PendingUploads', expect.anything());
+  });
 });
