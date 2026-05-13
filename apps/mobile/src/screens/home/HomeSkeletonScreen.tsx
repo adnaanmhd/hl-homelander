@@ -30,7 +30,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import ScreenContainer from '../../ui/primitives/ScreenContainer';
 import Text from '../../ui/primitives/Text';
 import { TopBar } from '../../components/TopBar';
@@ -50,6 +50,16 @@ import {
 } from '../../native/HumynUpload';
 import { drainPendingUploadToast } from '../../state/uploadToastBus';
 import { showToast } from '../../components/Toast';
+import { reconcileOnce } from '../../services/uploadReconcile';
+
+// Wave-2 #6 — foreground poll cadence on Home for the verified-event outbox
+// drain. The MVP delivery path is the `_events` envelope piggy-backed on
+// authed JSON responses (services/api.ts interceptor) + the cold-start /
+// AppState→active reconcile sweep (services/uploadReconcile.ts). Neither
+// fires while the user lingers on Home post-recording on a fast dev-stack
+// upload, so the Pending-Uploads row sits at `awaiting-verify` indefinitely
+// from the user's perspective. A 30-s focused poll closes that gap.
+const HOME_RECONCILE_POLL_MS = 30_000;
 
 // (Phase 3 smoke seam removed in Phase 4 — the real RecordingScreen now wires
 //  the HumynCapture start path; trail: deferred-items.md D4-01 + commit 15d8a16.)
@@ -133,6 +143,28 @@ export default function HomeSkeletonScreen() {
       showToast(pending.text, pending.durationMs);
     }
   }, []);
+
+  // Wave-2 #6 — verified-event auto-poll while Home is focused. The
+  // `_events`-envelope onSend hook only drains when the app issues an
+  // authed request; a user lingering on Home post-record never triggers
+  // one. `reconcileOnce()` calls /recordings/verified-ids → for any id
+  // present in both the server's verified set AND the local queue,
+  // `HumynUpload.clearVerified()` unlinks the triple + drops the row,
+  // and the same response's `_events` envelope drains any other pending
+  // verified / re-upload events through the api interceptor. Wrapped in a
+  // `useFocusEffect` so the timer is set up on Home focus and torn down
+  // on blur/unmount — no orphan polls when the user navigates elsewhere.
+  useFocusEffect(
+    useCallback(() => {
+      const tick = () => {
+        void reconcileOnce().catch(() => undefined);
+      };
+      const id = setInterval(tick, HOME_RECONCILE_POLL_MS);
+      return () => {
+        clearInterval(id);
+      };
+    }, []),
+  );
 
   return (
     <ScreenContainer accessibilityLabel="Home screen" padding={0}>
