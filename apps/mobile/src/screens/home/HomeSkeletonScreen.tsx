@@ -214,7 +214,10 @@ export default function HomeSkeletonScreen() {
                       </Text>
                       <Text style={styles.cardRowMeta}>{rowMeta(row)}</Text>
                     </View>
-                    <UploadStatusChip variant={chipVariantFor(row)} percent={pct} />
+                    <UploadStatusChip
+                      variant={chipVariantFor(row)}
+                      {...(pct != null ? { percent: pct } : {})}
+                    />
                   </View>
                   {isActive && pct != null ? (
                     // Wave-1.5 Item 4 — sibling determinate progress bar. Token-aligned
