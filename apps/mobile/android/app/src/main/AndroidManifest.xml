@@ -50,6 +50,18 @@
     <uses-permission android:name="android.permission.RUN_USER_INITIATED_JOBS" />
 
     <!--
+      Phase 6 Plan 06-01 (D-09 Wave 1) — explicit VIBRATE permission audit.
+      RN's `Vibration` module's own manifest already declares this permission
+      via the merged-manifest auto-merge, but per 06-RESEARCH.md "Pattern 8:
+      Vibrator fix candidates" we declare it explicitly here so the merged
+      manifest carries it regardless of RN library auto-merge timing on
+      Android 16 / Pixel 10a. Normal-protection permission — granted at
+      install without a runtime prompt; powers the `[100,50,100] ms` battery
+      and 800 ms thermal-abort haptics from `useRecordingLifecycle.ts`.
+    -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!--
       Phase 2 (PERM-03 — plan 02-14) — coarse location declaration ONLY.
       Runtime prompt is deferred to Phase 4's first-recording flow via
       apps/mobile/src/services/locationPermission.ts (requestCoarseLocation).
