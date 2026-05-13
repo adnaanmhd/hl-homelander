@@ -25,3 +25,34 @@ and were intentionally left untouched (per the executor scope-boundary rule).
   `com.facebook.react.bridge.BridgeReactContext`) in `HumynHandDetectorModuleTest.kt`.
   Should be a 2-line change. Best folded into the next Android plan in this phase
   (05-02) or a `/gsd-quick`.
+
+## Plan 05-15 — Pre-existing Wave-1.5 Kotlin test-compile errors
+
+**Discovered:** 2026-05-13 during Plan 05-15 Task 3 Gradle verification attempt.
+**Origin:** commits `dce108e8` (Wave-1.5 Item 2) + `2d59485` (Wave-1.5 Item 1).
+
+`apps/mobile/android/app/src/test/java/ai/humynlabs/capture/upload/UploadCoordinatorTest.kt:743`
+and `UploadQueueStoreTest.kt:267, 343` use Kotlin backtick-quoted method names that
+contain `Wave-1.5` — the `1.5` is parsed by the Kotlin lexer as `1` + `.` + `5`,
+and `.` is illegal in identifier characters (even inside backticks). Gradle fails
+with: `Name contains illegal characters: ..`
+
+**Impact on Plan 05-15:** Blocks `:app:testApkRolloutDebugUnitTest` for the
+entire test source set, including the +2 new Robolectric tests this plan added
+(`missing contributor name throws invalid_opts name`, `missing contributor email
+throws invalid_opts email`). Static review confirms my new tests use the exact
+same `JavaOnlyMap` / `IllegalArgumentException` / `e.message!!.contains(...)`
+pattern as the existing 8 passing tests in the file, and exercise the
+`requireNonEmpty(map, "name"|"email")` guards at `CaptureSessionOptsBridge.kt:84-85`
+which throw `IllegalArgumentException("invalid_opts: $key")` per the source — so
+the test bodies will compile + pass once the upstream test-name compile errors
+are fixed.
+
+**Recommended fix:** Rename the three offending test functions to either replace
+`1.5` with `1-5`/`1_5` or drop the version suffix from the function name (the
+`(Wave-1.5 Item N)` annotation can move into a comment). Trivial mechanical fix,
+but DELIBERATELY out of scope for Plan 05-15 — this plan closes the UAT
+2026-05-13 `invalid_opts: name` blocker, not the broader Wave-1.5 test hygiene.
+
+**SCOPE BOUNDARY** rule applied: pre-existing test failures in unrelated files
+are not auto-fixed by the executor.

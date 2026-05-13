@@ -180,4 +180,57 @@ class CaptureSessionOptsBridgeTest {
         val opts = CaptureSessionOptsBridge.fromBridge(m)
         assertEquals(null, opts.contributor.gender)
     }
+
+    @Test
+    fun `missing contributor name throws invalid_opts name`() {
+        val m = validMap()
+        // Replace the contributor sub-map with an empty-name variant —
+        // the JS-side guard in buildCaptureOpts (UAT 2026-05-13 gap
+        // closure, Plan 05-15) MUST be the first observable failure for
+        // an empty name; this test pins that the Kotlin bridge remains
+        // a defense-in-depth backstop (T-3.3-01) that fires identically
+        // if a malicious / buggy JS caller bypasses the JS guard and
+        // calls NativeModules.HumynCapture.start directly with an empty
+        // contributor.name.
+        m.putMap(
+            "contributor",
+            JavaOnlyMap().apply {
+                putString("name", "")
+                putString("email", "alice@example.com")
+                putInt("age", 28)
+                putString("gender", "female")
+                putBoolean("consent", true)
+            },
+        )
+        try {
+            CaptureSessionOptsBridge.fromBridge(m)
+            fail("should throw on empty contributor.name")
+        } catch (e: IllegalArgumentException) {
+            assertTrue("message=${e.message}", e.message!!.contains("invalid_opts: name"))
+        }
+    }
+
+    @Test
+    fun `missing contributor email throws invalid_opts email`() {
+        val m = validMap()
+        // Symmetric guard test — buildCaptureOpts also rejects empty
+        // email at the JS layer; this pins the Kotlin defense-in-depth
+        // (T-3.3-01) for the email field.
+        m.putMap(
+            "contributor",
+            JavaOnlyMap().apply {
+                putString("name", "Alice")
+                putString("email", "")
+                putInt("age", 28)
+                putString("gender", "female")
+                putBoolean("consent", true)
+            },
+        )
+        try {
+            CaptureSessionOptsBridge.fromBridge(m)
+            fail("should throw on empty contributor.email")
+        } catch (e: IllegalArgumentException) {
+            assertTrue("message=${e.message}", e.message!!.contains("invalid_opts: email"))
+        }
+    }
 }
