@@ -149,12 +149,20 @@ data class UploadRow(
     /**
      * Stable UUIDv4 sent as `Idempotency-Key` on every `POST /recordings/init`
      * for this row. Minted once at construction; reused only across retries of
-     * THIS route. Per-route split (not a single per-row key) because the
-     * server's global idempotency pre-handler caches by `(user_id, key)` and
-     * rejects on body mismatch — same key + different `(method,path,body)` ⇒
-     * 409 idempotency-key-conflict; per-route keys make every (key,body) pair
-     * stable. Fix surfaces Wave-1.5 Item 1, see 05-COSMETIC-GAPS.md + the
-     * 2026-05-13 walk log (recording `01KRFZ91Y3E315AJVG75KXJZE6`).
+     * THIS route within ONE upload session. Per-route split (not a single
+     * per-row key) because the server's global idempotency pre-handler caches
+     * by `(user_id, key)` and rejects on body mismatch — same key + different
+     * `(method,path,body)` ⇒ 409 idempotency-key-conflict; per-route keys make
+     * every (key,body) pair stable. Fix surfaces Wave-1.5 Item 1, see
+     * 05-COSMETIC-GAPS.md + the 2026-05-13 walk log (recording
+     * `01KRFZ91Y3E315AJVG75KXJZE6`).
+     *
+     * Rotated at the hash-mismatch boundary by `HumynUploadModule.reupload()`'s
+     * Path-A `else ->` branch (worker-fired re-upload). A hash-mismatch
+     * re-upload is logically a NEW upload session for /init/parts/finalize even
+     * though it shares the queue row — same key + different (uploadId, parts)
+     * body would 409 in the server's pre-handler. See debug session
+     * `.planning/debug/reupload-finalize-409.md` (2026-05-13).
      */
     var initIdempotencyKey: String = UUID.randomUUID().toString(),
     /**
@@ -173,6 +181,12 @@ data class UploadRow(
      * Stable UUIDv4 sent as `Idempotency-Key` on every
      * `POST /recordings/:id/reupload`. Minted once at construction; reused only
      * across retries of THIS route. See [initIdempotencyKey] for the rationale.
+     *
+     * Asymmetry vs init/parts/finalize: this key is NOT rotated at the
+     * hash-mismatch boundary. `/reupload` is one-shot per re-upload cycle and
+     * the body is `{partsCount}` only — a replay with the same key + same body
+     * is correct idempotent behavior (the server returns the cached 200 +
+     * presigned URLs). See `HumynUploadModule.reupload()` Path-A.
      */
     var reuploadIdempotencyKey: String = UUID.randomUUID().toString(),
 ) {

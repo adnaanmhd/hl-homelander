@@ -12,6 +12,7 @@ import com.facebook.react.bridge.WritableMap
 import com.facebook.react.module.annotations.ReactModule
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import ai.humynlabs.capture.fgs.HumynForegroundService
+import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -317,12 +318,25 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
                         // Worker-fired re-upload (server qa_status='hash-mismatch') OR retry of a
                         // non-dead-lettered row. Full reset: drainer takes the postReupload branch
                         // (POST /recordings/:id/reupload), server accepts on hash-mismatch.
+                        //
+                        // ROTATE the three per-route idempotency keys (Wave-1.5 Item 1's split was
+                        // scoped to retries within ONE upload session; a hash-mismatch re-upload is
+                        // logically a NEW session for /init/parts/finalize even though it shares the
+                        // row). Without rotation the post-reupload /finalize replays the SAME key
+                        // against a different (uploadId, parts) body → server's idempotency cache
+                        // 409s in 4 ms before the route handler runs. See debug session
+                        // .planning/debug/reupload-finalize-409.md (2026-05-13). reuploadIdempotencyKey
+                        // is NOT rotated — /reupload is one-shot per re-upload cycle and replay with
+                        // the same body ({partsCount}) is correct idempotent behavior.
                         row.reupload = true
                         row.state = UploadState.PENDING
                         row.uploadId = null
                         row.imuUploadId = null
                         row.metadataPut = PartStatus.PENDING
                         row.deadLetterReason = null
+                        row.initIdempotencyKey = UUID.randomUUID().toString()
+                        row.partsIdempotencyKey = UUID.randomUUID().toString()
+                        row.finalizeIdempotencyKey = UUID.randomUUID().toString()
                         for (p in row.videoParts) { p.status = PartStatus.PENDING; p.etag = null; p.retryCount = 0 }
                         for (p in row.imuParts) { p.status = PartStatus.PENDING; p.etag = null; p.retryCount = 0 }
                     }
