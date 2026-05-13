@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 6 context gathered
-last_updated: '2026-05-13T20:05:12.500Z'
-last_activity: 2026-05-13 -- Phase 06 planning complete
+last_updated: '2026-05-13T20:49:32.025Z'
+last_activity: 2026-05-13 -- Phase 06 execution started
 progress:
   total_phases: 7
   completed_phases: 5
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-07)
 
 **Core value:** On-device capture quality is non-negotiable — every uploaded segment must hit the locked spec (1080p / 30 FPS / ≥110° dFOV / IMU sustained ≥100 Hz / ±1 ms timestamp alignment) or the bytes are worthless for training. (The ±1 ms drift gate was relaxed 2026-05-12 to measure-and-record per CLAUDE.md banner; ultrawide ≥110° dFOV is the load-bearing constraint.)
-**Current focus:** Phase 06 — tasks-history-home-tiles-lexical-search (not yet planned).
+**Current focus:** Phase 06 — tasks-history-home-tiles-lexical-search
 
 ## Current Position
 
-Phase: 06 (tasks-history-home-tiles-lexical-search) — NOT STARTED
-Plan: 0 of TBD
-Status: Ready to execute
+Phase: 06 (tasks-history-home-tiles-lexical-search) — EXECUTING
+Plan: 1 of 11
+Status: Executing Phase 06
 
 Phase 2 operator smoke-walk history (carried forward):
 
@@ -47,7 +47,7 @@ Phase 3 hardware UAT pending (7 items, all on real Pixel 7a/8a) — these RETIRE
 - #6 CAP-18 byte-for-byte SHA round-trip — §3 on-disk SHA ↔ metadata assertion (Phase 5 owns the device→S3 leg)
 - #7 CAP-13 onSessionStart/Stop upload-pause seam — §3 session start/stop event log assertion (log-only at Phase 4; Phase 5 wires the pause)
 
-Last activity: 2026-05-13 -- Phase 06 planning complete
+Last activity: 2026-05-13 -- Phase 06 execution started
 
 Phase 5 close-out (2026-05-13 evening): UAT walked end-to-end on Pixel 10a (`5C161JEA304304`, Android 16, apkRollout-Debug HEAD `e51984d` → `d9a2bd7`). Items 1 + 2 + 4 + 5 + 6 PASS, Item 3 PARTIAL (AOSP/Pixel passes; OEM device sweep folded into Phase 7 — see ROADMAP §Phase 7 carry-over). Wave-2 follow-on items landed: #7 progress chip + determinate fill (commit `c1c5f4f`), #6 verified-event 30-s auto-poll on Home (commit `5c18791`), #5 drainer in-loop transient retry + tile-tap `drainNowSafe` kick (commit `e51984d`). Cellular Item 4 walk: real Jio CGNAT via cloudflared tunnels → 39 watchdog cancellations → recording `01KRH652NZ0TRF645KNR0K4440` qa_status='verified' at 17:44:31 UTC. New cosmetic finding: `HumynBeep`/SoundPool tones + haptics silent on Android 16 (voice path passes the UAT acceptance) — folded into Phase 6 (see ROADMAP §Phase 6 carry-over). All 15 plans landed (05-01..05-15 = 8 initial + 5 gap-closure + 1 Wave-1.5 + 1 Gap-Wave-3); 8 evidence recordings preserved in DB. Phase-level `phase.complete` issued by owner 2026-05-13 evening; next: `/gsd-discuss-phase 6` (carry the HumynBeep/SoundPool item into the Phase 6 plan).
 
