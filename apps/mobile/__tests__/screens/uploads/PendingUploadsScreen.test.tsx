@@ -51,6 +51,10 @@ const { mockQueue, mockState, hooks } = vi.hoisted(() => ({
     queueChangedRemove: vi.fn(),
     progressRemove: vi.fn(),
     reupload: vi.fn().mockResolvedValue(undefined),
+    // Wave-1.5 Item 4 — capture the onUploadProgress listener so tests can fire it.
+    progressListener: null as
+      | ((e: { recordingId: string; bytesUploaded: number; bytesTotal: number }) => void)
+      | null,
   },
 }));
 
@@ -60,7 +64,12 @@ vi.mock('../../../src/native/HumynUpload', () => ({
     reupload: hooks.reupload,
   },
   onUploadQueueChanged: vi.fn(() => ({ remove: hooks.queueChangedRemove })),
-  onUploadProgress: vi.fn(() => ({ remove: hooks.progressRemove })),
+  onUploadProgress: vi.fn(
+    (cb: (e: { recordingId: string; bytesUploaded: number; bytesTotal: number }) => void) => {
+      hooks.progressListener = cb;
+      return { remove: hooks.progressRemove };
+    },
+  ),
 }));
 
 vi.mock('../../../src/lib/jwtSub', () => ({
@@ -82,6 +91,7 @@ describe('PendingUploadsScreen (Plan 05-08)', () => {
     hooks.progressRemove.mockReset();
     hooks.reupload.mockReset();
     hooks.reupload.mockResolvedValue(undefined);
+    hooks.progressListener = null;
   });
 
   it('renders the empty-state copy when the queue is empty', () => {
@@ -178,5 +188,56 @@ describe('PendingUploadsScreen (Plan 05-08)', () => {
     unmount();
     expect(hooks.queueChangedRemove).toHaveBeenCalledTimes(1);
     expect(hooks.progressRemove).toHaveBeenCalledTimes(1);
+  });
+
+  // Wave-1.5 Item 4 — live progress bar.
+
+  it('renders the sibling progress bar when an uploading row gets a progress event', async () => {
+    const { act } = await import('@testing-library/react');
+    const { getByLabelText } = render(
+      <PendingUploadsScreen __test_rows={[row({ state: 'uploading', recordingId: 'rec1' })]} />,
+    );
+    // Fire a synthetic onUploadProgress event at 47%.
+    act(() => {
+      hooks.progressListener?.({ recordingId: 'rec1', bytesUploaded: 47, bytesTotal: 100 });
+    });
+    const fill = getByLabelText('pending-upload-progress-fill');
+    // RN-Web renders style entries as inline CSS; the dynamic width comes through verbatim.
+    const inline = (fill as HTMLElement).getAttribute('style') ?? '';
+    expect(inline).toMatch(/width:\s*47%/);
+  });
+
+  it('progress bar does NOT render for awaiting-verify / verified / dead-letter rows', async () => {
+    const { queryByLabelText } = render(
+      <PendingUploadsScreen
+        __test_rows={[
+          row({ recordingId: 'r1', state: 'awaiting-verify' }),
+          row({ recordingId: 'r2', state: 'verified' }),
+          row({ recordingId: 'r3', state: 'dead-letter' }),
+        ]}
+      />,
+    );
+    // Even if a progress event were fired, the row.state !== 'uploading' so
+    // pct stays undefined and the bar is not rendered.
+    expect(queryByLabelText('pending-upload-progress-fill')).toBeNull();
+  });
+
+  it('progress bar does NOT render before a progress event arrives (uploading-but-no-progress)', () => {
+    const { queryByLabelText } = render(
+      <PendingUploadsScreen __test_rows={[row({ state: 'uploading' })]} />,
+    );
+    // No progressListener fire — pct is undefined; the bar should not render.
+    expect(queryByLabelText('pending-upload-progress-fill')).toBeNull();
+  });
+
+  it('chip percent label reads "Uploading… 47%" when a progress event is fired (47 of 100 bytes)', async () => {
+    const { act } = await import('@testing-library/react');
+    const { findByText } = render(
+      <PendingUploadsScreen __test_rows={[row({ state: 'uploading', recordingId: 'rec1' })]} />,
+    );
+    act(() => {
+      hooks.progressListener?.({ recordingId: 'rec1', bytesUploaded: 47, bytesTotal: 100 });
+    });
+    expect(await findByText(/Uploading… 47%/)).toBeTruthy();
   });
 });
