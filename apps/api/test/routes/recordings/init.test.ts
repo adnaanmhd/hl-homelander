@@ -263,3 +263,76 @@ describeIf('POST /recordings/init — idempotency (CR-02)', () => {
     expect(body.imuPartUrls).toHaveLength(2);
   });
 });
+
+describeIf('POST /recordings/init — concurrent-INSERT race (UP-13 §4 walk regression)', () => {
+  // The race surfaced 2026-05-13 on Pixel 10a §4a step-2 (debug session
+  // .planning/debug/init-toctou-race-on-resume.md): two /init handlers for
+  // the same recordingId both pass the SELECT-first idempotency guard before
+  // either INSERTs (LocalStack-pause holds both blocked on
+  // CreateMultipartUpload long enough to overlap; in production the same
+  // pattern fires when S3 latency exceeds the UP-19 ~30 s no-progress
+  // watchdog window + drainer immediate retry). Pre-fix: the loser returned
+  // 500 with `recordings_pkey` unique-violation. Post-fix: the loser
+  // self-heals through the same CR-02 idempotent re-presign path the
+  // SELECT-first guard takes — no 500.
+
+  it('two concurrent /init for the SAME recordingId NEVER both return 500 — one wins (201) + the other self-heals (200 idempotent)', async () => {
+    const recordingId = ulid();
+    const [a, b] = await Promise.all([
+      app.inject({
+        method: 'POST',
+        url: '/recordings/init',
+        headers: { authorization: `Bearer ${tok()}`, 'idempotency-key': idemKey() },
+        payload: initPayload(recordingId, 2),
+      }),
+      app.inject({
+        method: 'POST',
+        url: '/recordings/init',
+        headers: { authorization: `Bearer ${tok()}`, 'idempotency-key': idemKey() },
+        payload: initPayload(recordingId, 2),
+      }),
+    ]);
+
+    // Critical contract: NEITHER may 500. The race-loser must self-heal.
+    expect(a.statusCode).not.toBe(500);
+    expect(b.statusCode).not.toBe(500);
+
+    const codes = [a.statusCode, b.statusCode].sort();
+    // Acceptable orderings:
+    //   [200, 201] — natural race (one INSERTed, the other got the recordings_pkey
+    //                violation OR raced past SELECT after the INSERT committed).
+    //   [200, 200] — both went through the SELECT-first idempotent path (one
+    //                INSERTed quickly, the second SELECT saw the row + 200'd).
+    expect([[200, 201].toString(), [200, 200].toString()]).toContain(codes.toString());
+
+    // Whichever response was 201 is the row-creator; both responses MUST
+    // share the same uploadId (== existing.s3UploadId on the row).
+    const [row] = await db
+      .select()
+      .from(schema.recordings)
+      .where(eq(schema.recordings.id, recordingId));
+    expect(row).toBeDefined();
+    expect(row!.qaStatus).toBe('pending');
+    expect(a.json().uploadId).toBe(row!.s3UploadId);
+    expect(b.json().uploadId).toBe(row!.s3UploadId);
+  });
+
+  it('SEQUENTIAL second /init AFTER the first commits still returns 200 idempotent (preserves CR-02 lost-201 self-heal contract)', async () => {
+    const recordingId = ulid();
+    const first = await app.inject({
+      method: 'POST',
+      url: '/recordings/init',
+      headers: { authorization: `Bearer ${tok()}`, 'idempotency-key': idemKey() },
+      payload: initPayload(recordingId, 2),
+    });
+    expect(first.statusCode).toBe(201);
+    const second = await app.inject({
+      method: 'POST',
+      url: '/recordings/init',
+      headers: { authorization: `Bearer ${tok()}`, 'idempotency-key': idemKey() },
+      payload: initPayload(recordingId, 2),
+    });
+    expect(second.statusCode).toBe(200);
+    expect(second.json().uploadId).toBe(first.json().uploadId);
+  });
+});
