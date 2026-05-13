@@ -227,34 +227,50 @@ class UploadQueueStoreTest {
     }
 
     @Test
-    fun `mint a fresh UUIDv4 idempotencyKey at construction`() {
+    fun `mint four distinct per-route UUIDv4 idempotency keys at construction`() {
         val r = row("01JABCREC1XXXXXXXXXXXXXXXXX")
         // UUIDv4 syntactic check — same regex the server's idempotency plugin enforces.
         val v4 = Regex("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
-        assertTrue("row.idempotencyKey must be a lowercase UUIDv4 (server's UUID_V4_REGEX); got ${r.idempotencyKey}", v4.matches(r.idempotencyKey))
-        // Two fresh rows mint different keys.
+        assertTrue("row.initIdempotencyKey must be a lowercase UUIDv4; got ${r.initIdempotencyKey}", v4.matches(r.initIdempotencyKey))
+        assertTrue("row.partsIdempotencyKey must be a lowercase UUIDv4; got ${r.partsIdempotencyKey}", v4.matches(r.partsIdempotencyKey))
+        assertTrue("row.finalizeIdempotencyKey must be a lowercase UUIDv4; got ${r.finalizeIdempotencyKey}", v4.matches(r.finalizeIdempotencyKey))
+        assertTrue("row.reuploadIdempotencyKey must be a lowercase UUIDv4; got ${r.reuploadIdempotencyKey}", v4.matches(r.reuploadIdempotencyKey))
+        // All four per-route keys are pairwise distinct (Wave-1.5 Item 1 — no cross-route reuse).
+        val perRoute = setOf(r.initIdempotencyKey, r.partsIdempotencyKey, r.finalizeIdempotencyKey, r.reuploadIdempotencyKey)
+        assertEquals("row construction mints 4 pairwise-distinct keys", 4, perRoute.size)
+        // Two fresh rows mint independent keys.
         val r2 = row("01JABCREC2XXXXXXXXXXXXXXXXX")
-        assertNotEquals(r.idempotencyKey, r2.idempotencyKey)
+        assertNotEquals(r.initIdempotencyKey, r2.initIdempotencyKey)
+        assertNotEquals(r.partsIdempotencyKey, r2.partsIdempotencyKey)
+        assertNotEquals(r.finalizeIdempotencyKey, r2.finalizeIdempotencyKey)
+        assertNotEquals(r.reuploadIdempotencyKey, r2.reuploadIdempotencyKey)
     }
 
     @Test
-    fun `idempotencyKey survives a round trip through queue json`() {
+    fun `all four per-route idempotency keys survive a round trip through queue json`() {
         val (store, _) = newStore()
         val r = row("01JABCREC1XXXXXXXXXXXXXXXXX")
-        val originalKey = r.idempotencyKey
+        val originalInit = r.initIdempotencyKey
+        val originalParts = r.partsIdempotencyKey
+        val originalFinalize = r.finalizeIdempotencyKey
+        val originalReupload = r.reuploadIdempotencyKey
         store.enqueue(r)
         val back = store.read()
         assertEquals(1, back.size)
-        assertEquals("idempotencyKey must round-trip", originalKey, back[0].idempotencyKey)
+        assertEquals("initIdempotencyKey must round-trip", originalInit, back[0].initIdempotencyKey)
+        assertEquals("partsIdempotencyKey must round-trip", originalParts, back[0].partsIdempotencyKey)
+        assertEquals("finalizeIdempotencyKey must round-trip", originalFinalize, back[0].finalizeIdempotencyKey)
+        assertEquals("reuploadIdempotencyKey must round-trip", originalReupload, back[0].reuploadIdempotencyKey)
     }
 
     @Test
-    fun `fromJson mints a fresh UUIDv4 when a legacy row on disk has no idempotencyKey`() {
-        // Simulate the on-disk row from a pre-fix build (the currently-stuck
-        // 01KRFXGAWCMVQ89PJ2PBXSVAKK in the Phase-5 smoke walk). The persisted
-        // JSON has no idempotencyKey field at all — fromJson must mint a fresh
-        // UUIDv4 (and log a one-shot warn) so the row can finally drain.
-        val legacy = JSONObject().apply {
+    fun `fromJson mints four fresh UUIDv4s when a pre-Wave-1.5 row on disk has no per-route keys`() {
+        // Shape (a): the pre-commit-5c0b2d8 row layout — NO `*IdempotencyKey`
+        // fields at all (the currently-stuck `01KRFXGAWCMVQ89PJ2PBXSVAKK` from
+        // the Phase-5 smoke walk). fromJson must mint a fresh UUIDv4 for each
+        // of the four per-route fields (and log a one-shot warn) so the row
+        // can finally drain.
+        val legacyNoKey = JSONObject().apply {
             put("recordingId", "01KRFXGAWCMVQ89PJ2PBXSVAKK")
             put("ownerUserId", "userA")
             put("mp4Path", "/data/files/recordings/x.mp4")
@@ -268,16 +284,61 @@ class UploadQueueStoreTest {
             put("metadataPut", "PENDING")
             put("enqueuedAt", 1L)
             put("lastProgressAt", 1L)
-            // NO idempotencyKey field.
+            // NO idempotencyKey field; NO per-route key fields.
         }
-        val migrated = UploadRow.fromJson(legacy)
-        assertNotNull("fromJson must mint an idempotencyKey for a legacy row", migrated.idempotencyKey)
         val v4 = Regex("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
-        assertTrue(
-            "minted idempotencyKey must satisfy the server's UUID_V4_REGEX; got ${migrated.idempotencyKey}",
-            v4.matches(migrated.idempotencyKey),
+        val migratedA = UploadRow.fromJson(legacyNoKey)
+        assertNotNull("fromJson must mint initIdempotencyKey", migratedA.initIdempotencyKey)
+        assertNotNull("fromJson must mint partsIdempotencyKey", migratedA.partsIdempotencyKey)
+        assertNotNull("fromJson must mint finalizeIdempotencyKey", migratedA.finalizeIdempotencyKey)
+        assertNotNull("fromJson must mint reuploadIdempotencyKey", migratedA.reuploadIdempotencyKey)
+        assertTrue("init key UUIDv4-shaped; got ${migratedA.initIdempotencyKey}", v4.matches(migratedA.initIdempotencyKey))
+        assertTrue("parts key UUIDv4-shaped; got ${migratedA.partsIdempotencyKey}", v4.matches(migratedA.partsIdempotencyKey))
+        assertTrue("finalize key UUIDv4-shaped; got ${migratedA.finalizeIdempotencyKey}", v4.matches(migratedA.finalizeIdempotencyKey))
+        assertTrue("reupload key UUIDv4-shaped; got ${migratedA.reuploadIdempotencyKey}", v4.matches(migratedA.reuploadIdempotencyKey))
+        assertEquals(
+            "the four minted per-route keys are pairwise distinct (Wave-1.5 Item 1 — no cross-route reuse)",
+            4,
+            setOf(migratedA.initIdempotencyKey, migratedA.partsIdempotencyKey, migratedA.finalizeIdempotencyKey, migratedA.reuploadIdempotencyKey).size,
         )
-        assertEquals("01KRFXGAWCMVQ89PJ2PBXSVAKK", migrated.recordingId)
+        assertEquals("01KRFXGAWCMVQ89PJ2PBXSVAKK", migratedA.recordingId)
+
+        // Shape (b): a commit-`5c0b2d8`-era row with ONLY the legacy single
+        // `idempotencyKey` field. fromJson must STILL mint 4 fresh per-route
+        // UUIDv4s — it must NOT propagate the legacy key into all four routes
+        // (that re-introduces the cross-route 409 bug Wave-1.5 Item 1 closes).
+        val legacySingleKey = "11111111-2222-4333-8444-555555555555"
+        val legacyWithSingleKey = JSONObject().apply {
+            put("recordingId", "01KRFZ91Y3E315AJVG75KXJZE6")
+            put("ownerUserId", "userA")
+            put("mp4Path", "/data/files/recordings/y.mp4")
+            put("csvPath", "/data/files/recordings/y.csv")
+            put("jsonPath", "/data/files/recordings/y.json")
+            put("taskId", "01HVDEVSEEDTASK00000000000")
+            put("isPractice", false)
+            put("state", "PENDING")
+            put("videoParts", JSONArray())
+            put("imuParts", JSONArray())
+            put("metadataPut", "PENDING")
+            put("enqueuedAt", 1L)
+            put("lastProgressAt", 1L)
+            put("idempotencyKey", legacySingleKey)
+        }
+        val migratedB = UploadRow.fromJson(legacyWithSingleKey)
+        // None of the four per-route keys equal the legacy single key — they were minted independently.
+        assertNotEquals("init key MUST NOT inherit the legacy single idempotencyKey", legacySingleKey, migratedB.initIdempotencyKey)
+        assertNotEquals("parts key MUST NOT inherit the legacy single idempotencyKey", legacySingleKey, migratedB.partsIdempotencyKey)
+        assertNotEquals("finalize key MUST NOT inherit the legacy single idempotencyKey", legacySingleKey, migratedB.finalizeIdempotencyKey)
+        assertNotEquals("reupload key MUST NOT inherit the legacy single idempotencyKey", legacySingleKey, migratedB.reuploadIdempotencyKey)
+        assertTrue("init UUIDv4", v4.matches(migratedB.initIdempotencyKey))
+        assertTrue("parts UUIDv4", v4.matches(migratedB.partsIdempotencyKey))
+        assertTrue("finalize UUIDv4", v4.matches(migratedB.finalizeIdempotencyKey))
+        assertTrue("reupload UUIDv4", v4.matches(migratedB.reuploadIdempotencyKey))
+        assertEquals(
+            "the four minted per-route keys are pairwise distinct on shape (b) too",
+            4,
+            setOf(migratedB.initIdempotencyKey, migratedB.partsIdempotencyKey, migratedB.finalizeIdempotencyKey, migratedB.reuploadIdempotencyKey).size,
+        )
     }
 
 }
