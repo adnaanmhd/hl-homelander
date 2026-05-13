@@ -215,7 +215,19 @@ export default function HomeSkeletonScreen() {
           // (`humyn://pending-uploads` if/when added) — the Home tile no
           // longer routes there because it strands the user (no back nav,
           // no tab bar).
-          onPress={() => navigation.navigate('MainTabs', { screen: 'History' })}
+          //
+          // Wave-2 #5 — also kick the drainer (no unpause; drainNowSafe
+          // never throws) before navigating, so a stuck row on Home — a
+          // post-transient that hasn't had an external trigger since (cold
+          // start, JWT change, FGS heartbeat, UIDT JobService, RecordingScreen
+          // resume) — gets a fresh drain attempt as the natural operator
+          // gesture. The drainer's `drainLock.tryLock()` no-ops when one is
+          // already running, and `isPaused()` / `hasNetwork()` short-circuits
+          // are unchanged — so this never starves the navigation.
+          onPress={() => {
+            void HumynUpload.drainNowSafe().catch(() => undefined);
+            navigation.navigate('MainTabs', { screen: 'History' });
+          }}
           style={styles.card}
         >
           {pendingRows.length === 0 ? (

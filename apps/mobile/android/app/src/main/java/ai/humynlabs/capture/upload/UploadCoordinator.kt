@@ -82,6 +82,8 @@ class UploadCoordinator(
     private val isPaused: () -> Boolean,
     /** Test seam — short backoff so tests don't sleep 2/4/8 s. */
     private val chunkUploader: ChunkUploader = ChunkUploader(DEFAULT_HTTP_CLIENT),
+    /** Wave-2 #5 — sleep between bounded in-loop transient retries. Test seam: pass 1L so the retry test doesn't sleep 5 s. */
+    private val transientRetryDelayMs: Long = TRANSIENT_RETRY_DELAY_MS,
 ) {
 
     /**
@@ -195,25 +197,43 @@ class UploadCoordinator(
                 ) {
                     continue
                 }
-                try {
-                    uploadOne(row)
-                } catch (e: DeadLetterException) {
-                    // Wave-1.5 Item 9 — log the DEAD_LETTER transition BEFORE the state assignment
-                    // so logcat shows the move even if upsert/emitter throws. `row.recordingId` is
-                    // a ULID (no PII); `e.message` is the route + status code from
-                    // `DeadLetterException("/recordings/init -> 409 ...")` — body-free, never a
-                    // presigned URL (T-5-06-02). See parseInitResponse's IOException + the two
-                    // DeadLetterException construction sites in postInit / postRePresign.
-                    Log.w(TAG, "row ${row.recordingId} DEAD_LETTER: ${e.message}")
-                    row.state = UploadState.DEAD_LETTER
-                    row.deadLetterReason = e.message ?: "upload failed"
-                    queueStore.upsert(row)
-                    emitQueueChanged()
-                    lastEmitMs.remove(row.recordingId)
-                } catch (e: Exception) {
-                    // Transient — leave the row PENDING/UPLOADING; the next drain retries.
-                    // (Never log the presigned URLs — T-5-06-02. recordingId is a ULID, safe.)
-                    Log.w(TAG, "row ${row.recordingId} upload failed transiently: ${e.message}")
+                // Wave-2 #5 — bounded in-loop retry on a transient. A single
+                // transient (e.g., the /init 500 surfaced by the §4a walk, or a
+                // mid-PUT TCP reset on flaky cellular) previously sat the row
+                // until the next external trigger fired (cold-start drainNow,
+                // JWT change, FGS heartbeat, UIDT JobService, tile-tap, Retry).
+                // The bounded retry tries up to 3 attempts spaced 5 s apart per
+                // row, then falls through to the next row + relies on the next
+                // external trigger if all 3 still fail. uploadOne is re-drain-
+                // safe (DONE parts are preserved with their ETags; the next
+                // attempt takes the /parts branch and skips them — UP-04 / CR-01).
+                var attempts = 0
+                val maxAttempts = 3
+                while (true) {
+                    if (isPaused()) break
+                    try {
+                        uploadOne(row)
+                        break
+                    } catch (e: DeadLetterException) {
+                        Log.w(TAG, "row ${row.recordingId} DEAD_LETTER: ${e.message}")
+                        row.state = UploadState.DEAD_LETTER
+                        row.deadLetterReason = e.message ?: "upload failed"
+                        queueStore.upsert(row)
+                        emitQueueChanged()
+                        lastEmitMs.remove(row.recordingId)
+                        break
+                    } catch (e: Exception) {
+                        attempts++
+                        // Never log presigned URLs — T-5-06-02. `recordingId` is a ULID, safe.
+                        Log.w(TAG, "row ${row.recordingId} upload failed transiently (attempt $attempts/$maxAttempts): ${e.message}")
+                        if (attempts >= maxAttempts) break
+                        try {
+                            Thread.sleep(transientRetryDelayMs)
+                        } catch (ie: InterruptedException) {
+                            Thread.currentThread().interrupt()
+                            break
+                        }
+                    }
                 }
             }
         } finally {
@@ -608,6 +628,10 @@ class UploadCoordinator(
         // 20× under the per-part RTT on CGNAT cellular (Item 4 walk), so the
         // native bus pressure stays at <2 events/s/recording.
         private const val PROGRESS_DEBOUNCE_MS = 500L
+        // Wave-2 #5 — sleep between bounded in-loop transient retries
+        // (3 attempts × 5 s — see the loop just inside `drainNow`'s per-row
+        // body). Visible package-private so tests can pin the contract.
+        internal const val TRANSIENT_RETRY_DELAY_MS = 5_000L
 
         /**
          * The process-wide shared coordinator. `HumynUploadModule`, the FGS
