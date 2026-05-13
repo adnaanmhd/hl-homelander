@@ -183,11 +183,11 @@ class UploadCoordinator(
             return
         }
         try {
-            if (isPaused()) return
+            if (isPaused()) { Log.d(TAG, "drainNow paused at before-iteration"); return }
             val sub = getCurrentSub() ?: return
             if (!networkMonitor.hasNetwork()) return
             for (row in queueStore.read()) {
-                if (isPaused()) break
+                if (isPaused()) { Log.d(TAG, "drainNow paused at per-row checkpoint, row=${row.recordingId}"); break }
                 if (row.ownerUserId != sub) continue
                 if (row.state == UploadState.AWAITING_VERIFY ||
                     row.state == UploadState.VERIFIED ||
@@ -198,6 +198,13 @@ class UploadCoordinator(
                 try {
                     uploadOne(row)
                 } catch (e: DeadLetterException) {
+                    // Wave-1.5 Item 9 — log the DEAD_LETTER transition BEFORE the state assignment
+                    // so logcat shows the move even if upsert/emitter throws. `row.recordingId` is
+                    // a ULID (no PII); `e.message` is the route + status code from
+                    // `DeadLetterException("/recordings/init -> 409 ...")` — body-free, never a
+                    // presigned URL (T-5-06-02). See parseInitResponse's IOException + the two
+                    // DeadLetterException construction sites in postInit / postRePresign.
+                    Log.w(TAG, "row ${row.recordingId} DEAD_LETTER: ${e.message}")
                     row.state = UploadState.DEAD_LETTER
                     row.deadLetterReason = e.message ?: "upload failed"
                     queueStore.upsert(row)
@@ -293,7 +300,7 @@ class UploadCoordinator(
             queueStore.upsert(row)
         }
 
-        if (isPaused()) return
+        if (isPaused()) { Log.d(TAG, "drainNow paused at after-init, row=${row.recordingId}"); return }
 
         // 2. metadata.json — one shot, but through the same retry/backoff/
         //    dead-letter machinery (a permanently-failing metadata PUT
@@ -306,7 +313,7 @@ class UploadCoordinator(
             queueStore.upsert(row)
         }
 
-        if (isPaused()) return
+        if (isPaused()) { Log.d(TAG, "drainNow paused at after-metadata, row=${row.recordingId}"); return }
 
         val chunkBytes = row.chunkBytes ?: chunkBytesForNetwork(false)
         val totalBytes = mp4.length() + csv.length() + jsonFile.length()
@@ -366,7 +373,7 @@ class UploadCoordinator(
         }
         if (deadLetter != null) throw deadLetter
         if (transient != null) throw transient
-        if (isPaused()) return
+        if (isPaused()) { Log.d(TAG, "drainNow paused at after-parts, row=${row.recordingId}"); return }
 
         // Re-check every part landed (defensive — uploadPart already throws on failure).
         if (row.videoParts.any { it.status != PartStatus.DONE || it.etag == null } ||
