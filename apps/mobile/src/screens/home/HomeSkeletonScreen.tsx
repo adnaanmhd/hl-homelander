@@ -7,11 +7,15 @@
 //   - Skeleton body copy explaining the Phase-6 deferral
 //   - Plan 05-08 (UP-12 / D-10): a "Pending uploads" section rendering the
 //     REAL pending rows (filename / duration / status) from
-//     HumynUpload.getQueueSafe() + the onUploadQueueChanged subscription;
-//     tapping the card navigates to PendingUploadsScreen ('PendingUploads').
+//     HumynUpload.getQueueSafe() + the onUploadQueueChanged subscription.
+//     Tapping the card navigates to the History tab — the natural home for
+//     the upload/contribution timeline (Wave-1.5 Item 6). The standalone
+//     `PendingUploads` route stays registered (RootNativeStack.tsx:95) for
+//     deep-link use, but the Home-tile entry no longer routes there (it
+//     strands the user — no back nav, no tab bar).
 //     // Phase 6 (success criterion #3): the count>0 visibility logic +
-//     // pull-to-refresh + the offline banner. Phase 5 just renders the real
-//     // rows + the tap-through (D-10).
+//     // pull-to-refresh + the offline banner. Phase 5 renders the real rows
+//     // + the tap-through to History.
 //
 // What does NOT ship here (Phase 6 — HOME-01..06/09/10):
 //   - First-time vs returning hero (greeting / lifetime number)
@@ -77,7 +81,9 @@ function chipVariantFor(row: UploadQueueRow): UploadStatusChipVariant {
 
 export default function HomeSkeletonScreen() {
   const topBarProps = useTabTopBarProps();
-  const navigation = useNavigation<{ navigate: (route: string) => void }>();
+  const navigation = useNavigation<{
+    navigate: (route: string, params?: Record<string, unknown>) => void;
+  }>();
   const softUpgradeAvailable = useAppStore((s) => s.softUpgradeAvailable);
   const jwt = useAppStore((s) => s.jwt);
   const currentSub = useMemo(() => decodeGoogleSubFromJwt(jwt), [jwt]);
@@ -170,7 +176,14 @@ export default function HomeSkeletonScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="pending-uploads-tile"
-          onPress={() => navigation.navigate('PendingUploads')}
+          // Wave-1.5 Item 6 — route to the History tab (the natural home for
+          // the upload/contribution timeline) via React Navigation's nested-
+          // navigator API. The standalone `PendingUploads` route stays
+          // registered in `RootNativeStack.tsx` for deep-link use only
+          // (`humyn://pending-uploads` if/when added) — the Home tile no
+          // longer routes there because it strands the user (no back nav,
+          // no tab bar).
+          onPress={() => navigation.navigate('MainTabs', { screen: 'History' })}
           style={styles.card}
         >
           {pendingRows.length === 0 ? (
