@@ -721,19 +721,23 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
       } catch (e) {
         const code = (e as { code?: string } | undefined)?.code;
         speakCue(
-          code === 'thermal_throttling'
-            ? 'Phone too warm'
-            : code === 'permission_revoked'
-              ? 'Camera permission needed'
-              : 'Could not start recording',
+          code === 'profile_incomplete'
+            ? 'Please complete your profile'
+            : code === 'thermal_throttling'
+              ? 'Phone too warm'
+              : code === 'permission_revoked'
+                ? 'Camera permission needed'
+                : 'Could not start recording',
         );
         await HumynScreenBrightness.set(-1).catch(() => undefined);
         showToast(
-          code === 'storage_full'
-            ? 'Not enough storage to record.'
-            : code === 'thermal_throttling'
-              ? 'Phone too warm — let it cool and try again.'
-              : 'Could not start recording.',
+          code === 'profile_incomplete'
+            ? 'Please complete your profile in Profile → Name.'
+            : code === 'storage_full'
+              ? 'Not enough storage to record.'
+              : code === 'thermal_throttling'
+                ? 'Phone too warm — let it cool and try again.'
+                : 'Could not start recording.',
         );
         dispatch({ type: 'CAPTURE_START_FAILED' });
       }

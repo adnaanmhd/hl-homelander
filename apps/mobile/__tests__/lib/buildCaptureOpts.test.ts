@@ -85,6 +85,58 @@ describe('buildCaptureOpts (D-API-02 shape)', () => {
     ).toThrow(/without recorded consent/);
   });
 
+  it('THROWS (code=profile_incomplete) when user.name is empty (V11-mirror — name never defaulted)', () => {
+    expect(() => buildCaptureOpts(validArgs({ user: { ...validArgs().user, name: '' } }))).toThrow(
+      /profile name/,
+    );
+    try {
+      buildCaptureOpts(validArgs({ user: { ...validArgs().user, name: '' } }));
+    } catch (e) {
+      expect((e as { code?: string }).code).toBe('profile_incomplete');
+    }
+  });
+
+  it('THROWS (code=profile_incomplete) when user.name is whitespace-only', () => {
+    expect(() =>
+      buildCaptureOpts(validArgs({ user: { ...validArgs().user, name: '   ' } })),
+    ).toThrow(/profile name/);
+    try {
+      buildCaptureOpts(validArgs({ user: { ...validArgs().user, name: '   ' } }));
+    } catch (e) {
+      expect((e as { code?: string }).code).toBe('profile_incomplete');
+    }
+  });
+
+  it('THROWS (code=profile_incomplete) when user.email is empty', () => {
+    expect(() => buildCaptureOpts(validArgs({ user: { ...validArgs().user, email: '' } }))).toThrow(
+      /profile email/,
+    );
+    try {
+      buildCaptureOpts(validArgs({ user: { ...validArgs().user, email: '' } }));
+    } catch (e) {
+      expect((e as { code?: string }).code).toBe('profile_incomplete');
+    }
+  });
+
+  it('THROWS (code=profile_incomplete) when user.email is whitespace-only', () => {
+    expect(() =>
+      buildCaptureOpts(validArgs({ user: { ...validArgs().user, email: '   ' } })),
+    ).toThrow(/profile email/);
+    try {
+      buildCaptureOpts(validArgs({ user: { ...validArgs().user, email: '\t\n' } }));
+    } catch (e) {
+      expect((e as { code?: string }).code).toBe('profile_incomplete');
+    }
+  });
+
+  it('does NOT throw on the existing valid happy path (no regression on the propagation fix)', () => {
+    // Sanity: the existing valid validArgs() shape — name 'Test Contributor',
+    // email 'test@example.com' — still produces a CaptureSessionOpts that
+    // schema-parses. Locks in that the new guards are additive, not
+    // destructive.
+    expect(() => CaptureSessionOptsSchema.parse(buildCaptureOpts(validArgs()))).not.toThrow();
+  });
+
   it('coerces an unrecognized gender to null', () => {
     const opts = buildCaptureOpts(
       validArgs({ user: { ...validArgs().user, gender: 'something-weird' } }),
