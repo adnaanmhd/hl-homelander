@@ -187,6 +187,36 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
     }
 
     /**
+     * Wave-1.5 Item 8 — cold-start drain kick. Used by `installUploadReconcile()`
+     * on boot: if `getQueueSafe()` returns a row in {PENDING, UPLOADING}, JS
+     * calls `drainNow()` to wake the drainer. Distinct from [resume]: does NOT
+     * flip `UploadControlState.setPaused(false)` — a pause is sticky (an
+     * in-progress recording, an explicit user-driven pause path) and a
+     * boot-time drain MUST NOT silently unpause uploads. If the coordinator is
+     * paused, the drain is a no-op (UploadCoordinator.kt:186 re-checks
+     * `isPaused()`); otherwise it iterates the queue exactly like an
+     * `enqueue()` kick would.
+     *
+     * Closes T-5-14-04 — without this kick, a process-kill mid-upload + reboot
+     * leaves a row in {pending, uploading} on disk and nothing else fires
+     * (`enqueue`, `resume`, RecordingScreen.resume, the Retry button — all
+     * user-driven). The user can't make progress without manually bouncing a
+     * screen. The reconcile sweep IS the on-boot trigger; drainNow is its
+     * bridge surface.
+     */
+    @ReactMethod
+    fun drainNow(promise: Promise) {
+        bgExecutor.execute {
+            try {
+                runCatching { coordinator.drain() }
+                promise.resolve(null)
+            } catch (t: Throwable) {
+                promise.reject("UPLOAD_DRAIN_NOW_FAILED", t.message ?: "drainNow failed", t)
+            }
+        }
+    }
+
+    /**
      * Return all queue rows as a `WritableArray`. Read-only — the JS side
      * filters to the signed-in user's own rows. (UP-11: no user-driven abort.)
      */
