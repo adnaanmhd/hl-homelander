@@ -188,7 +188,7 @@ Plans:
 3. The first-upload OEM battery-optimization walkthrough surfaces per-vendor deep-links and steps for Xiaomi (MIUI), Oppo (ColorOS), Vivo (FunTouch), Samsung (OneUI), and stock Android, the Pending Uploads tile shows per-file progress (filename / duration / thumbnail / state), and cellular uploads are allowed by default with no Wi-Fi-only toggle
 4. The hash-verify worker (BullMQ + Redis + ECS, scaled on queue depth) consumes S3 multipart-complete events via EventBridge → SQS, re-hashes both MP4 and IMU CSV, flips `recordings.qa_status` to `'verified'` (emit `verified` event) on match or `'hash-mismatch'` (emit `re-upload` event) on mismatch; events deliver piggy-backed on the next API response, the app deletes local MP4 + CSV + JSON only on `verified`, re-uploads from the still-present local copy on `re-upload`, and an app-launch reconciliation sweep cleans local files for any verified-but-undeleted set
 
-**Plans:** 8/8 initial plans executed; 5 gap-closure plans (05-09..05-13) added 2026-05-12 (verification `gaps_found`, code-review blockers CR-01/02/03 + warnings)
+**Plans:** 8/8 initial plans executed; 5 gap-closure plans (05-09..05-13) added 2026-05-12 (verification `gaps_found`, code-review blockers CR-01/02/03 + warnings); Wave-1.5 plan 05-14 (post-walk batch fix) added 2026-05-13; gap-closure plan 05-15 (UAT 2026-05-13 — invalid_opts: name) added 2026-05-13
 
 Plans:
 
@@ -227,6 +227,14 @@ Plans:
 **Gap Wave 2** _(blocked on Gap Wave 1 — depends on 05-09's new route + 05-11's drain-lock; both touch `UploadCoordinator.kt`)_
 
 - [x] 05-10-PLAN.md — Kotlin: `UploadCoordinator.uploadOne()` calls `POST /recordings/:id/parts` on a re-drain (instead of re-`/init`) — preserves already-DONE parts' ETags; a 409/404 from `/parts` → dead-letter; harden `parseInitResponse` against leaking presigned URLs (CR-01 mobile half + WR-06) — UP-01, UP-04
+
+**Wave-1.5** _(post-walk batch fix — added 2026-05-13 after the §2 first-attempt surfaced 5 root causes for the same /init→400 symptom; 3 fixed inline + 2 batched here)_
+
+- [x] 05-14-PLAN.md — Wave-1.5: upload-coordinator + RecordingScreen + appStore + runbook batch fix (idempotency-key-per-call instead of per-row; client-side dead-letter Retry routes to /reupload only when qa_status='hash-mismatch'; LocalStack tunnel into §1) — UP-01, UP-04
+
+**Gap Wave 3** _(added 2026-05-13 — closes the single UAT 2026-05-13 blocker `HumynCapture.start() → code=invalid_opts msg=invalid_opts: name`; depends on 05-14's RecordingScreen + appStore surface)_
+
+- [ ] 05-15-PLAN.md — JS guard in buildCaptureOpts (parallel to V11 `consentPresent`) + email-local-part fallback at Signup/Profile/foreground-rehydrate write sites (`coalesceDisplayName` helper) + Robolectric empty-name/empty-email tests + runbook §1 pre-flight check — UP-05, UP-13, AUTH-04
 
 ### Phase 6: Tasks, History, Home Tiles & Lexical Search
 
