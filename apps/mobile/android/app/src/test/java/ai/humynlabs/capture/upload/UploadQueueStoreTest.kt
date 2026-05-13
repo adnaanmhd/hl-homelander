@@ -36,9 +36,15 @@ class UploadQueueStoreTest {
         // A fresh per-test filesDir-rooted store. Robolectric's Application has a
         // real (temp) filesDir; UploadQueueStore writes under filesDir/upload-queue.
         val app = RuntimeEnvironment.getApplication()
-        // Clean any prior run's queue dir so tests are independent.
-        File(app.filesDir, "upload-queue").deleteRecursively()
-        return UploadQueueStore(app) to File(app.filesDir, "upload-queue")
+        // Clean any prior run's queue dir so tests are independent. Recreate it so
+        // tests that write `queue.json` directly (Wave-1-5 Item 7's legacy-shape
+        // test at line ~294) don't fail with FileNotFoundException when run in
+        // isolation — without this, the test only passes when a sibling
+        // `store.enqueue(...)` happened to create the dir earlier in the suite.
+        val dir = File(app.filesDir, "upload-queue")
+        dir.deleteRecursively()
+        dir.mkdirs()
+        return UploadQueueStore(app) to dir
     }
 
     private fun row(
@@ -264,7 +270,7 @@ class UploadQueueStoreTest {
     }
 
     @Test
-    fun `read() persists migrated idempotency keys back to disk so subsequent reads return the same keys (Wave-1.5 Item 7)`() {
+    fun `read persists migrated idempotency keys back to disk so subsequent reads return the same keys Wave-1-5 Item 7`() {
         val (store, dir) = newStore()
         // Write a queue.json containing ONE row with no per-route key fields
         // (the pre-commit-5c0b2d8 legacy shape). The first read should mint
@@ -340,7 +346,7 @@ class UploadQueueStoreTest {
     }
 
     @Test
-    fun `fromJson mints four fresh UUIDv4s when a pre-Wave-1.5 row on disk has no per-route keys`() {
+    fun `fromJson mints four fresh UUIDv4s when a pre-Wave-1-5 row on disk has no per-route keys`() {
         // Shape (a): the pre-commit-5c0b2d8 row layout — NO `*IdempotencyKey`
         // fields at all (the currently-stuck `01KRFXGAWCMVQ89PJ2PBXSVAKK` from
         // the Phase-5 smoke walk). fromJson must mint a fresh UUIDv4 for each
