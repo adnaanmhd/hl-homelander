@@ -85,9 +85,16 @@ describe('TasksPlaceholderScreen __DEV__ debug affordance (plan 04-08)', () => {
     const heading = getByLabelText('tasks-heading');
     expect(heading).toBeTruthy();
     fireEvent.click(heading);
+    // Aligned to the current dev-seed task ULID (debug session
+    // `debug-task-id-init-400`, 2026-05-13). The 23-char taxonomy slug
+    // `'cooking_chop_vegetables'` is rejected by `RecordingsInitRequestSchema`
+    // (`z.string().length(26)`); the canonical dev-seed ULID is inserted by
+    // `pnpm --filter @humyn/api seed:dev-task` and lives at
+    // `DEV_TASK_ID` in `apps/api/scripts/seed-dev-task.ts`. Keep in
+    // lockstep with `DEBUG_TEST_TASK` in `TasksPlaceholderScreen.tsx`.
     expect(mockPush).toHaveBeenCalledWith('Recording', {
-      taskId: 'cooking_chop_vegetables',
-      taskName: 'Practice — Chop vegetables',
+      taskId: '01HVDEVSEEDTASK00000000000',
+      taskName: 'Dev — Chop vegetables',
       isPractice: false,
       taskCategory: 'cooking',
       taskSetting: 'indoor',

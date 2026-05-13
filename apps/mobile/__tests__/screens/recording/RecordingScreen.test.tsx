@@ -22,6 +22,14 @@ import React from 'react';
 import { render, screen, cleanup, fireEvent, act, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Vibration } from 'react-native';
+// Wave-1.5 Item 5 — the contribution toast moved from RecordingScreen's
+// local `<Toast>` host to the global ToastHost via the deliver-on-Home bus.
+// The ≥60s post-stop test (§7h) drains the bus instead of asserting an
+// in-screen `recording-toast` element.
+import {
+  drainPendingUploadToast,
+  __test_resetUploadToastBus,
+} from '../../../src/state/uploadToastBus';
 
 // The global react-native mock (vitest.setup.ts) ships Vibration as a no-op
 // object; spy on it so the gate-pass haptic is assertable without re-mocking
@@ -276,6 +284,7 @@ beforeEach(() => {
   });
   deviceOrientationListeners.length = 0;
   _routeParams = { taskId: '__practice__', taskName: 'Practice — 60 sec', isPractice: true };
+  __test_resetUploadToastBus();
 });
 afterEach(() => cleanup());
 
@@ -543,7 +552,14 @@ describe('RecordingScreen — §7h post-stop routing', () => {
     });
   });
 
-  it('real recording ≥60s stopped → showToast(…added to your contribution.) + nav toward MainTabs', async () => {
+  it('real recording ≥60s stopped → uploadToastBus carries the contribution toast (5s) + nav toward MainTabs', async () => {
+    // Wave-1.5 Item 5 — the contribution toast no longer renders in
+    // RecordingScreen's local `<Toast>` host (it would die when
+    // `navigateToHome` unmounts the screen). RecordingScreen now calls
+    // `setPendingUploadToast(text, 5_000)` BEFORE `navigateToHome`;
+    // HomeSkeletonScreen drains it on mount and fires the global ToastHost
+    // (App.tsx:78). The assertion is the bus carries the right payload + the
+    // ≥60s nav lands on MainTabs.
     _routeParams = {
       taskId: 'cooking_chop',
       taskName: 'Chop vegetables',
@@ -560,11 +576,15 @@ describe('RecordingScreen — §7h post-stop routing', () => {
     });
     fireEvent.click(screen.getByLabelText('recording-stop'));
     await waitFor(() => expect(mockHcStop).toHaveBeenCalled());
-    await waitFor(() => expect(screen.getByLabelText('recording-toast')).toBeTruthy());
-    expect(screen.getByText(/added to your contribution\.$/)).toBeTruthy();
     await waitFor(() =>
       expect(mockParentNavigate.mock.calls.some((c) => c[0] === 'MainTabs')).toBe(true),
     );
+    // The bus holds the deferred contribution toast; HomeSkeletonScreen would
+    // drain it on mount. Asserted via the same drain hatch a real Home mount uses.
+    const pending = drainPendingUploadToast();
+    expect(pending).not.toBeNull();
+    expect(pending!.text).toMatch(/added to your contribution\.$/);
+    expect(pending!.durationMs).toBe(5_000);
   });
 
   it('real recording <60s stopped → showToast("Recording too short — discarded.") + RESET_FOR_FRESH (back to the landscape gate)', async () => {
