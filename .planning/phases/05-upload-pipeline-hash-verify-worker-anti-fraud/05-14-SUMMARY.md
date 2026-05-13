@@ -239,6 +239,18 @@ Verified during execution:
 - `a11d09a` fix(05-14): Home pending-uploads-tile tap routes to History tab, not the orphan PendingUploads screen (Wave-1.5 Item 6) — FOUND
 - `5d811f0` docs(05-14): split runbook §3 Retry-affordance wording into Path A / Path B (Wave-1.5 Item 11) — FOUND
 
+## Post-Merge Gate Follow-up (2026-05-13, post-orchestrator-merge)
+
+The Wave-1.5 post-merge test gate (orchestrator step 5.6, run after the worktree merged into `main` at `2c7129a`) caught **two failing mobile vitest files** that the in-worktree self-check missed because it only ran the 4 newly-touched test files. Fixed in commit `7f01586`:
+
+1. **`__tests__/screens/recording/RecordingScreen.test.tsx > §7h post-stop routing > real recording ≥60s stopped …`** — _Introduced by Item 5._ The test still asserted the in-screen `recording-toast` element rendered before nav; that element no longer fires for the ≥60s case (the contribution toast is now deferred via `setPendingUploadToast(...)` and drained on Home mount). Replaced with a `drainPendingUploadToast()` assertion that the bus payload is `{ text: /…added to your contribution\.$/, durationMs: 5_000 }`. Added `__test_resetUploadToastBus()` to the file's `beforeEach` for inter-test isolation.
+
+2. **`__tests__/screens/recording/devAffordance.test.tsx > __DEV__ === true: long-press …`** — _Pre-existing._ Last test touch was `d1d5db1` (04-08); debug session `debug-task-id-init-400` (2026-05-13) changed `TasksPlaceholderScreen.DEBUG_TEST_TASK` to the 26-char canonical dev-seed task ULID (`01HVDEVSEEDTASK00000000000` / `Dev — Chop vegetables`) because the old taxonomy slug `cooking_chop_vegetables` is rejected by `RecordingsInitRequestSchema.taskId = z.string().length(26)`. The test assertion still hard-coded the slug. Updated to match the current source, with a comment pointing at the seed script + debug session.
+
+Post-fix mobile vitest verdict: **92 test files / 669 tests, all green** (0 failures).
+
+`apps/api` test failures observed during the same gate are pre-existing environmental dependencies (Postgres SASL password / `VERIFY_QUEUE_URL` not set — the suite expects a running Postgres + Redis + LocalStack); they are NOT cross-plan integration issues from 05-14 and are out of scope for this plan.
+
 ---
 
 _Phase: 05-upload-pipeline-hash-verify-worker-anti-fraud_
