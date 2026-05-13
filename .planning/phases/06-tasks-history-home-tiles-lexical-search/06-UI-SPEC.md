@@ -1,10 +1,11 @@
 ---
 phase: 6
 slug: tasks-history-home-tiles-lexical-search
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-05-14
+reviewed_at: 2026-05-14
 ---
 
 # Phase 6 — UI Design Contract
