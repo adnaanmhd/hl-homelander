@@ -44,6 +44,8 @@ import {
   type UploadProgressEvent,
   type UploadQueueRow,
 } from '../../native/HumynUpload';
+import { drainPendingUploadToast } from '../../state/uploadToastBus';
+import { showToast } from '../../components/Toast';
 
 // (Phase 3 smoke seam removed in Phase 4 — the real RecordingScreen now wires
 //  the HumynCapture start path; trail: deferred-items.md D4-01 + commit 15d8a16.)
@@ -112,6 +114,19 @@ export default function HomeSkeletonScreen() {
       subProgress.remove();
     };
   }, [mine]);
+
+  // Wave-1.5 Item 5 — drain the post-recording contribution toast on Home
+  // mount, mirroring `bootRecoveryListener.ts`'s deliver-on-Home pattern.
+  // RecordingScreen sets the message via `setPendingUploadToast(...)` BEFORE
+  // `navigateToHome(navigation)`; this effect fires the global ToastHost
+  // (App.tsx:78 sibling of NavigationContainer) so the toast survives the
+  // screen transition for the full configured duration (5 s).
+  useEffect(() => {
+    const pending = drainPendingUploadToast();
+    if (pending != null) {
+      showToast(pending.text, pending.durationMs);
+    }
+  }, []);
 
   return (
     <ScreenContainer accessibilityLabel="Home screen" padding={0}>
