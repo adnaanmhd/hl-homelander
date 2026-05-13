@@ -739,6 +739,69 @@ class UploadCoordinatorTest {
     }
 
     @Test
+    fun `LOCAL reset of a client-side DEAD_LETTER row routes to slash parts not slash reupload (Wave-1.5 Item 2)`() {
+        // Wave-1.5 Item 2: HumynUpload.reupload(recordingId) on a row with
+        // state=DEAD_LETTER && uploadId!=null && !reupload does a LOCAL reset
+        // (state→UPLOADING, deadLetterReason=null, KEEP uploadId/imuUploadId/
+        // parts/etags). The drainer then takes the postRePresign branch (/parts),
+        // NOT /reupload (which would 409 — the server's reupload.ts:125-138
+        // requires qa_status='hash-mismatch'). We assert the drain OUTCOME of a
+        // row in the post-LOCAL-reset state — that's the contract the
+        // HumynUploadModule branching produces.
+        val recId = "01JLOCALRESET01XXXXXXXXXXXX"
+        val (mp4, csv, json) = writeBundle(recId, mp4Bytes = 12_000_000) // ~12 MB → 2 parts
+        store.enqueue(
+            UploadRow(
+                recordingId = recId, ownerUserId = "userA",
+                mp4Path = mp4.path, csvPath = csv.path, jsonPath = json.path,
+                taskId = "T".repeat(26), isPractice = false,
+            ),
+        )
+        // Post-LOCAL-reset state: state=UPLOADING (was DEAD_LETTER), uploadId
+        // preserved, parts preserved with their ETags, metadataPut=DONE
+        // preserved, reupload=false, deadLetterReason=null.
+        store.upsert(
+            store.read()[0].also {
+                it.uploadId = "VID-UPLOAD-ID"
+                it.imuUploadId = "IMU-UPLOAD-ID"
+                it.partsCount = 2
+                it.chunkBytes = WIFI_CHUNK_BYTES
+                it.reupload = false
+                it.state = UploadState.UPLOADING
+                it.deadLetterReason = null
+                it.metadataPut = PartStatus.DONE
+                it.videoParts.add(PartState(1, PartStatus.DONE, etag = "\"etag-vid-1\""))
+                it.videoParts.add(PartState(2, PartStatus.DONE, etag = "\"etag-vid-2\""))
+                it.imuParts.add(PartState(1, PartStatus.DONE, etag = "\"etag-imu-1\""))
+            },
+        )
+        val coord = coordinator()
+        coord.drainNow()
+
+        // The post-LOCAL-reset drain hit /parts (re-presign), NOT /reupload (no full reset).
+        assertEquals("LOCAL-reset drain takes /parts", 1, partsCalls.get())
+        assertEquals("LOCAL-reset drain does NOT call /reupload", 0, reuploadCalls.get())
+        assertEquals("LOCAL-reset drain does NOT call /init", 0, initCalls.get())
+        // The /parts Idempotency-Key is the row's partsIdempotencyKey (Wave-1.5 Item 1).
+        val rowAfterUpsert = store.read().first()
+        val partsKey = idempotencyKeysByPath["/parts"]
+        assertNotNull("/parts must send an Idempotency-Key", partsKey)
+        assertEquals("/parts uses partsIdempotencyKey", rowAfterUpsert.partsIdempotencyKey, partsKey)
+        // No part was re-PUT — all were DONE before; the re-presign just re-issues fresh URLs.
+        assertTrue("no part PUT (all DONE)", putCalls.keys.none { it.startsWith("/s3/video/") || it.startsWith("/s3/imu/") })
+        // /finalize fired with the original ETags preserved (UP-04 guarantee).
+        val fin = lastFinalizeBody.get()!!
+        assertEquals("\"etag-vid-1\"", fin.getJSONArray("videoParts").getJSONObject(0).getString("etag"))
+        assertEquals("\"etag-vid-2\"", fin.getJSONArray("videoParts").getJSONObject(1).getString("etag"))
+        assertEquals("\"etag-imu-1\"", fin.getJSONArray("imuParts").getJSONObject(0).getString("etag"))
+        // Row ends AWAITING_VERIFY; uploadId preserved across the drain.
+        val back = store.read().first()
+        assertEquals(UploadState.AWAITING_VERIFY, back.state)
+        assertEquals("VID-UPLOAD-ID", back.uploadId)
+        assertEquals("IMU-UPLOAD-ID", back.imuUploadId)
+    }
+
+    @Test
     fun `four distinct keys across init parts finalize reupload (no cross-route reuse)`() {
         // Drive a row through /init → /finalize (Wave 1 happy path) and a separate
         // row through /reupload → /finalize (Wave 1 hash-mismatch path) and a
