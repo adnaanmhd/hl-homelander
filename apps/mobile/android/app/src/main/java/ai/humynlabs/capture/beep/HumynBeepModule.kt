@@ -77,6 +77,40 @@ class HumynBeepModule(reactContext: ReactApplicationContext) :
                 .setUsage(AudioAttributes.USAGE_MEDIA)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build()
+
+        /**
+         * Phase 6 Plan 06-01 Task 3 (TDD GREEN) — extracted post-`SoundPool.play()`
+         * guard. Returns `true` if the call produced a real stream (non-zero
+         * `streamId` — the cue is queued for playback by the audio framework);
+         * returns `false` and rejects the promise with `BEEP_FAILED` if
+         * `streamId == 0` (max streams busy OR load incomplete — the cue is
+         * silently inaudible if not reported; see WR-04). The caller is
+         * responsible for resolving the promise on the `true` branch.
+         *
+         * Extracted as `@VisibleForTesting @JvmStatic` so the Robolectric
+         * `HumynBeepModuleTest` can exercise both branches without standing
+         * up the full `SoundPool` / native catalyst instance (Robolectric's
+         * `ShadowSoundPool` does not simulate the audio framework's
+         * stream-id allocation; testing through it is brittle). Logs at
+         * `Log.w(...)` mirror the in-line `Log.w` on the playTone path so
+         * the diagnostic message is identical regardless of which code path
+         * hits the guard.
+         */
+        @VisibleForTesting
+        @JvmStatic
+        fun streamIdGuard(
+            streamId: Int,
+            name: String,
+            sampleId: Int,
+            promise: Promise,
+        ): Boolean {
+            if (streamId == 0) {
+                Log.w("HumynBeep", "SoundPool.play returned 0 (max streams busy OR load incomplete) name=$name sampleId=$sampleId")
+                promise.reject("BEEP_FAILED", "SoundPool.play returned 0 for $name")
+                return false
+            }
+            return true
+        }
     }
 
     /** Built eagerly in [init]; `null` only if the build/`openFd` failed. */
@@ -203,12 +237,12 @@ class HumynBeepModule(reactContext: ReactApplicationContext) :
             if (loadedSampleIds.contains(id)) {
                 // WR-04 — the sample is decoded; play() returns a valid stream
                 // id. A 0 here is a genuine failure (e.g. max streams busy) —
-                // report it instead of swallowing it.
+                // report it instead of swallowing it. The guard is the same
+                // helper the Robolectric test exercises (Task 3) — keeps the
+                // production and test code on a single contract.
                 val streamId = pool.play(id, 1f, 1f, 1, 0, 1f)
                 Log.i("HumynBeep", "play returned streamId=$streamId for name=$name")
-                if (streamId == 0) {
-                    Log.w("HumynBeep", "SoundPool.play returned 0 (max streams busy OR load incomplete) name=$name sampleId=$id")
-                    promise.reject("BEEP_FAILED", "SoundPool.play returned 0 for $name")
+                if (!streamIdGuard(streamId = streamId, name = name, sampleId = id, promise = promise)) {
                     return
                 }
             } else {
