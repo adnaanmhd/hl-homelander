@@ -77,6 +77,7 @@ import { logEvent } from '../../util/analytics';
 import { HumynUpload } from '../../native/HumynUpload';
 import { decodeGoogleSubFromJwt } from '../../lib/jwtSub';
 import { shouldShowBatteryOptimizationPrompt } from '../onboarding/BatteryOptimizationScreen';
+import { setPendingUploadToast } from '../../state/uploadToastBus';
 
 interface NavigationLike {
   goBack(): void;
@@ -409,11 +410,18 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         Orientation.unlockAllOrientations();
         logEvent('recording_stopped', { ...(isDeviceDistress ? { reason: _reason } : {}) });
         speakCue('Recording stopped');
-        showToast(
-          stopErr
-            ? 'Recording saved, but finalizing failed — it may not upload.'
-            : `${formatContributionDuration(durationMs)} added to your contribution.`,
-        );
+        // Wave-1.5 Item 5 — the contribution toast must survive the
+        // RecordingScreen → Home transition for ≥5 s. Use the global ToastHost
+        // (App.tsx:78 — already mounted as a NavigationContainer sibling) via
+        // the uploadToastBus deliver-on-Home pattern (mirrors
+        // bootRecoveryListener). The local in-screen `showToast` below is a
+        // 3 s host that dies on screen unmount — the contribution toast is
+        // routed through the BUS instead so HomeSkeletonScreen drains it on
+        // mount after `navigateToHome` resolves.
+        const contributionText = stopErr
+          ? 'Recording saved, but finalizing failed — it may not upload.'
+          : `${formatContributionDuration(durationMs)} added to your contribution.`;
+        setPendingUploadToast(contributionText, 5_000);
         navigateToHome(navigation);
         // UP-09 — surface the battery-optimization walkthrough ONCE, on the
         // first-ever auto-enqueue, after landing on Home (not on the recording

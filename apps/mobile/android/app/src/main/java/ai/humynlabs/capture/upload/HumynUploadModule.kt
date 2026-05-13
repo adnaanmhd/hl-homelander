@@ -187,6 +187,36 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
     }
 
     /**
+     * Wave-1.5 Item 8 — cold-start drain kick. Used by `installUploadReconcile()`
+     * on boot: if `getQueueSafe()` returns a row in {PENDING, UPLOADING}, JS
+     * calls `drainNow()` to wake the drainer. Distinct from [resume]: does NOT
+     * flip `UploadControlState.setPaused(false)` — a pause is sticky (an
+     * in-progress recording, an explicit user-driven pause path) and a
+     * boot-time drain MUST NOT silently unpause uploads. If the coordinator is
+     * paused, the drain is a no-op (UploadCoordinator.kt:186 re-checks
+     * `isPaused()`); otherwise it iterates the queue exactly like an
+     * `enqueue()` kick would.
+     *
+     * Closes T-5-14-04 — without this kick, a process-kill mid-upload + reboot
+     * leaves a row in {pending, uploading} on disk and nothing else fires
+     * (`enqueue`, `resume`, RecordingScreen.resume, the Retry button — all
+     * user-driven). The user can't make progress without manually bouncing a
+     * screen. The reconcile sweep IS the on-boot trigger; drainNow is its
+     * bridge surface.
+     */
+    @ReactMethod
+    fun drainNow(promise: Promise) {
+        bgExecutor.execute {
+            try {
+                runCatching { coordinator.drain() }
+                promise.resolve(null)
+            } catch (t: Throwable) {
+                promise.reject("UPLOAD_DRAIN_NOW_FAILED", t.message ?: "drainNow failed", t)
+            }
+        }
+    }
+
+    /**
      * Return all queue rows as a `WritableArray`. Read-only — the JS side
      * filters to the signed-in user's own rows. (UP-11: no user-driven abort.)
      */
@@ -224,12 +254,37 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
 
     /**
      * Flip a queue row into its re-upload state (Plan 05-08; UP-16). Driven by
-     * a server `re-upload` event (after a `hash-mismatch`) and the dead-letter
-     * "Retry" affordance. Resets the row so the next drain re-mints the
-     * multipart upload via `POST /recordings/:id/reupload` (not `/init`) and
-     * re-PUTs every part from the still-present local copy — `partsCount` /
-     * `chunkBytes` stay pinned (the file is byte-identical). No-op (resolves)
-     * if the row doesn't exist. The local mp4/csv/json are NOT touched.
+     * a server `re-upload` event (after a `hash-mismatch`) AND the dead-letter
+     * "Retry" affordance on the Pending Uploads screen. Wave-1.5 Item 2 splits
+     * the handler into two branches:
+     *
+     *   • **Worker-fired re-upload (server `qa_status='hash-mismatch'`)** —
+     *     state ∈ {PENDING, UPLOADING, FINALIZING, AWAITING_VERIFY} OR
+     *     (state == DEAD_LETTER && row.reupload == true): full reset
+     *     (state → PENDING, reupload=true, clear uploadId/imuUploadId/parts/
+     *     etags/metadataPut/deadLetterReason). The drainer then takes the
+     *     `postReupload` branch (`POST /recordings/:id/reupload`); the server
+     *     accepts because qa_status='hash-mismatch'. Re-PUTs every part from
+     *     the still-present local copy. partsCount / chunkBytes stay pinned.
+     *
+     *   • **Client-side dead-letter (server `qa_status='pending'` still,
+     *     uploadId set)** — `state == DEAD_LETTER && uploadId != null &&
+     *     !reupload`: LOCAL reset. state → UPLOADING; deadLetterReason cleared;
+     *     uploadId / imuUploadId / videoParts / imuParts / metadataPut KEPT
+     *     UNCHANGED so the drainer's `when` (UploadCoordinator.kt) takes the
+     *     `postRePresign` branch (`POST /recordings/:id/parts`) — re-presigns
+     *     video+IMU against the EXISTING multipart upload, every already-DONE
+     *     part keeps its ETag (UP-04, CR-02 idempotent re-presign path).
+     *     POSTing `/reupload` here would 409 (server rejects re-upload on a
+     *     non-hash-mismatch row — `apps/api/src/routes/recordings/reupload.ts:
+     *     125-138` checks `rec.qaStatus !== 'hash-mismatch'`). This is the
+     *     2026-05-13 walk's recording `01KRFXGAWCMVQ89PJ2PBXSVAKK` failure
+     *     mode being closed.
+     *
+     *   • **VERIFIED** — no-op (resolve null).
+     *
+     * No-op (resolves null) if the row doesn't exist. The local mp4/csv/json
+     * are NOT touched in either branch.
      */
     @ReactMethod
     fun reupload(recordingId: String, promise: Promise) {
@@ -240,14 +295,38 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
                     promise.resolve(null)
                     return@execute
                 }
-                row.reupload = true
-                row.state = UploadState.PENDING
-                row.uploadId = null
-                row.imuUploadId = null
-                row.metadataPut = PartStatus.PENDING
-                row.deadLetterReason = null
-                for (p in row.videoParts) { p.status = PartStatus.PENDING; p.etag = null; p.retryCount = 0 }
-                for (p in row.imuParts) { p.status = PartStatus.PENDING; p.etag = null; p.retryCount = 0 }
+                when {
+                    row.state == UploadState.VERIFIED -> {
+                        // VERIFIED — no-op. The row is about to be cleared by the verified-event handler.
+                        promise.resolve(null)
+                        return@execute
+                    }
+                    row.state == UploadState.DEAD_LETTER && row.uploadId != null && !row.reupload -> {
+                        // Wave-1.5 Item 2 — client-side dead-letter on a server-side
+                        // qa_status='pending' row (transient PUT failure during /init→parts;
+                        // the 2026-05-13 walk recording 01KRFXGAWCMVQ89PJ2PBXSVAKK). LOCAL reset:
+                        // state→UPLOADING, clear deadLetterReason, KEEP uploadId/imuUploadId/parts/
+                        // etags/metadataPut so the drainer's when takes the postRePresign branch
+                        // (/recordings/:id/parts) — already-DONE parts keep their ETags (UP-04).
+                        // POSTing /reupload here would 409 — the server requires qa_status=
+                        // 'hash-mismatch'.
+                        row.state = UploadState.UPLOADING
+                        row.deadLetterReason = null
+                    }
+                    else -> {
+                        // Worker-fired re-upload (server qa_status='hash-mismatch') OR retry of a
+                        // non-dead-lettered row. Full reset: drainer takes the postReupload branch
+                        // (POST /recordings/:id/reupload), server accepts on hash-mismatch.
+                        row.reupload = true
+                        row.state = UploadState.PENDING
+                        row.uploadId = null
+                        row.imuUploadId = null
+                        row.metadataPut = PartStatus.PENDING
+                        row.deadLetterReason = null
+                        for (p in row.videoParts) { p.status = PartStatus.PENDING; p.etag = null; p.retryCount = 0 }
+                        for (p in row.imuParts) { p.status = PartStatus.PENDING; p.etag = null; p.retryCount = 0 }
+                    }
+                }
                 queueStore.upsert(row)
                 emitQueueChanged()
                 runCatching { coordinator.drain() }
