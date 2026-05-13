@@ -10,6 +10,17 @@
 // client surfaces `chip-failed` after its own retry budget).
 //
 // The API process never reads bytes (CLAUDE.md file-fidelity rule).
+//
+// Re-upload boundary / BullMQ dedupe bridge: enqueueVerify (lib/queue.ts) uses
+// `jobId = recordingId` to dedupe SQS-redelivery + sweep-cron double-enqueues
+// (threat T-5-03-01). But the first verify ALWAYS completed for a re-upload
+// chain (its hash-mismatch flip is what unlocked this route in the first
+// place), so the prior jobId sits in `bull:verify:completed` and the
+// post-/finalize re-enqueue silently no-ops. The /reupload handler is the one
+// call site that knows a re-upload has just begun, so it explicitly removes the
+// prior completed job before returning — the SQS poller + verify-sweep cron
+// keep the T-5-03-01 dedupe intact. See debug session
+// `.planning/debug/enqueue-verify-jobid-dedupe.md`.
 
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
@@ -30,6 +41,7 @@ import {
   MAX_PARTS_PER_UPLOAD,
 } from '../../lib/s3-client.js';
 import { canTransition } from '../../lib/recording-state.js';
+import { getQueue } from '../../lib/queue.js';
 import { RecordingReuploadRequestSchema } from '@humyn/shared-types';
 import type { RecordingReuploadResponse } from '@humyn/shared-types';
 import { buildProblemDetail, PROBLEM_SLUGS } from '../../lib/problem-detail.js';
@@ -215,6 +227,34 @@ export default async function recordingsReuploadRoute(app: FastifyInstance): Pro
           verifiedAt: null,
         })
         .where(eq(schema.recordings.id, id));
+
+      // Bridge the BullMQ dedupe across the re-upload boundary: the prior
+      // verify completed (its hash-mismatch flip is what unlocked this route),
+      // so its jobId=recordingId sits in bull:verify:completed and the
+      // post-/finalize enqueueVerify(id) silently no-ops. Remove the prior
+      // explicitly here — the SQS poller + verify-sweep cron's T-5-03-01
+      // dedupe is unchanged. Best-effort: a Redis hiccup must not fail
+      // /reupload (the verify-sweep cron is the durable backstop, and a
+      // double-enqueue from the re-upload-then-finalize chain is itself
+      // already protected by jobId dedupe). See debug session
+      // `.planning/debug/enqueue-verify-jobid-dedupe.md` + the dev shim
+      // `scripts/enqueue-verify-dev.ts` for the same prior.remove() pattern.
+      try {
+        const prior = await getQueue().getJob(id);
+        if (prior) {
+          const priorState = await prior.getState();
+          await prior.remove();
+          req.log.info(
+            { recordingId: id, priorJobState: priorState },
+            'reupload_removed_prior_verify_job',
+          );
+        }
+      } catch (err) {
+        req.log.warn(
+          { err, recordingId: id },
+          'reupload_remove_prior_verify_job_failed — verify-sweep cron is the backstop',
+        );
+      }
 
       const body: RecordingReuploadResponse = {
         recordingId: id,
