@@ -105,10 +105,29 @@ function row(over: Partial<UploadQueueRow>): UploadQueueRow {
 }
 
 const navigateMock = vi.fn();
+// Wave-2 #6 — `useFocusEffect` is invoked on every render in tests (RN
+// stack would only fire it when the screen actually gains focus). We
+// invoke the effect's setup fn synchronously and capture its cleanup so
+// the test can simulate Home → blur by triggering the cleanup directly.
+const focusCleanups: Array<() => void> = [];
 vi.mock('@react-navigation/native', async () => ({
-  // Preserve the global vitest.setup.ts mock for everything else; we just want
-  // useNavigation to return our spy so we can assert routes.
   useNavigation: () => ({ navigate: navigateMock }),
+  useFocusEffect: (effect: () => void | (() => void)) => {
+    const cleanup = effect();
+    if (typeof cleanup === 'function') focusCleanups.push(cleanup);
+  },
+}));
+
+// Wave-2 #6 — mock `reconcileOnce` so the test can assert the auto-poll
+// interval calls it at the 30 s cadence (without actually hitting the
+// network or the native upload module). The factory closes over a vi.fn
+// declared via vi.hoisted so the assertions can target the same spy the
+// screen's import resolves to.
+const { reconcileOnceMock } = vi.hoisted(() => ({
+  reconcileOnceMock: vi.fn(async () => 0),
+}));
+vi.mock('../../src/services/uploadReconcile', () => ({
+  reconcileOnce: reconcileOnceMock,
 }));
 
 describe('HomeSkeletonScreen', () => {
@@ -122,6 +141,8 @@ describe('HomeSkeletonScreen', () => {
     hooks.progressRemove.mockReset();
     hooks.progressListener = null;
     navigateMock.mockReset();
+    reconcileOnceMock.mockClear();
+    focusCleanups.length = 0;
   });
 
   it('renders the TopBar (Humyn Labs wordmark) and an avatar Pressable', () => {
@@ -221,5 +242,47 @@ describe('HomeSkeletonScreen', () => {
     // Old (Phase-5-08) route was navigation.navigate('PendingUploads') — Wave-1.5 Item 6 removes it.
     expect(navigateMock).not.toHaveBeenCalledWith('PendingUploads');
     expect(navigateMock).not.toHaveBeenCalledWith('PendingUploads', expect.anything());
+  });
+
+  // Wave-2 #6 — verified-event auto-poll while Home is focused.
+
+  it('schedules a 30s reconcileOnce poll while Home is focused, and clears it on blur (Wave-2 #6)', () => {
+    vi.useFakeTimers();
+    try {
+      render(<HomeSkeletonScreen />);
+      // No poll has fired yet — only the interval is scheduled, not an immediate tick.
+      expect(reconcileOnceMock).toHaveBeenCalledTimes(0);
+      vi.advanceTimersByTime(29_999);
+      expect(reconcileOnceMock).toHaveBeenCalledTimes(0);
+      vi.advanceTimersByTime(1);
+      expect(reconcileOnceMock).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(30_000);
+      expect(reconcileOnceMock).toHaveBeenCalledTimes(2);
+      // Simulate the screen losing focus: run the captured useFocusEffect
+      // cleanup. After that, no further ticks fire even as time advances.
+      const before = reconcileOnceMock.mock.calls.length;
+      focusCleanups.forEach((fn) => fn());
+      vi.advanceTimersByTime(120_000);
+      expect(reconcileOnceMock).toHaveBeenCalledTimes(before);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('swallows reconcileOnce errors without crashing the poll loop (Wave-2 #6)', () => {
+    vi.useFakeTimers();
+    reconcileOnceMock.mockRejectedValueOnce(new Error('network down'));
+    try {
+      render(<HomeSkeletonScreen />);
+      // The rejected promise must not be thrown synchronously by the interval
+      // tick — if it were, the next tick would never schedule and the test
+      // would observe exactly one call. Two ticks of 30 s each prove the loop
+      // survives the error.
+      vi.advanceTimersByTime(30_000);
+      vi.advanceTimersByTime(30_000);
+      expect(reconcileOnceMock).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
