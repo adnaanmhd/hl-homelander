@@ -22,6 +22,16 @@
 // inside the `__DEV__` guard, not just the navigation call). Phase 6
 // replaces this placeholder with the real Tasks list + Task details +
 // Start Recording CTA.
+//
+// Debug session `debug-task-id-init-400` (2026-05-13) — `taskId` was
+// `'cooking_chop_vegetables'` (a 23-char taxonomy SLUG). A recording made
+// via this affordance auto-enqueues fine but the upload coordinator's
+// `POST /recordings/init` 400s forever: `RecordingsInitRequestSchema.taskId`
+// is `z.string().length(26)` (a task ULID) and `recordings.task_id` FKs
+// `tasks.id`. Now points at the canonical dev-seed task ULID — keep in
+// lockstep with `DEV_TASK_ID` in `apps/api/scripts/seed-dev-task.ts`
+// (`pnpm --filter @humyn/api seed:dev-task` inserts it; the Phase-5
+// upload-smoke runbook §1 runs that seed).
 import React from 'react';
 import { useNavigation } from '@react-navigation/native';
 import ScreenContainer from '../../ui/primitives/ScreenContainer';
@@ -33,11 +43,16 @@ import { spacing } from '../../ui/tokens';
 
 // The hardcoded non-practice test task the __DEV__ long-press pushes —
 // `isPractice: false` so it exercises the real-recording surface (no 60s
-// cap), distinct from the PracticeIntro entry. Any clean 65-task taxonomy
-// entry works; "Chop vegetables" (Cooking / Indoor) is the chosen one.
+// cap) AND the full Phase-5 upload pipeline (practice never uploads — see
+// RecordingScreen.tsx D-08). `taskId` MUST be a real 26-char `tasks.id`
+// (the upload `/recordings/init` schema + the `recordings.task_id` FK both
+// require it) — this is the reserved canonical dev-seed task ULID; run
+// `pnpm --filter @humyn/api seed:dev-task` to make sure it exists in the
+// dev DB. Keep this constant === `DEV_TASK_ID` in
+// `apps/api/scripts/seed-dev-task.ts`.
 const DEBUG_TEST_TASK = {
-  taskId: 'cooking_chop_vegetables',
-  taskName: 'Practice — Chop vegetables',
+  taskId: '01HVDEVSEEDTASK00000000000',
+  taskName: 'Dev — Chop vegetables',
   isPractice: false,
   taskCategory: 'cooking',
   taskSetting: 'indoor',
