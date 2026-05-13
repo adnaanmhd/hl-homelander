@@ -306,6 +306,13 @@ export function useRecordingLifecycle(args: UseRecordingLifecycleArgs): {
         cb().setAlert('battery', true);
         cb().showToast(TOAST_BATTERY_LOW);
         playTone('battery_alert').catch(() => undefined);
+        // Phase 6 Plan 06-01 (D-09 Wave 1) — JS-side `[HumynBeep][haptic]`
+        // log line mirrors the Kotlin Log.i tag in HumynBeepModule so the
+        // operator can correlate JS-side haptic intent against device-side
+        // audibility in a single `adb logcat` tail. `__DEV__` guards the
+        // prod build to stay quiet (CLAUDE.md "no notifications / no extra
+        // logging at MVP" spirit; logcat is dev-only).
+        if (__DEV__) console.log('[HumynBeep][haptic] battery-low pattern=[0,100,50,100]');
         Vibration.vibrate([0, 100, 50, 100]);
         cb().voiceCue(VOICE_BATTERY_LOW);
       }
@@ -338,6 +345,9 @@ export function useRecordingLifecycle(args: UseRecordingLifecycleArgs): {
       cb().voiceCue(VOICE_THERMAL);
       cb().setAlert('thermal', true);
       playTone('thermal_alert').catch(() => undefined);
+      // Phase 6 Plan 06-01 (D-09 Wave 1) — see the battery-low haptic log
+      // above; same correlation rationale for the thermal-kill cue.
+      if (__DEV__) console.log('[HumynBeep][haptic] thermal-kill pattern=800ms');
       Vibration.vibrate(800);
       if (isActive()) {
         logEvent('recording_stopped', { reason: 'thermal' });
