@@ -803,6 +803,51 @@ class UploadCoordinatorTest {
     }
 
     @Test
+    fun `Wave-2 #7 - happy-path drain emits onQueueChanged on UPLOADING and FINALIZING transitions`() {
+        // Wave-2 #7 regression: without an emitQueueChanged() right after
+        // row.state = UPLOADING / FINALIZING, the JS snapshot stayed pinned on
+        // `pending` (or `uploading`) and the Pending-Uploads tile's determinate
+        // progress bar — gated by `isActive = state === 'uploading'` and the
+        // chip's `Uploading… N%` label — never rendered. We assert by capturing
+        // the row state at each emit: the snapshot sequence MUST include both
+        // `uploading` and `finalizing` (in that order) before the final
+        // `awaiting-verify` emit.
+        val recId = "01JEMITQCHGW27XXXXXXXXXXXXX"
+        store.enqueue(row(recId))
+        val seen = java.util.Collections.synchronizedList(mutableListOf<UploadState>())
+        val monitor = NetworkMonitor(app) {}
+        val coord = UploadCoordinator(
+            queueStore = store,
+            networkMonitor = monitor,
+            emitProgress = { _, _, _ -> },
+            emitQueueChanged = {
+                // Snapshot the row's state at emit time so we can assert the
+                // sequence (not just the count — the bug was a missing emit
+                // tied to specific state transitions, so the test must pin
+                // those exact transitions, not just any emit at any state).
+                store.read().firstOrNull { it.recordingId == recId }?.let { seen.add(it.state) }
+            },
+            getApiBaseUrl = { base() },
+            getBearerToken = { "test-jwt" },
+            getCurrentSub = { "userA" },
+            isPaused = { false },
+            chunkUploader = ChunkUploader(UploadCoordinator.DEFAULT_HTTP_CLIENT, backoffMs = longArrayOf(1, 1, 1, 1, 1, 1), noProgressWindowMs = 5_000L),
+        )
+        coord.drainNow()
+
+        // The captured snapshot states must include the two transitions Wave-2
+        // #7 hinges on, in order, before the terminal AWAITING_VERIFY emit.
+        val uploadingIdx = seen.indexOf(UploadState.UPLOADING)
+        val finalizingIdx = seen.indexOf(UploadState.FINALIZING)
+        val awaitingIdx = seen.indexOf(UploadState.AWAITING_VERIFY)
+        assertTrue("emitQueueChanged fired with state=UPLOADING (so JS flips isActive=true and renders the progress bar). Seen: $seen", uploadingIdx >= 0)
+        assertTrue("emitQueueChanged fired with state=FINALIZING (so the bar drops cleanly before AWAITING_VERIFY). Seen: $seen", finalizingIdx >= 0)
+        assertTrue("emitQueueChanged fired with state=AWAITING_VERIFY (the row's terminal in-queue state). Seen: $seen", awaitingIdx >= 0)
+        assertTrue("UPLOADING emit comes before FINALIZING. Seen: $seen", uploadingIdx < finalizingIdx)
+        assertTrue("FINALIZING emit comes before AWAITING_VERIFY. Seen: $seen", finalizingIdx < awaitingIdx)
+    }
+
+    @Test
     fun `four distinct keys across init parts finalize reupload (no cross-route reuse)`() {
         // Drive a row through /init → /finalize (Wave 1 happy path) and a separate
         // row through /reupload → /finalize (Wave 1 hash-mismatch path) and a
