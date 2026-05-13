@@ -36,6 +36,7 @@ import { Pressable } from '../../ui/primitives/Pressable';
 import { colors, spacing } from '../../ui/tokens';
 import { signInWithGoogle } from '../../services/auth';
 import { useAppStore } from '../../state/appStore';
+import { coalesceDisplayName } from '../../lib/userDisplayName';
 import { logEvent } from '../../util/analytics';
 import { TermsOfUseModal, TERMS_OF_USE_TEXT } from './TermsOfUseModal';
 
@@ -84,7 +85,7 @@ export default function SignupScreen() {
       setUser({
         id: result.user.id,
         email: result.user.email,
-        name: result.user.name,
+        name: coalesceDisplayName(result.user.name, result.user.email),
         avatarUrl: result.user.avatarUrl,
       });
       setConsent({
