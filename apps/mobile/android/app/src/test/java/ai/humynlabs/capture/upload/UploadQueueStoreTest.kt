@@ -10,6 +10,10 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import java.io.File
+import org.json.JSONArray
+import org.json.JSONObject
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 
 /**
  * Plan 05-04 Task 1 — `UploadQueueStore` (native-owned durable upload queue) +
@@ -221,4 +225,59 @@ class UploadQueueStoreTest {
         store.bootstrap("userA")
         assertTrue("verified-with-missing-file row should be swept", store.read().isEmpty())
     }
+
+    @Test
+    fun `mint a fresh UUIDv4 idempotencyKey at construction`() {
+        val r = row("01JABCREC1XXXXXXXXXXXXXXXXX")
+        // UUIDv4 syntactic check — same regex the server's idempotency plugin enforces.
+        val v4 = Regex("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
+        assertTrue("row.idempotencyKey must be a lowercase UUIDv4 (server's UUID_V4_REGEX); got ${r.idempotencyKey}", v4.matches(r.idempotencyKey))
+        // Two fresh rows mint different keys.
+        val r2 = row("01JABCREC2XXXXXXXXXXXXXXXXX")
+        assertNotEquals(r.idempotencyKey, r2.idempotencyKey)
+    }
+
+    @Test
+    fun `idempotencyKey survives a round trip through queue json`() {
+        val (store, _) = newStore()
+        val r = row("01JABCREC1XXXXXXXXXXXXXXXXX")
+        val originalKey = r.idempotencyKey
+        store.enqueue(r)
+        val back = store.read()
+        assertEquals(1, back.size)
+        assertEquals("idempotencyKey must round-trip", originalKey, back[0].idempotencyKey)
+    }
+
+    @Test
+    fun `fromJson mints a fresh UUIDv4 when a legacy row on disk has no idempotencyKey`() {
+        // Simulate the on-disk row from a pre-fix build (the currently-stuck
+        // 01KRFXGAWCMVQ89PJ2PBXSVAKK in the Phase-5 smoke walk). The persisted
+        // JSON has no idempotencyKey field at all — fromJson must mint a fresh
+        // UUIDv4 (and log a one-shot warn) so the row can finally drain.
+        val legacy = JSONObject().apply {
+            put("recordingId", "01KRFXGAWCMVQ89PJ2PBXSVAKK")
+            put("ownerUserId", "userA")
+            put("mp4Path", "/data/files/recordings/x.mp4")
+            put("csvPath", "/data/files/recordings/x.csv")
+            put("jsonPath", "/data/files/recordings/x.json")
+            put("taskId", "01HVDEVSEEDTASK00000000000")
+            put("isPractice", false)
+            put("state", "PENDING")
+            put("videoParts", JSONArray())
+            put("imuParts", JSONArray())
+            put("metadataPut", "PENDING")
+            put("enqueuedAt", 1L)
+            put("lastProgressAt", 1L)
+            // NO idempotencyKey field.
+        }
+        val migrated = UploadRow.fromJson(legacy)
+        assertNotNull("fromJson must mint an idempotencyKey for a legacy row", migrated.idempotencyKey)
+        val v4 = Regex("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
+        assertTrue(
+            "minted idempotencyKey must satisfy the server's UUID_V4_REGEX; got ${migrated.idempotencyKey}",
+            v4.matches(migrated.idempotencyKey),
+        )
+        assertEquals("01KRFXGAWCMVQ89PJ2PBXSVAKK", migrated.recordingId)
+    }
+
 }

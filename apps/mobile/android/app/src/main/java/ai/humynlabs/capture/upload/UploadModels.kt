@@ -1,7 +1,9 @@
 package ai.humynlabs.capture.upload
 
+import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.UUID
 
 /**
  * Phase 5 / Plan 05-04 — the upload-queue row model + the chunk-size / parts-count
@@ -21,6 +23,8 @@ import org.json.JSONObject
  * JSON-on-disk store — NOT a `react-native-mmkv` instance (resolves D-STATE-01:
  * the JS side reads the queue via the `HumynUpload` bridge, never via MMKV).
  */
+
+private const val MODELS_TAG = "HumynUploadCoord"
 
 /** 8 MiB — the Wi-Fi S3 multipart part size. */
 const val WIFI_CHUNK_BYTES: Long = 8L * 1024 * 1024
@@ -99,6 +103,17 @@ data class PartState(
  * `ownerUserId` is the signed-in `sub` at the time the recording was finalized
  * — `UploadQueueStore.bootstrap(currentSub)` only resumes rows whose
  * `ownerUserId == currentSub` (UP-13 cross-account guard on a shared phone).
+ *
+ * `idempotencyKey` is a stable UUIDv4 minted ONCE at row construction (enqueue)
+ * and reused across every server-side POST for this row's lifetime
+ * (`/recordings/init`, `/recordings/:id/parts`, `/recordings/:id/reupload`,
+ * `/recordings/:id/finalize`) — that's what makes the API's global
+ * idempotency pre-handler (`apps/api/src/plugins/idempotency.ts`) cache and
+ * replay the SAME response on a retry (same key + same body → cached response).
+ * Format: lowercase hex UUIDv4 per the server's `UUID_V4_REGEX`. NOT the
+ * recordingId (a ULID, not a UUIDv4 — would be 400-rejected). Persisted to
+ * `queue.json` so it survives a process kill. (S3 PUTs to presigned URLs
+ * do NOT hit the API → no header needed there.)
  */
 data class UploadRow(
     val recordingId: String,
@@ -127,6 +142,13 @@ data class UploadRow(
      * Plan-05-06 nothing sets it; it's the seam Plan 05-08 wires.
      */
     var reupload: Boolean = false,
+    /**
+     * Stable UUIDv4 sent as `Idempotency-Key` on every API POST for this row.
+     * Minted once at construction; reused across retries (same key + same body →
+     * cached server response, the entire point of the hook). NOT the recordingId
+     * (which is a ULID — would fail the server's UUIDv4 validator).
+     */
+    var idempotencyKey: String = UUID.randomUUID().toString(),
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("recordingId", recordingId)
@@ -148,6 +170,7 @@ data class UploadRow(
         put("lastProgressAt", lastProgressAt)
         if (deadLetterReason != null) put("deadLetterReason", deadLetterReason)
         if (reupload) put("reupload", true)
+        put("idempotencyKey", idempotencyKey)
     }
 
     companion object {
@@ -161,33 +184,56 @@ data class UploadRow(
             return out
         }
 
-        fun fromJson(o: JSONObject): UploadRow = UploadRow(
-            recordingId = o.getString("recordingId"),
-            ownerUserId = o.optString("ownerUserId", ""),
-            mp4Path = o.optString("mp4Path", ""),
-            csvPath = o.optString("csvPath", ""),
-            jsonPath = o.optString("jsonPath", ""),
-            taskId = o.optString("taskId", ""),
-            isPractice = o.optBoolean("isPractice", false),
-            state = runCatching { UploadState.valueOf(o.optString("state", "PENDING")) }
-                .getOrDefault(UploadState.PENDING),
-            uploadId = if (o.has("uploadId") && !o.isNull("uploadId")) o.getString("uploadId") else null,
-            imuUploadId = if (o.has("imuUploadId") && !o.isNull("imuUploadId")) o.getString("imuUploadId") else null,
-            partsCount = if (o.has("partsCount") && !o.isNull("partsCount")) o.getInt("partsCount") else null,
-            chunkBytes = if (o.has("chunkBytes") && !o.isNull("chunkBytes")) o.getLong("chunkBytes") else null,
-            videoParts = parts(o.optJSONArray("videoParts")),
-            imuParts = parts(o.optJSONArray("imuParts")),
-            metadataPut = runCatching { PartStatus.valueOf(o.optString("metadataPut", "PENDING")) }
-                .getOrDefault(PartStatus.PENDING),
-            enqueuedAt = o.optLong("enqueuedAt", System.currentTimeMillis()),
-            lastProgressAt = o.optLong("lastProgressAt", System.currentTimeMillis()),
-            deadLetterReason = if (o.has("deadLetterReason") && !o.isNull("deadLetterReason")) {
-                o.getString("deadLetterReason")
+        fun fromJson(o: JSONObject): UploadRow {
+            // Migration: existing rows on disk written before idempotencyKey was added
+            // won't have the field. Mint a fresh UUIDv4 and warn once per row so the
+            // stuck-on-disk row (e.g. `01KRFXGAWCMVQ89PJ2PBXSVAKK` in the Phase-5
+            // smoke walk) can drain on next boot. NB: in the post-migration steady
+            // state every row carries an idempotencyKey, so this branch is silent.
+            val rawKey = if (o.has("idempotencyKey") && !o.isNull("idempotencyKey")) {
+                o.optString("idempotencyKey", "")
             } else {
-                null
-            },
-            reupload = o.optBoolean("reupload", false),
-        )
+                ""
+            }
+            val key = if (rawKey.isBlank()) {
+                val minted = UUID.randomUUID().toString()
+                Log.w(
+                    MODELS_TAG,
+                    "row ${o.optString("recordingId", "<unknown>")} missing idempotencyKey on load — minted $minted (one-shot migration)",
+                )
+                minted
+            } else {
+                rawKey
+            }
+            return UploadRow(
+                recordingId = o.getString("recordingId"),
+                ownerUserId = o.optString("ownerUserId", ""),
+                mp4Path = o.optString("mp4Path", ""),
+                csvPath = o.optString("csvPath", ""),
+                jsonPath = o.optString("jsonPath", ""),
+                taskId = o.optString("taskId", ""),
+                isPractice = o.optBoolean("isPractice", false),
+                state = runCatching { UploadState.valueOf(o.optString("state", "PENDING")) }
+                    .getOrDefault(UploadState.PENDING),
+                uploadId = if (o.has("uploadId") && !o.isNull("uploadId")) o.getString("uploadId") else null,
+                imuUploadId = if (o.has("imuUploadId") && !o.isNull("imuUploadId")) o.getString("imuUploadId") else null,
+                partsCount = if (o.has("partsCount") && !o.isNull("partsCount")) o.getInt("partsCount") else null,
+                chunkBytes = if (o.has("chunkBytes") && !o.isNull("chunkBytes")) o.getLong("chunkBytes") else null,
+                videoParts = parts(o.optJSONArray("videoParts")),
+                imuParts = parts(o.optJSONArray("imuParts")),
+                metadataPut = runCatching { PartStatus.valueOf(o.optString("metadataPut", "PENDING")) }
+                    .getOrDefault(PartStatus.PENDING),
+                enqueuedAt = o.optLong("enqueuedAt", System.currentTimeMillis()),
+                lastProgressAt = o.optLong("lastProgressAt", System.currentTimeMillis()),
+                deadLetterReason = if (o.has("deadLetterReason") && !o.isNull("deadLetterReason")) {
+                    o.getString("deadLetterReason")
+                } else {
+                    null
+                },
+                reupload = o.optBoolean("reupload", false),
+                idempotencyKey = key,
+            )
+        }
     }
 }
 

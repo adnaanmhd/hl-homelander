@@ -59,6 +59,8 @@ class UploadCoordinatorTest {
     private val putCalls = ConcurrentHashMap<String, AtomicInteger>() // path → count
     private val lastFinalizeBody = java.util.concurrent.atomic.AtomicReference<JSONObject?>(null)
     private val lastPartsBody = java.util.concurrent.atomic.AtomicReference<JSONObject?>(null)
+    /** Captured Idempotency-Key header per POST path. Set in the dispatcher. Last-write-wins per path. */
+    private val idempotencyKeysByPath = java.util.concurrent.ConcurrentHashMap<String, String>()
     @Volatile private var failAllPuts = false
     /** When > 0, the `/recordings/init` response is parked this many ms (used by the drain-serialisation test). */
     @Volatile private var initHeadersDelayMs = 0L
@@ -83,6 +85,7 @@ class UploadCoordinatorTest {
                 return when {
                     path == "/recordings/init" -> {
                         initCalls.incrementAndGet()
+                        request.getHeader("Idempotency-Key")?.let { idempotencyKeysByPath["/recordings/init"] = it }
                         val partsCount = JSONObject(request.body.readUtf8()).getInt("partsCount")
                         val code = initResponseCode
                         if (code != 0) {
@@ -96,11 +99,13 @@ class UploadCoordinatorTest {
                     }
                     path.endsWith("/reupload") -> {
                         reuploadCalls.incrementAndGet()
+                        request.getHeader("Idempotency-Key")?.let { idempotencyKeysByPath["/reupload"] = it }
                         val partsCount = JSONObject(request.body.readUtf8()).getInt("partsCount")
                         MockResponse().setResponseCode(200).setBody(initBody(partsCount))
                     }
                     path.endsWith("/parts") -> {
                         partsCalls.incrementAndGet()
+                        request.getHeader("Idempotency-Key")?.let { idempotencyKeysByPath["/parts"] = it }
                         val body = JSONObject(request.body.readUtf8())
                         lastPartsBody.set(body)
                         val code = partsResponseCode
@@ -119,6 +124,7 @@ class UploadCoordinatorTest {
                     }
                     path.endsWith("/finalize") -> {
                         finalizeCalls.incrementAndGet()
+                        request.getHeader("Idempotency-Key")?.let { idempotencyKeysByPath["/finalize"] = it }
                         lastFinalizeBody.set(JSONObject(request.body.readUtf8()))
                         MockResponse().setResponseCode(200).setBody("{}")
                     }
@@ -642,4 +648,57 @@ class UploadCoordinatorTest {
         assertEquals(CELLULAR_CHUNK_BYTES, store.read()[0].chunkBytes)
         assertEquals(3, store.read()[0].partsCount)
     }
+
+    @Test
+    fun `every API POST carries the row's stable Idempotency-Key UUIDv4 (init+finalize on the first drain)`() {
+        // Regression for the 'POST /recordings/init -> 400 Idempotency-Key required'
+        // gate that blocked the Phase-5 on-device UAT walk three times. Every
+        // POST/PATCH must carry an Idempotency-Key header that the server's
+        // UUID_V4_REGEX accepts (apps/api/src/lib/idempotency-store.ts), and the
+        // SAME row's key must be reused across all four POSTs so a retry hits the
+        // server-side cache and replays the original 2xx response.
+        val r = row("01JCOORDIDEM1XXXXXXXXXXXXXX")
+        val expectedKey = r.idempotencyKey
+        store.enqueue(r)
+        coordinator().drainNow()
+
+        // /init + /finalize fired on this happy path; /parts and /reupload didn't.
+        val uuidV4 = Regex("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
+        val initKey = idempotencyKeysByPath["/recordings/init"]
+        assertNotNull("/recordings/init must send an Idempotency-Key header (server's pre-handler 400s without it)", initKey)
+        assertTrue("/recordings/init Idempotency-Key must be a UUIDv4; got $initKey", uuidV4.matches(initKey!!))
+        assertEquals("/recordings/init key must equal the row's stable idempotencyKey", expectedKey, initKey)
+
+        val finalizeKey = idempotencyKeysByPath["/finalize"]
+        assertNotNull("/finalize must send an Idempotency-Key header", finalizeKey)
+        assertEquals("/finalize key must equal /init's key (same row → same key)", expectedKey, finalizeKey)
+    }
+
+    @Test
+    fun `a re-drain via slash parts reuses the same Idempotency-Key as the original slash init`() {
+        // Same row, two drains. First drain: /init has uploadId=null → /init.
+        // Second drain after a process-kill simulation (uploadId set): /parts.
+        // Both POSTs carry the row's SAME stable key — that's the contract that
+        // makes a lost-201 self-heal via the server's idempotency cache.
+        val r = row("01JCOORDIDEM2XXXXXXXXXXXXXX").also {
+            it.uploadId = "VID-UPLOAD-ID"
+            it.imuUploadId = "IMU-UPLOAD-ID"
+            // Pin partsCount so partsCountFor doesn't recompute against the file
+            // size (we just need the re-drain to take the /parts branch).
+            it.partsCount = 2
+            it.chunkBytes = WIFI_CHUNK_BYTES
+            it.videoParts.add(PartState(1, PartStatus.DONE, etag = "\"e1\""))
+            it.videoParts.add(PartState(2))
+            it.imuParts.add(PartState(1))
+        }
+        val expectedKey = r.idempotencyKey
+        store.enqueue(r)
+        coordinator().drainNow()
+
+        assertEquals("re-drain takes /parts, not /init", 0, initCalls.get())
+        val partsKey = idempotencyKeysByPath["/parts"]
+        assertNotNull("/parts must send an Idempotency-Key header", partsKey)
+        assertEquals("/parts key must equal the row's stable idempotencyKey", expectedKey, partsKey)
+    }
+
 }
