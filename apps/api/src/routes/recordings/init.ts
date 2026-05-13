@@ -9,24 +9,34 @@
 // only (its id isn't persisted on the row) → `200` with the SAME `uploadId`; an
 // existing row in a non-`pending` state → `409`; an existing row owned by another
 // user → `403` (carrying no row fields); only a brand-new `recordingId` →
-// `CreateMultipartUpload`(video+IMU)+`INSERT`+`201`. `.onConflictDoNothing()`
-// removed — the SELECT-first guard makes the conflict path unreachable for a new
-// row; a genuine concurrent-INSERT race surfaces as a 500 (the client retries →
-// hits the existing-row idempotent path), which is more honest than a silent
-// `201` with a stale `s3UploadId`. This also self-heals the lost-`201` case: if
-// the first `/init`'s `201` is lost before the client persists `row.uploadId`,
-// the next drain re-calls `/init`, gets the existing `uploadId` back (the
-// multipart upload it points at has zero uploaded parts at that moment) + a fresh
-// `imuUploadId`, persists them, and proceeds — no infinite retry.
+// `CreateMultipartUpload`(video+IMU)+`INSERT`+`201`. The CR-02 lost-`201` case
+// (the first `/init`'s `201` is lost before the client persists `row.uploadId`)
+// self-heals via the SELECT-first idempotency guard at the top of the handler:
+// the next drain re-calls `/init`, the SELECT finds the existing row, the
+// idempotent re-presign path returns the SAME `uploadId` (the multipart upload
+// it points at has zero uploaded parts at that moment) + a fresh `imuUploadId`,
+// the client persists them, and proceeds — no infinite retry. The CONCURRENT-
+// INSERT race case (UP-13 §4 walk 2026-05-13: two /init handlers for the same
+// `recordingId` both pass the SELECT-first guard before either INSERTs because
+// LocalStack-pause holds both blocked on `CreateMultipartUpload`; in production
+// the same shape fires when S3 latency exceeds the UP-19 watchdog window +
+// drainer immediate retry) is caught at the INSERT site by `isUniqueViolation`
+// on `recordings_pkey`: the losing handler aborts its orphan video + IMU
+// multipart uploads and self-heals through the SAME idempotent re-presign path
+// the SELECT-first guard takes. .onConflictDoNothing() is intentionally NOT
+// used so other (non-recordings_pkey) constraint violations still surface as
+// 500 — the explicit isUniqueViolation guard scopes the self-heal to exactly
+// the race we know how to recover from.
 //
 // `POST /recordings/:id/parts` is the coordinator's PREFERRED re-drain route
 // (re-presigns video AND IMU against the existing ids, no `CreateMultipartUpload`
 // of any kind) — preserves the already-uploaded VIDEO *and* IMU parts' ETags.
 
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { eq } from 'drizzle-orm';
 import {
+  AbortMultipartUploadCommand,
   CreateMultipartUploadCommand,
   UploadPartCommand,
   PutObjectCommand,
@@ -103,6 +113,98 @@ export async function presignMetadata(
   );
 }
 
+/**
+ * Render the CR-02 idempotent re-presign reply for an existing pending row.
+ * Pulled out of the main handler so the INSERT race-loss path (a concurrent
+ * /init that beat us to commit — UP-13 §4 walk surfaced this on Pixel 10a
+ * 2026-05-13) self-heals via the SAME code path the SELECT-first guard takes.
+ *
+ * Validates ownership (403 on mismatch), state (409 on non-pending), the
+ * defensive missing-`s3UploadId` invariant (409), then re-presigns video parts
+ * against `existing.s3UploadId` (preserves any already-uploaded parts' ETags),
+ * mints a FRESH IMU multipart upload (its id is never persisted on the row), and
+ * a FRESH metadata PUT URL. Row is NEVER mutated.
+ */
+async function replyExistingRowIdempotent(args: {
+  existing: typeof schema.recordings.$inferSelect;
+  userId: string;
+  body: { recordingId: string; partsCount: number };
+  s3: S3Client;
+  bucket: string;
+  keys: { video: string; imu: string; metadata: string };
+  req: FastifyRequest;
+  reply: FastifyReply;
+}): Promise<FastifyReply> {
+  const { existing, userId, body, s3, bucket, keys, req, reply } = args;
+  if (existing.userId !== userId) {
+    return reply
+      .status(403)
+      .type(PROBLEM_CT)
+      .send(
+        buildProblemDetail({
+          slug: PROBLEM_SLUGS.forbidden,
+          title: 'Not your recording',
+          status: 403,
+          instance: req.id as string,
+        }),
+      );
+  }
+  if (existing.qaStatus !== 'pending') {
+    return reply
+      .status(409)
+      .type(PROBLEM_CT)
+      .send(
+        buildProblemDetail({
+          slug: PROBLEM_SLUGS.conflict,
+          title: `Cannot re-init from state ${existing.qaStatus}`,
+          status: 409,
+          instance: req.id as string,
+        }),
+      );
+  }
+  if (!existing.s3UploadId) {
+    return reply
+      .status(409)
+      .type(PROBLEM_CT)
+      .send(
+        buildProblemDetail({
+          slug: PROBLEM_SLUGS.conflict,
+          title: 'Pending row missing video upload-id',
+          status: 409,
+          detail: 'Row is pending but has no s3UploadId; this should not happen',
+          instance: req.id as string,
+        }),
+      );
+  }
+  // partsCount is non-null on any row /init created — fall back defensively.
+  const rowParts = existing.partsCount ?? body.partsCount;
+  const partUrls = await presignVideoParts(s3, bucket, keys.video, existing.s3UploadId, rowParts);
+  const { imuUploadId, imuPartUrls } = await presignImuStream(s3, bucket, keys.imu, rowParts);
+  const metadataUrl = await presignMetadata(s3, bucket, keys.metadata);
+  const expiresAt = new Date(Date.now() + PRESIGNED_TTL_SECONDS * 1000);
+  return reply.status(200).send({
+    recordingId: body.recordingId,
+    uploadId: existing.s3UploadId,
+    partsCount: rowParts,
+    partUrls,
+    imuUploadId,
+    imuPartUrls,
+    metadataUrl,
+    expiresAt: expiresAt.toISOString(),
+  });
+}
+
+/** PG `unique_violation` (SQLSTATE 23505) on the named constraint. */
+function isUniqueViolation(e: unknown, constraint: string): boolean {
+  if (!e || typeof e !== 'object') return false;
+  const cause = (e as { cause?: unknown }).cause;
+  const code = (e as { code?: unknown }).code ?? (cause as { code?: unknown } | null)?.code;
+  const constr =
+    (e as { constraint?: unknown }).constraint ??
+    (cause as { constraint?: unknown } | null)?.constraint;
+  return code === '23505' && constr === constraint;
+}
+
 export default async function recordingsInitRoute(app: FastifyInstance): Promise<void> {
   app.withTypeProvider<ZodTypeProvider>().post(
     '/recordings/init',
@@ -171,72 +273,15 @@ export default async function recordingsInitRoute(app: FastifyInstance): Promise
         .where(eq(schema.recordings.id, body.recordingId))
         .limit(1);
       if (existing) {
-        if (existing.userId !== userId) {
-          return reply
-            .status(403)
-            .type(PROBLEM_CT)
-            .send(
-              buildProblemDetail({
-                slug: PROBLEM_SLUGS.forbidden,
-                title: 'Not your recording',
-                status: 403,
-                instance: req.id as string,
-              }),
-            );
-        }
-        if (existing.qaStatus !== 'pending') {
-          return reply
-            .status(409)
-            .type(PROBLEM_CT)
-            .send(
-              buildProblemDetail({
-                slug: PROBLEM_SLUGS.conflict,
-                title: `Cannot re-init from state ${existing.qaStatus}`,
-                status: 409,
-                instance: req.id as string,
-              }),
-            );
-        }
-        if (!existing.s3UploadId) {
-          // Defensive: a pending row should always carry the video upload-id.
-          return reply
-            .status(409)
-            .type(PROBLEM_CT)
-            .send(
-              buildProblemDetail({
-                slug: PROBLEM_SLUGS.conflict,
-                title: 'Pending row missing video upload-id',
-                status: 409,
-                detail: 'Row is pending but has no s3UploadId; this should not happen',
-                instance: req.id as string,
-              }),
-            );
-        }
-        // Idempotent re-presign: keep existing.s3UploadId (the already-uploaded
-        // video parts' ETags survive a re-drain) + a FRESH CreateMultipartUpload
-        // on the IMU stream ONLY (its id was never persisted). Row is NOT mutated.
-        // partsCount is non-null on any row /init created (the column is set on
-        // INSERT) — fall back to the request value defensively.
-        const rowParts = existing.partsCount ?? body.partsCount;
-        const partUrls = await presignVideoParts(
+        return replyExistingRowIdempotent({
+          existing,
+          userId,
+          body: { recordingId: body.recordingId, partsCount: body.partsCount },
           s3,
           bucket,
-          keys.video,
-          existing.s3UploadId,
-          rowParts,
-        );
-        const { imuUploadId, imuPartUrls } = await presignImuStream(s3, bucket, keys.imu, rowParts);
-        const metadataUrl = await presignMetadata(s3, bucket, keys.metadata);
-        const expiresAt = new Date(Date.now() + PRESIGNED_TTL_SECONDS * 1000);
-        return reply.status(200).send({
-          recordingId: body.recordingId,
-          uploadId: existing.s3UploadId,
-          partsCount: rowParts,
-          partUrls,
-          imuUploadId,
-          imuPartUrls,
-          metadataUrl,
-          expiresAt: expiresAt.toISOString(),
+          keys,
+          req,
+          reply,
         });
       }
 
@@ -278,33 +323,89 @@ export default async function recordingsInitRoute(app: FastifyInstance): Promise
       // 4. Insert recordings row in 'pending'. The s3UploadId column stores
       //    the VIDEO multipart upload-id (canonical for /finalize state-check).
       //    The IMU upload-id is returned to the client and echoed back in the
-      //    /finalize body — we don't need to store both. NO .onConflictDoNothing()
-      //    — the SELECT-first guard above makes the conflict path unreachable for
-      //    a new row; a genuine concurrent-INSERT race surfaces as a 500.
-      await db.insert(schema.recordings).values({
-        id: body.recordingId,
-        userId,
-        taskId: body.taskId,
-        practice: body.practice,
-        qaStatus: 'pending',
-        durationMs: body.durationMs,
-        fileSha256: body.fileSha256,
-        imuSha256: body.imuSha256,
-        fileSizeBytes: body.fileSizeBytes,
-        imuSizeBytes: body.imuSizeBytes,
-        s3KeyVideo: keys.video,
-        s3KeyImu: keys.imu,
-        s3KeyMetadata: keys.metadata,
-        capturedAt: new Date(body.capturedAt),
-        flavor,
-        s3UploadId: videoMu.UploadId,
-        partsCount: body.partsCount,
-        // UP-18 — the client sends ip_address: null; the server populates it.
-        // req.ip honors Fastify's trustProxy setting (a no-op until the prod
-        // ALB is fronted with trustProxy configured to the proxy CIDR — until
-        // then req.ip is the socket peer, correct in dev / direct connections).
-        ipAddress: req.ip,
-      });
+      //    /finalize body — we don't need to store both. Race-handled (UP-13 §4
+      //    walk 2026-05-13): two concurrent /init handlers for the same
+      //    recordingId can both pass the SELECT-first guard above before either
+      //    INSERTs (the LocalStack pause keeps both blocked on
+      //    CreateMultipartUpload long enough to overlap; in production the same
+      //    pattern fires when S3 latency exceeds the UP-19 ~30 s no-progress
+      //    watchdog window + drainer immediate retry). The losing handler
+      //    catches the recordings_pkey unique-violation, aborts its orphan
+      //    video + IMU multipart uploads, and self-heals through the same
+      //    CR-02 idempotent re-presign path the SELECT-first guard takes.
+      try {
+        await db.insert(schema.recordings).values({
+          id: body.recordingId,
+          userId,
+          taskId: body.taskId,
+          practice: body.practice,
+          qaStatus: 'pending',
+          durationMs: body.durationMs,
+          fileSha256: body.fileSha256,
+          imuSha256: body.imuSha256,
+          fileSizeBytes: body.fileSizeBytes,
+          imuSizeBytes: body.imuSizeBytes,
+          s3KeyVideo: keys.video,
+          s3KeyImu: keys.imu,
+          s3KeyMetadata: keys.metadata,
+          capturedAt: new Date(body.capturedAt),
+          flavor,
+          s3UploadId: videoMu.UploadId,
+          partsCount: body.partsCount,
+          // UP-18 — the client sends ip_address: null; the server populates it.
+          // req.ip honors Fastify's trustProxy setting (a no-op until the prod
+          // ALB is fronted with trustProxy configured to the proxy CIDR — until
+          // then req.ip is the socket peer, correct in dev / direct connections).
+          ipAddress: req.ip,
+        });
+      } catch (e) {
+        if (isUniqueViolation(e, 'recordings_pkey')) {
+          // Best-effort orphan cleanup (don't fail the request if either abort
+          // throws — the LocalStack/S3 lifecycle policy will GC orphan multipart
+          // uploads after 24 h regardless).
+          await Promise.allSettled([
+            s3.send(
+              new AbortMultipartUploadCommand({
+                Bucket: bucket,
+                Key: keys.video,
+                UploadId: videoMu.UploadId,
+              }),
+            ),
+            s3.send(
+              new AbortMultipartUploadCommand({
+                Bucket: bucket,
+                Key: keys.imu,
+                UploadId: imuUploadId,
+              }),
+            ),
+          ]);
+          // Re-fetch the (now-committed) row from the winning concurrent handler
+          // and self-heal via the SAME idempotent re-presign path the SELECT-first
+          // guard above takes. Defensive: if the row has somehow vanished between
+          // the unique-violation and this SELECT (shouldn't happen — there's no
+          // DELETE path for a 'pending' row in the codebase), surface the original
+          // error as a 500 so we don't silently 200 with a non-existent uploadId.
+          const [raceLossExisting] = await db
+            .select()
+            .from(schema.recordings)
+            .where(eq(schema.recordings.id, body.recordingId))
+            .limit(1);
+          if (!raceLossExisting) {
+            throw e;
+          }
+          return replyExistingRowIdempotent({
+            existing: raceLossExisting,
+            userId,
+            body: { recordingId: body.recordingId, partsCount: body.partsCount },
+            s3,
+            bucket,
+            keys,
+            req,
+            reply,
+          });
+        }
+        throw e;
+      }
 
       return reply.status(201).send({
         recordingId: body.recordingId,
