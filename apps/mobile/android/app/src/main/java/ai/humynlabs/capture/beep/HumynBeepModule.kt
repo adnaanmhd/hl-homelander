@@ -1,7 +1,11 @@
 package ai.humynlabs.capture.beep
 
+import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.SoundPool
+import android.util.Log
+import androidx.annotation.VisibleForTesting
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -54,10 +58,39 @@ class HumynBeepModule(reactContext: ReactApplicationContext) :
             "battery_alert" to "audio/battery_alert.wav",
             "thermal_alert" to "audio/thermal_alert.wav",
         )
+
+        /**
+         * Phase 6 Plan 06-01 (D-09 Wave 1) — extracted helper so the Robolectric
+         * test can assert `USAGE_MEDIA` without instantiating the full
+         * `SoundPool` / native catalyst instance. The body MUST stay identical
+         * to what `ensurePool()` inlines into `SoundPool.Builder.setAudioAttributes(...)`.
+         *
+         * `USAGE_MEDIA` (the change) is what the user's MAX media-volume control
+         * actually controls on Android 16 / Pixel 10a; the previous assistance/
+         * sonification usage routed to the system stream and was silent at MAX
+         * media volume during the Phase-5 Item-5 walk.
+         */
+        @VisibleForTesting
+        @JvmStatic
+        fun buildAudioAttributes(): AudioAttributes =
+            AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
     }
 
     /** Built eagerly in [init]; `null` only if the build/`openFd` failed. */
     private var soundPool: SoundPool? = null
+
+    /**
+     * Phase 6 Plan 06-01 — cached `AudioManager` for the `STREAM_MUSIC` volume
+     * logging at every `playTone` invocation, so a Phase-5 Item-5-style silence
+     * report is diagnosable in a single `adb logcat -s HumynBeep` tail (no need
+     * to also dump `audio_service` state). LOW severity per ASVS L1 §V8 (logs
+     * only sample ids + stream volumes — no PII; see threat T-6.1-02).
+     */
+    private val audioManager: AudioManager? =
+        reactContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
 
     /** Loaded sample ids keyed by tone name. */
     private val soundIds = mutableMapOf<String, Int>()
@@ -96,21 +129,35 @@ class HumynBeepModule(reactContext: ReactApplicationContext) :
         if (soundPool != null) return
         val pool = SoundPool.Builder()
             .setMaxStreams(2)
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build(),
-            )
+            // Phase 6 Plan 06-01 (D-09 Wave 1) — flipped from
+            // USAGE_ASSISTANCE_SONIFICATION → USAGE_MEDIA. The previous usage
+            // routed to the "system" volume stream which is silent at MAX media
+            // volume on Android 16 / Pixel 10a; USAGE_MEDIA puts the cue on
+            // STREAM_MUSIC where the operator's volume control IS the relevant
+            // control. Helper is extracted so the Robolectric test can assert
+            // the attributes without bringing up the catalyst instance.
+            .setAudioAttributes(buildAudioAttributes())
             .build()
         // WR-04 — when a sample finishes decoding, mark it loaded and, if a
         // playTone() already asked for it, fire it now (a play() on a loaded
         // sample returns a valid non-zero stream id).
         pool.setOnLoadCompleteListener { sp, sampleId, status ->
+            // Phase 6 Plan 06-01 — log decode status so an `adb logcat -s HumynBeep`
+            // tail shows whether the SoundPool decode succeeded at all (status 0
+            // = success per AOSP SoundPool docs).
+            Log.i("HumynBeep", "loadComplete sampleId=$sampleId status=$status (0=success)")
             if (status == 0) {
                 loadedSampleIds.add(sampleId)
                 if (pendingPlays.remove(sampleId)) {
-                    sp.play(sampleId, 1f, 1f, 1, 0, 1f)
+                    val pendingStreamId = sp.play(sampleId, 1f, 1f, 1, 0, 1f)
+                    Log.i("HumynBeep", "pendingPlay fired sampleId=$sampleId streamId=$pendingStreamId")
+                    if (pendingStreamId == 0) {
+                        // Mirrors the post-decode `streamId == 0` guard inside
+                        // playTone(); a 0 here means max streams busy at the
+                        // moment the decode finally landed. Surface so the
+                        // operator sees it in logcat.
+                        Log.w("HumynBeep", "pendingPlay returned 0 (max streams busy OR load incomplete) sampleId=$sampleId")
+                    }
                 }
             }
         }
@@ -120,7 +167,9 @@ class HumynBeepModule(reactContext: ReactApplicationContext) :
             assets.openFd(path).use { afd ->
                 // load() is ASYNC — decode completes a few ms later and is
                 // signalled via the OnLoadCompleteListener above.
-                soundIds[name] = pool.load(afd, 1)
+                val sampleId = pool.load(afd, 1)
+                soundIds[name] = sampleId
+                Log.i("HumynBeep", "load called name=$name path=$path sampleId=$sampleId")
             }
         }
     }
@@ -143,12 +192,22 @@ class HumynBeepModule(reactContext: ReactApplicationContext) :
                     promise.reject("BEEP_FAILED", "tone not loaded: $name")
                     return
                 }
+            // Phase 6 Plan 06-01 (D-09 Wave 1) — single-line pre-play log so
+            // the operator can confirm in `adb logcat -s HumynBeep` that the
+            // cue was requested, the sample is decoded, and the user's volume
+            // is non-zero. Stream volume + max are the most useful diagnostic
+            // for the Phase-5 Item-5 silence report.
+            val streamVolume = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: -1
+            val maxVolume = audioManager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC) ?: -1
+            Log.i("HumynBeep", "playTone request name=$name sampleId=$id loadedIds=$loadedSampleIds streamVolume=$streamVolume maxVolume=$maxVolume")
             if (loadedSampleIds.contains(id)) {
                 // WR-04 — the sample is decoded; play() returns a valid stream
                 // id. A 0 here is a genuine failure (e.g. max streams busy) —
                 // report it instead of swallowing it.
                 val streamId = pool.play(id, 1f, 1f, 1, 0, 1f)
+                Log.i("HumynBeep", "play returned streamId=$streamId for name=$name")
                 if (streamId == 0) {
+                    Log.w("HumynBeep", "SoundPool.play returned 0 (max streams busy OR load incomplete) name=$name sampleId=$id")
                     promise.reject("BEEP_FAILED", "SoundPool.play returned 0 for $name")
                     return
                 }
