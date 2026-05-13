@@ -166,7 +166,8 @@ blocked: 0
 ## Gaps
 
 - truth: "HumynCapture.start() succeeds on the **DEV** Tasks-tab long-press path when a Google-signed-in user (or the dev tester@example.com) hits the active substate after the hand gate passes — the contributor.name in CaptureSessionOpts is a non-empty string."
-  status: failed
+  status: resolved
+  resolution: "Closed by Plan 05-15 / Gap Wave 3 — 4 commits `2da5465..ff19694` (fast-forward-merged to main as `4e2897a`). Fix narrative + full chain documented in Item 1 prior_issue_resolution (this file, around line 33). The §2 re-walk on Pixel 10a drove the full happy path post-fix (recording 01KRGA1B5H8BSRNFPSRHQFTHQ8, see §2 in Current Test)."
   reason: "User reported: recording could not start. Logcat: `E HumynCapture: start() failed — code=invalid_opts msg=invalid_opts: name`. Stack at CaptureSessionOptsBridge.kt:150 ← :84 (`requireNonEmpty(contributorMap, \"name\")`) ← HumynCaptureModule.kt:138. JS upstream: RecordingScreen.tsx:695 passes `user.name: u.user?.name ?? ''`; UserDisplay.name is `string | null` (appStore.ts:51). When the store's `user.name` is null/empty the bridge throws and recording never starts."
   severity: blocker
   test: 1
