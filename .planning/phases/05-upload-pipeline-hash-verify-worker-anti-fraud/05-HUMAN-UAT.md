@@ -1,14 +1,18 @@
 ---
-status: paused_pending_wave_1_5
+status: partial
 phase: 05-upload-pipeline-hash-verify-worker-anti-fraud
 source: [05-VERIFICATION.md]
 started: 2026-05-12T16:46:52Z
-updated: 2026-05-13T11:45:00Z
+updated: 2026-05-13T09:00:00Z
 ---
 
 ## Current Test
 
-**On-device walk PAUSED 2026-05-13 afternoon — pending a Phase-5 Wave-1.5 batch fix-up.** Backend half of items 1+3 was walked 2026-05-13 morning by an automated probe against the dev stack (Postgres + Redis + LocalStack + the real hash-verify worker process) — `POST /recordings/init` → PUT parts to LocalStack → PUT `metadata.json` → `POST /recordings/:id/finalize` → (dev shim) `enqueueVerify` → the BullMQ worker re-hashed the S3 bytes → `recordings.qa_status='verified'` (+ `verified_at`) → `GET /me` carried `_events: [{recording_id, event_type:'verified'}]` and a second `GET /me` did NOT re-carry it (delivered). Hash-mismatch path: a recording that claimed a wrong `file_sha256` at `/init` → worker → `qa_status='hash-mismatch'` → `_events: [{…, event_type:'re-upload'}]` → `POST /recordings/:id/reupload` → row reset to `qa_status='pending'` with a fresh `s3UploadId` + `verified_at` cleared. Plus the Phase-5 gap-closure routes: a duplicate `POST /recordings/init` on a `pending` row → `200` with the SAME `uploadId` (CR-02 idempotent `/init` / lost-201 self-heal); `POST /recordings/:id/parts` → `200`, re-presigned video against the existing `uploadId`, row unchanged (CR-02 new re-presign route). `ip_address` server-populated (UP-18); `recordings_to_verify` drained on both verified + mismatch. **No backend findings.**
+**On-device walk UNBLOCKED 2026-05-13 — Wave-1.5 (Plan 05-14) merged on `main` (commits `b51b210` → `5c80f8f`).** Both build-time regressions caught by the orchestrator's gap-check (TS2375 on `HomeSkeletonScreen.tsx:217` + missing `assertNotEquals` import in `UploadCoordinatorTest.kt`) closed in commit `eff6abb`; post-fix mobile vitest is 92/92 files / 669/669 tests green, `npm run typecheck` exits 0, and the Robolectric upload tests will compile (Gradle/Robolectric not re-run as part of the orchestrator's run — the import fix is mechanical). The re-walk per `.planning/runbooks/05-upload-smoke.md` (§1 pre-flight + §2 on-device + §3 hash-mismatch + the Wave-1.5 §6 closing entry) is now ready.
+
+### Historical note (paused state captured 2026-05-13 afternoon)
+
+**Previous status:** `paused_pending_wave_1_5`. Backend half of items 1+3 was walked 2026-05-13 morning by an automated probe against the dev stack (Postgres + Redis + LocalStack + the real hash-verify worker process) — `POST /recordings/init` → PUT parts to LocalStack → PUT `metadata.json` → `POST /recordings/:id/finalize` → (dev shim) `enqueueVerify` → the BullMQ worker re-hashed the S3 bytes → `recordings.qa_status='verified'` (+ `verified_at`) → `GET /me` carried `_events: [{recording_id, event_type:'verified'}]` and a second `GET /me` did NOT re-carry it (delivered). Hash-mismatch path: a recording that claimed a wrong `file_sha256` at `/init` → worker → `qa_status='hash-mismatch'` → `_events: [{…, event_type:'re-upload'}]` → `POST /recordings/:id/reupload` → row reset to `qa_status='pending'` with a fresh `s3UploadId` + `verified_at` cleared. Plus the Phase-5 gap-closure routes: a duplicate `POST /recordings/init` on a `pending` row → `200` with the SAME `uploadId` (CR-02 idempotent `/init` / lost-201 self-heal); `POST /recordings/:id/parts` → `200`, re-presigned video against the existing `uploadId`, row unchanged (CR-02 new re-presign route). `ip_address` server-populated (UP-18); `recordings_to_verify` drained on both verified + mismatch. **No backend findings.**
 
 The on-device half (item 1's device leg + items 2–5) was attempted 2026-05-13 afternoon on a Pixel 10a (`5C161JEA304304`, Android 16) with the apkRollout build loaded from Metro. The attempt surfaced **five distinct root causes** for the same observable `POST /recordings/init → 400` symptom; the first three were fixed inline through three `/gsd-debug` sessions:
 
