@@ -3,19 +3,19 @@ status: partial
 phase: 05-upload-pipeline-hash-verify-worker-anti-fraud
 source: [05-VERIFICATION.md]
 started: 2026-05-12T16:46:52Z
-updated: 2026-05-12T16:46:52Z
+updated: 2026-05-13T03:10:00Z
 ---
 
 ## Current Test
 
-[awaiting human testing]
+Item 1's backend half was walked 2026-05-13 by an automated probe against the dev stack (Postgres + Redis + LocalStack + the real hash-verify worker process) — `POST /recordings/init` → PUT parts to LocalStack → PUT `metadata.json` → `POST /recordings/:id/finalize` → (dev shim) `enqueueVerify` → the BullMQ worker re-hashed the S3 bytes → `recordings.qa_status='verified'` (+ `verified_at`) → `GET /me` carried `_events: [{recording_id, event_type:'verified'}]` and a second `GET /me` did NOT re-carry it (delivered). Hash-mismatch path: a recording that claimed a wrong `file_sha256` at `/init` → worker → `qa_status='hash-mismatch'` → `_events: [{…, event_type:'re-upload'}]` → `POST /recordings/:id/reupload` → row reset to `qa_status='pending'` with a fresh `s3UploadId` + `verified_at` cleared. Plus the Phase-5 gap-closure routes: a duplicate `POST /recordings/init` on a `pending` row → `200` with the SAME `uploadId` (CR-02 idempotent `/init` / lost-201 self-heal); `POST /recordings/:id/parts` → `200`, re-presigned video against the existing `uploadId`, row unchanged (CR-02 new re-presign route). `ip_address` server-populated (UP-18); `recordings_to_verify` drained on both verified + mismatch. **No findings.** The on-device half of item 1 (record on real hardware, FGS survival through background+force-quit, the local mp4/csv/json delete via `HumynUpload.clearVerified`, the app-relaunch reconciliation sweep) is still pending. Items 2–5 are fully on-device and still pending.
 
 ## Tests
 
 ### 1. End-to-end upload (Pixel 7a/8a-class + dev backend) + the hash-mismatch path
 
-expected: On a Pixel 7a/8a-class device with the dev backend up (Postgres + Redis + LocalStack + worker), record a ≥60 s task → the bundle (mp4 + IMU CSV + metadata.json) auto-enqueues; the Pending Uploads tile/screen shows "Uploading…" progressing, then the row drops once verified. Bundle lands in S3 (`aws --endpoint-url=http://localhost:4566 s3 ls s3://humyn-recordings-dev/recordings/`), the BullMQ hash-verify worker re-hashes, `recordings.qa_status='verified'`, the next authed API response carries `_events: [{recording_id, event_type:'verified'}]`, the local mp4+csv+json are deleted, the row disappears from the queue. Then corrupt the S3 object → hash-mismatch → `re-upload` event → re-upload-from-local → re-verify. Runbook: `.planning/runbooks/05-upload-smoke.md` (authored, not yet walked).
-result: [pending]
+expected: On a Pixel 7a/8a-class device with the dev backend up (Postgres + Redis + LocalStack + worker), record a ≥60 s task → the bundle (mp4 + IMU CSV + metadata.json) auto-enqueues; the Pending Uploads tile/screen shows "Uploading…" progressing, then the row drops once verified. Bundle lands in S3 (`aws --endpoint-url=http://localhost:4566 s3 ls s3://humyn-recordings-dev/recordings/`), the BullMQ hash-verify worker re-hashes, `recordings.qa_status='verified'`, the next authed API response carries `_events: [{recording_id, event_type:'verified'}]`, the local mp4+csv+json are deleted, the row disappears from the queue. Then corrupt the S3 object → hash-mismatch → `re-upload` event → re-upload-from-local → re-verify. Runbook: `.planning/runbooks/05-upload-smoke.md`.
+result: [partial — backend half VERIFIED 2026-05-13 via automated probe (init → PUT to LocalStack → finalize → BullMQ hash-verify worker → qa_status='verified' + verified_at → `_events: verified` → 2nd call doesn't re-carry; hash-mismatch → `_events: re-upload` → `/reupload` row-reset; + CR-02 idempotent `/init` returning the same uploadId + `/parts` re-presign; ip_address server-populated; recordings_to_verify drained — no findings). On-device half PENDING: record on real Pixel 7a/8a-class hardware, FGS survival through background+force-quit, local mp4/csv/json delete via HumynUpload.clearVerified, app-relaunch reconciliation sweep.]
 
 ### 2. Force-quit / OS-evict recovery + Android-14 FGS type downgrade + Android-15 UIDT onTimeout handoff
 
