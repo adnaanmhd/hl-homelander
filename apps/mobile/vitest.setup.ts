@@ -611,6 +611,23 @@ vi.mock('lucide-react-native', () => {
     // Plan 04-07 — RecordingScreen close button reuses `X` (above); the
     // RotatePrompt body shows a phone-rotate glyph (`RotateCw`).
     'RotateCw',
+    // Phase 6 Plan 06-07 — Tasks tab icon names.
+    // SearchInput: Search (leading) + X (clear, already in list above).
+    // UniversalRulesBlock: HandMetal/Video/Lightbulb/LayoutGrid lucide stand-
+    // ins for the Material Symbols (front_hand / videocam / lightbulb / apps).
+    // TasksScreen no-results: SearchX (verified available in lucide@1.14.0).
+    // SendRequestSheet sample-video tile: Paperclip.
+    // TaskCard / TaskIcon fallback (design-system/task-icons): Sparkles.
+    'Search',
+    'SearchX',
+    'HandMetal',
+    'Video',
+    'Lightbulb',
+    'LayoutGrid',
+    'Sparkles',
+    'Paperclip',
+    'Inbox',
+    'WifiOff',
   ] as const;
   const exports: Record<string, unknown> = {};
   for (const name of ICONS) {
