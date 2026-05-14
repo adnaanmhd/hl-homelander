@@ -28,7 +28,7 @@
 //
 // NO hex literals — every value bound to `../../ui/tokens`.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, FlatList, StyleSheet, type ListRenderItem } from 'react-native';
+import { View, FlatList, RefreshControl, StyleSheet, type ListRenderItem } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SearchX } from 'lucide-react-native';
 
@@ -77,6 +77,7 @@ export function TasksScreen(): React.JSX.Element {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loadingList, setLoadingList] = useState<boolean>(false);
   const [listError, setListError] = useState<Error | null>(null);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
   // Phase-6 design-spec §10 — server-side lexical search hook fires 200ms
   // after the last keystroke. `results: null` ⇒ default browse view; `[]` ⇒
@@ -84,8 +85,21 @@ export function TasksScreen(): React.JSX.Element {
   const search = useTaskSearch(debouncedQuery);
 
   // Default (no search) — fetch the paginated list filtered by category.
-  // Re-fetch on category change. Search results take precedence and skip
-  // this branch entirely.
+  // Lifted out of useEffect so the pull-to-refresh handler can re-fire it.
+  const loadList = useCallback(async (): Promise<void> => {
+    setLoadingList(true);
+    setListError(null);
+    const args = categoryFilter === 'all' ? {} : { category: categoryFilter };
+    try {
+      const res = await fetchTasks(args);
+      setTasks(res.items);
+    } catch (e) {
+      setListError(e as Error);
+    } finally {
+      setLoadingList(false);
+    }
+  }, [categoryFilter]);
+
   useEffect(() => {
     let cancelled = false;
     setLoadingList(true);
@@ -105,6 +119,17 @@ export function TasksScreen(): React.JSX.Element {
       cancelled = true;
     };
   }, [categoryFilter]);
+
+  // Plan 06-12 Task 1 — pull-to-refresh on TasksScreen FlatList. Mirrors
+  // Plan 06-09's HistoryScreen / HomeScreen RefreshControl pattern.
+  const onPullRefresh = useCallback(async (): Promise<void> => {
+    setRefreshing(true);
+    try {
+      await loadList();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadList]);
 
   // The grid data: search results when a non-empty query is active; otherwise
   // the (category-filtered) full list.
@@ -259,6 +284,13 @@ export function TasksScreen(): React.JSX.Element {
           numColumns={2}
           columnWrapperStyle={styles.row}
           contentContainerStyle={styles.gridContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onPullRefresh}
+              tintColor={colors.accent}
+            />
+          }
           ListFooterComponent={
             <View accessibilityLabel="tasks-footer" style={styles.footerWrap}>
               <Text variant="caption" tone="secondary" style={styles.footerLine}>
