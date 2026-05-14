@@ -86,11 +86,19 @@ export default async function recordingsListRoute(app: FastifyInstance): Promise
         // D-03 — explicit window. `start` = inclusive local-midnight,
         // `end` = exclusive next-day local-midnight (client sends end = day
         // AFTER the last-included day). When Accept-Timezone present, coerce
-        // each YYYY-MM-DD::date to timestamptz at that zone's midnight; when
-        // absent, PG defaults to the session TZ (UTC in our setup).
+        // each YYYY-MM-DD wall-clock midnight in `tz` to UTC timestamptz.
+        // PG gotcha: `date AT TIME ZONE tz` implicitly casts the date via the
+        // session TZ first (wrong direction). Cast `::date::timestamp` so
+        // `AT TIME ZONE tz` interprets the bare timestamp AS IF in `tz` and
+        // returns a timestamptz. When tz is absent, PG defaults to the
+        // session TZ (UTC in our setup).
         if (tz) {
-          where.push(sql`${schema.recordings.createdAt} >= (${start}::date AT TIME ZONE ${tz})`);
-          where.push(sql`${schema.recordings.createdAt} <  (${end}::date AT TIME ZONE ${tz})`);
+          where.push(
+            sql`${schema.recordings.createdAt} >= (${start}::date::timestamp AT TIME ZONE ${tz})`,
+          );
+          where.push(
+            sql`${schema.recordings.createdAt} <  (${end}::date::timestamp AT TIME ZONE ${tz})`,
+          );
         } else {
           where.push(sql`${schema.recordings.createdAt} >= ${start}::date`);
           where.push(sql`${schema.recordings.createdAt} <  ${end}::date`);
