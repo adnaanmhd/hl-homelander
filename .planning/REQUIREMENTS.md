@@ -173,9 +173,9 @@
 - [ ] **HIST-04**: Empty state (no recordings) shows the "Your recordings will live here." copy + tap-to-tasks link
 - [ ] **HIST-05**: Empty state with filter applied shows the "No recordings in this range." copy + reset-filter link
 - [ ] **HIST-06**: Each row shows filename, duration in minutes, task name, recorded-at timestamp (`May 4, 2026 | 15:49`), upload-state chip (Uploaded at / In progress / Paused due to network / Failed-with-retry), and a static thumbnail auto-generated from the MP4 first frame
-- [ ] **HIST-07**: Tap thumbnail opens an in-app fullscreen player (view-only — no download, no share, no export; play / pause / seek only) while the local MP4 still exists
-- [ ] **HIST-08**: Once `verified` event fires and local copy is cleared, thumbnail remains but tap shows the message "This recording has been securely uploaded. Local copy cleared."
-- [ ] **HIST-09**: Streaming uploaded recordings back from the server is **out of MVP** — playback only while local exists
+- [ ] **HIST-07**: Tap thumbnail opens the in-app fullscreen player (view-only — no download, no share, no export; play / pause / seek only). Plays from the local MP4 when present; otherwise streams via the server (see HIST-09). _(Reworded by Phase 6 Plan 06-03 per CONTEXT D-06 — streaming in MVP supersedes the original "while local exists" wording.)_
+- [ ] **HIST-08**: Once the `verified` event clears the local MP4, the thumbnail remains and tap streams via the server. If the recording is in Deep Archive (>90 d), tap shows **"This recording has been archived. Contact support for retrieval."** _(Reworded by Phase 6 Plan 06-03 per CONTEXT D-06 — replaces the original "Local copy cleared" disabled message.)_
+- [ ] **HIST-09**: Streaming uploaded recordings back from the server is **in MVP** for Phase 6, via a short-TTL CloudFront-signed GET (`GET /recordings/:id/stream-url`, 5-min TTL). Deep-Archive (>90 d) async-thaw flow is §v2 / Phase 7. _(Reworded by Phase 6 Plan 06-03 per CONTEXT D-06 — flips from "out of MVP" to "in MVP".)_
 - [ ] **HIST-10**: User cannot delete recordings (locally or server-side)
 - [ ] **HIST-11**: Each row reserves a Feedback button slot (disabled, "coming soon")
 

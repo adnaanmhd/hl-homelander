@@ -188,3 +188,27 @@ export const VerifiedIdsResponseSchema = z
   })
   .extend(EventsEnvelopeSchema.shape); // also an `_events` carrier
 export type VerifiedIdsResponse = z.infer<typeof VerifiedIdsResponseSchema>;
+
+// D-08 (Phase 6 plan 06-03) — archive state envelope for
+// GET /recordings/:id/stream-url. The player consumes this discriminated
+// envelope to decide between live playback, the "still uploading" message,
+// and the "archived" disabled state.
+//   'available'    — qa_status ∈ {uploaded, verified, hash-mismatch} AND age ≤ 90d
+//                    (presignedUrl is a non-null CloudFront-signed URL)
+//   'unavailable'  — qa_status = 'pending' (no S3 object yet; presignedUrl is null)
+//   'deep-archive' — age > 90d (Phase 1 S3 lifecycle parity; presignedUrl is null)
+// (takedown / rejected / cross-user → 404 problem-detail; T-1.7-10 no existence leak.)
+export const ArchiveStateSchema = z.enum(['available', 'unavailable', 'deep-archive']);
+export type ArchiveState = z.infer<typeof ArchiveStateSchema>;
+
+export const RecordingsStreamUrlParamsSchema = z.object({ id: z.string().length(26) });
+export type RecordingsStreamUrlParams = z.infer<typeof RecordingsStreamUrlParamsSchema>;
+
+export const RecordingsStreamUrlResponseSchema = z
+  .object({
+    presignedUrl: z.string().url().nullable(),
+    expiresAt: z.string().datetime(),
+    archiveState: ArchiveStateSchema,
+  })
+  .extend(EventsEnvelopeSchema.shape); // authenticated → `_events` carrier
+export type RecordingsStreamUrlResponse = z.infer<typeof RecordingsStreamUrlResponseSchema>;

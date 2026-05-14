@@ -27,6 +27,23 @@ export type ContributionsLifetime = z.infer<typeof ContributionsLifetimeSchema>;
 
 export const ContributionsTimeseriesQuerySchema = z.object({
   range: z.enum(['7d', '30d', '90d']).default('30d'),
+  // D-03 (Phase 6 plan 06-03) — explicit ISO dates take precedence over `range`
+  // when both are present. Sent by the client as 'YYYY-MM-DD' at local midnight;
+  // converted to timestamptz server-side via the Accept-Timezone header (D-03b).
+  start: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  end: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  /** D-03a (Phase 6 plan 06-03) — when true, returns ONE aggregated bucket
+   *  (SUM(duration_ms) + COUNT(*) + COUNT(DISTINCT task_id) over the window)
+   *  instead of daily buckets. Distinct task count cannot be summed across
+   *  daily buckets without double-counting, so the home tile aggregator
+   *  asks for this single-bucket variant. */
+  aggregate: z.coerce.boolean().default(false),
 });
 export type ContributionsTimeseriesQuery = z.infer<typeof ContributionsTimeseriesQuerySchema>;
 
