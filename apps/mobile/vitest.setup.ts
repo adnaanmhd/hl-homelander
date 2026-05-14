@@ -458,6 +458,14 @@ vi.mock('react-native-mmkv', () => {
       clearAll() {
         getStore(id).clear();
       },
+      // Plan 06-04 — `getAllKeys()` is on the real react-native-mmkv@4.x
+      // Nitro spec (`MMKV.nitro.d.ts:443`). thumbnailLedger.cleanupOpportunistic
+      // (D-04a opportunistic cold-start GC) iterates every key and removes the
+      // ones whose `pendingThumb.{id}.v1` recordingId is not in the server's
+      // recent set. Add to the mock for parity with the production API.
+      getAllKeys(): string[] {
+        return Array.from(getStore(id).keys());
+      },
     };
   }
   class MMKV {
@@ -470,6 +478,7 @@ vi.mock('react-native-mmkv', () => {
     remove: (k: string) => void;
     contains: (k: string) => boolean;
     clearAll: () => void;
+    getAllKeys: () => string[];
     constructor(opts: { id?: string } = {}) {
       const i = opts.id ?? 'default';
       const inst = makeInstance(i);
@@ -482,6 +491,7 @@ vi.mock('react-native-mmkv', () => {
       this.remove = inst.remove;
       this.contains = inst.contains;
       this.clearAll = inst.clearAll;
+      this.getAllKeys = inst.getAllKeys;
     }
   }
   function createMMKV(opts: { id?: string; encryptionKey?: string } = {}) {

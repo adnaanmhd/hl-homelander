@@ -50,3 +50,27 @@ export function softBannerDismissKey(latest: string): string {
 export function practiceDoneKey(sub: string): string {
   return `tutorial.practice_done.${sub}.v1`;
 }
+
+/**
+ * Phase 6 (D-04 / D-05) — per-recording thumbnail-ledger entry key.
+ *
+ * Pattern: `pendingThumb.{recordingId}.v1` — mirrors `practiceDoneKey(sub)`
+ * structurally (per-key stash, version-suffixed for a future schema bump
+ * without a runtime migration).
+ *
+ * **NOT scoped by user `sub`** (RESEARCH Pitfall 8). The `recordingId` IS the
+ * natural index AND the server-side `GET /recordings` row is already
+ * per-user-authed — double-scoping by sub would leak ledger entries to the
+ * next user on logout/login or, worse, vanish them. The truth-source is the
+ * server's row; this ledger is an overlay only.
+ *
+ * Written by the JS-side segment-complete handler (the existing
+ * `RecordingScreen.tsx` `onSegmentComplete` listener that already calls
+ * `HumynUpload.enqueue(...)` — extended by Plan 06-09); survives the post-
+ * `verified` MP4 delete (`clearLocalPath` empties `mp4LocalPath` but
+ * preserves `thumbnailPath`); GC'd opportunistically on cold start via
+ * `cleanupOpportunistic` (D-04a, best-effort).
+ */
+export function pendingThumbKey(recordingId: string): string {
+  return `pendingThumb.${recordingId}.v1`;
+}
