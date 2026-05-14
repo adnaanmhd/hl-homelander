@@ -259,8 +259,8 @@ Plans:
 
 **Wave 2** _(parallel — backend; depends on Wave 1)_
 
-- [ ] 06-02-PLAN.md — Backend lexical-only /tasks/search + pg_trgm migration 0007 + drizzle-kit push + Vitest (TASK-03, TASK-10)
-- [ ] 06-03-PLAN.md — /recordings + /contributions/timeseries start/end + new /recordings/:id/stream-url + REQUIREMENTS HIST-07/08/09 rewording (HOME-03/04, HIST-01/03/07/08/09)
+- [x] 06-02-PLAN.md — Backend lexical-only /tasks/search + pg_trgm migration 0007 + drizzle-kit push + Vitest (TASK-03, TASK-10)
+- [x] 06-03-PLAN.md — /recordings + /contributions/timeseries start/end + new /recordings/:id/stream-url + REQUIREMENTS HIST-07/08/09 rewording (HOME-03/04, HIST-01/03/07/08/09)
 
 **Wave 3** _(parallel — JS foundation + native player; depends on Wave 1)_
 
