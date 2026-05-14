@@ -47,6 +47,13 @@ function baseState(overrides: Partial<AppState> = {}): AppState {
     softUpgradeAvailable: null,
     forceUpgradeBlocked: false,
     user: null,
+    // Phase 6 Wave 3 — Home / History range defaults. computeInitialRoute
+    // never reads these but the AppState type now requires them, so the
+    // baseState builder stubs the canonical defaults.
+    homeRange: 'today',
+    homeRangeCustom: null,
+    historyRange: 'all',
+    historyRangeCustom: null,
     setJwt: () => {},
     signOut: () => {},
     setConsent: () => {},
@@ -60,6 +67,10 @@ function baseState(overrides: Partial<AppState> = {}): AppState {
     setSoftUpgradeAvailable: () => {},
     setForceUpgradeBlocked: () => {},
     setUser: () => {},
+    setHomeRange: () => {},
+    setHomeRangeCustom: () => {},
+    setHistoryRange: () => {},
+    setHistoryRangeCustom: () => {},
     ...overrides,
   };
 }

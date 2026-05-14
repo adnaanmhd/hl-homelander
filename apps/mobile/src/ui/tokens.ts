@@ -53,6 +53,19 @@ export const colors = {
   toastBg: 'rgba(26,26,26,0.94)',
   recVoiceCueBg: 'rgba(255,255,255,0.96)', // voice-cue pill bg (dark text on it)
   recRingTrack: 'rgba(255,255,255,0.18)', // GateRing track circle
+  // Phase 6 additions (06-UI-SPEC §Token Additions) — verbatim from
+  // design-spec.md §10 (task cards), §11 (universal rules), §13 (history rows),
+  // §14 (player), and §9 / §9b (dark hero + pending-uploads thumbnail fallback).
+  // These keep the D-UI-01 no-hex-literals gate clean for all Wave 4/5 screens.
+  heroGradStart: '#1A1A1A', // design-spec §9 dark hero stop 1
+  heroGradEnd: '#2A2A2A', // design-spec §9 dark hero stop 2
+  universalRulesBg: '#FFF7F0', // design-spec §11 Universal-rules well
+  thumbFallbackStart: '#FFC09F', // design-spec §9b Pending-uploads thumbnail
+  thumbFallbackEnd: '#FF6A2D', // design-spec §9b Pending-uploads thumbnail (= colors.accent)
+  playerBg: '#000000', // design-spec §14 Player background
+  playerScrubTrack: 'rgba(255,255,255,0.18)', // design-spec §14 unfilled scrub
+  playerPlayOverlay: 'rgba(255,255,255,0.15)', // design-spec §14 64×64 play overlay
+  playerDisabledOverlay: 'rgba(0,0,0,0.6)', // design-spec §14 derived (deep-archive + unavailable banners)
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -210,6 +223,40 @@ export const typography = {
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '600' as const,
+  },
+  // Phase 6 additions (06-UI-SPEC §Token Additions) — verbatim from
+  // design-spec.md §10 (task cards), §11 (universal rules + bullets),
+  // §13 (history row meta), and §14 (player time stamp).
+  taskCardName: {
+    fontSize: 15,
+    lineHeight: 19,
+    fontWeight: '600' as const,
+  },
+  taskCardDesc: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '400' as const,
+  },
+  ruleLabel: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500' as const,
+  },
+  taskBullet: {
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '400' as const,
+  },
+  rowMeta: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '400' as const,
+  },
+  playerTime: {
+    fontSize: 12,
+    lineHeight: 14,
+    fontWeight: '600' as const,
+    letterSpacing: 0.4,
   },
 } as const;
 

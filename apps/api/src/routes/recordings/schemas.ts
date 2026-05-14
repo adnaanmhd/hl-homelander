@@ -1,6 +1,16 @@
 // Wire schemas for the /recordings list (API-08) + /recordings/:id (API-09)
 // surface. Inputs use snake_case JSON wire convention to match the iOS/Android
 // client expectations documented in REQUIREMENTS.md.
+//
+// NOTE: Phase 6 Plan 06-05 promoted the `RecordingsList{Query,Item,Response}`
+// schemas to `@humyn/shared-types` so the mobile `services/recordingsApi.ts`
+// wrapper consumes the canonical wire types. The shapes here MUST stay in
+// sync with `shared/types/src/recording.ts`'s `RecordingsList*` exports —
+// they're duplicated rather than imported because the backend route already
+// runs against the local definitions (typed-route-provider tooling + existing
+// test coverage), and an in-flight rewire would expand this plan's blast
+// radius. Future work: collapse to a single source via a re-export from
+// shared/types.
 
 import { z } from 'zod';
 import { RecordingServerEventSchema } from '@humyn/shared-types';
