@@ -14,6 +14,7 @@ interface TotalsRow {
   duration_ms: string | number | null;
   recording_count: string | number | null;
   task_count: string | number | null;
+  verified_non_practice_count: string | number | null;
 }
 interface PerTaskRow {
   task_id: string;
@@ -48,11 +49,18 @@ export default async function contributionsListRoute(app: FastifyInstance): Prom
       const sub = (req.user as { sub: string }).sub;
 
       // Lifetime aggregate — direct from recordings (D-LEGAL-04 takedown filter).
+      // `verified_non_practice_count` is the stricter count driving the Home
+      // hero greeting (Plan 06-12 follow-on, owner directive 2026-05-14): only
+      // non-practice recordings that have been QA-verified count toward it.
+      // Computed in the same SELECT as a FILTER aggregate so we don't pay a
+      // second round-trip.
       const totals = await db.execute(sql`
         SELECT
           COALESCE(SUM(duration_ms), 0)::bigint AS duration_ms,
           COALESCE(COUNT(*), 0)::int AS recording_count,
-          COALESCE(COUNT(DISTINCT task_id), 0)::int AS task_count
+          COALESCE(COUNT(DISTINCT task_id), 0)::int AS task_count,
+          COALESCE(COUNT(*) FILTER (WHERE practice = false AND qa_status = 'verified'), 0)::int
+            AS verified_non_practice_count
         FROM recordings
         WHERE user_id = ${sub} AND qa_status NOT IN ('takedown', 'rejected')
       `);
@@ -61,6 +69,7 @@ export default async function contributionsListRoute(app: FastifyInstance): Prom
         duration_ms: 0,
         recording_count: 0,
         task_count: 0,
+        verified_non_practice_count: 0,
       };
 
       // Top 10 tasks by recording count.
@@ -82,6 +91,7 @@ export default async function contributionsListRoute(app: FastifyInstance): Prom
         durationMs: Number(totalRow.duration_ms ?? 0),
         recordingCount: Number(totalRow.recording_count ?? 0),
         taskCount: Number(totalRow.task_count ?? 0),
+        verifiedNonPracticeCount: Number(totalRow.verified_non_practice_count ?? 0),
         perTask: perTaskRows.map((r) => ({
           taskId: r.task_id,
           taskName: r.task_name,

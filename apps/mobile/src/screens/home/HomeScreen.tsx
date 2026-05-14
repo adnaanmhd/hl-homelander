@@ -77,6 +77,11 @@ interface LifetimeSlim {
   durationMs: number;
   recordingCount: number;
   taskCount: number;
+  // Strict count of `practice = false AND qa_status = 'verified'` recordings —
+  // the trigger for the HomeHero "Hi {first_name}." greeting (Plan 06-12
+  // follow-on, owner directive 2026-05-14). Read from /contributions; defaults
+  // to 0 for old payloads / cold-mount empty state.
+  verifiedNonPracticeCount: number;
 }
 
 interface AggregateSlim {
@@ -85,7 +90,12 @@ interface AggregateSlim {
   recordingCount: number;
 }
 
-const LIFETIME_ZERO: LifetimeSlim = { durationMs: 0, recordingCount: 0, taskCount: 0 };
+const LIFETIME_ZERO: LifetimeSlim = {
+  durationMs: 0,
+  recordingCount: 0,
+  taskCount: 0,
+  verifiedNonPracticeCount: 0,
+};
 const AGGREGATE_ZERO: AggregateSlim = { durationMs: 0, taskCount: 0, recordingCount: 0 };
 
 const MONTH_ABBR = [
@@ -172,11 +182,25 @@ export default function HomeScreen(): React.JSX.Element {
   }>();
   const softUpgradeAvailable = useAppStore((s) => s.softUpgradeAvailable);
   const jwt = useAppStore((s) => s.jwt);
+  const user = useAppStore((s) => s.user);
   const homeRange = useAppStore((s) => s.homeRange);
   const homeRangeCustom = useAppStore((s) => s.homeRangeCustom);
   const setHomeRange = useAppStore((s) => s.setHomeRange);
   const setHomeRangeCustom = useAppStore((s) => s.setHomeRangeCustom);
   const currentSub = useMemo(() => decodeGoogleSubFromJwt(jwt), [jwt]);
+
+  // Plan 06-12 follow-on — first name extracted from the coalesced
+  // `useAppStore.user.name` (Google displayName → email-local-part fallback per
+  // `lib/userDisplayName.ts`). We take the leading whitespace-delimited token,
+  // which gives "Adnaan" from "Adnaan Mohammed" and "smoke-walk" from a bare
+  // email-local-part. If the result is empty / null, HomeHero falls back to
+  // "Hi there." (owner directive 2026-05-14, Finding 15 fallback option).
+  const firstName = useMemo<string | null>(() => {
+    const raw = (user?.name ?? '').trim();
+    if (raw.length === 0) return null;
+    const head = raw.split(/\s+/)[0]?.trim() ?? '';
+    return head.length > 0 ? head : null;
+  }, [user?.name]);
 
   const [pendingRows, setPendingRows] = useState<UploadQueueRow[]>([]);
   const [progressById, setProgressById] = useState<Record<string, number>>({});
@@ -261,6 +285,7 @@ export default function HomeScreen(): React.JSX.Element {
         durationMs: lt.durationMs,
         recordingCount: lt.recordingCount,
         taskCount: lt.taskCount,
+        verifiedNonPracticeCount: lt.verifiedNonPracticeCount ?? 0,
       });
     } catch {
       // HOME-09 contract — silently retain previous numbers on error; the
@@ -349,7 +374,12 @@ export default function HomeScreen(): React.JSX.Element {
 
   const rangeChip = tileLabel(homeRange, homeRangeCustom);
   const tileDurationText = formatDuration(Math.floor(aggregate.durationMs / 1000));
-  const tileTaskCountText = `${aggregate.taskCount}`;
+  // Plan 06-12 Finding 14 — the duration tile self-discloses its unit
+  // ("0s" / "47m" / "1h 12m" from formatDuration); the task-count tile
+  // used to render as a bare integer with no unit, leaving "0 what?"
+  // ambiguous. Suffix it with a pluralized "task"/"tasks" so the unit
+  // is visible inside the tile itself.
+  const tileTaskCountText = aggregate.taskCount === 1 ? '1 task' : `${aggregate.taskCount} tasks`;
 
   return (
     <ScreenContainer accessibilityLabel="Home screen" padding={0}>
@@ -377,6 +407,8 @@ export default function HomeScreen(): React.JSX.Element {
           variant={lifetime.recordingCount === 0 ? 'empty' : 'returning'}
           lifetimeMs={lifetime.durationMs}
           taskCount={lifetime.taskCount}
+          firstName={firstName}
+          showGreeting={lifetime.verifiedNonPracticeCount > 0}
           onStartRecording={startRecording}
         />
 

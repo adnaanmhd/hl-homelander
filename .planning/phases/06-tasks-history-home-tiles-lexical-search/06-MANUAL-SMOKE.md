@@ -222,7 +222,8 @@ Steps:
 > 11. History empty state body needs a line break — **✅ Fixed in Plan 06-12 / `a8664dd`.**
 > 12. Tasks — hide Upload Sample at MVP — **✅ Fixed in Plan 06-12 / `a55d943`.**
 > 13. Tasks — task cards wiped by `pnpm test` — **✅ Fixed in Plan 06-12 / `10c6d26`** (`apps/api` posttest reseed hook + `WORKER_BOOTSTRAP=false` test env).
-> 14. Home — second YOUR CONTRIBUTION tile has no unit label — added 2026-05-14 §7 close-out, deferred to Phase 7 / future cosmetic plan.
+> 14. Home — second YOUR CONTRIBUTION tile has no unit label — added 2026-05-14 §7 close-out, **✅ Fixed inline in Plan 06-12 follow-on** (owner directive: don't defer).
+> 15. Home — greet returning users by first name instead of contributed-time numeric — added 2026-05-14 §7 close-out, **✅ Fixed inline in Plan 06-12 follow-on** (strict `verifiedNonPracticeCount > 0` trigger; "Hi {first_name}" + "Pick a task and start recording" sub).
 
 **Phase 6 sign-off:** **YES** — all locked acceptance items + the
 owner-requested Plan 06-12 cleanup (Findings 1, 10, 11, 12, 13) green
