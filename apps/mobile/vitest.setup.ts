@@ -170,6 +170,100 @@ vi.mock('react-native', () => {
     Pressable: makeComponent('Pressable'),
     SafeAreaView: makeComponent('SafeAreaView'),
     ScrollView: makeComponent('ScrollView'),
+    // Phase 6 Plan 06-07 — TasksScreen uses FlatList numColumns={2} for the
+    // 2-col task-card grid. Test shim renders the `data` array through the
+    // `renderItem` callback so testing-library can query each rendered card
+    // by its accessibility-label / text content. `keyExtractor` is honoured.
+    // SectionList (Phase 6 06-09 History) follows the same pattern.
+    FlatList: function FlatListShim<TItem>(props: {
+      data?: readonly TItem[];
+      renderItem?: (info: { item: TItem; index: number }) => React.ReactNode;
+      keyExtractor?: (item: TItem, index: number) => string;
+      ListEmptyComponent?: React.ReactNode | React.ComponentType;
+      ListFooterComponent?: React.ReactNode | React.ComponentType;
+      accessibilityLabel?: string;
+    }) {
+      const items = props.data ?? [];
+      const children: React.ReactNode[] = [];
+      if (items.length === 0 && props.ListEmptyComponent) {
+        const E = props.ListEmptyComponent as React.ReactNode;
+        children.push(typeof E === 'function' ? React.createElement(E as React.ComponentType) : E);
+      } else {
+        items.forEach((item, index) => {
+          const key = props.keyExtractor ? props.keyExtractor(item, index) : String(index);
+          if (props.renderItem) {
+            children.push(
+              React.createElement(
+                React.Fragment,
+                { key },
+                props.renderItem({ item, index }) as React.ReactNode,
+              ),
+            );
+          }
+        });
+      }
+      if (props.ListFooterComponent) {
+        const F = props.ListFooterComponent as React.ReactNode;
+        children.push(typeof F === 'function' ? React.createElement(F as React.ComponentType) : F);
+      }
+      const dom: Record<string, unknown> = { 'data-testid': 'FlatList' };
+      if (typeof props.accessibilityLabel === 'string') dom['aria-label'] = props.accessibilityLabel;
+      return React.createElement('div', dom, children);
+    },
+    SectionList: function SectionListShim<TItem>(props: {
+      sections?: ReadonlyArray<{ title?: string; data: readonly TItem[] }>;
+      renderItem?: (info: { item: TItem; index: number; section: unknown }) => React.ReactNode;
+      renderSectionHeader?: (info: { section: { title?: string } }) => React.ReactNode;
+      keyExtractor?: (item: TItem, index: number) => string;
+      ListEmptyComponent?: React.ReactNode | React.ComponentType;
+      ListFooterComponent?: React.ReactNode | React.ComponentType;
+      ListHeaderComponent?: React.ReactNode | React.ComponentType;
+      accessibilityLabel?: string;
+    }) {
+      const sections = props.sections ?? [];
+      const children: React.ReactNode[] = [];
+      if (props.ListHeaderComponent) {
+        const H = props.ListHeaderComponent as React.ReactNode;
+        children.push(typeof H === 'function' ? React.createElement(H as React.ComponentType) : H);
+      }
+      if (sections.length === 0 && props.ListEmptyComponent) {
+        const E = props.ListEmptyComponent as React.ReactNode;
+        children.push(typeof E === 'function' ? React.createElement(E as React.ComponentType) : E);
+      } else {
+        sections.forEach((section, sIdx) => {
+          if (props.renderSectionHeader) {
+            children.push(
+              React.createElement(
+                React.Fragment,
+                { key: `sh-${sIdx}` },
+                props.renderSectionHeader({ section }) as React.ReactNode,
+              ),
+            );
+          }
+          section.data.forEach((item, iIdx) => {
+            const key = props.keyExtractor
+              ? props.keyExtractor(item, iIdx)
+              : `s${sIdx}-i${iIdx}`;
+            if (props.renderItem) {
+              children.push(
+                React.createElement(
+                  React.Fragment,
+                  { key },
+                  props.renderItem({ item, index: iIdx, section }) as React.ReactNode,
+                ),
+              );
+            }
+          });
+        });
+      }
+      if (props.ListFooterComponent) {
+        const F = props.ListFooterComponent as React.ReactNode;
+        children.push(typeof F === 'function' ? React.createElement(F as React.ComponentType) : F);
+      }
+      const dom: Record<string, unknown> = { 'data-testid': 'SectionList' };
+      if (typeof props.accessibilityLabel === 'string') dom['aria-label'] = props.accessibilityLabel;
+      return React.createElement('div', dom, children);
+    },
     TextInput: makeTextInput(),
     Modal: makeComponent('Modal'),
     StatusBar: () => null,
