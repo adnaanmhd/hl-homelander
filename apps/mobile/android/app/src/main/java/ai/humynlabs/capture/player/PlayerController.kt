@@ -52,9 +52,15 @@ object PlayerController {
     /** Current video surface (owned by the live [HumynPlayerView] TextureView). */
     private var surface: Surface? = null
 
-    /** Progress ticker — main-thread Handler posts a Runnable every 250 ms. */
-    private val progressHandler = Handler(Looper.getMainLooper())
+    /** Main-looper Handler — every ExoPlayer touch must hop onto this. */
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var progressTicker: Runnable? = null
+
+    /** Hop onto main if we're elsewhere; run inline if already main. */
+    private inline fun onMain(crossinline block: () -> Unit) {
+        if (Looper.myLooper() == Looper.getMainLooper()) block()
+        else mainHandler.post { block() }
+    }
 
     /** Wire the React context once at module construction so events can dispatch. */
     fun attach(reactContext: ReactApplicationContext) {
@@ -67,71 +73,89 @@ object PlayerController {
      * [Result.failure] on validation failure or [Result.success] once
      * `ExoPlayer.prepare()` is dispatched (the actual buffer / state changes
      * arrive via [playerListener]).
+     *
+     * The whole body is dispatched onto the main looper because ExoPlayer's
+     * application looper is pinned to main ([setLooper] below) — and
+     * [ExoPlayer.setMediaItem]/[ExoPlayer.prepare] both call
+     * `verifyApplicationThread()` which throws `IllegalStateException` if invoked
+     * from any other thread. RN's `@ReactMethod` calls land on
+     * `mqt_native_modules`, not main, so without this hop the first prepare
+     * silently fails (the JS `await` rejects and the PlayerScreen's catch sets
+     * `errorState='network'` — "Couldn't load video"). Discovered during
+     * 06-MANUAL-SMOKE §5, 2026-05-14.
      */
     fun prepare(ctx: Context, uri: String, cb: (Result<Unit>) -> Unit) {
-        try {
-            validateUriScheme(ctx, uri)
-            val ep = player ?: ExoPlayer.Builder(ctx)
-                .setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(C.USAGE_MEDIA)
-                        .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
-                        .build(),
-                    /* handleAudioFocus = */ true,
-                )
-                .setHandleAudioBecomingNoisy(true)
-                // ExoPlayer enforces single-thread access on its application
-                // looper. RN's new-arch Fabric view-mount unwinds views from
-                // `main` (SurfaceMountingManager.removeViewAt), so a player
-                // created on the RN module's default thread (`mqt_v_native`)
-                // crashes during view detach with "Player is accessed on the
-                // wrong thread". Pinning to the main looper here makes every
-                // public API call from any RN-side caller (the view manager,
-                // the JS bridge, the progress handler) safe.
-                .setLooper(Looper.getMainLooper())
-                .build()
-                .also {
-                    player = it
-                    surface?.let { s -> it.setVideoSurface(s) }
-                    it.addListener(playerListener)
-                }
-            ep.setMediaItem(MediaItem.fromUri(uri))
-            ep.prepare()
-            cb(Result.success(Unit))
-        } catch (t: Throwable) {
-            cb(Result.failure(t))
+        onMain {
+            try {
+                validateUriScheme(ctx, uri)
+                val ep = player ?: ExoPlayer.Builder(ctx)
+                    .setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(C.USAGE_MEDIA)
+                            .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+                            .build(),
+                        /* handleAudioFocus = */ true,
+                    )
+                    .setHandleAudioBecomingNoisy(true)
+                    // ExoPlayer enforces single-thread access on its application
+                    // looper. Pinning to main here pairs with [onMain] above so
+                    // every PlayerController entry point — prepare, play, pause,
+                    // seekTo, release, surface lifecycle — touches the player on
+                    // the same thread.
+                    .setLooper(Looper.getMainLooper())
+                    .build()
+                    .also {
+                        player = it
+                        surface?.let { s -> it.setVideoSurface(s) }
+                        it.addListener(playerListener)
+                    }
+                ep.setMediaItem(MediaItem.fromUri(uri))
+                ep.prepare()
+                cb(Result.success(Unit))
+            } catch (t: Throwable) {
+                Log.w(TAG, "prepare failed: ${t.message}", t)
+                cb(Result.failure(t))
+            }
         }
     }
 
     fun play() {
-        player?.let {
-            it.play()
-            startProgressTicker()
+        onMain {
+            player?.let {
+                it.play()
+                startProgressTicker()
+            }
         }
     }
 
     fun pause() {
-        player?.pause()
-        stopProgressTicker()
+        onMain {
+            player?.pause()
+            stopProgressTicker()
+        }
     }
 
     fun seekTo(ms: Long) {
-        player?.seekTo(ms)
+        onMain { player?.seekTo(ms) }
     }
 
     /** Idempotent — safe to call when no player exists or after a previous release. */
     fun release() {
-        stopProgressTicker()
-        player?.release()
-        player = null
-        surface?.release()
-        surface = null
+        onMain {
+            stopProgressTicker()
+            player?.release()
+            player = null
+            surface?.release()
+            surface = null
+        }
     }
 
     /** TextureView lifecycle hook — bind the surface to the (lazy) player. */
     fun onSurfaceAvailable(s: Surface) {
-        surface = s
-        player?.setVideoSurface(s)
+        onMain {
+            surface = s
+            player?.setVideoSurface(s)
+        }
     }
 
     /**
@@ -140,9 +164,11 @@ object PlayerController {
      * the player here would tear down the codec on every rotation).
      */
     fun onSurfaceDestroyed() {
-        player?.clearVideoSurface()
-        surface?.release()
-        surface = null
+        onMain {
+            player?.clearVideoSurface()
+            surface?.release()
+            surface = null
+        }
     }
 
     private val playerListener = object : Player.Listener {
@@ -153,6 +179,13 @@ object PlayerController {
                     putBoolean("buffering", state == Player.STATE_BUFFERING)
                 },
             )
+            if (state == Player.STATE_READY) {
+                // Push duration to JS as soon as the timeline resolves, even
+                // before the user taps play (the progress ticker only fires
+                // during playback). Without this, the scrub-bar + total-time
+                // sit at 0 until the first play.
+                emitProgress()
+            }
             if (state == Player.STATE_ENDED) {
                 stopProgressTicker()
                 emit("onEnd", Arguments.createMap())
@@ -175,23 +208,42 @@ object PlayerController {
         stopProgressTicker()
         progressTicker = object : Runnable {
             override fun run() {
-                val ep = player ?: return
-                emit(
-                    "onProgress",
-                    Arguments.createMap().apply {
-                        putDouble("positionMs", ep.currentPosition.toDouble())
-                        putDouble("bufferedMs", ep.bufferedPosition.toDouble())
-                        putDouble("durationMs", ep.duration.toDouble())
-                    },
-                )
-                progressHandler.postDelayed(this, 250L)
+                emitProgress()
+                mainHandler.postDelayed(this, 250L)
             }
         }
-        progressHandler.postDelayed(progressTicker!!, 250L)
+        mainHandler.postDelayed(progressTicker!!, 250L)
+    }
+
+    /**
+     * Emit one `onProgress` event with the current position/buffered/duration.
+     * Used by the 250 ms playback ticker AND by the STATE_READY handler so the
+     * JS side learns the duration the moment the timeline resolves (even before
+     * the user taps play).
+     *
+     * ExoPlayer reports `duration` as `C.TIME_UNSET` (a huge negative Long
+     * sentinel) until the timeline resolves. Coerce it to NaN so the JS side
+     * (HumynPlayer.types.ts, PlayerScreen `Number.isFinite` guards) renders
+     * "0:00" + scrub bar at 0 % instead of crunching the sentinel into a
+     * 100 %-filled bar and a garbled time. Discovered during 06-MANUAL-SMOKE
+     * §5, 2026-05-14.
+     */
+    private fun emitProgress() {
+        val ep = player ?: return
+        val dur = ep.duration
+        val durMs = if (dur == C.TIME_UNSET) Double.NaN else dur.toDouble()
+        emit(
+            "onProgress",
+            Arguments.createMap().apply {
+                putDouble("positionMs", ep.currentPosition.toDouble())
+                putDouble("bufferedMs", ep.bufferedPosition.toDouble())
+                putDouble("durationMs", durMs)
+            },
+        )
     }
 
     private fun stopProgressTicker() {
-        progressTicker?.let { progressHandler.removeCallbacks(it) }
+        progressTicker?.let { mainHandler.removeCallbacks(it) }
         progressTicker = null
     }
 

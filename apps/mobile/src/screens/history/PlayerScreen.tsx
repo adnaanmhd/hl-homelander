@@ -39,6 +39,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  PanResponder,
   Pressable,
   StyleSheet,
   View,
@@ -70,6 +71,19 @@ import { readEntry } from '../../services/thumbnailLedger';
 interface PlayerRouteParams {
   recordingId: string;
   taskName: string;
+  /**
+   * Authoritative duration from the History row (which mirrors
+   * `recordings.duration_ms`). Used as the initial total-time + scrub-bar
+   * basis because ExoPlayer cannot derive duration from HumynCapture's
+   * output: the recording is fragmented MP4 (Plan 03-04 / CAP-02 /
+   * `idea-brief.md §6.6` — chosen for mid-recording crash resilience), so
+   * `mvhd.duration=0` is normal (per-fragment durations live in each
+   * `moof`). `ep.duration` therefore returns `C.TIME_UNSET` even at
+   * `STATE_READY`. The native progress events still override `durationMs`
+   * if/when ExoPlayer eventually resolves a real value. Discovered during
+   * 06-MANUAL-SMOKE §5, 2026-05-14.
+   */
+  durationMs?: number;
 }
 
 interface NavigationLike {
@@ -155,22 +169,84 @@ function ScrubBar({
   durationMs,
   onSeek,
 }: ScrubBarProps): React.JSX.Element {
-  const safeDuration = Number.isFinite(durationMs) && durationMs > 0 ? durationMs : 1;
-  const pct = Math.max(0, Math.min(1, positionMs / safeDuration));
-  const bufPct = Math.max(0, Math.min(1, bufferedMs / safeDuration));
+  // Only compute percentages when the duration is real. Falling back to a
+  // `safeDuration=1` divisor saturates the bar (positionMs/1 → 100 %) which
+  // misreports playback as ended — instead leave both fills at 0 until the
+  // timeline resolves. (06-MANUAL-SMOKE §5, 2026-05-14.)
+  const knownDuration = Number.isFinite(durationMs) && durationMs > 0;
+  const pct = knownDuration ? Math.max(0, Math.min(1, positionMs / durationMs)) : 0;
+  const bufPct = knownDuration ? Math.max(0, Math.min(1, bufferedMs / durationMs)) : 0;
+
+  // Drag-to-seek: capture bar width on layout, translate touch x → ms, commit
+  // on release. The 4 px scrub track itself is too thin to grab reliably; the
+  // PanResponder is attached to a hitSlop-extended wrapper that sits over the
+  // visible track (06-MANUAL-SMOKE §5, owner requested drag-to-seek 2026-05-14
+  // — supersedes the v2-defer comment from Plan 06-10).
+  const [dragging, setDragging] = useState(false);
+  const [dragPct, setDragPct] = useState(0);
+  const dragPctRef = useRef(0);
+  const barWidthRef = useRef(0);
+  // Press-origin pct + pageX captured at PanResponder grant. Subsequent moves
+  // compute the delta from `e.nativeEvent.pageX - pressOriginPageX` instead
+  // of `gestureState.dx`, because on RN 0.83 + Fabric (Pixel 10a, Android 16)
+  // `gestureState.dx` is stuck at 0 during move events — confirmed via
+  // diagnostic console.warn in 06-MANUAL-SMOKE §5, 2026-05-14. `pageX` IS
+  // updated correctly across move events.
+  const pressOriginPctRef = useRef(0);
+  const pressOriginPageXRef = useRef(0);
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => knownDuration,
+        onMoveShouldSetPanResponder: () => knownDuration,
+        onPanResponderGrant: (e) => {
+          const x = e.nativeEvent.locationX;
+          const w = barWidthRef.current;
+          const p = w > 0 ? Math.max(0, Math.min(1, x / w)) : 0;
+          pressOriginPctRef.current = p;
+          pressOriginPageXRef.current = e.nativeEvent.pageX;
+          dragPctRef.current = p;
+          setDragPct(p);
+          setDragging(true);
+        },
+        onPanResponderMove: (e) => {
+          const w = barWidthRef.current;
+          if (w <= 0) return;
+          const dx = e.nativeEvent.pageX - pressOriginPageXRef.current;
+          const deltaPct = dx / w;
+          const p = Math.max(0, Math.min(1, pressOriginPctRef.current + deltaPct));
+          dragPctRef.current = p;
+          setDragPct(p);
+        },
+        onPanResponderRelease: () => {
+          if (onSeek && knownDuration) {
+            onSeek(Math.floor(dragPctRef.current * durationMs));
+          }
+          setDragging(false);
+        },
+        onPanResponderTerminate: () => setDragging(false),
+      }),
+    [knownDuration, durationMs, onSeek],
+  );
+
+  const displayPct = dragging ? dragPct : pct;
+
   return (
-    <Pressable
+    <View
       accessibilityLabel="player-scrub-bar"
-      style={styles.scrubTrack}
-      onPress={() => {
-        // Tap at center seeks to the midpoint — a minimal handler that lets
-        // tests exercise the onSeek wiring. A full drag-to-seek lands in v2.
-        if (onSeek) onSeek(Math.floor(safeDuration / 2));
+      style={styles.scrubHit}
+      hitSlop={12}
+      onLayout={(e) => {
+        barWidthRef.current = e.nativeEvent.layout.width;
       }}
+      {...panResponder.panHandlers}
     >
-      <View style={[styles.scrubBuffered, { width: `${bufPct * 100}%` }]} />
-      <View style={[styles.scrubFill, { width: `${pct * 100}%` }]} />
-    </Pressable>
+      <View style={styles.scrubTrack}>
+        <View style={[styles.scrubBuffered, { width: `${bufPct * 100}%` }]} />
+        <View style={[styles.scrubFill, { width: `${displayPct * 100}%` }]} />
+      </View>
+    </View>
   );
 }
 
@@ -184,14 +260,17 @@ export function PlayerScreen(): React.JSX.Element {
   const params = (route.params ?? {}) as Partial<PlayerRouteParams>;
   const recordingId = params.recordingId ?? '';
   const taskName = params.taskName ?? '';
+  const initialDurationMs = params.durationMs ?? 0;
 
   // Source-resolution state (null = still resolving).
   const [archiveState, setArchiveState] = useState<ArchiveState | null>(null);
-  // Playback state.
+  // Playback state. `durationMs` seeds from the route param (HistoryRow's
+  // `durationMs`, mirrored from `recordings.duration_ms`) — see route-params
+  // KDoc above for why we don't trust ExoPlayer's duration on this build.
   const [paused, setPaused] = useState(true);
   const [positionMs, setPositionMs] = useState(0);
   const [bufferedMs, setBufferedMs] = useState(0);
-  const [durationMs, setDurationMs] = useState(0);
+  const [durationMs, setDurationMs] = useState(initialDurationMs);
   const [loading, setLoading] = useState(true);
   const [errorState, setErrorState] = useState<ErrorState>(null);
 
@@ -573,6 +652,13 @@ const styles = StyleSheet.create({
   },
   scrubBarWrap: {
     flex: 1,
+  },
+  // 24 px-tall transparent hit area that vertically centers the 4 px visible
+  // bar — gives the PanResponder enough surface to grab on a slim track.
+  scrubHit: {
+    height: 24,
+    width: '100%',
+    justifyContent: 'center',
   },
   scrubTrack: {
     height: 4,
