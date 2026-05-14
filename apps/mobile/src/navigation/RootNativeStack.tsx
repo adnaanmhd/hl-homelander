@@ -32,6 +32,7 @@ import { computeCompatSignatureSync } from '../services/compatSignature';
 import OnboardingStack from './OnboardingStack';
 import MainTabs from './MainTabs';
 import RecordingScreen from '../screens/recording/RecordingScreen';
+import { PlayerScreen } from '../screens/history/PlayerScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import PendingUploadsScreen from '../screens/uploads/PendingUploadsScreen';
 import BatteryOptimizationScreen from '../screens/onboarding/BatteryOptimizationScreen';
@@ -82,6 +83,15 @@ export default function RootNativeStack() {
       <Root.Screen
         name="Recording"
         component={RecordingScreen}
+        options={{ gestureEnabled: false, headerShown: false, animation: 'fade' }}
+      />
+      {/* Plan 06-10 (HIST-07/08/09) — the in-app Player route. Sibling of
+          MainTabs (NOT inside it) so the surface is full-bleed dark per
+          design-spec §14 — bottom-nav is suppressed automatically. Route
+          options mirror Recording. */}
+      <Root.Screen
+        name="Player"
+        component={PlayerScreen}
         options={{ gestureEnabled: false, headerShown: false, animation: 'fade' }}
       />
       <Root.Screen
