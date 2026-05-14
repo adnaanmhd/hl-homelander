@@ -28,22 +28,23 @@ files — those are closed.
 
 ## STATUS — Plan 06-12 cleanup results
 
-| #   | Title                                                      | Status                             |
-| --- | ---------------------------------------------------------- | ---------------------------------- |
-| 1   | Tasks tab — pull-to-refresh inert                          | ✅ Fixed in Plan 06-12 / `7a55e0c` |
-| 2   | TaskDetailsSheet — swipe-down dismiss inert                | Deferred (see disposition)         |
-| 3   | AlertPill placement during battery-15 % alert              | Deferred (see disposition)         |
-| 4   | §1 D-09 — HumynBeep audibility                             | Deferred (owner directive)         |
-| 5   | Home tab — custom date range is free-text                  | Deferred (Phase 7)                 |
-| 6   | HOME-10 — OfflineBanner not wired                          | Deferred (Phase 7)                 |
-| 7   | Pending Uploads row tap navigates to History               | Deferred (Phase 5 follow-on)       |
-| 8   | Player "View only" footer sticks                           | Awaiting owner copy decision       |
-| 9   | Player drag-to-seek lands at byte 0                        | Deferred (Phase 7)                 |
-| 10  | History — filter pill shows two chevrons                   | ✅ Fixed in Plan 06-12 / `4bec668` |
-| 11  | History — empty state "Pick a task and try one" line break | ✅ Fixed in Plan 06-12 / `a8664dd` |
-| 12  | Tasks — hide Upload Sample at MVP                          | ✅ Fixed in Plan 06-12 / `a55d943` |
-| 13  | Tasks — task cards not loading after `pnpm test`           | ✅ Fixed in Plan 06-12 / `10c6d26` |
-| 14  | Home — second YOUR CONTRIBUTION tile has no unit label     | Deferred (added 2026-05-14 §7)     |
+| #   | Title                                                                          | Status                             |
+| --- | ------------------------------------------------------------------------------ | ---------------------------------- |
+| 1   | Tasks tab — pull-to-refresh inert                                              | ✅ Fixed in Plan 06-12 / `7a55e0c` |
+| 2   | TaskDetailsSheet — swipe-down dismiss inert                                    | Deferred (see disposition)         |
+| 3   | AlertPill placement during battery-15 % alert                                  | Deferred (see disposition)         |
+| 4   | §1 D-09 — HumynBeep audibility                                                 | Deferred (owner directive)         |
+| 5   | Home tab — custom date range is free-text                                      | Deferred (Phase 7)                 |
+| 6   | HOME-10 — OfflineBanner not wired                                              | Deferred (Phase 7)                 |
+| 7   | Pending Uploads row tap navigates to History                                   | Deferred (Phase 5 follow-on)       |
+| 8   | Player "View only" footer sticks                                               | Awaiting owner copy decision       |
+| 9   | Player drag-to-seek lands at byte 0                                            | Deferred (Phase 7)                 |
+| 10  | History — filter pill shows two chevrons                                       | ✅ Fixed in Plan 06-12 / `4bec668` |
+| 11  | History — empty state "Pick a task and try one" line break                     | ✅ Fixed in Plan 06-12 / `a8664dd` |
+| 12  | Tasks — hide Upload Sample at MVP                                              | ✅ Fixed in Plan 06-12 / `a55d943` |
+| 13  | Tasks — task cards not loading after `pnpm test`                               | ✅ Fixed in Plan 06-12 / `10c6d26` |
+| 14  | Home — second YOUR CONTRIBUTION tile has no unit label                         | ✅ Fixed in Plan 06-12 (follow-on) |
+| 15  | Home — greet returning users by first name instead of contributed-time numeric | ✅ Fixed in Plan 06-12 (follow-on) |
 
 Findings 1, 10, 11, 12, 13 fixed in Plan 06-12 (2026-05-14). Findings 2, 3,
 5, 6, 7, 9 carried forward per their dispositions below; Finding 4 stays
@@ -403,11 +404,58 @@ tiles do show "0s" + "0" in the empty state. The owner directive
 2026-05-14 supersedes — they want the right tile to read e.g. "0 tasks"
 (or carry a tile-level label/subtitle).
 
-**Disposition:** Defer. Pick up either as a Phase 7 plan-phase item or
-a follow-on cosmetic plan. Smallest-possible fix once picked up: append
-the unit ("tasks") to `tileTaskCountText` for the kind="taskCount"
-ContributionTile, and add a matching unit on the duration tile if the
-"s"/"m"/"h" suffix doesn't already disambiguate it visually.
+**Disposition:** **✅ Fixed in Plan 06-12 follow-on** —
+`HomeScreen.tsx`'s `tileTaskCountText` now pluralizes to `"1 task"` /
+`"N tasks"` so the unit lives inside the tile itself. Duration tile
+already self-discloses via the `s`/`m`/`h` suffix from
+`formatDuration`. Owner directive 2026-05-14: fix in-line, don't defer.
+
+**Found:** 2026-05-14 §7 close-out (Plan 06-12 owner spot-check).
+
+---
+
+## 15. Home — greet returning users by first name instead of the contributed-time numeric
+
+**Where:**
+
+- `apps/mobile/src/components/HomeHero.tsx` — `returning` variant
+- `apps/mobile/src/screens/home/HomeScreen.tsx` — hero call site
+- `apps/api/src/routes/contributions/list.ts` — strict aggregate
+- `shared/types/src/contributions.ts` — `ContributionsLifetime`
+  schema
+
+**Observed:** The HomeHero `returning` variant rendered the lifetime
+duration as a big mono numeric. Owner directive 2026-05-14: once the
+user has at least one **verified non-practice** recording uploaded,
+replace that numeric with `"Hi {first_name}"` and change the sub-line
+from `"Across N tasks"` to `"Pick a task and start recording"`. The
+empty-state hero (no recordings) is unchanged; the intermediate state
+(recordings exist but none verified non-practice yet) also keeps the
+existing lifetime-numeric layout.
+
+**Spec position:** Owner-directive — supersedes 06-UI-SPEC.md §"Home —
+returning hero (§9b)" which has the lifetime numeric + "Across N tasks"
+verbatim. The spec line should be revisited in a doc pass at some
+point; the code is canonical for now.
+
+**Disposition:** **✅ Fixed in Plan 06-12 (follow-on).**
+
+- Backend: added `verifiedNonPracticeCount: number` to
+  `ContributionsLifetimeSchema` (Zod `.default(0)` for back-compat),
+  populated via `COUNT(*) FILTER (WHERE practice = false AND qa_status
+= 'verified')` in the existing `/contributions` SELECT — no extra
+  round-trip, no migration.
+- Mobile: `HomeScreen` extracts `firstName` from `useAppStore.user.name`
+  (leading whitespace-delimited token), passes `firstName` +
+  `showGreeting={lifetime.verifiedNonPracticeCount > 0}` to HomeHero.
+  HomeHero gains a `greetingNumber` style (`fontSize: 35,
+lineHeight: 35` — 35 ≈ 46 × 0.85 × 0.90, stepped down twice during
+  owner sign-off so the personal greeting reads lighter than the spec'd
+  46 px displayHero). Greeting copy: `"Hi {firstName}"` (no trailing
+  period); fallback `"Hi there"` if `firstName` is unavailable. Sub
+  copy: `"Pick a task and start recording"`.
+- Test: vitest 26/26 across home + HomeHero green; api
+  contributions.test.ts 3/3 green.
 
 **Found:** 2026-05-14 §7 close-out (Plan 06-12 owner spot-check).
 
@@ -416,7 +464,7 @@ ContributionTile, and add a matching unit on the duration tile if the
 ## Plan 06-12 — cosmetic cleanup wave
 
 The findings flagged **FIX in Plan 06-12** above (Finding 1 + 10 + 11 +
-12 + 13, plus Finding 8 if owner picks (a) toast over (b) persistent
+12 + 13, plus Finding 14 picked up as a follow-on after owner spot-
+check, plus Finding 8 if owner picks (a) toast over (b) persistent
 footer) are the scope of `06-12-PLAN.md`. The remainder
-(Findings 2, 3, 5, 6, 7, 9, 14) stay deferred per the dispositions in
-each.
+(Findings 2, 3, 5, 6, 7, 9) stay deferred per the dispositions in each.
