@@ -191,6 +191,16 @@ dependencies {
     // https://dl.google.com/dl/android/maven2/androidx/media3/media3-muxer/1.10.0/media3-muxer-1.10.0.pom).
     implementation 'androidx.media3:media3-muxer:1.10.0'
 
+    // Plan 06-06 — Phase 6 D-07: in-app HEVC fullscreen player.
+    // androidx.media3:media3-exoplayer ships ExoPlayer, the hand-rolled wrapper
+    // PlayerController.kt drives the lifecycle (prepare/play/pause/seekTo/release)
+    // off a TextureView surface (HumynPlayerView) — no media3-ui (the player chrome
+    // is rendered in React per design-spec §14). Pinned at the SAME minor as
+    // media3-muxer:1.10.0 (single-pin maintenance; both ship from the same media3
+    // release train so they share transitive media3-common / media3-container
+    // resolution).
+    implementation 'androidx.media3:media3-exoplayer:1.10.0'
+
     // Plan 04-02 — HAND-01: MediaPipe HandLandmarker for the pre-record hand gate.
     // Wrapped by ai.humynlabs.capture.handdetector.HumynHandDetectorModule (Kotlin
     // TurboModule, body in plan 04-04). The model bundle ships at
