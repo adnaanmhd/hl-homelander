@@ -205,11 +205,11 @@ Steps:
 | §5  | Player + streaming        | **PASS** — 6-bug fixpack `819fdf5` (main-looper dispatch, NaN duration, STATE_READY emit, route-param seed, drag-to-seek, NaN-aware scrub). Two deferred items → Findings 8 + 9. |
 | §6  | Cross-cutting             | **PASS** — see the 9 checked items above; test-side fixpack `94f8cfa`.                                                                                                           |
 
-**Findings:** 9 total — see `06-COSMETIC-GAPS.md`.
+**Findings:** 14 total — see `06-COSMETIC-GAPS.md` (status table at top).
 
 > Findings:
 >
-> 1. Tasks tab pull-to-refresh inert — defer (cosmetic).
+> 1. Tasks tab pull-to-refresh inert — **✅ Fixed in Plan 06-12 / `7a55e0c`.**
 > 2. TaskDetailsSheet swipe-down dismiss inert — defer (cosmetic).
 > 3. AlertPill placement during battery-15 % alert — non-blocking, owner directive (move below Stop Recording button).
 > 4. §1 D-09 HumynBeep inaudible — DEFERRED by owner directive 2026-05-14.
@@ -218,10 +218,21 @@ Steps:
 > 7. Pending Uploads row tap navigates to History instead of triggering `drainNowSafe` — Phase 5 follow-on (not a Phase 6 issue).
 > 8. Player "View only — not downloadable." footer sticks — owner wants toast w/ 5 s fadeout; spec says persistent footer. Needs a copy / interaction decision before code lands.
 > 9. Player drag-to-seek lands at byte 0 — root-caused to HumynCapture's fragmented MP4 carrying no `sidx` / `mfra` seek-index boxes. Player wiring is correct (fixpack `819fdf5`). Needs a Phase 3 follow-on plan (finalize-time remux step).
+> 10. History filter pill shows two chevrons — **✅ Fixed in Plan 06-12 / `4bec668`.**
+> 11. History empty state body needs a line break — **✅ Fixed in Plan 06-12 / `a8664dd`.**
+> 12. Tasks — hide Upload Sample at MVP — **✅ Fixed in Plan 06-12 / `a55d943`.**
+> 13. Tasks — task cards wiped by `pnpm test` — **✅ Fixed in Plan 06-12 / `10c6d26`** (`apps/api` posttest reseed hook + `WORKER_BOOTSTRAP=false` test env).
+> 14. Home — second YOUR CONTRIBUTION tile has no unit label — added 2026-05-14 §7 close-out, deferred to Phase 7 / future cosmetic plan.
 
-**Phase 6 sign-off:** **PARTIAL** — all locked acceptance items pass, BUT the owner reopened §7 on 2026-05-14 to add 4 more cosmetic gaps (Findings 10–13, plus promoting Finding 1 to fix-now and Finding 9 to defer-to-Phase-7). Cosmetic cleanup tracked in **Plan 06-12** (`06-12-PLAN.md`). Sign-off flips to YES after Plan 06-12 lands.
+**Phase 6 sign-off:** **YES** — all locked acceptance items + the
+owner-requested Plan 06-12 cleanup (Findings 1, 10, 11, 12, 13) green
+on Pixel 10a 2026-05-14. Findings 2, 3, 5, 6, 7, 9, 14 deferred per
+dispositions; Finding 8 awaits owner copy decision; Finding 4 is the
+audibility deferral. Plan 06-12 commits: `7a55e0c` (PTR), `a55d943`
+(Upload Sample hidden), `4bec668` (single chevron), `a8664dd` (HIST-04
+line break), `10c6d26` (posttest reseed). Closeout commit lands `06-12`.
 
-**Operator signature:** Adnaan Mohammed **Walked-on:** 2026-05-14 **Commit:** `40040fe` (initial close) → reopened pending `06-12` **Device:** Pixel 10a (`5C161JEA304304`), Android 16
+**Operator signature:** Adnaan Mohammed **Walked-on:** 2026-05-14 **Commit:** `40040fe` (initial close) → reopened `be64233` → closeout via Plan 06-12 **Device:** Pixel 10a (`5C161JEA304304`), Android 16
 
 > **Amendments protocol (D-WAVE-09 pattern carry-over):** New COSMETIC gaps surfaced during this walk (visual nits, copy tweaks, spacing) go into a NEW file: `.planning/phases/06-tasks-history-home-tiles-lexical-search/06-COSMETIC-GAPS.md` (create on first use). They are picked up either by Phase 7's plan-phase (it may roll them into an early plan) OR by a dedicated cleanup plan before Phase 7 starts — per memory `feedback_functionality_first_during_smoke.md`. **Never** write Phase-6 amendments back into the FROZEN Phase 4 / Phase 5 cosmetic-gaps files — those are closed.
 >
