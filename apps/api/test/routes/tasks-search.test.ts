@@ -163,4 +163,35 @@ describe('GET /tasks/search — lexical-only + pg_trgm fuzzy fallback (Phase 6 D
     const r = await app.inject({ method: 'GET', url: '/tasks/search?q=' });
     expect(r.statusCode).toBe(400);
   });
+
+  // Migration 0008 — `tasks.name_search` regenerated to include the category
+  // column. A bare category-name query (`kitchen`) must match every row whose
+  // category equals that value, not just rows that happen to have the literal
+  // category string in their name/description (the pre-0008 behavior).
+  it('matches category alongside name and description (migration 0008)', async () => {
+    await seedTask(
+      'organize-fridge',
+      'Organize the fridge',
+      'Put leftovers and produce on the right shelf.',
+      'Kitchen',
+    );
+    await seedTask('clear-table', 'Clear the table', 'Take dishes to the sink.', 'Kitchen');
+    await seedTask(
+      'sweep-floor-x',
+      'Sweep the floor',
+      'Use a broom to push dirt into a dustpan.',
+      'Cleaning',
+    );
+    const r = await app.inject({ method: 'GET', url: '/tasks/search?q=kitchen&limit=10' });
+    expect(r.statusCode).toBe(200);
+    const items = r.json().items as Array<{ slug: string; category: string }>;
+    const slugs = items.map((it) => it.slug);
+    // Both Kitchen-category rows match even though neither contains "kitchen"
+    // in name/description.
+    expect(slugs).toContain('organize-fridge');
+    expect(slugs).toContain('clear-table');
+    // The Cleaning-category row must NOT appear — its name/description don't
+    // mention kitchen and its category is "Cleaning".
+    expect(slugs).not.toContain('sweep-floor-x');
+  }, 60_000);
 });
