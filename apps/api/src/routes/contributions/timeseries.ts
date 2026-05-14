@@ -100,9 +100,15 @@ export default async function contributionsTimeseriesRoute(app: FastifyInstance)
       if (aggregate) {
         const windowClauses: SQL[] = [];
         if (start && end) {
+          // PG gotcha (see recordings/list.ts) — cast `::date::timestamp` so
+          // `AT TIME ZONE tz` interprets the bare wall-clock AS IF in `tz`
+          // and returns a timestamptz; `::date AT TIME ZONE tz` does the
+          // OPPOSITE direction (renders via the session TZ first).
           if (tz) {
-            windowClauses.push(sql`AND created_at >= (${start}::date AT TIME ZONE ${tz})`);
-            windowClauses.push(sql`AND created_at <  (${end}::date AT TIME ZONE ${tz})`);
+            windowClauses.push(
+              sql`AND created_at >= (${start}::date::timestamp AT TIME ZONE ${tz})`,
+            );
+            windowClauses.push(sql`AND created_at <  (${end}::date::timestamp AT TIME ZONE ${tz})`);
           } else {
             windowClauses.push(sql`AND created_at >= ${start}::date`);
             windowClauses.push(sql`AND created_at <  ${end}::date`);
