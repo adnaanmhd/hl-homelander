@@ -389,7 +389,7 @@ export function HistoryScreen(): React.JSX.Element {
               accessibilityLabel="history-empty-body"
               style={styles.emptyBody}
             >
-              You haven&apos;t recorded anything yet.{' '}
+              You haven&apos;t recorded anything yet.{'\n'}
               <Text
                 accessibilityRole="link"
                 accessibilityLabel="history-empty-pick-a-task"
