@@ -17,8 +17,21 @@ import { CompatResultSchema } from '@humyn/shared-types';
 
 import { secureMmkv } from './mmkv';
 import { KEYS } from './keys';
-import { useAppStore } from './appStore';
-import type { ConsentState, PermsState, CompatPassedState, AppVersionCacheEntry } from './appStore';
+import {
+  useAppStore,
+  HOME_RANGE_KEY,
+  HOME_RANGE_CUSTOM_KEY,
+  HISTORY_RANGE_KEY,
+  HISTORY_RANGE_CUSTOM_KEY,
+} from './appStore';
+import type {
+  ConsentState,
+  PermsState,
+  CompatPassedState,
+  AppVersionCacheEntry,
+  RangeCustom,
+} from './appStore';
+import type { NamedRange } from '../services/timeRange';
 
 function safeParseJson<T>(raw: string | undefined, label: string): T | null {
   if (raw === undefined || raw === '') return null;
@@ -77,6 +90,38 @@ export function hydrate(): void {
     'appVersion.cache.v1',
   );
 
+  // Phase 6 Wave 3 — Home / History range slices. MMKV stores the named
+  // window as a plain string (one of `NamedRange`); the custom-pair sibling
+  // is JSON-encoded. Both are validated defensively: an unknown string from
+  // a tampered MMKV blob degrades to the store's default ('today' / 'all')
+  // rather than crashing the gate-decision tree. Invariant: a hydrated
+  // `*RangeCustom` only sticks when its companion `*Range === 'custom'` —
+  // a mismatched pair (e.g. 'today' + a stale custom pair) drops the pair.
+  const NAMED_RANGES: readonly NamedRange[] = [
+    'today',
+    'yesterday',
+    'this-week',
+    'this-month',
+    'all',
+    'custom',
+  ] as const;
+  function parseNamedRange(raw: string | undefined, fallback: NamedRange): NamedRange {
+    if (raw === undefined) return fallback;
+    return (NAMED_RANGES as readonly string[]).includes(raw) ? (raw as NamedRange) : fallback;
+  }
+  const homeRange = parseNamedRange(secureMmkv.getString(HOME_RANGE_KEY), 'today');
+  const historyRange = parseNamedRange(secureMmkv.getString(HISTORY_RANGE_KEY), 'all');
+  const homeRangeCustomRaw = safeParseJson<RangeCustom>(
+    secureMmkv.getString(HOME_RANGE_CUSTOM_KEY),
+    HOME_RANGE_CUSTOM_KEY,
+  );
+  const historyRangeCustomRaw = safeParseJson<RangeCustom>(
+    secureMmkv.getString(HISTORY_RANGE_CUSTOM_KEY),
+    HISTORY_RANGE_CUSTOM_KEY,
+  );
+  const homeRangeCustom = homeRange === 'custom' ? homeRangeCustomRaw : null;
+  const historyRangeCustom = historyRange === 'custom' ? historyRangeCustomRaw : null;
+
   useAppStore.setState({
     jwt,
     consent,
@@ -86,5 +131,9 @@ export function hydrate(): void {
     tutorialDone,
     installationId,
     appVersionCache,
+    homeRange,
+    homeRangeCustom,
+    historyRange,
+    historyRangeCustom,
   });
 }
