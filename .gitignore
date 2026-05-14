@@ -33,6 +33,10 @@ apps/mobile/android/app/src/main/google-services*.json
 
 # Local agent / tooling state (GSD framework, machine-specific settings, transcripts)
 .claude/
+.planning/.local-stash/
+
+# Local scratch notes (working docs not meant for the repo)
+temp.md
 
 # Reverse-engineering reference scratch — the Figure "Minutes" APK is NOT ours;
 # do not commit it (third-party IP + GitHub's 100 MB/file limit). Decompiled /
