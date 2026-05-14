@@ -385,10 +385,17 @@ export function PlayerScreen(): React.JSX.Element {
         </View>
       </View>
 
-      {/* Video frame — 16 px radius, letterboxed 16:9 inside portrait. */}
+      {/* Video frame — 16 px radius, letterboxed 16:9 inside portrait.
+          Background + radius live on the wrapper, NOT on HumynPlayerView:
+          HumynPlayerView extends Android TextureView which throws on
+          `setBackgroundDrawable` ("TextureView doesn't support displaying a
+          background drawable"). Wrapper handles the visuals; the TextureView
+          just fills the rect. */}
       {showPlayerChrome && (
         <View style={styles.videoFrameWrap}>
-          <HumynPlayerView style={styles.videoFrame} />
+          <View style={styles.videoFrame}>
+            <HumynPlayerView style={styles.videoFrameInner} />
+          </View>
         </View>
       )}
 
@@ -516,6 +523,12 @@ const styles = StyleSheet.create({
     borderRadius: radii.button,
     backgroundColor: colors.playerBg,
     overflow: 'hidden',
+  },
+  // HumynPlayerView is an Android TextureView; setBackgroundDrawable on it
+  // throws. Inner style carries only layout — the wrapper above owns
+  // backgroundColor + borderRadius.
+  videoFrameInner: {
+    flex: 1,
   },
   // Centered loading + 64x64 play overlay — both positioned absolutely so
   // they layer on top of the video frame.
