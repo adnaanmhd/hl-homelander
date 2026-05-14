@@ -219,9 +219,9 @@ Steps:
 > 8. Player "View only — not downloadable." footer sticks — owner wants toast w/ 5 s fadeout; spec says persistent footer. Needs a copy / interaction decision before code lands.
 > 9. Player drag-to-seek lands at byte 0 — root-caused to HumynCapture's fragmented MP4 carrying no `sidx` / `mfra` seek-index boxes. Player wiring is correct (fixpack `819fdf5`). Needs a Phase 3 follow-on plan (finalize-time remux step).
 
-**Phase 6 sign-off:** YES — all locked acceptance items pass; the 9 findings are cosmetic / owner-deferred / external-phase scope per the amendments protocol below.
+**Phase 6 sign-off:** **PARTIAL** — all locked acceptance items pass, BUT the owner reopened §7 on 2026-05-14 to add 4 more cosmetic gaps (Findings 10–13, plus promoting Finding 1 to fix-now and Finding 9 to defer-to-Phase-7). Cosmetic cleanup tracked in **Plan 06-12** (`06-12-PLAN.md`). Sign-off flips to YES after Plan 06-12 lands.
 
-**Operator signature:** Adnaan Mohammed **Walked-on:** 2026-05-14 **Commit:** `94f8cfa` **Device:** Pixel 10a (`5C161JEA304304`), Android 16
+**Operator signature:** Adnaan Mohammed **Walked-on:** 2026-05-14 **Commit:** `40040fe` (initial close) → reopened pending `06-12` **Device:** Pixel 10a (`5C161JEA304304`), Android 16
 
 > **Amendments protocol (D-WAVE-09 pattern carry-over):** New COSMETIC gaps surfaced during this walk (visual nits, copy tweaks, spacing) go into a NEW file: `.planning/phases/06-tasks-history-home-tiles-lexical-search/06-COSMETIC-GAPS.md` (create on first use). They are picked up either by Phase 7's plan-phase (it may roll them into an early plan) OR by a dedicated cleanup plan before Phase 7 starts — per memory `feedback_functionality_first_during_smoke.md`. **Never** write Phase-6 amendments back into the FROZEN Phase 4 / Phase 5 cosmetic-gaps files — those are closed.
 >
