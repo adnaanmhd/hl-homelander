@@ -207,7 +207,8 @@ vi.mock('react-native', () => {
         children.push(typeof F === 'function' ? React.createElement(F as React.ComponentType) : F);
       }
       const dom: Record<string, unknown> = { 'data-testid': 'FlatList' };
-      if (typeof props.accessibilityLabel === 'string') dom['aria-label'] = props.accessibilityLabel;
+      if (typeof props.accessibilityLabel === 'string')
+        dom['aria-label'] = props.accessibilityLabel;
       return React.createElement('div', dom, children);
     },
     SectionList: function SectionListShim<TItem>(props: {
@@ -241,9 +242,7 @@ vi.mock('react-native', () => {
             );
           }
           section.data.forEach((item, iIdx) => {
-            const key = props.keyExtractor
-              ? props.keyExtractor(item, iIdx)
-              : `s${sIdx}-i${iIdx}`;
+            const key = props.keyExtractor ? props.keyExtractor(item, iIdx) : `s${sIdx}-i${iIdx}`;
             if (props.renderItem) {
               children.push(
                 React.createElement(
@@ -261,7 +260,8 @@ vi.mock('react-native', () => {
         children.push(typeof F === 'function' ? React.createElement(F as React.ComponentType) : F);
       }
       const dom: Record<string, unknown> = { 'data-testid': 'SectionList' };
-      if (typeof props.accessibilityLabel === 'string') dom['aria-label'] = props.accessibilityLabel;
+      if (typeof props.accessibilityLabel === 'string')
+        dom['aria-label'] = props.accessibilityLabel;
       return React.createElement('div', dom, children);
     },
     TextInput: makeTextInput(),
@@ -272,6 +272,16 @@ vi.mock('react-native', () => {
     // well while the camera is loading (HAND-06). Host-component shim: a
     // pass-through <div> like View; JSDOM never spins it.
     ActivityIndicator: makeComponent('ActivityIndicator'),
+    // Phase 6 Wave 5 (Plan 06-09) — HomeScreen + HistoryScreen pass a
+    // <RefreshControl/> through ScrollView.refreshControl / SectionList.
+    // The host-component shim is a passthrough <div>; the pull-to-refresh
+    // gesture path is exercised on-hardware (Detox), not in unit tests.
+    // HomeScreen.test.tsx still ships its own per-file react-native re-mock
+    // for fine-grained PTR introspection; this entry keeps the shared
+    // setup self-sufficient for screens that don't need that level of
+    // control (e.g. MainTabs which only needs the navigator to boot
+    // without resolving RefreshControl as undefined).
+    RefreshControl: makeComponent('RefreshControl'),
     StyleSheet: {
       create: <T extends Record<string, unknown>>(s: T): T => s,
       flatten: <T>(s: T): T => s,

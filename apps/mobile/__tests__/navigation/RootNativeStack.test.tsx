@@ -24,6 +24,74 @@ import React from 'react';
 import { render, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+// Phase 6 Wave 5 (Plan 06-09) — MainTabs now mounts real Home/Tasks/History
+// screens (atomic 3-tab swap). Vitest eagerly renders every registered
+// Screen via the native-stack mock, so the transitive chain pulls in the
+// design-system task-icons barrel which imports `lucide-react` (not
+// installed in the mobile npm tree — Metro picks `.native.tsx`; Vite
+// doesn't honour that resolver hook). Stub the barrel at each call-site
+// relative depth (3-level, 4-level, 5-level) so any transitive import
+// resolves to a tiny test shim. Same pattern as
+// `apps/mobile/__tests__/screens/tasks/TasksScreen.test.tsx`.
+vi.mock('../../../design-system/task-icons', async () => {
+  const ReactMod = await import('react');
+  return {
+    TaskIcon: (props: { task: string; size?: number }) =>
+      ReactMod.createElement('span', {
+        'data-testid': 'TaskIcon',
+        'data-task': props.task,
+        size: props.size,
+      }),
+  };
+});
+vi.mock('../../../../design-system/task-icons', async () => {
+  const ReactMod = await import('react');
+  return {
+    TaskIcon: (props: { task: string; size?: number }) =>
+      ReactMod.createElement('span', {
+        'data-testid': 'TaskIcon',
+        'data-task': props.task,
+        size: props.size,
+      }),
+  };
+});
+
+// HumynUpload + contributionsApi + tasksApi + recordingsApi + thumbnailLedger
+// + uploadReconcile — HomeScreen + HistoryScreen + TasksScreen all fire
+// network/native calls in their focus effects. Stub them so the navigator
+// boots cleanly without trying to reach the real bridge.
+vi.mock('../../src/native/HumynUpload', () => ({
+  HumynUpload: {
+    getQueueSafe: vi.fn(async () => []),
+    drainNowSafe: vi.fn(async () => undefined),
+    reupload: vi.fn(async () => undefined),
+  },
+  onUploadQueueChanged: vi.fn(() => ({ remove: () => undefined })),
+  onUploadProgress: vi.fn(() => ({ remove: () => undefined })),
+}));
+vi.mock('../../src/services/contributionsApi', () => ({
+  fetchLifetime: vi.fn(async () => ({
+    durationMs: 0,
+    recordingCount: 0,
+    taskCount: 0,
+    perTask: [],
+  })),
+  fetchContributionsAggregate: vi.fn(async () => ({ buckets: [] })),
+}));
+vi.mock('../../src/services/tasksApi', () => ({
+  fetchTasks: vi.fn(async () => ({ items: [], nextCursor: null })),
+  useTaskSearch: vi.fn(() => ({ results: null, loading: false, error: null })),
+}));
+vi.mock('../../src/services/recordingsApi', () => ({
+  fetchRecordings: vi.fn(async () => ({ items: [], next_cursor: null })),
+}));
+vi.mock('../../src/services/thumbnailLedger', () => ({
+  readEntry: vi.fn(() => null),
+}));
+vi.mock('../../src/services/uploadReconcile', () => ({
+  reconcileOnce: vi.fn(async () => 0),
+}));
+
 // vi.mock() is hoisted; vi.hoisted() lets us share a spy across the hoisted
 // mock factory and the test bodies.
 const { mockGetState } = vi.hoisted(() => ({ mockGetState: vi.fn() }));
@@ -68,6 +136,13 @@ const NOOP_ACTIONS = {
   setSoftUpgradeAvailable: () => undefined,
   setForceUpgradeBlocked: () => undefined,
   setUser: () => undefined,
+  // Phase 6 Wave 3 — Home / History range setters (added when Plan 06-09
+  // wired the real screens into MainTabs; the navigator now mounts
+  // HomeScreen + HistoryScreen, which both read these slices).
+  setHomeRange: () => undefined,
+  setHomeRangeCustom: () => undefined,
+  setHistoryRange: () => undefined,
+  setHistoryRangeCustom: () => undefined,
 };
 
 function freshState() {
@@ -83,6 +158,12 @@ function freshState() {
     softUpgradeAvailable: null,
     forceUpgradeBlocked: false,
     user: null,
+    // Phase 6 Wave 3 — Home / History range slices (defaults from the real
+    // store: home tile-pair = 'today'; history filter chip = 'all').
+    homeRange: 'today',
+    homeRangeCustom: null,
+    historyRange: 'all',
+    historyRangeCustom: null,
     ...NOOP_ACTIONS,
   };
 }
