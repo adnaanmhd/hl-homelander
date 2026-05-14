@@ -2,16 +2,31 @@ import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { embed } from '../../lib/embedder.js';
 import { TasksSearchQuerySchema, TasksSearchResponseSchema } from '@humyn/shared-types';
 
-// RRF k=60 hybrid search — verbatim from RESEARCH §1.3.
-// Drizzle's `sql` template parameterizes user-supplied `q`, `category`, `setting`
-// as bound params (no SQL injection). The 384-float embedding literal is built
-// from numerics-only join (also safe; T-1.6-02 in the threat model).
+// Phase 6 plan 06-02 (D-01 + D-02). Lexical-only + pg_trgm fuzzy-fallback search.
 //
-// `k = 60` is locked from upstream (see CONTEXT — `Locked from upstream`); do NOT
-// tune at MVP without re-validating recall on the 65-task fixture.
+// Two-stage query:
+//   1. ts_vector match on tasks.name_search (GIN-indexed from 0001_init.sql), ordered
+//      by ts_rank DESC. This is the happy path.
+//   2. When the ts_vector match returns zero rows, retry with pg_trgm similarity:
+//        WHERE similarity(name, $q) > 0.3 OR similarity(description, $q) > 0.3
+//      Ordered by GREATEST(similarity(name,$q), similarity(description,$q)) DESC.
+//      The 0.3 threshold is pinned EXPLICITLY in the WHERE clause — never rely on
+//      the session-level pg_trgm.similarity_threshold (Pitfall 4 in 06-RESEARCH.md).
+//
+// Drizzle's `sql` template parameterizes user-supplied `q`, `category`, `setting`
+// (no SQL injection). `plainto_tsquery` itself rejects metacharacters; `similarity()`
+// is a pure text function. See threat register T-6.2-01..06 in 06-02-PLAN.md.
+//
+// The route is intentionally public — no `app.requireAuth` preHandler; the
+// anonymous-tier rate-limit applies. Matches the pre-existing posture (see Phase 1
+// header convention).
+//
+// The pgvector / RRF / embedder code path is descoped from the MVP client surface
+// (D-01) — `apps/api/src/lib/embedder.ts`, the 384-float `embedding` column, and
+// the HNSW index in `0001_init.sql` remain on disk for §v2 SEARCH-V2-01 revival
+// via git history.
 export default async function tasksSearchRoute(app: FastifyInstance) {
   app.withTypeProvider<ZodTypeProvider>().get(
     '/tasks/search',
@@ -23,11 +38,7 @@ export default async function tasksSearchRoute(app: FastifyInstance) {
     },
     async (req) => {
       const { q, category, setting, limit } = req.query;
-      const queryEmbedding = await embed(q);
-      // Embedding literal — built from numerics only; no injection vector
-      const embeddingLiteral = `[${queryEmbedding.join(',')}]`;
-      const k = 60; // RRF constant — locked at 60 per CONTEXT (Locked from upstream)
-      const result = await db.execute<{
+      type TaskRow = {
         id: string;
         slug: string;
         name: string;
@@ -36,82 +47,71 @@ export default async function tasksSearchRoute(app: FastifyInstance) {
         setting: string;
         icon_key: string;
         instructions: string[];
-        rrf_score: number;
-      }>(sql`
-        WITH
-          vector_ranks AS (
-            SELECT
-              id,
-              ROW_NUMBER() OVER (ORDER BY embedding <=> ${embeddingLiteral}::vector(384)) AS rnk
-            FROM tasks
-            WHERE
-              (${category ?? null}::text IS NULL OR category = ${category ?? null}::text)
-              AND (${setting ?? null}::text IS NULL OR setting::text = ${setting ?? null}::text OR setting::text = 'either')
-            ORDER BY embedding <=> ${embeddingLiteral}::vector(384)
-            LIMIT 200
-          ),
-          lexical_ranks AS (
-            SELECT
-              id,
-              ROW_NUMBER() OVER (
-                ORDER BY ts_rank(name_search, plainto_tsquery('english', ${q})) DESC
-              ) AS rnk
-            FROM tasks
-            WHERE
-              name_search @@ plainto_tsquery('english', ${q})
-              AND (${category ?? null}::text IS NULL OR category = ${category ?? null}::text)
-              AND (${setting ?? null}::text IS NULL OR setting::text = ${setting ?? null}::text OR setting::text = 'either')
-            ORDER BY ts_rank(name_search, plainto_tsquery('english', ${q})) DESC
-            LIMIT 200
-          ),
-          fused AS (
-            SELECT
-              COALESCE(v.id, l.id) AS id,
-              (
-                COALESCE(1.0 / (${k}::numeric + v.rnk), 0)
-                +
-                COALESCE(1.0 / (${k}::numeric + l.rnk), 0)
-              ) AS rrf_score
-            FROM vector_ranks v
-            FULL OUTER JOIN lexical_ranks l ON v.id = l.id
-          )
-        SELECT
-          t.id, t.slug, t.name, t.description, t.category, t.setting::text AS setting,
-          t.icon_key, t.instructions, f.rrf_score
-        FROM fused f
-        JOIN tasks t ON t.id = f.id
-        ORDER BY f.rrf_score DESC
-        LIMIT ${limit};
-      `);
-      // Drizzle's execute returns { rows: [...] } shape on node-postgres
-      const rows = (
-        result as unknown as {
-          rows: Array<{
-            id: string;
-            slug: string;
-            name: string;
-            description: string;
-            category: string;
-            setting: string;
-            icon_key: string;
-            instructions: string[];
-            rrf_score: number;
-          }>;
-        }
-      ).rows;
-      return {
-        items: rows.map((r) => ({
-          id: r.id,
-          slug: r.slug,
-          name: r.name,
-          description: r.description,
-          category: r.category,
-          setting: r.setting as 'indoor' | 'outdoor' | 'either',
-          iconKey: r.icon_key,
-          instructions: r.instructions,
-          rrf_score: Number(r.rrf_score),
-        })),
+        lex_score: number;
       };
+      const result = await db.execute<TaskRow>(sql`
+        WITH lex AS (
+          SELECT
+            t.id, t.slug, t.name, t.description, t.category, t.setting::text AS setting,
+            t.icon_key, t.instructions,
+            ts_rank(t.name_search, plainto_tsquery('english', ${q})) AS lex_score
+          FROM tasks t
+          WHERE
+            t.name_search @@ plainto_tsquery('english', ${q})
+            AND (${category ?? null}::text IS NULL OR t.category = ${category ?? null}::text)
+            AND (${setting ?? null}::text IS NULL OR t.setting::text = ${setting ?? null}::text OR t.setting::text = 'either')
+          ORDER BY lex_score DESC
+          LIMIT ${limit}
+        )
+        SELECT * FROM lex
+      `);
+      const rows = (result as unknown as { rows: TaskRow[] }).rows;
+      if (rows.length === 0) {
+        // D-02 — pg_trgm fuzzy fallback. Threshold pinned to 0.3 explicitly
+        // (Pitfall 4 — session-level pg_trgm.similarity_threshold is not relied upon).
+        const fuzzy = await db.execute<TaskRow>(sql`
+          SELECT
+            t.id, t.slug, t.name, t.description, t.category, t.setting::text AS setting,
+            t.icon_key, t.instructions,
+            GREATEST(similarity(t.name, ${q}), similarity(t.description, ${q})) AS lex_score
+          FROM tasks t
+          WHERE
+            (similarity(t.name, ${q}) > 0.3 OR similarity(t.description, ${q}) > 0.3)
+            AND (${category ?? null}::text IS NULL OR t.category = ${category ?? null}::text)
+            AND (${setting ?? null}::text IS NULL OR t.setting::text = ${setting ?? null}::text OR t.setting::text = 'either')
+          ORDER BY lex_score DESC
+          LIMIT ${limit}
+        `);
+        const fuzzyRows = (fuzzy as unknown as { rows: TaskRow[] }).rows;
+        return { items: mapRows(fuzzyRows) };
+      }
+      return { items: mapRows(rows) };
     },
   );
+}
+
+function mapRows(
+  rows: Array<{
+    id: string;
+    slug: string;
+    name: string;
+    description: string;
+    category: string;
+    setting: string;
+    icon_key: string;
+    instructions: string[];
+    lex_score: number;
+  }>,
+) {
+  return rows.map((r) => ({
+    id: r.id,
+    slug: r.slug,
+    name: r.name,
+    description: r.description,
+    category: r.category,
+    setting: r.setting as 'indoor' | 'outdoor' | 'either',
+    iconKey: r.icon_key,
+    instructions: r.instructions,
+    lex_score: Number(r.lex_score),
+  }));
 }

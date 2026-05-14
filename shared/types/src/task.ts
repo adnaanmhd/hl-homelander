@@ -44,7 +44,10 @@ export const TasksListResponseSchema = z.object({
 });
 export type TasksListResponse = z.infer<typeof TasksListResponseSchema>;
 
-// GET /tasks/search — RRF k=60 hybrid (vector cosine + tsvector BM25 via ts_rank)
+// GET /tasks/search — lexical-only (ts_vector + pg_trgm fuzzy fallback at threshold 0.3).
+// Phase 6 D-01: RRF k=60 hybrid descoped from MVP client; the pgvector/embedder/HNSW
+// code remains in-tree (apps/api/src/lib/embedder.ts, 0001_init.sql HNSW index) for
+// §v2 SEARCH-V2-01 revival via git history.
 export const TasksSearchQuerySchema = z.object({
   q: z.string().min(1).max(200),
   category: z.string().min(1).max(40).optional(),
@@ -54,7 +57,8 @@ export const TasksSearchQuerySchema = z.object({
 export type TasksSearchQuery = z.infer<typeof TasksSearchQuerySchema>;
 
 export const TasksSearchResponseSchema = z.object({
-  items: z.array(TaskSchema.extend({ rrf_score: z.number() })),
+  // Phase 6 D-01a — lexical-only score (RRF hybrid path descoped from MVP client; revived via §v2 SEARCH-V2-01)
+  items: z.array(TaskSchema.extend({ lex_score: z.number() })),
 });
 export type TasksSearchResponse = z.infer<typeof TasksSearchResponseSchema>;
 
