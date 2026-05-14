@@ -401,6 +401,7 @@ describe('HistoryScreen (Plan 06-09)', () => {
     expect(navigateMock).toHaveBeenCalledWith('Player', {
       recordingId: 'rec-99',
       taskName: 'Cook eggs',
+      durationMs: 90000,
     });
   });
 

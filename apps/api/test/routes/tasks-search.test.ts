@@ -44,6 +44,12 @@ afterAll(async () => {
   await app.close();
 });
 beforeEach(async () => {
+  // tasks ← recordings.task_id (ON DELETE RESTRICT). The recordings table is
+  // typically empty in a clean dev DB, but a smoke-walk that records + uploads
+  // leaves a row that blocks `delete(tasks)`. Wipe recordings first; the
+  // recordings → {recordings_to_verify, recording_events_outbox} FKs are
+  // ON DELETE CASCADE so they go with it. (Surfaced 2026-05-14 §6 walk.)
+  await db.delete(schema.recordings);
   await db.delete(schema.tasks);
 });
 
