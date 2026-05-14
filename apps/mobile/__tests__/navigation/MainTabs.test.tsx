@@ -25,7 +25,85 @@
 
 import React from 'react';
 import { render, cleanup } from '@testing-library/react';
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+
+// Phase 6 Wave 5 (Plan 06-09) — MainTabs now mounts HomeScreen / TasksScreen /
+// HistoryScreen (the atomic 3-tab swap). All three pull design-system task
+// icons via the cross-package `design-system/task-icons` barrel; the
+// barrel's web variant (`TaskIcon.tsx`) imports from `lucide-react` which
+// isn't installed in the mobile npm tree (Metro picks `TaskIcon.native.tsx`
+// at runtime via the `.native.tsx` resolver hook — Vite doesn't honour that
+// resolver). The mock factory mirrors the established pattern from
+// `apps/mobile/__tests__/screens/tasks/TasksScreen.test.tsx`: stub the
+// barrel at both call-site relative paths (4-level + 5-level) so any
+// transitive import resolves to a tiny test shim.
+vi.mock('../../../design-system/task-icons', async () => {
+  const ReactMod = await import('react');
+  return {
+    TaskIcon: (props: { task: string; size?: number }) =>
+      ReactMod.createElement('span', {
+        'data-testid': 'TaskIcon',
+        'data-task': props.task,
+        size: props.size,
+      }),
+  };
+});
+vi.mock('../../../../design-system/task-icons', async () => {
+  const ReactMod = await import('react');
+  return {
+    TaskIcon: (props: { task: string; size?: number }) =>
+      ReactMod.createElement('span', {
+        'data-testid': 'TaskIcon',
+        'data-task': props.task,
+        size: props.size,
+      }),
+  };
+});
+
+// HumynUpload native module — both HomeScreen and (post-swap) MainTabs
+// pull this transitively. Stub the queue + listeners so the navigator
+// boots without trying to hit the real native bridge.
+vi.mock('../../src/native/HumynUpload', () => ({
+  HumynUpload: {
+    getQueueSafe: vi.fn(async () => []),
+    drainNowSafe: vi.fn(async () => undefined),
+    reupload: vi.fn(async () => undefined),
+  },
+  onUploadQueueChanged: vi.fn(() => ({ remove: () => undefined })),
+  onUploadProgress: vi.fn(() => ({ remove: () => undefined })),
+}));
+
+// contributionsApi — HomeScreen fetches lifetime + aggregate on focus.
+vi.mock('../../src/services/contributionsApi', () => ({
+  fetchLifetime: vi.fn(async () => ({
+    durationMs: 0,
+    recordingCount: 0,
+    taskCount: 0,
+    perTask: [],
+  })),
+  fetchContributionsAggregate: vi.fn(async () => ({ buckets: [] })),
+}));
+
+// tasksApi — TasksScreen + HistoryScreen both consume this.
+vi.mock('../../src/services/tasksApi', () => ({
+  fetchTasks: vi.fn(async () => ({ items: [], nextCursor: null })),
+  useTaskSearch: vi.fn(() => ({ results: null, loading: false, error: null })),
+}));
+
+// recordingsApi — HistoryScreen fetches on focus.
+vi.mock('../../src/services/recordingsApi', () => ({
+  fetchRecordings: vi.fn(async () => ({ items: [], next_cursor: null })),
+}));
+
+// thumbnailLedger — HistoryScreen reads per-recording overlays.
+vi.mock('../../src/services/thumbnailLedger', () => ({
+  readEntry: vi.fn(() => null),
+}));
+
+// uploadReconcile — HomeScreen schedules reconcileOnce on focus.
+vi.mock('../../src/services/uploadReconcile', () => ({
+  reconcileOnce: vi.fn(async () => 0),
+}));
 
 import MainTabs from '../../src/navigation/MainTabs';
 import MainTabsSource from '../../src/navigation/MainTabs.tsx?raw';
