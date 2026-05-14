@@ -92,6 +92,13 @@ export const EVENT_NAMES = [
   // JWT revoked, etc.). Lets the help-pull diagnostic snapshot show why
   // the avatar stayed at 'U' on a long-suspended app session.
   'rehydrate_user_failed',
+  // Phase 6 (HomeScreen — Plan 06-08). Engineering-handoff §11 already
+  // documents the `home_*` event funnel; the allowlist gate didn't have
+  // them so the runtime `logEvent` call was dropping the event with a
+  // dev warning. Adding them here is the Rule 2 / D-09 fix to keep the
+  // event funnel intact.
+  'home_view',
+  'home_tile_filter_changed',
 ] as const;
 
 export type EventName = (typeof EVENT_NAMES)[number];
