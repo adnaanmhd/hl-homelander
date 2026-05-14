@@ -28,7 +28,10 @@ import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { eq } from 'drizzle-orm';
 import { getSignedUrl as getCloudFrontSignedUrl } from '@aws-sdk/cloudfront-signer';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl as getS3SignedUrl } from '@aws-sdk/s3-request-presigner';
 import { db, schema } from '../../db/index.js';
+import { getS3Client, RECORDINGS_BUCKET } from '../../lib/s3-client.js';
 import { buildProblemDetail, PROBLEM_SLUGS } from '../../lib/problem-detail.js';
 import { RecordingsStreamUrlParamsSchema } from '@humyn/shared-types';
 
@@ -36,14 +39,25 @@ const PROBLEM_CT = 'application/problem+json';
 const STREAM_TTL_SECONDS = 5 * 60; // D-08 — 5-min TTL
 const DEEP_ARCHIVE_DAYS = 90; // Phase 1 S3 lifecycle parity (created_at > 90d)
 
-function getCloudFrontSigningKey(): { key: string; keyPairId: string; baseUrl: string } {
+function getCloudFrontSigningKey(): { key: string; keyPairId: string; baseUrl: string } | null {
   const key = process.env.CLOUDFRONT_RECORDINGS_PRIVATE_KEY;
   const keyPairId = process.env.CLOUDFRONT_RECORDINGS_KEY_PAIR_ID;
   const baseUrl = process.env.CLOUDFRONT_RECORDINGS_BASE_URL;
-  if (!key || !keyPairId || !baseUrl) {
-    throw new Error('CloudFront signing config missing');
-  }
+  if (!key || !keyPairId || !baseUrl) return null;
   return { key, keyPairId, baseUrl };
+}
+
+/**
+ * Sign a short-TTL S3 GET URL for the recording's video key. Used as the dev /
+ * LocalStack fallback when CLOUDFRONT_RECORDINGS_* env is unset (no
+ * distribution to sign against). Prod must always have CloudFront configured —
+ * the call site logs a warning when this fallback fires so a missing prod
+ * secret stays visible.
+ */
+async function signS3GetUrl(s3KeyVideo: string): Promise<string> {
+  const s3 = getS3Client();
+  const cmd = new GetObjectCommand({ Bucket: RECORDINGS_BUCKET(), Key: s3KeyVideo });
+  return getS3SignedUrl(s3, cmd, { expiresIn: STREAM_TTL_SECONDS });
 }
 
 export default async function recordingsStreamUrlRoute(app: FastifyInstance): Promise<void> {
@@ -124,15 +138,30 @@ export default async function recordingsStreamUrlRoute(app: FastifyInstance): Pr
       }
 
       // Available — qa_status ∈ {uploaded, verified, hash-mismatch}, age ≤ 90d.
-      // CloudFront-signed playable URL with 5-min TTL.
-      const { key, keyPairId, baseUrl } = getCloudFrontSigningKey();
+      // Short-TTL signed playable URL. Prefer CloudFront in prod (cache
+      // hits + cheaper egress per 06-RESEARCH Q-1); fall back to S3
+      // presigned GET in dev / LocalStack where the CLOUDFRONT_* env vars
+      // aren't set (no distribution to sign against). The envelope shape
+      // is identical to the client; only the URL host differs.
+      const cf = getCloudFrontSigningKey();
       const expiresAt = new Date(Date.now() + STREAM_TTL_SECONDS * 1000);
-      const presignedUrl = getCloudFrontSignedUrl({
-        url: `${baseUrl}/${rec.s3KeyVideo}`,
-        privateKey: key,
-        keyPairId,
-        dateLessThan: expiresAt.toISOString(),
-      });
+      let presignedUrl: string;
+      if (cf) {
+        presignedUrl = getCloudFrontSignedUrl({
+          url: `${cf.baseUrl}/${rec.s3KeyVideo}`,
+          privateKey: cf.key,
+          keyPairId: cf.keyPairId,
+          dateLessThan: expiresAt.toISOString(),
+        });
+      } else {
+        // Dev / LocalStack — log a one-line warning so a missing prod
+        // CLOUDFRONT_* secret never stays invisible.
+        req.log.warn(
+          { component: 'recordings-stream-url' },
+          'CLOUDFRONT_RECORDINGS_* unset — falling back to S3 presigned GET (dev only).',
+        );
+        presignedUrl = await signS3GetUrl(rec.s3KeyVideo);
+      }
       return reply.send({
         presignedUrl,
         expiresAt: expiresAt.toISOString(),

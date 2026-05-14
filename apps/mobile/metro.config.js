@@ -29,6 +29,17 @@ const config = {
       path.resolve(projectRoot, 'node_modules'),
       path.resolve(repoRoot, 'node_modules'),
     ],
+    // design-system/task-icons/ ships both `mapping.ts` (the typed registry
+    // exporting getTaskIcon/etc.) and `mapping.json` (the same taxonomy in
+    // JSON for the api seed script). Metro's default sourceExts list puts
+    // `json` ahead of `ts`/`tsx`, so a bare `import './mapping'` resolves
+    // to mapping.json → getTaskIcon is undefined at runtime. Promote
+    // ts/tsx ahead of json so module-style imports prefer the typed file.
+    sourceExts: [
+      'ts',
+      'tsx',
+      ...defaultConfig.resolver.sourceExts.filter((ext) => ext !== 'ts' && ext !== 'tsx'),
+    ],
     // shared/types is authored with NodeNext-style `./foo.js` import specifiers
     // (TypeScript requires `.js` even when source is `.ts` under NodeNext).
     // tsc + vitest map `.js` → `.ts` transparently, but Metro's default resolver

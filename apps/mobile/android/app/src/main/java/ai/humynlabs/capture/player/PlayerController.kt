@@ -80,6 +80,15 @@ object PlayerController {
                     /* handleAudioFocus = */ true,
                 )
                 .setHandleAudioBecomingNoisy(true)
+                // ExoPlayer enforces single-thread access on its application
+                // looper. RN's new-arch Fabric view-mount unwinds views from
+                // `main` (SurfaceMountingManager.removeViewAt), so a player
+                // created on the RN module's default thread (`mqt_v_native`)
+                // crashes during view detach with "Player is accessed on the
+                // wrong thread". Pinning to the main looper here makes every
+                // public API call from any RN-side caller (the view manager,
+                // the JS bridge, the progress handler) safe.
+                .setLooper(Looper.getMainLooper())
                 .build()
                 .also {
                     player = it
@@ -215,6 +224,18 @@ object PlayerController {
             }
         } else if (uri.startsWith("https://")) {
             // Accept any https:// — CloudFront-signed-URL mint is the gate.
+        } else if (
+            uri.startsWith("http://localhost:") ||
+            uri.startsWith("http://127.0.0.1:") ||
+            uri.startsWith("http://10.0.2.2:")
+        ) {
+            // Dev / LocalStack only — the API's stream-url route returns an
+            // S3 presigned URL against http://localhost:4566 when the
+            // CLOUDFRONT_RECORDINGS_* env is unset. Allowed hosts are the
+            // loopback / emulator-host triple; production CloudFront URLs
+            // always come back as https:// (CF distribution has TLS termination
+            // baked in), so this branch can never match in a release build.
+            // Discovered during 06-MANUAL-SMOKE §5 walk 2026-05-14.
         } else {
             throw IllegalArgumentException(
                 "Player rejects URI scheme: $uri (expected file:// or https://)",

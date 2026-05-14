@@ -1,26 +1,22 @@
 // Phase 6 Wave 3 — `/task-requests` wrapper (TASK-08 + 06-CONTEXT D-09).
 //
-// Mirrors the existing `feedbackService.submitFeedback` multipart pattern
-// (the closest analog — both ship a small JSON payload + an optional file
-// part to a single endpoint protected by per-user rate-limit + an
-// Idempotency-Key). Pre-network validation rejects out-of-range name +
-// description so a typo doesn't burn the rate-limit budget.
-//
-// Wire shape (multipart/form-data) — matches the Phase 1
-// TaskRequestCreateSchema:
+// Sends a JSON body matching Phase 1 TaskRequestCreateSchema:
 //   field "name"        — 3..80 chars
 //   field "description" — 10..240 chars
 //   field "category"    — taxonomy category OR 'Other'
 //   field "setting"     — 'indoor' | 'outdoor'
-//   file  "sample"      — optional .mp4 (the sample-video preview the user
-//                          chose via the file-picker; the server stages it
-//                          to S3 under `task-request-samples/`)
 //
-// Idempotency-Key is a fresh UUIDv4 per call (Phase 1 API-15). The body
-// shape on the sample part is Hermes-vs-JSDOM-aware via the same
-// branching pattern feedbackService.ts uses — see that file for the
-// full rationale on why a manual `{name, type, uri}` blob shape ships on
-// real RN and a spec-compliant `Blob` ships under JSDOM tests.
+// The Plan 06-05 original draft of this wrapper used multipart/form-data on
+// the assumption that the sample-video file picker (TASK-08 OPTIONAL field)
+// would ship at MVP. Plan 06-07 D-sample-video deferred the picker; the
+// server route at apps/api/src/routes/tasks/create-request.ts only accepts
+// JSON (no multipart parser registered). Hitting it with multipart returns
+// 415 Unsupported Media Type — caught during the 06-MANUAL-SMOKE walk
+// 2026-05-14. When the sample-video upload lands in §v2 it gets its own
+// /task-requests/sample endpoint OR multipart support is added to the
+// existing route + an S3 staging key.
+//
+// Idempotency-Key is a fresh UUIDv4 per call (Phase 1 API-15).
 
 import uuid from 'react-native-uuid';
 import { apiClient } from './api';
@@ -43,13 +39,14 @@ export interface TaskRequestResult {
 }
 
 /**
- * POST /task-requests — multipart submit. Throws (before network):
+ * POST /task-requests — JSON submit. Throws (before network):
  *   - `task_request_name_length_out_of_range`        — name < 3 or > 80
  *   - `task_request_description_length_out_of_range` — description < 10 or > 240
  *   - `task_request_invalid_setting:${value}`         — setting not in enum
+ *   - `task_request_sample_video_not_supported_at_mvp` — sampleVideoUri set at MVP
  *
- * Throws (network): the apiClient.postMultipart rejection text (Phase 1
- * problem-detail body when the backend returns 4xx/5xx).
+ * Throws (network): the apiClient.post rejection text (Phase 1 problem-detail
+ * body when the backend returns 4xx/5xx).
  */
 export async function submitTaskRequest(input: TaskRequestInput): Promise<TaskRequestResult> {
   // Pre-flight validation. The server also enforces these (Phase 1
@@ -65,36 +62,30 @@ export async function submitTaskRequest(input: TaskRequestInput): Promise<TaskRe
     throw new Error(`task_request_invalid_setting:${String(input.setting)}`);
   }
 
-  const form = new FormData();
-  form.append('name', input.name);
-  form.append('description', input.description);
-  form.append('category', input.category);
-  form.append('setting', input.setting);
-
+  // The server route (apps/api/src/routes/tasks/create-request.ts) accepts a
+  // JSON body matching TaskRequestCreateSchema; it has no multipart parser
+  // registered for this path. The original multipart framing here anticipated
+  // a sample-video file picker that Plan 06-07 explicitly deferred (TASK-08
+  // OPTIONAL note + Plan 06-07 D-sample-video). Hitting the route with
+  // multipart returns 415 Unsupported Media Type (smoke-walk finding
+  // 2026-05-14). When the sample-video upload lands in §v2 it gets a
+  // dedicated /task-requests/sample endpoint or a multipart parser added to
+  // the server route — not a quiet re-shape of this method.
   if (input.sampleVideoUri) {
-    // Hermes-vs-JSDOM branch (see feedbackService.ts:152-176 for the full
-    // rationale). On real RN, attach the file by URI via the legacy
-    // FormData blob shape; on JSDOM (vitest), use a real Blob with the
-    // file:// URI as the body bytes (the test never reads the bytes; it
-    // only asserts that the part lands).
-    const isHermes =
-      typeof (globalThis as { HermesInternal?: unknown }).HermesInternal !== 'undefined';
-    if (isHermes) {
-      form.append(
-        'sample',
-        {
-          uri: input.sampleVideoUri,
-          name: 'sample.mp4',
-          type: 'video/mp4',
-        } as unknown as Blob,
-        'sample.mp4',
-      );
-    } else {
-      form.append('sample', new Blob([input.sampleVideoUri], { type: 'video/mp4' }), 'sample.mp4');
-    }
+    throw new Error('task_request_sample_video_not_supported_at_mvp');
   }
-
-  return apiClient.postMultipart<TaskRequestResult>('/task-requests', form, {
-    headers: { 'Idempotency-Key': uuid.v4() as string },
+  const body: {
+    name: string;
+    description: string;
+    category: string;
+    setting: 'indoor' | 'outdoor';
+  } = {
+    name: input.name,
+    description: input.description,
+    category: input.category,
+    setting: input.setting,
+  };
+  return apiClient.post<TaskRequestResult>('/task-requests', body, {
+    idempotencyKey: uuid.v4() as string,
   });
 }
