@@ -176,33 +176,52 @@ Steps:
 
 ## §6 — Cross-cutting checks
 
-- [ ] **Phase-5 carry-over preserved:** Open Home → trigger an upload → Pending Uploads section renders the Phase 5 D-10 row with `UploadStatusChip` per `qa_status`, the determinate-fill progress bar (Phase 5 Wave 2 #7), the verified-event auto-poll (Wave 2 #6), and the drainNowSafe tile-tap kick (Wave 2 #5) all behaving as before. Plan 06-08 wraps this with the `pendingRows.length > 0` visibility gate + the OfflineBanner inside the section header but the Phase 5 wiring is byte-for-byte preserved.
-- [ ] **`__DEV__` dev affordance preserved:** Long-press the Tasks tab heading → routes to RecordingScreen with `{ taskId: 'cooking_chop_vegetables', taskName: 'Practice — Chop vegetables', isPractice: false }` (Plan 06-07 preserved the Phase 4 affordance verbatim).
-- [ ] **No-hex-literals lint passes:** `cd apps/mobile && npm run test -- --run __tests__/ui/no-hex-literals.test.ts` exits 0 (Plan 06-07 + 06-08 each added their new screens / components to the walker; gate stays green at 50/50 PASS).
-- [ ] **Mobile Vitest green:** `cd apps/mobile && npm test` → ≥811 tests passing across 108+ files (the suite grew from 699 at Plan 06-04 → 715 at 06-05 → 706 at 06-07 → 752 at 06-08 → 802 at 06-09 → 811 at 06-10). The 3 unhandled-rejection warnings from `BatteryOptimizationScreen.tsx` are documented pre-existing baseline noise (NOT introduced by Phase 6).
-- [ ] **Mobile typecheck baseline:** `cd apps/mobile && npm run typecheck` exits 0 modulo the documented pre-existing `design-system/task-icons/TaskIcon.tsx → lucide-react` baseline error (Plan 06-05 introduced — acceptable, Plan 06-07 SUMMARY documented). No NEW typecheck errors.
-- [ ] **Backend Vitest green:** `pnpm --filter @humyn/api test` → ≥35 tests passing (tasks-search 8, recordings-stream-url 10, recordings-list 10, contributions-timeseries 6, plus regression coverage on contributions + recordings-get). Includes the Plan 06-03 IST-boundary test that exercises the `::date::timestamp AT TIME ZONE tz` idiom.
-- [ ] **Robolectric green:** `cd apps/mobile/android && ./gradlew :app:testApkRolloutDebugUnitTest --tests ai.humynlabs.capture.beep.HumynBeepModuleTest --tests ai.humynlabs.capture.capture.ThumbnailExtractorTest --tests ai.humynlabs.capture.player.HumynPlayerModuleTest` — all 11 tests pass (3 + 3 + 5).
-- [ ] **Drizzle migrations clean:** `cd apps/api && DATABASE_URL=… pnpm db:migrate` reports `Migrations: 0 applied, 7 skipped (total 7)` — migration 0007_pg_trgm.sql was applied during Plan 06-02 and stays applied; no schema drift.
-- [ ] **REQUIREMENTS.md reflects D-06 rewording:** `grep -nC1 'streams via the server\|Deep Archive (>90' .planning/REQUIREMENTS.md` shows the HIST-07/08/09 reworded entries with the "_Reworded by Phase 6 Plan 06-03 per CONTEXT D-06_" tag (Plan 06-03 Task 5).
+- [x] **Phase-5 carry-over preserved:** _DEFERRED_ — no pending uploads existed during the walk (the only recording uploaded + verified before the walk started). Code-grep confirms the Phase 5 D-10 wiring (`pendingRows.length > 0` gate, UploadStatusChip, determinate progress fill, verified-event auto-poll, drainNowSafe tile-tap kick) is byte-for-byte preserved. To exercise visually, record a short clip with airplane mode toggled — left to a future smoke / Phase 7 cross-check.
+- [x] **`__DEV__` dev affordance preserved:** Long-press on the Tasks tab heading routes to RecordingScreen — confirmed on-device 2026-05-14.
+- [x] **No-hex-literals lint passes:** 60/60 tests passed.
+- [x] **Mobile Vitest green:** 811/811 tests passed across 109 test files. The 3 unhandled-rejection warnings from `BatteryOptimizationScreen.tsx` were the documented baseline noise (NOT a Phase 6 regression). Two new test-side fixes landed in commit `94f8cfa`: vitest.setup.ts gained a `PanResponder` stub for the new ScrubBar drag-to-seek (commit `819fdf5`), and the HistoryScreen row-tap assertion now includes the `durationMs` route-param.
+- [x] **Mobile typecheck baseline:** Exit 0 modulo the documented pre-existing `design-system/task-icons/TaskIcon.tsx → lucide-react` baseline error. No new errors.
+- [x] **Backend Vitest green:** 206/206 (+2 skipped) passed. tasks-search.test.ts `beforeEach` cleanup gained a `delete(recordings)` before `delete(tasks)` (commit `94f8cfa`) — the FK `recordings_task_id_tasks_id_fk` (ON DELETE RESTRICT) was blocking the existing `delete(tasks)` once the smoke walk left a recording row in the dev DB.
+- [x] **Robolectric green:** BUILD SUCCESSFUL (HumynBeepModuleTest + ThumbnailExtractorTest + HumynPlayerModuleTest all pass).
+- [x] **Drizzle migrations clean:** `0 applied, 8 skipped (total 8)`. Migration 0008_tasks_name_search_includes_category.sql landed during §2 of this walk (commit `175f59d`). No schema drift.
+- [x] **REQUIREMENTS.md reflects D-06 rewording:** HIST-07 / HIST-08 / HIST-09 all show the `_Reworded by Phase 6 Plan 06-03 per CONTEXT D-06_` tag.
 
-**Re-walked-on:** YYYY-MM-DD HEAD<commit>
+**Re-walked-on:** 2026-05-14 HEAD `94f8cfa`
 
 ---
 
 ## §7 — Sign-off
 
-- [ ] All §1-§6 walked. Outstanding findings (if any) listed below.
+- [x] All §1-§6 walked. Outstanding findings listed below.
 
-**Findings:** (operator fills in — for each finding state: which section, what was observed, severity (BLOCKING / non-blocking), proposed disposition (defer / debug / cosmetic-gaps); OR write "none".)
+**Walk-level summary (2026-05-14):**
+
+| §   | Title                     | Status                                                                                                                                                                           |
+| --- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| §1  | D-09 HumynBeep audibility | **DEFERRED** by owner (`feedback_d09_audibility_deferred`); Plan 06-01 instrumentation stays.                                                                                    |
+| §2  | Tasks tab                 | **PASS** — 2 mid-walk fixpacks landed: migration 0008 (search includes category) + `/task-requests` JSON body.                                                                   |
+| §3  | Home tab                  | **PASS** with documented caveats (HOME-10 OfflineBanner data-binding is the Plan 06-08 Known Stub → see Finding 6).                                                              |
+| §4  | History tab               | **PASS** — empty state, row layout, day-grouping, filter chip, no-delete affordance all verified.                                                                                |
+| §5  | Player + streaming        | **PASS** — 6-bug fixpack `819fdf5` (main-looper dispatch, NaN duration, STATE_READY emit, route-param seed, drag-to-seek, NaN-aware scrub). Two deferred items → Findings 8 + 9. |
+| §6  | Cross-cutting             | **PASS** — see the 9 checked items above; test-side fixpack `94f8cfa`.                                                                                                           |
+
+**Findings:** 9 total — see `06-COSMETIC-GAPS.md`.
 
 > Findings:
 >
-> (operator: write findings here, or "none")
+> 1. Tasks tab pull-to-refresh inert — defer (cosmetic).
+> 2. TaskDetailsSheet swipe-down dismiss inert — defer (cosmetic).
+> 3. AlertPill placement during battery-15 % alert — non-blocking, owner directive (move below Stop Recording button).
+> 4. §1 D-09 HumynBeep inaudible — DEFERRED by owner directive 2026-05-14.
+> 5. Home custom date range is free-text TextInput — defer (cosmetic; needs `@react-native-community/datetimepicker` dep).
+> 6. HOME-10 OfflineBanner not wired to NetworkMonitor — Plan 06-08 Known Stub; promote to a Phase 7 plan.
+> 7. Pending Uploads row tap navigates to History instead of triggering `drainNowSafe` — Phase 5 follow-on (not a Phase 6 issue).
+> 8. Player "View only — not downloadable." footer sticks — owner wants toast w/ 5 s fadeout; spec says persistent footer. Needs a copy / interaction decision before code lands.
+> 9. Player drag-to-seek lands at byte 0 — root-caused to HumynCapture's fragmented MP4 carrying no `sidx` / `mfra` seek-index boxes. Player wiring is correct (fixpack `819fdf5`). Needs a Phase 3 follow-on plan (finalize-time remux step).
 
-**Phase 6 sign-off:** YES / NO / PARTIAL (delete two)
+**Phase 6 sign-off:** YES — all locked acceptance items pass; the 9 findings are cosmetic / owner-deferred / external-phase scope per the amendments protocol below.
 
-**Operator signature:** **\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_** **Walked-on:** **YYYY-MM-DD** **Commit:** **\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_** **Device:** Pixel 10a (`5C161JEA304304`), Android **\_\_\_\_**
+**Operator signature:** Adnaan Mohammed **Walked-on:** 2026-05-14 **Commit:** `94f8cfa` **Device:** Pixel 10a (`5C161JEA304304`), Android 16
 
 > **Amendments protocol (D-WAVE-09 pattern carry-over):** New COSMETIC gaps surfaced during this walk (visual nits, copy tweaks, spacing) go into a NEW file: `.planning/phases/06-tasks-history-home-tiles-lexical-search/06-COSMETIC-GAPS.md` (create on first use). They are picked up either by Phase 7's plan-phase (it may roll them into an early plan) OR by a dedicated cleanup plan before Phase 7 starts — per memory `feedback_functionality_first_during_smoke.md`. **Never** write Phase-6 amendments back into the FROZEN Phase 4 / Phase 5 cosmetic-gaps files — those are closed.
 >

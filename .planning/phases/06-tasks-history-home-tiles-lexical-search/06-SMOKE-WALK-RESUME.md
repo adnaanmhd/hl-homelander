@@ -4,10 +4,24 @@ slug: tasks-history-home-tiles-lexical-search
 type: smoke-walk-resume
 canonical: false
 created: 2026-05-14
-status: in-progress
+status: closed
+closed_at: 2026-05-14
+closed_commit: 94f8cfa
 ---
 
 # Phase 6 manual smoke — resume handoff
+
+> **CLOSED 2026-05-14.** The walk completed at HEAD `94f8cfa`. §1-§6
+> all signed off; 9 findings rolled into `06-COSMETIC-GAPS.md`. Player
+> fixpack `819fdf5` resolved the §5 block. Test-side fixpack `94f8cfa`
+> kept the §6 test-suite green. See `06-MANUAL-SMOKE.md §7` for the
+> signed sign-off block.
+>
+> This file is kept as the historical record of the multi-session walk.
+
+---
+
+# (historical) Phase 6 manual smoke — resume handoff
 
 Mid-walk handoff written for the next conversation. The previous session
 was running an interactive runbook walk in the
