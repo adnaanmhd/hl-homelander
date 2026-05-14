@@ -210,13 +210,13 @@ Steps:
 > Findings:
 >
 > 1. Tasks tab pull-to-refresh inert — **✅ Fixed in Plan 06-12 / `7a55e0c`.**
-> 2. TaskDetailsSheet swipe-down dismiss inert — defer (cosmetic).
-> 3. AlertPill placement during battery-15 % alert — non-blocking, owner directive (move below Stop Recording button).
+> 2. TaskDetailsSheet swipe-down dismiss inert — **✅ Fixed in Plan 06-12 follow-on** (PanResponder claims on touch-down; dy > 60 px or vy ≥ 0.5 px/ms triggers dismiss).
+> 3. AlertPill placement during battery-15 % alert — **✅ Fixed in Plan 06-12 follow-on** (moved in-flow below Stop Recording; verified via `adb shell dumpsys battery set level 10` during a live recording).
 > 4. §1 D-09 HumynBeep inaudible — DEFERRED by owner directive 2026-05-14.
-> 5. Home custom date range is free-text TextInput — defer (cosmetic; needs `@react-native-community/datetimepicker` dep).
-> 6. HOME-10 OfflineBanner not wired to NetworkMonitor — Plan 06-08 Known Stub; promote to a Phase 7 plan.
-> 7. Pending Uploads row tap navigates to History instead of triggering `drainNowSafe` — Phase 5 follow-on (not a Phase 6 issue).
-> 8. Player "View only — not downloadable." footer sticks — owner wants toast w/ 5 s fadeout; spec says persistent footer. Needs a copy / interaction decision before code lands.
+> 5. Home custom date range is free-text TextInput — **✅ Fixed in Plan 06-12 follow-on** (`@react-native-community/datetimepicker@9.1.0` added; both legs render native pickers with `maximumDate=today`).
+> 6. HOME-10 OfflineBanner not wired to NetworkMonitor — **✅ Fixed in Plan 06-12 follow-on** (NetworkMonitor.kt now multiplexes connectivity listeners; `HumynUpload.getConnectivity` + `onConnectivityChanged` surface them; Home + History subscribe).
+> 7. Pending Uploads row tap navigates to History instead of triggering `drainNowSafe` — **✅ Fixed in Plan 06-12 follow-on** (dropped the History navigation; tap just kicks the drain).
+> 8. Player "View only — not downloadable." footer sticks — **✅ Fixed in Plan 06-12 follow-on** (persistent footer replaced by a 5 s `showToast` on Player mount; owner picked option (a) toast).
 > 9. Player drag-to-seek lands at byte 0 — root-caused to HumynCapture's fragmented MP4 carrying no `sidx` / `mfra` seek-index boxes. Player wiring is correct (fixpack `819fdf5`). Needs a Phase 3 follow-on plan (finalize-time remux step).
 > 10. History filter pill shows two chevrons — **✅ Fixed in Plan 06-12 / `4bec668`.**
 > 11. History empty state body needs a line break — **✅ Fixed in Plan 06-12 / `a8664dd`.**

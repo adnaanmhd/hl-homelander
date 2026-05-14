@@ -60,6 +60,7 @@ import { fetchRecordings } from '../../services/recordingsApi';
 import { groupByDay, type GroupableRow } from '../../services/historyGrouping';
 import { readEntry, type ThumbnailLedgerEntry } from '../../services/thumbnailLedger';
 import { fetchTasks } from '../../services/tasksApi';
+import { HumynUpload, onConnectivityChanged } from '../../native/HumynUpload';
 import { logEvent } from '../../util/analytics';
 
 const PAGE_LIMIT = 30;
@@ -150,8 +151,21 @@ export function HistoryScreen(): React.JSX.Element {
   const [filterOpen, setFilterOpen] = useState<boolean>(false);
   const [taskNameById, setTaskNameById] = useState<Record<string, string>>({});
 
-  // HOME/HIST-10 offline signal — local for now (see header note).
-  const [offline] = useState<boolean>(false);
+  // HOME/HIST-10 offline signal — Plan 06-12 follow-on (Finding 6, owner
+  // directive 2026-05-14) wires to the native NetworkMonitor's connectivity
+  // event so the History row's offline state flips on airplane-mode toggle.
+  const [offline, setOffline] = useState<boolean>(false);
+  useEffect(() => {
+    let cancelled = false;
+    void HumynUpload.getConnectivitySafe().then((c) => {
+      if (!cancelled) setOffline(!c.online);
+    });
+    const sub = onConnectivityChanged((e) => setOffline(!e.online));
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, []);
 
   // ---------------------------------------------------------------------
   // Task-name lookup — fetch the full taxonomy once on mount so each row

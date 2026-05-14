@@ -61,6 +61,7 @@ import { fetchContributionsAggregate, fetchLifetime } from '../../services/contr
 import { computeRange, type NamedRange } from '../../services/timeRange';
 import {
   HumynUpload,
+  onConnectivityChanged,
   onUploadProgress,
   onUploadQueueChanged,
   type UploadProgressEvent,
@@ -212,11 +213,23 @@ export default function HomeScreen(): React.JSX.Element {
   // HOME-09 pull-to-refresh state.
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  // HOME-10 offline signal. Local state for now (see header note); the
-  // OfflineBanner mounts when this flips true. A future plan can wire
-  // HumynUpload.onConnectivityChanged to set this without changing the
-  // render path here.
-  const [offline] = useState<boolean>(false);
+  // HOME-10 offline signal — Plan 06-12 follow-on (Finding 6, owner directive
+  // 2026-05-14) wires this to the native NetworkMonitor's connectivity event.
+  // The OfflineBanner now flips on airplane-mode toggle. Initial value seeded
+  // from `getConnectivitySafe()` to avoid a one-paint flicker before the
+  // subscription's first replay.
+  const [offline, setOffline] = useState<boolean>(false);
+  useEffect(() => {
+    let cancelled = false;
+    void HumynUpload.getConnectivitySafe().then((c) => {
+      if (!cancelled) setOffline(!c.online);
+    });
+    const sub = onConnectivityChanged((e) => setOffline(!e.online));
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, []);
 
   // FilterSheet visibility.
   const [filterOpen, setFilterOpen] = useState<boolean>(false);
@@ -460,8 +473,12 @@ export default function HomeScreen(): React.JSX.Element {
               accessibilityRole="button"
               accessibilityLabel="pending-uploads-tile"
               onPress={() => {
+                // Plan 06-12 follow-on (Finding 7) — Phase 5 D-10 owns the
+                // tap-to-retry kick. Previously this also navigated to the
+                // History tab, which surfaced HIST-04's empty state because
+                // a pending upload has no server-side row yet. Drop the
+                // navigation; just kick the drain.
                 void HumynUpload.drainNowSafe().catch(() => undefined);
-                navigation.navigate('MainTabs', { screen: 'History' });
               }}
               style={styles.card}
             >

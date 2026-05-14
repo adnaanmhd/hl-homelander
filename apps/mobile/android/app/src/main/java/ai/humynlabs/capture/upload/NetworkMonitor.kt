@@ -48,10 +48,46 @@ class NetworkMonitor(
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
+    // Plan 06-12 follow-on (Finding 6, owner directive 2026-05-14) — expose a
+    // JS-observable connectivity-change stream so the OfflineBanner on Home /
+    // History can reflect airplane-mode toggles. The previous responsibility
+    // (drain on connectivity-regained) stays as the primary callback; this is
+    // an additional, optional listener installed by the JS bridge in
+    // `HumynUploadModule.init`.
+    private val connectivityListeners = mutableListOf<(Boolean) -> Unit>()
+
+    fun addConnectivityListener(listener: (Boolean) -> Unit) {
+        synchronized(connectivityListeners) {
+            connectivityListeners.add(listener)
+        }
+        // Surface the current state immediately so the JS side doesn't see
+        // a stale default until the next system change.
+        runCatching { listener(hasNetwork()) }
+    }
+
+    fun removeConnectivityListener(listener: (Boolean) -> Unit) {
+        synchronized(connectivityListeners) {
+            connectivityListeners.remove(listener)
+        }
+    }
+
+    private fun fanoutConnectivity(online: Boolean) {
+        val snapshot = synchronized(connectivityListeners) { connectivityListeners.toList() }
+        snapshot.forEach { runCatching { it(online) } }
+    }
+
     private val callback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             // Connectivity regained — wake any paused/stalled drain.
             runCatching { onConnectivityRegained() }
+            fanoutConnectivity(true)
+        }
+
+        override fun onLost(network: Network) {
+            // Default network dropped. We rely on the cm.activeNetwork check
+            // inside hasNetwork() rather than trusting the callback alone —
+            // a different network may take over before this fires.
+            fanoutConnectivity(hasNetwork())
         }
     }
 

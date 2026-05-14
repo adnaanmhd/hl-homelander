@@ -28,11 +28,15 @@ import {
   StyleSheet,
   Modal as RNModal,
   Pressable as RNPressable,
-  TextInput,
   ScrollView,
 } from 'react-native';
 import HapticFeedback from 'react-native-haptic-feedback';
 import { Check } from 'lucide-react-native';
+// Plan 06-12 follow-on (Finding 5, owner directive 2026-05-14) — replace
+// the two free-text `YYYY-MM-DD` TextInputs in the 16b custom-range layer
+// with the platform native date picker. Picker honours device locale +
+// dark theme out of the box on Android 14+.
+import DateTimePicker from '@react-native-community/datetimepicker';
 import Text from '../../ui/primitives/Text';
 import { Pressable } from '../../ui/primitives/Pressable';
 import { colors, radii, spacing, typography } from '../../ui/tokens';
@@ -235,6 +239,24 @@ function Layer16a({
 // -----------------------------------------------------------------------------
 // 16b — custom range layer
 // -----------------------------------------------------------------------------
+
+/** Helper — parse a YYYY-MM-DD string into a local Date, fall back to today. */
+function parseIsoDateOrToday(iso: string): Date {
+  if (ISO_DATE_RE.test(iso)) {
+    const parsed = new Date(`${iso}T00:00:00`);
+    if (Number.isFinite(parsed.getTime())) return parsed;
+  }
+  return new Date();
+}
+
+/** Format a Date as `YYYY-MM-DD` in the device's local timezone. */
+function dateToIso(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function Layer16b({
   from,
   to,
@@ -254,6 +276,14 @@ function Layer16b({
   onCancel: () => void;
   onApply: () => void;
 }): React.JSX.Element {
+  // Plan 06-12 follow-on (Finding 5) — picker visibility for each leg.
+  // Android's native picker is a one-shot modal; we mount the component
+  // conditionally and unmount it on `onChange` (the user either picked a
+  // date or dismissed the dialog).
+  const [showFromPicker, setShowFromPicker] = useState(false);
+  const [showToPicker, setShowToPicker] = useState(false);
+  const maxDate = new Date();
+
   let errorText: string | null = null;
   if (error === 'missing') errorText = 'Pick both dates.';
   else if (error === 'inverted') errorText = '"From" date must be before "To" date.';
@@ -268,31 +298,61 @@ function Layer16b({
         <Text variant="formLabel" style={styles.formLabel}>
           FROM
         </Text>
-        <TextInput
+        <RNPressable
           accessibilityLabel="filter-custom-from"
-          value={from}
-          onChangeText={setFrom}
-          placeholder="YYYY-MM-DD"
-          placeholderTextColor={colors.text3}
+          accessibilityRole="button"
+          onPress={() => setShowFromPicker(true)}
           style={styles.input}
-          autoCapitalize="none"
-          autoCorrect={false}
-          maxLength={10}
-        />
+        >
+          <Text
+            variant="body"
+            style={from.length === 0 ? styles.inputPlaceholder : styles.inputValue}
+          >
+            {from.length > 0 ? from : 'Pick a date'}
+          </Text>
+        </RNPressable>
+        {showFromPicker ? (
+          <DateTimePicker
+            testID="filter-custom-from-picker"
+            value={parseIsoDateOrToday(from)}
+            mode="date"
+            display="default"
+            maximumDate={maxDate}
+            onChange={(_e, selected) => {
+              setShowFromPicker(false);
+              if (selected) setFrom(dateToIso(selected));
+            }}
+          />
+        ) : null}
         <Text variant="formLabel" style={styles.formLabel}>
           TO
         </Text>
-        <TextInput
+        <RNPressable
           accessibilityLabel="filter-custom-to"
-          value={to}
-          onChangeText={setTo}
-          placeholder="YYYY-MM-DD"
-          placeholderTextColor={colors.text3}
+          accessibilityRole="button"
+          onPress={() => setShowToPicker(true)}
           style={styles.input}
-          autoCapitalize="none"
-          autoCorrect={false}
-          maxLength={10}
-        />
+        >
+          <Text
+            variant="body"
+            style={to.length === 0 ? styles.inputPlaceholder : styles.inputValue}
+          >
+            {to.length > 0 ? to : 'Pick a date'}
+          </Text>
+        </RNPressable>
+        {showToPicker ? (
+          <DateTimePicker
+            testID="filter-custom-to-picker"
+            value={parseIsoDateOrToday(to)}
+            mode="date"
+            display="default"
+            maximumDate={maxDate}
+            onChange={(_e, selected) => {
+              setShowToPicker(false);
+              if (selected) setTo(dateToIso(selected));
+            }}
+          />
+        ) : null}
         {errorText ? (
           <Text variant="caption" accessibilityLabel="filter-custom-error" style={styles.errorText}>
             {errorText}
@@ -381,9 +441,20 @@ const styles = StyleSheet.create({
     borderRadius: radii.input,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.l,
-    fontFamily: typography.fontFamily.regular,
-    color: colors.text,
     marginBottom: spacing.l,
+    // The Pressable replacing the TextInput needs a min height that matches
+    // the input's previous vertical padding (Plan 06-12 Finding 5).
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  // Owner directive 2026-05-14 — placeholder + filled-value styles for the
+  // Pressable that now hosts the picker affordance (where a TextInput once
+  // lived).
+  inputPlaceholder: {
+    color: colors.text3,
+  },
+  inputValue: {
+    color: colors.text,
   },
   errorText: {
     color: colors.coral,

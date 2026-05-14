@@ -68,9 +68,11 @@ vi.mock('../../src/native/HumynUpload', () => ({
     getQueueSafe: vi.fn(async () => []),
     drainNowSafe: vi.fn(async () => undefined),
     reupload: vi.fn(async () => undefined),
+    getConnectivitySafe: vi.fn(async () => ({ online: true })),
   },
   onUploadQueueChanged: vi.fn(() => ({ remove: () => undefined })),
   onUploadProgress: vi.fn(() => ({ remove: () => undefined })),
+  onConnectivityChanged: vi.fn(() => ({ remove: () => undefined })),
 }));
 
 // contributionsApi — HomeScreen fetches lifetime + aggregate on focus.

@@ -105,11 +105,16 @@ describe('FilterSheet', () => {
     expect(onCustomChange).not.toHaveBeenCalled();
     expect(onDismiss).not.toHaveBeenCalled();
 
-    // Type valid From + To → Apply now fires
-    fireEvent.change(getByLabelText('filter-custom-from'), {
+    // Plan 06-12 follow-on (Finding 5) — the From / To fields are now
+    // tappable Pressables that open the native DateTimePicker; the test
+    // stub renders an `<input testID="filter-custom-{from|to}-picker">`
+    // we can fire `change` on to simulate a date selection.
+    fireEvent.click(getByLabelText('filter-custom-from'));
+    fireEvent.change(getByLabelText('filter-custom-from-picker'), {
       target: { value: '2026-05-01' },
     });
-    fireEvent.change(getByLabelText('filter-custom-to'), {
+    fireEvent.click(getByLabelText('filter-custom-to'));
+    fireEvent.change(getByLabelText('filter-custom-to-picker'), {
       target: { value: '2026-05-07' },
     });
     fireEvent.click(getByLabelText('filter-custom-apply'));
@@ -129,10 +134,14 @@ describe('FilterSheet', () => {
       />,
     );
     fireEvent.click(getByLabelText('filter-option-custom-pick'));
-    fireEvent.change(getByLabelText('filter-custom-from'), {
+    // Plan 06-12 follow-on (Finding 5) — drive the native picker stub via
+    // the testID-keyed hidden input.
+    fireEvent.click(getByLabelText('filter-custom-from'));
+    fireEvent.change(getByLabelText('filter-custom-from-picker'), {
       target: { value: '2026-05-07' },
     });
-    fireEvent.change(getByLabelText('filter-custom-to'), {
+    fireEvent.click(getByLabelText('filter-custom-to'));
+    fireEvent.change(getByLabelText('filter-custom-to-picker'), {
       target: { value: '2026-05-01' },
     });
     const err = queryByLabelText('filter-custom-error');

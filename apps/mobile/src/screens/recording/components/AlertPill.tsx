@@ -1,12 +1,20 @@
 /**
- * AlertPill — small amber overlay pill anchored top-right during active
- * recording (design-spec §7e / §19.3). Recording continues — this is an
- * overlay, not a substate change (the `recState.alerts` flags).
+ * AlertPill — small amber pill that surfaces battery / thermal alerts while
+ * recording is active. Recording continues — this is an overlay/indicator,
+ * not a substate change (driven by the `recState.alerts` flags).
  *
  * Battery: "Battery 15%"   ·   Thermal: "Phone too hot"
  *
- * 38 px from top / 14 px from right, `colors.amber` bg, white 12/600 text
- * (04-UI-SPEC § Spacing / § Typography). NO hex literals.
+ * Plan 06-12 follow-on (Finding 3, owner directive 2026-05-14):
+ * Previously this rendered as a `position: 'absolute'` top-right overlay
+ * (38 px from top, 14 px from right per design-spec §7e). The owner wants
+ * it pinned at the bottom of the recording screen, **below the Stop
+ * Recording button**, where it's more readable while wearing the rig. The
+ * pill now renders as an in-flow element; the caller (`RecordingScreen`)
+ * places it directly after the Stop button inside the center stack.
+ *
+ * `colors.amber` bg, white 12/600 text (04-UI-SPEC § Typography). NO hex
+ * literals.
  */
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -31,13 +39,12 @@ export function AlertPill({ label, visible }: AlertPillProps): React.JSX.Element
 
 const styles = StyleSheet.create({
   pill: {
-    position: 'absolute',
-    top: 38,
-    right: 14,
+    alignSelf: 'center',
     backgroundColor: colors.amber,
     borderRadius: radii.pill,
     paddingVertical: spacing.s,
     paddingHorizontal: spacing.md,
+    marginTop: spacing.l,
   },
   text: { color: colors.recTextPrimary },
 });

@@ -109,6 +109,21 @@ class UploadCoordinator(
         this.emitQueueChanged = emitQueueChanged
     }
 
+    /**
+     * Plan 06-12 follow-on (Finding 6) — pass-through to the underlying
+     * [NetworkMonitor] so the JS bridge can install a connectivity-changed
+     * listener without holding a direct reference to the monitor. The
+     * listener fires once immediately with the current state, then again on
+     * every transition.
+     */
+    fun addConnectivityListener(listener: (Boolean) -> Unit) {
+        networkMonitor.addConnectivityListener(listener)
+    }
+    fun removeConnectivityListener(listener: (Boolean) -> Unit) {
+        networkMonitor.removeConnectivityListener(listener)
+    }
+    fun hasNetwork(): Boolean = networkMonitor.hasNetwork()
+
     private val apiClient: OkHttpClient = DEFAULT_HTTP_CLIENT
     private val drainExecutor: ExecutorService = Executors.newSingleThreadExecutor { r ->
         Thread(r, "humyn-upload-drain").apply { isDaemon = true }
