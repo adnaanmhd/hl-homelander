@@ -39,6 +39,12 @@ import { colors, spacing, radii } from '../../ui/tokens';
 import { submitTaskRequest } from '../../services/taskRequestService';
 import { showToast } from '../../components/Toast';
 
+// Plan 06-12 Task 2 — hide the Upload Sample tile at MVP. Plan 06-07
+// D-sample-video left the picker unwired; owner directive 2026-05-14
+// makes the entire field invisible so users don't see a non-functional
+// control. Flip to `true` when the post-MVP document-picker wires.
+const SHOW_UPLOAD_SAMPLE = false;
+
 export interface SendRequestSheetProps {
   /** Sheet visibility. */
   visible: boolean;
@@ -307,19 +313,26 @@ export function SendRequestSheet({
               </Pressable>
             </View>
 
-            {/* SAMPLE VIDEO — visual-only at MVP (picker not wired; optional
-                per TASK-08). The dashed-border tile + paperclip icon mirror
-                UI-SPEC; tapping is a no-op so users can't get into a partial-
-                upload state. */}
-            <Text variant="formLabel" tone="secondary" style={[styles.label, styles.labelGap]}>
-              SAMPLE VIDEO (OPTIONAL)
-            </Text>
-            <View accessibilityLabel="send-request-sample-tile" style={styles.sampleTile}>
-              <Paperclip size={24} strokeWidth={1.75} color={colors.text2} />
-              <Text variant="caption" tone="secondary" style={styles.sampleLabel}>
-                Choose video (30s max)
-              </Text>
-            </View>
+            {/* SAMPLE VIDEO — hidden at MVP per Plan 06-12 Task 2
+                (SHOW_UPLOAD_SAMPLE flag at top of file). Plan 06-07
+                D-sample-video left the picker unwired and the owner
+                wants no non-functional control visible. Re-enable by
+                flipping the constant; the rest of the tile (dashed-
+                border tile + paperclip + 30s-max caption) stays
+                ready for the post-MVP picker wire. */}
+            {SHOW_UPLOAD_SAMPLE ? (
+              <>
+                <Text variant="formLabel" tone="secondary" style={[styles.label, styles.labelGap]}>
+                  SAMPLE VIDEO (OPTIONAL)
+                </Text>
+                <View accessibilityLabel="send-request-sample-tile" style={styles.sampleTile}>
+                  <Paperclip size={24} strokeWidth={1.75} color={colors.text2} />
+                  <Text variant="caption" tone="secondary" style={styles.sampleLabel}>
+                    Choose video (30s max)
+                  </Text>
+                </View>
+              </>
+            ) : null}
           </ScrollView>
 
           <View style={styles.footer}>
