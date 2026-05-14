@@ -4,6 +4,7 @@ const path = require('path');
 const projectRoot = __dirname;
 const repoRoot = path.resolve(projectRoot, '..', '..');
 const sharedTypesRoot = path.resolve(repoRoot, 'shared', 'types');
+const designSystemRoot = path.resolve(repoRoot, 'design-system');
 
 const defaultConfig = getDefaultConfig(projectRoot);
 
@@ -13,7 +14,10 @@ const config = {
   // default apps/mobile/node_modules tree (hierarchical lookup re-enabled —
   // npm nests transitive deps under their parent and the default Metro
   // resolver walks them correctly, unlike the prior pnpm-workspace setup).
-  watchFolders: [sharedTypesRoot],
+  // design-system/ holds the task-icon registry (Plan 06-05) consumed via
+  // relative `../../../../design-system/task-icons` — outside projectRoot, so
+  // Metro needs an explicit watchFolders entry to resolve it for the bundle.
+  watchFolders: [sharedTypesRoot, designSystemRoot],
   resolver: {
     // shared/types is `file:` linked and has no own node_modules tree, and
     // shared/types/src is outside projectRoot, so Metro's default walk-up
