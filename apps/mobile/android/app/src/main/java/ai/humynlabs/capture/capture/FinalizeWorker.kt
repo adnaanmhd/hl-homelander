@@ -2,6 +2,7 @@ package ai.humynlabs.capture.capture
 
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.WritableMap
+import java.io.File
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 
@@ -128,7 +129,35 @@ object FinalizeWorker {
             //    "finalize complete" to the next app-launch sweep.
             SidecarManager.delete(seg.sidecarFile)
 
-            // 9. Emit onSegmentComplete (D-API-03).
+            // 8.5 — Phase 6 D-05 (Plan 06-04): best-effort first-frame thumbnail extraction.
+            //       Skipped for practice segments (those never reach History/upload
+            //       per ONB-04 — practice is gated upstream by `seg.sidecar.isPractice`).
+            //       Crash-recovered fragments are discarded by Phase 5 D-03 BEFORE
+            //       they reach finalize, so they never hit this code path (D-05b).
+            //       On any throwable inside the helper, log + continue — the thumbnail
+            //       is best-effort (D-04 fallback: the History row renders a token-
+            //       color gradient + first-letter task-name overlay).
+            //       Note the runtime number is 8.5 (post-sidecar-delete, pre-emit)
+            //       even though the design doc calls it "step 7.5" — the existing
+            //       FinalizeWorker renumbers the canonical sequence by inserting
+            //       writeAtomic between compose and SidecarManager.delete, so the
+            //       sidecar-delete is step 8 in the on-disk implementation. The
+            //       contract is identical: the extractor runs AFTER the orphan-
+            //       sidecar "finalize complete" signal and BEFORE onSegmentComplete.
+            //
+            //       Path: filesDir/thumbs/<base>.thumb.jpg — a SIBLING of
+            //       filesDir/recordings/<base>.mp4 (parentFile.parentFile is filesDir)
+            //       so the JPEG survives the post-`verified` MP4 delete (D-04).
+            val thumbsDir = File(seg.mp4File.parentFile?.parentFile, "thumbs")
+            val thumbnailFile: File? = if (!seg.sidecar.isPractice) {
+                ThumbnailExtractor.extractFirstFrame(seg.mp4File, thumbsDir)
+            } else null
+
+            // 9. Emit onSegmentComplete (D-API-03). The `thumbnailPath` key is
+            //    Phase 6 (Plan 06-04) — nullable: null for practice segments,
+            //    null on extractor failure, the JPEG's absolute path otherwise.
+            //    The JS-side `RecordingScreen` segment-complete handler reads
+            //    this and writes the per-recording entry in `thumbnailLedger`.
             val payload = Arguments.createMap().apply {
                 putString("segmentId", seg.segmentId)
                 putString("recordingId", seg.recordingId)
@@ -145,6 +174,7 @@ object FinalizeWorker {
                     },
                 )
                 putDouble("imuMinRateHzObservedP1", imuFloorHz ?: 0.0)
+                putString("thumbnailPath", thumbnailFile?.absolutePath)
             }
             emit("onSegmentComplete", payload)
         } catch (t: Throwable) {
