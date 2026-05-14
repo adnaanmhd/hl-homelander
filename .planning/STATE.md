@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 6 Wave 7 — 10 of 11 plans done; manual smoke runbook authored; awaiting operator on-device walk
-last_updated: '2026-05-14T06:50:00.000Z'
-last_activity: 2026-05-14 -- Phase 06 Wave 6 complete (PlayerScreen + RootNativeStack); Wave 7 plan 06-11 in progress; manual smoke runbook authored; awaiting operator on-device walk.
+stopped_at: Phase 6 complete (2026-05-14); next is /gsd-discuss-phase 7 (observability + APK-distribution hardening)
+last_updated: '2026-05-14T11:30:00.000Z'
+last_activity: 2026-05-14 -- Phase 06 closed. All 11 main plans (06-01..06-11) + Plan 06-12 cosmetic cleanup + a follow-on commit landed; 06-MANUAL-SMOKE.md §7 sign-off YES on Pixel 10a; 13 of 15 06-COSMETIC-GAPS findings resolved (Findings 4 + 9 remain deferred); full E2E happy path + 4 negative scenarios (compat fail / thermal pre-flight + mid-record / battery <15% / battery <5%) walked clean against m.adnaan161@gmail.com.
 progress:
   total_phases: 7
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 84
-  completed_plans: 73
-  percent: 87
+  completed_plans: 77
+  percent: 92
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-07)
 
 **Core value:** On-device capture quality is non-negotiable — every uploaded segment must hit the locked spec (1080p / 30 FPS / ≥110° dFOV / IMU sustained ≥100 Hz / ±1 ms timestamp alignment) or the bytes are worthless for training. (The ±1 ms drift gate was relaxed 2026-05-12 to measure-and-record per CLAUDE.md banner; ultrawide ≥110° dFOV is the load-bearing constraint.)
-**Current focus:** Phase 06 — tasks-history-home-tiles-lexical-search
+**Current focus:** Phase 07 — observability + APK-distribution hardening (not yet planned; next step is `/gsd-discuss-phase 7`)
 
 ## Current Position
 
-Phase: 06 (tasks-history-home-tiles-lexical-search) — EXECUTING / 10 of 11 plans done; awaiting operator smoke walk
-Plan: 11 of 11 (manual smoke + tracking refresh)
-Status: Executing Phase 06 — Wave 7 (operator checkpoint pending)
+Phase: 07 (observability + APK-distribution hardening) — NOT YET PLANNED
+Plan: — (next step: `/gsd-discuss-phase 7`)
+Status: Phase 06 closed 2026-05-14; awaiting Phase 7 discuss/plan
 
 Phase 2 operator smoke-walk history (carried forward):
 
@@ -47,7 +47,9 @@ Phase 3 hardware UAT pending (7 items, all on real Pixel 7a/8a) — these RETIRE
 - #6 CAP-18 byte-for-byte SHA round-trip — §3 on-disk SHA ↔ metadata assertion (Phase 5 owns the device→S3 leg)
 - #7 CAP-13 onSessionStart/Stop upload-pause seam — §3 session start/stop event log assertion (log-only at Phase 4; Phase 5 wires the pause)
 
-Last activity: 2026-05-14 -- Phase 06 Wave 6 complete (PlayerScreen + RootNativeStack); Wave 7 plan 06-11 in progress; manual smoke runbook authored; awaiting operator on-device walk.
+Last activity: 2026-05-14 -- Phase 06 closed. All 11 main plans + Plan 06-12 cosmetic cleanup + a follow-on commit (`508710c`) landed; 06-MANUAL-SMOKE.md §7 sign-off YES on Pixel 10a; full E2E happy path + 4 negative scenarios walked clean against m.adnaan161@gmail.com.
+
+Phase 6 close-out (2026-05-14): All 11 main plans (06-01..06-11) + Plan 06-12 cosmetic-cleanup wave (commits `7a55e0c` / `a55d943` / `4bec668` / `a8664dd` / `10c6d26` / `e85f9c1`) + a single follow-on commit `508710c` that fixed the remaining 6 cosmetic-gaps findings the owner directed mid-walk landed on `main`. `06-MANUAL-SMOKE.md` §7 sign-off **YES** on Pixel 10a (`5C161JEA304304`, Android 16). 13 of 15 entries in `06-COSMETIC-GAPS.md` resolved; only **Finding 4** (HumynBeep audibility — owner-deferred per `feedback_d09_audibility_deferred`) and **Finding 9** (Player drag-to-seek lands at byte 0 — needs the Phase-7 finalize-time fmp4 → flat-MP4 remux step) remain deferred. Mid-walk owner-directed additions delivered: Hi {first_name} returning hero (greeting gated on a strict server-side `verifiedNonPracticeCount > 0` field on `/contributions`, fall-back to "Hi there"); ContributionTile unit labels ("1 task" / "N tasks"); calendar picker on the custom-range filter (`@react-native-community/datetimepicker@9.1.0`); NetworkMonitor.kt JS subscription so the OfflineBanner reflects airplane-mode toggles live. Full E2E walk against `m.adnaan161@gmail.com` 2026-05-14: happy path (splash → sign-up → permissions → compat pass → rig tutorial → practice → Home → Tasks → record 5 min 8 s → upload + verify → IMU drift max/mean/p99 ms = 1.10 / 0.20 / 0.28 · p1 min rate 798 Hz · 3-file bundle 289 MiB+13 MiB+2.3 KiB → History → playback → profile → help → logout) + 4 negatives (compat fail / thermal pre-flight MODERATE + mid-record SEVERE / battery <15% AlertPill / battery <5% auto-stop). Reusable demo prompt saved at repo root `E2E-DEMO-PROMPT.md`. Phase-level `phase.complete` issued by owner; next: `/gsd-discuss-phase 7`.
 
 Phase 5 close-out (2026-05-13 evening): UAT walked end-to-end on Pixel 10a (`5C161JEA304304`, Android 16, apkRollout-Debug HEAD `e51984d` → `d9a2bd7`). Items 1 + 2 + 4 + 5 + 6 PASS, Item 3 PARTIAL (AOSP/Pixel passes; OEM device sweep folded into Phase 7 — see ROADMAP §Phase 7 carry-over). Wave-2 follow-on items landed: #7 progress chip + determinate fill (commit `c1c5f4f`), #6 verified-event 30-s auto-poll on Home (commit `5c18791`), #5 drainer in-loop transient retry + tile-tap `drainNowSafe` kick (commit `e51984d`). Cellular Item 4 walk: real Jio CGNAT via cloudflared tunnels → 39 watchdog cancellations → recording `01KRH652NZ0TRF645KNR0K4440` qa_status='verified' at 17:44:31 UTC. New cosmetic finding: `HumynBeep`/SoundPool tones + haptics silent on Android 16 (voice path passes the UAT acceptance) — folded into Phase 6 (see ROADMAP §Phase 6 carry-over). All 15 plans landed (05-01..05-15 = 8 initial + 5 gap-closure + 1 Wave-1.5 + 1 Gap-Wave-3); 8 evidence recordings preserved in DB. Phase-level `phase.complete` issued by owner 2026-05-13 evening; next: `/gsd-discuss-phase 6` (carry the HumynBeep/SoundPool item into the Phase 6 plan).
 
