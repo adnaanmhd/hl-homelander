@@ -270,8 +270,8 @@ Plans:
 
 **Wave 4** _(parallel — Tasks + Home screens; depends on Wave 3; MainTabs.tsx swap deferred to Wave 5 to avoid 3-way same-wave file conflict)_
 
-- [ ] 06-07-PLAN.md — TasksScreen + TaskDetailsSheet + SendRequestSheet + 4 components (TASK-01..10)
-- [ ] 06-08-PLAN.md — HomeScreen + HomeHero + ContributionTile + OfflineBanner + FilterSheet (HOME-01..06, 09, 10)
+- [x] 06-07-PLAN.md — TasksScreen + TaskDetailsSheet + SendRequestSheet + 4 components (TASK-01..10)
+- [x] 06-08-PLAN.md — HomeScreen + HomeHero + ContributionTile + OfflineBanner + FilterSheet (HOME-01..06, 09, 10)
 
 **Wave 5** _(History screen + the atomic 3-way MainTabs.tsx swap; depends on Waves 3+4)_
 
