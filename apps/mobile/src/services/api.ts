@@ -53,6 +53,8 @@ function bearerHeader(): Record<string, string> {
 export interface GetJsonOptions {
   query?: Record<string, string>;
   timeoutMs?: number;
+  /** Extra request headers (e.g. `Accept-Timezone`). Lower-cased on the wire. */
+  headers?: Record<string, string>;
 }
 
 export interface PatchOptions {
@@ -176,6 +178,16 @@ export const apiClient: ApiClient = {
         accept: 'application/json',
         ...bearerHeader(),
       };
+      // Forward caller-supplied headers (lower-cased on the wire to match
+      // the patch/postMultipart/delete convention) — e.g. Phase 6 plans
+      // attach `Accept-Timezone: <IANA>` so the server can interpret the
+      // YYYY-MM-DD start/end query params against the device's local tz
+      // (Plan 06-03 D-03b).
+      if (opts?.headers) {
+        for (const [k, v] of Object.entries(opts.headers)) {
+          headers[k.toLowerCase()] = v;
+        }
+      }
       const res = await fetch(url, {
         method: 'GET',
         headers,
