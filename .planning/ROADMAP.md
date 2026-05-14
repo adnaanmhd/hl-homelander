@@ -255,7 +255,7 @@ Plans:
 
 **Wave 1** _(Phase-5 carry-over D-09; mirrors 04-COSMETIC-GAPS.md as Phase 5 Wave 1 and 02-COSMETIC-GAPS.md as Phase 3 Wave 1)_
 
-- [ ] 06-01-PLAN.md — D-09 HumynBeep/Vibrator audibility restore on Android 16 / Pixel 10a (USAGE_MEDIA flip + VIBRATE manifest + Robolectric)
+- [x] 06-01-PLAN.md — D-09 HumynBeep/Vibrator audibility restore on Android 16 / Pixel 10a (USAGE_MEDIA flip + VIBRATE manifest + Robolectric)
 
 **Wave 2** _(parallel — backend; depends on Wave 1)_
 
