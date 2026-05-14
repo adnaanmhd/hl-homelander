@@ -189,6 +189,46 @@ export const VerifiedIdsResponseSchema = z
   .extend(EventsEnvelopeSchema.shape); // also an `_events` carrier
 export type VerifiedIdsResponse = z.infer<typeof VerifiedIdsResponseSchema>;
 
+// GET /recordings — paginated list shape (API-08). Promoted from the
+// backend's apps/api/src/routes/recordings/schemas.ts so the mobile
+// `services/recordingsApi.ts` wrapper (Phase 6 Plan 06-05) can consume the
+// canonical wire types via @humyn/shared-types instead of duplicating them.
+// Phase 6 Plan 06-03 extends the query schema with explicit `start` + `end`
+// ISO-date windows (D-03) and an Accept-Timezone header (D-03b) — see the
+// backend list route for the full server-side surface.
+export const RecordingsListQuerySchema = z.object({
+  range: z.enum(['7d', '30d', '90d', 'all']).default('30d'),
+  cursor: z.string().length(26).optional(), // opaque cursor = recording_id
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  start: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  end: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+});
+export type RecordingsListQuery = z.infer<typeof RecordingsListQuerySchema>;
+
+// Output — `qa_status` excludes 'takedown' (filtered out at the DB layer).
+export const RecordingsListItemSchema = z.object({
+  recording_id: z.string().length(26),
+  task_id: z.string().length(26),
+  qa_status: z.enum(['pending', 'uploaded', 'verified', 'hash-mismatch', 'rejected']),
+  duration_ms: z.number().int(),
+  created_at: z.string().datetime(),
+});
+export type RecordingsListItem = z.infer<typeof RecordingsListItemSchema>;
+
+export const RecordingsListResponseSchema = z
+  .object({
+    items: z.array(RecordingsListItemSchema),
+    next_cursor: z.string().length(26).nullable(),
+  })
+  .extend(EventsEnvelopeSchema.shape); // authenticated → `_events` carrier
+export type RecordingsListResponse = z.infer<typeof RecordingsListResponseSchema>;
+
 // D-08 (Phase 6 plan 06-03) — archive state envelope for
 // GET /recordings/:id/stream-url. The player consumes this discriminated
 // envelope to decide between live playback, the "still uploading" message,
