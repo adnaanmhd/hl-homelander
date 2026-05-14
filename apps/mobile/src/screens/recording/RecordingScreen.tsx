@@ -78,6 +78,7 @@ import { HumynUpload } from '../../native/HumynUpload';
 import { decodeGoogleSubFromJwt } from '../../lib/jwtSub';
 import { shouldShowBatteryOptimizationPrompt } from '../onboarding/BatteryOptimizationScreen';
 import { setPendingUploadToast } from '../../state/uploadToastBus';
+import { writeEntry as writeThumbnailLedgerEntry } from '../../services/thumbnailLedger';
 
 interface NavigationLike {
   goBack(): void;
@@ -780,6 +781,27 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         if (shouldShowBatteryOptimizationPrompt()) surfaceBatteryPromptRef.current = true;
       } catch {
         /* no HumynUpload native module (iOS / JSDOM) — nothing to enqueue */
+      }
+      // Phase 6 D-05 (Plan 06-09) — write the thumbnail ledger entry next
+      // to the existing HumynUpload.enqueue() call. The ledger write and
+      // the upload enqueue are siblings — not a transaction; a crash
+      // between the two leaves an enqueued-but-unledgered row (which
+      // still renders via the D-04 gradient + first-letter fallback).
+      // The native payload's `thumbnailPath` may be null when the
+      // FinalizeWorker extractor (Plan 06-04 step 8.5) failed best-effort.
+      // Practice segments are guarded above (the early-return), matching
+      // FinalizeWorker's own practice-skip per ONB-04.
+      try {
+        const filename = e.mp4Path.split('/').pop() ?? '';
+        writeThumbnailLedgerEntry({
+          recordingId: e.recordingId,
+          thumbnailPath: e.thumbnailPath ?? null,
+          filename,
+          mp4LocalPath: e.mp4Path,
+          createdAtMs: Date.now(),
+        });
+      } catch {
+        /* MMKV failure is best-effort — row falls back to D-04 overlay */
       }
     });
     return () => {

@@ -99,6 +99,14 @@ export const EVENT_NAMES = [
   // event funnel intact.
   'home_view',
   'home_tile_filter_changed',
+  // Phase 6 (HistoryScreen — Plan 06-09). The history-tab event funnel:
+  // `history_view` on focus, `history_filter_changed` after FilterSheet
+  // apply, `history_row_opened` on row tap. Engineering-handoff §11
+  // documents these; the allowlist must list them so `logEvent` doesn't
+  // drop them with a dev warning (Rule-2 / D-09 follow-on for Plan 06-09).
+  'history_view',
+  'history_filter_changed',
+  'history_row_opened',
 ] as const;
 
 export type EventName = (typeof EVENT_NAMES)[number];
