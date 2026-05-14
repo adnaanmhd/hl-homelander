@@ -279,7 +279,7 @@ Plans:
 
 **Wave 6** _(Player wireup; depends on Wave 5)_
 
-- [ ] 06-10-PLAN.md — PlayerScreen + RootNativeStack Player route + route-registry update (HIST-07/08/09 close)
+- [x] 06-10-PLAN.md — PlayerScreen + RootNativeStack Player route + route-registry update (HIST-07/08/09 close)
 
 **Wave 7** _(manual-smoke + operator sign-off; depends on Waves 1-6)_
 
