@@ -264,9 +264,9 @@ Plans:
 
 **Wave 3** _(parallel — JS foundation + native player; depends on Wave 1)_
 
-- [ ] 06-04-PLAN.md — ThumbnailExtractor.kt + FinalizeWorker step 7.5 + JS-side thumbnailLedger.ts (HIST-06)
-- [ ] 06-05-PLAN.md — tokens.ts extension + TaskIcon.native.tsx port + appStore slices + timeRange/historyGrouping services + 4 API service wrappers (TASK-03, TASK-08, HOME-03/04, HIST-02/03, HOME-06)
-- [ ] 06-06-PLAN.md — HumynPlayer native module (5 Kotlin files) + media3-exoplayer:1.10.0 dep + JS bridge (HIST-07/08/09)
+- [x] 06-04-PLAN.md — ThumbnailExtractor.kt + FinalizeWorker step 7.5 + JS-side thumbnailLedger.ts (HIST-06)
+- [x] 06-05-PLAN.md — tokens.ts extension + TaskIcon.native.tsx port + appStore slices + timeRange/historyGrouping services + 4 API service wrappers (TASK-03, TASK-08, HOME-03/04, HIST-02/03, HOME-06)
+- [x] 06-06-PLAN.md — HumynPlayer native module (5 Kotlin files) + media3-exoplayer:1.10.0 dep + JS bridge (HIST-07/08/09)
 
 **Wave 4** _(parallel — Tasks + Home screens; depends on Wave 3; MainTabs.tsx swap deferred to Wave 5 to avoid 3-way same-wave file conflict)_
 
