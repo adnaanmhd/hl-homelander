@@ -114,6 +114,15 @@ const REQUIRED_PHASE_2_ROUTES = [
 const REQUIRED_PHASE_4_ROUTES = ['Recording', 'PracticeIntro', 'PracticeComplete'];
 
 /**
+ * Phase 6 — routes added by Plan 06-10 (HIST-07/08/09). The full-bleed dark
+ * `Player` route is a RootNativeStack sibling of `MainTabs` (NOT inside it)
+ * so the bottom-nav is suppressed automatically per design-spec §14. Route
+ * options mirror Recording (`gestureEnabled:false`, `headerShown:false`,
+ * `animation:'fade'`). Removal of `Player` fails CI (D-NAV-01 / Pattern 54).
+ */
+const REQUIRED_PHASE_6_ROUTES = ['Player'];
+
+/**
  * Phase 2 routes that were REMOVED by later plans. The invariant test asserts
  * each removed name is NOT registered anywhere in the navigator pair so an
  * accidental re-introduction surfaces in PR review.
@@ -138,19 +147,22 @@ describe('Navigator route registry — Phase 2 screens (D-NAV-02)', () => {
     });
   }
 
-  it('does not register any unrecognized Phase-6+ routes (early-warning check)', () => {
-    // Phase 6 will add Player. Until that plan lands, asserting it is absent
-    // prevents an accidental early commit. When it lands, the name moves into
-    // a Phase-6 required-routes block.
-    const phase6Plus = ['Player'];
-    for (const route of phase6Plus) {
-      expect(ALL_NAVIGATOR_SOURCE).not.toMatch(new RegExp(`name=["']${route}["']`));
-    }
-  });
+  // NB: the historical "Phase-6+ early-warning" check (which asserted that
+  // `Player` was NOT yet registered) was retired by Plan 06-10 when the
+  // Player route landed. The route now lives in REQUIRED_PHASE_6_ROUTES
+  // below, asserted positively in its own describe block.
 });
 
 describe('Navigator route registry — Phase 4 screens (D-NAV-01 / Pattern 54)', () => {
   for (const name of REQUIRED_PHASE_4_ROUTES) {
+    it(`registers screen name="${name}"`, () => {
+      expect(ALL_NAVIGATOR_SOURCE).toMatch(new RegExp(`name=["']${name}["']`));
+    });
+  }
+});
+
+describe('Navigator route registry — Phase 6 screens (Plan 06-10 / HIST-07-09)', () => {
+  for (const name of REQUIRED_PHASE_6_ROUTES) {
     it(`registers screen name="${name}"`, () => {
       expect(ALL_NAVIGATOR_SOURCE).toMatch(new RegExp(`name=["']${name}["']`));
     });
