@@ -7,7 +7,11 @@ import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { and, desc, eq, ne, sql, type SQL } from 'drizzle-orm';
 import { db, schema } from '../../db/index.js';
+import { buildProblemDetail, PROBLEM_SLUGS } from '../../lib/problem-detail.js';
+import type { z } from 'zod';
 import { RecordingsListQuerySchema, RecordingsListResponseSchema } from './schemas.js';
+
+type RecordingsListResponse = z.infer<typeof RecordingsListResponseSchema>;
 
 const RANGE_TO_INTERVAL: Record<'7d' | '30d' | '90d', string> = {
   '7d': '7 days',
@@ -15,30 +19,91 @@ const RANGE_TO_INTERVAL: Record<'7d' | '30d' | '90d', string> = {
   '90d': '90 days',
 };
 
+// D-03b — validate the optional Accept-Timezone header against IANA names by
+// constructing an Intl.DateTimeFormat (which throws on unknown timezones).
+// Unknown timezones surface a 400 problem-detail so the client can fix the
+// header without leaking a 500 server crash.
+function isValidIanaTimezone(tz: string): boolean {
+  try {
+    // Side-effect construction is the validity probe — Intl.DateTimeFormat
+    // throws a RangeError on unknown timezone names. Calling `.resolvedOptions()`
+    // forces the constructor to evaluate the timeZone option even if a future
+    // engine deferred the check.
+    new Intl.DateTimeFormat('en-US', { timeZone: tz }).resolvedOptions();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export default async function recordingsListRoute(app: FastifyInstance): Promise<void> {
   app.withTypeProvider<ZodTypeProvider>().get(
     '/recordings',
     {
       schema: {
         querystring: RecordingsListQuerySchema,
-        response: { 200: RecordingsListResponseSchema },
+        // Pattern 22 (STATE.md) — response schema intentionally omitted. The
+        // route returns 400 problem-detail on invalid Accept-Timezone (D-03b)
+        // alongside the 200 happy path; declaring response.200 narrows
+        // reply.code() to 200 and breaks the 400 send. Body shape on success
+        // is still typed via the explicit `RecordingsListResponse` return type
+        // below + the imported schema is reused by the test files.
       },
       preHandler: [app.requireAuth],
     },
-    async (req) => {
+    async (req, reply) => {
       const userId = (req.user as { sub: string }).sub;
-      const { range, cursor, limit } = req.query;
+      const { range, cursor, limit, start, end } = req.query;
+
+      // D-03b — optional Accept-Timezone IANA name. Validated up-front; unknown
+      // TZ → 400 problem-detail (does NOT crash the route). Drizzle's `sql`
+      // template binds the tz string as a parameter via `AT TIME ZONE ${tz}`,
+      // so no SQL-injection surface even before this validator (T-6.3-02).
+      const tz = req.headers['accept-timezone'] as string | undefined;
+      if (tz !== undefined && !isValidIanaTimezone(tz)) {
+        const pd = buildProblemDetail({
+          slug: PROBLEM_SLUGS.validation,
+          title: 'Invalid Accept-Timezone',
+          status: 400,
+          detail: `Unknown IANA timezone: ${tz}`,
+          instance: req.id as string,
+        });
+        return reply.status(400).type('application/problem+json').send(pd);
+      }
 
       // WHERE clause:
       //   user_id = req.user.sub
       //   qa_status NOT 'takedown' (T-1.7-08)
-      //   created_at >= now() - INTERVAL <range> (skip when range==='all')
+      //   D-03 — explicit start/end (with Accept-Timezone) take precedence over
+      //   the named-window `range`. Otherwise: created_at >= now() - INTERVAL <range>
+      //   (skip when range==='all').
       //   (created_at, id) < cursor row's pair (when cursor present)
       const where: SQL[] = [
         eq(schema.recordings.userId, userId),
         ne(schema.recordings.qaStatus, 'takedown'),
       ];
-      if (range !== 'all') {
+      if (start && end) {
+        // D-03 — explicit window. `start` = inclusive local-midnight,
+        // `end` = exclusive next-day local-midnight (client sends end = day
+        // AFTER the last-included day). When Accept-Timezone present, coerce
+        // each YYYY-MM-DD wall-clock midnight in `tz` to UTC timestamptz.
+        // PG gotcha: `date AT TIME ZONE tz` implicitly casts the date via the
+        // session TZ first (wrong direction). Cast `::date::timestamp` so
+        // `AT TIME ZONE tz` interprets the bare timestamp AS IF in `tz` and
+        // returns a timestamptz. When tz is absent, PG defaults to the
+        // session TZ (UTC in our setup).
+        if (tz) {
+          where.push(
+            sql`${schema.recordings.createdAt} >= (${start}::date::timestamp AT TIME ZONE ${tz})`,
+          );
+          where.push(
+            sql`${schema.recordings.createdAt} <  (${end}::date::timestamp AT TIME ZONE ${tz})`,
+          );
+        } else {
+          where.push(sql`${schema.recordings.createdAt} >= ${start}::date`);
+          where.push(sql`${schema.recordings.createdAt} <  ${end}::date`);
+        }
+      } else if (range !== 'all') {
         where.push(
           sql`${schema.recordings.createdAt} >= now() - (${RANGE_TO_INTERVAL[range]})::interval`,
         );
@@ -85,10 +150,11 @@ export default async function recordingsListRoute(app: FastifyInstance): Promise
         duration_ms: r.durationMs,
         created_at: r.createdAt.toISOString(),
       }));
-      return {
+      const body: RecordingsListResponse = {
         items,
         next_cursor: hasMore ? items[items.length - 1]!.recording_id : null,
       };
+      return reply.send(body);
     },
   );
 }

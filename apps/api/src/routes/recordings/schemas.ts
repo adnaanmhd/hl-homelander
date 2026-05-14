@@ -10,6 +10,17 @@ export const RecordingsListQuerySchema = z.object({
   range: z.enum(['7d', '30d', '90d', 'all']).default('30d'),
   cursor: z.string().length(26).optional(), // opaque cursor = recording_id
   limit: z.coerce.number().int().min(1).max(100).default(20),
+  // D-03 (Phase 6 plan 06-03) — explicit ISO dates take precedence over `range`
+  // when both are present. Sent by the client as 'YYYY-MM-DD' at local midnight;
+  // converted to timestamptz server-side via the Accept-Timezone header (D-03b).
+  start: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  end: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
 });
 export type RecordingsListQuery = z.infer<typeof RecordingsListQuerySchema>;
 
