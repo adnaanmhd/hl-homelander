@@ -351,6 +351,14 @@ vi.mock('react-native', () => {
       vibrate: () => undefined,
       cancel: () => undefined,
     },
+    // Phase 6 Plan 06-10 — PlayerScreen's ScrubBar uses PanResponder for
+    // drag-to-seek. JSDOM has no touch gesture system; the mock returns a
+    // `panHandlers` object that test renderers can spread onto a View
+    // without crashing useMemo/PanResponder.create(). Per-test files can
+    // re-mock to assert handler invocations if needed.
+    PanResponder: {
+      create: () => ({ panHandlers: {} }),
+    },
     // Animated — minimal stub so that CompatRing (plan 02-15 Task 2) can
     // call `Animated.createAnimatedComponent(Circle)` and
     // `Animated.timing(...).start()` at module-init time. JSDOM never
