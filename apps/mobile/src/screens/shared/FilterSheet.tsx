@@ -145,16 +145,21 @@ export function FilterSheet({
     setLayer('16a');
   }, []);
 
+  // The scrim and sheet body are SIBLINGS — not parent/child. JSDOM doesn't
+  // honor RN's gesture-responder event-stop semantics, so a nested-Pressable
+  // pattern (the Sheet primitive's shape) fires `onDismiss` whenever a child
+  // Pressable's click bubbles up. Making the scrim a sibling keeps inner
+  // taps from triggering dismiss. The sheet body is absolute-positioned
+  // bottom; the scrim absolute-positioned fills the remaining backdrop.
   return (
     <RNModal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>
-      <RNPressable accessibilityLabel="filter-sheet-scrim" onPress={onDismiss} style={styles.scrim}>
+      <View style={styles.modalRoot}>
         <RNPressable
-          accessibilityLabel="filter-sheet"
-          onPress={() => {
-            /* swallow taps on the sheet body */
-          }}
-          style={styles.sheet}
-        >
+          accessibilityLabel="filter-sheet-scrim"
+          onPress={onDismiss}
+          style={styles.scrim}
+        />
+        <View accessibilityLabel="filter-sheet" style={styles.sheet}>
           {layer === '16a' ? (
             <Layer16a
               currentValue={value}
@@ -173,8 +178,8 @@ export function FilterSheet({
               onApply={handleApply}
             />
           )}
-        </RNPressable>
-      </RNPressable>
+        </View>
+      </View>
     </RNModal>
   );
 }
@@ -320,10 +325,13 @@ function Layer16b({
 }
 
 const styles = StyleSheet.create({
-  scrim: {
+  modalRoot: {
     flex: 1,
-    backgroundColor: SCRIM_COLOR, // rgba — allowed by no-hex gate (no '#')
     justifyContent: 'flex-end',
+  },
+  scrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: SCRIM_COLOR, // rgba — allowed by no-hex gate (no '#')
   },
   sheet: {
     backgroundColor: colors.surface,
