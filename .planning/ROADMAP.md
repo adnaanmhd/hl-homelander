@@ -275,7 +275,7 @@ Plans:
 
 **Wave 5** _(History screen + the atomic 3-way MainTabs.tsx swap; depends on Waves 3+4)_
 
-- [ ] 06-09-PLAN.md — HistoryScreen + HistoryRow + HistoryDayHeader + FilterChip + RecordingScreen ledger write wireup + MainTabs swap for all three tabs (HIST-01..06, 10, 11)
+- [x] 06-09-PLAN.md — HistoryScreen + HistoryRow + HistoryDayHeader + FilterChip + RecordingScreen ledger write wireup + MainTabs swap for all three tabs (HIST-01..06, 10, 11)
 
 **Wave 6** _(Player wireup; depends on Wave 5)_
 
