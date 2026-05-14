@@ -312,5 +312,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 3. HumynCapture Native Module (Bytes-on-disk)              | 11/11          | Complete    | 2026-05-11 |
 | 4. HandDetector, Recording UX & Practice Tutorial          | 12/12          | Complete    | 2026-05-12 |
 | 5. Upload Pipeline & Hash-Verify Worker                    | 15/15          | Complete    | 2026-05-13 |
-| 6. Tasks, History, Home Tiles & Lexical Search             | 0/11           | Planned     | -          |
+| 6. Tasks, History, Home Tiles & Lexical Search             | 10/11          | In Progress | -          |
 | 7. Observability & APK Distribution Hardening              | 0/TBD          | Not started | -          |
