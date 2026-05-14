@@ -123,6 +123,14 @@ interface HumynUploadNativeModule {
   oemAutostartAvailable(): Promise<boolean>;
   /** Launch the OEM autostart screen if one resolves; resolves `true`/`false` (never crashes). */
   openOemAutostart(): Promise<boolean>;
+  /**
+   * Plan 06-12 follow-on (Finding 6) — synchronous read of the current
+   * connectivity state of the default network. Resolves with `{ online }`
+   * where `online` reflects `cm.activeNetwork != null` &&
+   * `NET_CAPABILITY_INTERNET`. The companion `onConnectivityChanged` event
+   * surfaces every transition.
+   */
+  getConnectivity(): Promise<{ online: boolean }>;
 }
 
 function ensure(): HumynUploadNativeModule {
@@ -241,6 +249,18 @@ export const HumynUpload = {
       /* no native module — nothing to do */
     }
   },
+  /**
+   * Safe variant of [getConnectivity] — resolves to `{ online: true }` when
+   * the native module is unavailable (JSDOM / a build without the module)
+   * so the OfflineBanner doesn't flicker on first paint in test contexts.
+   */
+  getConnectivitySafe: async (): Promise<{ online: boolean }> => {
+    try {
+      return await ensure().getConnectivity();
+    } catch {
+      return { online: true };
+    }
+  },
 } as const;
 
 // Lazy NativeEventEmitter — constructed on first subscribe (mirrors
@@ -272,4 +292,19 @@ export function onUploadQueueChanged(
  */
 export function onUploadProgress(listener: (e: UploadProgressEvent) => void): EmitterSubscription {
   return emitter().addListener('onUploadProgress', listener);
+}
+
+/** Connectivity-change event payload — `online === true` when there's an active default network with INTERNET capability. */
+export type ConnectivityEvent = { online: boolean };
+
+/**
+ * Plan 06-12 follow-on (Finding 6) — subscribe to `onConnectivityChanged`.
+ * Fires once immediately with the current state (NetworkMonitor.addConnectivityListener
+ * replays it on register), then again on every default-network transition.
+ * Caller MUST `.remove()` the returned subscription on unmount.
+ */
+export function onConnectivityChanged(
+  listener: (e: ConnectivityEvent) => void,
+): EmitterSubscription {
+  return emitter().addListener('onConnectivityChanged', listener);
 }

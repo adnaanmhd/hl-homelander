@@ -31,13 +31,13 @@ files — those are closed.
 | #   | Title                                                                          | Status                             |
 | --- | ------------------------------------------------------------------------------ | ---------------------------------- |
 | 1   | Tasks tab — pull-to-refresh inert                                              | ✅ Fixed in Plan 06-12 / `7a55e0c` |
-| 2   | TaskDetailsSheet — swipe-down dismiss inert                                    | Deferred (see disposition)         |
-| 3   | AlertPill placement during battery-15 % alert                                  | Deferred (see disposition)         |
+| 2   | TaskDetailsSheet — swipe-down dismiss inert                                    | ✅ Fixed in Plan 06-12 (follow-on) |
+| 3   | AlertPill placement during battery-15 % alert                                  | ✅ Fixed in Plan 06-12 (follow-on) |
 | 4   | §1 D-09 — HumynBeep audibility                                                 | Deferred (owner directive)         |
-| 5   | Home tab — custom date range is free-text                                      | Deferred (Phase 7)                 |
-| 6   | HOME-10 — OfflineBanner not wired                                              | Deferred (Phase 7)                 |
-| 7   | Pending Uploads row tap navigates to History                                   | Deferred (Phase 5 follow-on)       |
-| 8   | Player "View only" footer sticks                                               | Awaiting owner copy decision       |
+| 5   | Home tab — custom date range is free-text                                      | ✅ Fixed in Plan 06-12 (follow-on) |
+| 6   | HOME-10 — OfflineBanner not wired                                              | ✅ Fixed in Plan 06-12 (follow-on) |
+| 7   | Pending Uploads row tap navigates to History                                   | ✅ Fixed in Plan 06-12 (follow-on) |
+| 8   | Player "View only" footer sticks                                               | ✅ Fixed in Plan 06-12 (follow-on) |
 | 9   | Player drag-to-seek lands at byte 0                                            | Deferred (Phase 7)                 |
 | 10  | History — filter pill shows two chevrons                                       | ✅ Fixed in Plan 06-12 / `4bec668` |
 | 11  | History — empty state "Pick a task and try one" line break                     | ✅ Fixed in Plan 06-12 / `a8664dd` |
@@ -46,11 +46,13 @@ files — those are closed.
 | 14  | Home — second YOUR CONTRIBUTION tile has no unit label                         | ✅ Fixed in Plan 06-12 (follow-on) |
 | 15  | Home — greet returning users by first name instead of contributed-time numeric | ✅ Fixed in Plan 06-12 (follow-on) |
 
-Findings 1, 10, 11, 12, 13 fixed in Plan 06-12 (2026-05-14). Findings 2, 3,
-5, 6, 7, 9 carried forward per their dispositions below; Finding 4 stays
-deferred by owner directive (`feedback_d09_audibility_deferred`). Finding
-8 still waits on an owner copy/interaction decision. Finding 14 added
-during Plan 06-12's owner spot-check.
+Findings 1, 10, 11, 12, 13 fixed in Plan 06-12's main wave (2026-05-14).
+Findings 2, 3, 5, 6, 7, 8, 14, 15 fixed in Plan 06-12's follow-on wave
+(owner directive 2026-05-14 — "fix each one of these except 4, 9"). Only
+**Findings 4 and 9** remain deferred — 4 by owner directive
+(`feedback_d09_audibility_deferred`), 9 needs the Phase-7 finalize-time
+remux step (Player drag-to-seek requires `sidx`/`mfra` boxes the
+fragmented-MP4 path doesn't emit).
 
 ---
 

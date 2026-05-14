@@ -63,6 +63,7 @@ import {
 import type { ArchiveState } from '@humyn/shared-types';
 import { getRecordingStreamUrl } from '../../services/recordingsApi';
 import { readEntry } from '../../services/thumbnailLedger';
+import { showToast } from '../../components/Toast';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -277,6 +278,16 @@ export function PlayerScreen(): React.JSX.Element {
   // Track refs so cleanup paths are race-free.
   const subsRef = useRef<EmitterSubscription[]>([]);
   const mountedRef = useRef(true);
+
+  // -------------------------------------------------------------------------
+  // Plan 06-12 follow-on (Finding 8, owner directive 2026-05-14) — the
+  // "View only — not downloadable." line used to render as a persistent
+  // footer (design-spec §14 / 06-UI-SPEC line 291). Owner prefers a
+  // transient toast that fades out after 5s. Fires once on Player mount.
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    showToast('View only — not downloadable.', 5000);
+  }, []);
 
   // -------------------------------------------------------------------------
   // Orientation lock — portrait + letterboxed (UI-SPEC §14 / RESEARCH Open
@@ -521,10 +532,11 @@ export function PlayerScreen(): React.JSX.Element {
         </View>
       )}
 
-      {/* Footer line (caption / white@60%). */}
-      <Text variant="caption" style={styles.footer}>
-        View only — not downloadable.
-      </Text>
+      {/* Plan 06-12 follow-on (Finding 8) — the persistent
+          "View only — not downloadable." footer was replaced by a 5s
+          showToast on mount (see the useEffect near the top of this
+          component). styles.footer retained for any future caption
+          row that may need the same anchor; remove if unused. */}
 
       {/* Disabled overlays — archive-state-driven (D-08). */}
       {archiveState === 'deep-archive' && (

@@ -79,11 +79,26 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
      */
     private val paused = AtomicBoolean(UploadControlState.isPaused())
 
+    /**
+     * Plan 06-12 follow-on (Finding 6) — captured-by-reference listener kept
+     * as a property so we can [removeConnectivityListener] on
+     * [invalidate]. A lambda literal would create a new object each
+     * subscribe call, breaking removal symmetry.
+     */
+    private val connectivityListener: (Boolean) -> Unit = { online ->
+        emitConnectivityChanged(online)
+    }
+
     init {
         // Install the real RCTDeviceEventEmitter-backed emitters on the shared
         // coordinator (it starts with no-op emitters for the FGS / JobService
         // threads that have no JS bridge).
         runCatching { coordinator.setEmitters(::emitProgress, ::emitQueueChanged) }
+        // Plan 06-12 follow-on (Finding 6) — bridge connectivity changes to
+        // JS so the OfflineBanner on Home / History flips on airplane-mode
+        // toggle. The listener fires once immediately with the current state
+        // (see NetworkMonitor.addConnectivityListener).
+        runCatching { coordinator.addConnectivityListener(connectivityListener) }
     }
 
     override fun getName(): String = NAME
@@ -432,6 +447,39 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
     // Event emission
     // -------------------------------------------------------------------------
 
+    /**
+     * Plan 06-12 follow-on (Finding 6) — emit `onConnectivityChanged({ online })`
+     * so the OfflineBanner on Home / History can reflect the live state of the
+     * default network. Hooked into NetworkMonitor via [connectivityListener].
+     */
+    private fun emitConnectivityChanged(online: Boolean) {
+        runCatching {
+            reactApplicationContext
+                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                .emit(
+                    "onConnectivityChanged",
+                    Arguments.createMap().apply { putBoolean("online", online) },
+                )
+        }
+    }
+
+    /**
+     * Plan 06-12 follow-on (Finding 6) — synchronous read of the current
+     * connectivity state. The JS bridge calls this once on mount so the
+     * OfflineBanner picks the right initial value, then subscribes to the
+     * change stream above.
+     */
+    @ReactMethod
+    fun getConnectivity(promise: Promise) {
+        try {
+            promise.resolve(
+                Arguments.createMap().apply { putBoolean("online", coordinator.hasNetwork()) },
+            )
+        } catch (t: Throwable) {
+            promise.reject("UPLOAD_GET_CONNECTIVITY_FAILED", t.message ?: "getConnectivity failed", t)
+        }
+    }
+
     /** Emit `onUploadQueueChanged` with the current queue snapshot. */
     private fun emitQueueChanged() {
         runCatching {
@@ -519,6 +567,9 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
         // just detach the JS-bridge emitters so a torn-down ReactContext isn't
         // touched. A fresh module instance reinstalls them in its init.
         runCatching { coordinator.setEmitters({ _, _, _ -> }, { }) }
+        // Plan 06-12 follow-on (Finding 6) — unregister our connectivity
+        // listener so a stale ReactContext doesn't keep receiving callbacks.
+        runCatching { coordinator.removeConnectivityListener(connectivityListener) }
         super.invalidate()
     }
 }

@@ -81,6 +81,12 @@ const styles = StyleSheet.create({
   numeric: {
     fontFamily: typography.fontFamily.mono, // mono per UI-SPEC §Typography tileNumber
     color: colors.text,
+    // Plan 06-12 follow-on (owner directive 2026-05-14, post-Finding 5
+    // spot-check) — drop tileNumber's 28 px size by 20%. The taxonomy-
+    // wide token in `ui/tokens.ts` stays at 28 (canonical for any future
+    // consumer); only the ContributionTile numerics shrink here.
+    fontSize: 22,
+    lineHeight: 22,
   },
   chipRow: {
     flexDirection: 'row',

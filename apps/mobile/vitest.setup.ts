@@ -970,3 +970,34 @@ vi.mock('@react-native-firebase/remote-config', () => {
   };
   return { default: () => instance };
 });
+
+// ---------------------------------------------------------------------------
+// @react-native-community/datetimepicker — Plan 06-12 follow-on (Finding 5).
+// The package ships TS source with `import type` syntax that Vite/Rollup
+// can't transform in this test env. The stub renders a hidden `<input>`
+// with the caller's `testID` so tests can `fireEvent.change` on it to
+// drive a date selection (the change value MUST be a `YYYY-MM-DD` string;
+// the stub forwards a Date to the picker's `onChange` so the consumer's
+// normal handler runs).
+// ---------------------------------------------------------------------------
+vi.mock('@react-native-community/datetimepicker', async () => {
+  const ReactModule = await import('react');
+  type PickerProps = {
+    value: Date;
+    onChange?: (event: unknown, selected: Date | undefined) => void;
+    testID?: string;
+  };
+  function DateTimePickerStub(props: PickerProps): unknown {
+    const { onChange, testID } = props;
+    return ReactModule.createElement('input', {
+      'data-testid': testID,
+      'aria-label': testID,
+      onChange: (e: { target: { value: string } }) => {
+        const v = e?.target?.value ?? '';
+        const parsed = /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(`${v}T00:00:00`) : undefined;
+        onChange?.({}, parsed);
+      },
+    });
+  }
+  return { default: DateTimePickerStub };
+});

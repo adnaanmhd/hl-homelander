@@ -19,8 +19,8 @@
 // verbatim what the server returns — no client-side guard.
 //
 // NO hex literals — every value bound to `../../ui/tokens`.
-import React from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import React, { useMemo } from 'react';
+import { PanResponder, View, ScrollView, StyleSheet } from 'react-native';
 import { Check } from 'lucide-react-native';
 import type { Task } from '@humyn/shared-types';
 
@@ -52,6 +52,37 @@ export function TaskDetailsSheet({
   onDismiss,
   onStartRecording,
 }: TaskDetailsSheetProps): React.JSX.Element | null {
+  // Plan 06-12 follow-on (Finding 2, owner directive 2026-05-14;
+  // re-fixed after the first attempt didn't actually claim the touch on-
+  // device) — the backdrop tap + X close already dismissed the sheet;
+  // this PanResponder adds a pan-down-on-the-grab-handle gesture for
+  // parity with iOS sheets.
+  //
+  // V1 used `onStartShouldSetPanResponder: false` + a move-time predicate,
+  // but the parent Sheet `<RNPressable>` was claiming the touch first and
+  // never releasing it (Pressable installs as the responder on touch-down
+  // even when its press semantics never fire). V2 claims on START with
+  // capture so the grab-handle's responder beats the Pressable's. Tap
+  // (release with dy~0) still no-ops because the dismiss is only fired
+  // when `dy > 60` OR velocity-down >= 0.5 px/ms.
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponderCapture: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponderCapture: () => true,
+        onPanResponderGrant: () => undefined,
+        onPanResponderMove: () => undefined,
+        onPanResponderRelease: (_e, g) => {
+          if (g.dy > 60 || g.vy > 0.5) onDismiss();
+        },
+        onPanResponderTerminationRequest: () => false,
+        onPanResponderTerminate: () => undefined,
+      }),
+    [onDismiss],
+  );
+
   if (!task) return null;
 
   const isOutdoor = task.setting === 'outdoor';
@@ -59,8 +90,13 @@ export function TaskDetailsSheet({
 
   return (
     <Sheet visible={visible} onDismiss={onDismiss} accessibilityLabel="task-details-sheet">
-      {/* 40×4 grab handle (design-spec §11) */}
-      <View style={styles.grabHandleWrap}>
+      {/* 40×4 grab handle (design-spec §11) — also the hit-target for the
+          pan-down dismiss gesture (Plan 06-12 Finding 2). */}
+      <View
+        accessibilityLabel="task-details-grab-handle"
+        style={styles.grabHandleWrap}
+        {...panResponder.panHandlers}
+      >
         <View style={styles.grabHandle} />
       </View>
 

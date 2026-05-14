@@ -262,9 +262,11 @@ vi.mock('../../../src/native/HumynUpload', () => ({
   HumynUpload: {
     getQueueSafe: vi.fn(async () => mockQueue.rows),
     drainNowSafe: drainNowSafeMock,
+    getConnectivitySafe: vi.fn(async () => ({ online: true })),
   },
   onUploadQueueChanged: vi.fn(() => ({ remove: hooks.queueChangedRemove })),
   onUploadProgress: vi.fn(() => ({ remove: hooks.progressRemove })),
+  onConnectivityChanged: vi.fn(() => ({ remove: vi.fn() })),
 }));
 
 vi.mock('../../../src/lib/jwtSub', () => ({
