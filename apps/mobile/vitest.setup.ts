@@ -732,6 +732,12 @@ vi.mock('lucide-react-native', () => {
     'Paperclip',
     'Inbox',
     'WifiOff',
+    // Phase 6 Plan 06-10 — PlayerScreen top bar (Lock = view-only badge,
+    // §14) and the 64×64 round centered play overlay (Play = the paused-
+    // state affordance). `X` is already in the list above (re-used as the
+    // top-left close affordance).
+    'Lock',
+    'Play',
   ] as const;
   const exports: Record<string, unknown> = {};
   for (const name of ICONS) {
