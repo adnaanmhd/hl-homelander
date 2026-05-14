@@ -8,6 +8,13 @@
       "when": 1778158588911,
       "tag": "0001_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778732257743,
+      "tag": "0007_pg_trgm",
+      "breakpoints": true
     }
   ]
 }
