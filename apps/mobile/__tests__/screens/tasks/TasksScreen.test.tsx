@@ -220,8 +220,8 @@ describe('TasksScreen (Plan 06-07 Task 3)', () => {
       // useTaskSearch is called every render with the latest debouncedQuery.
       // After the 200ms timer fires the most recent call args should be
       // 'chop'.
-      const lastCall = mockUseTaskSearch.mock.calls[mockUseTaskSearch.mock.calls.length - 1];
-      expect(lastCall[0]).toBe('chop');
+      const lastCall = mockUseTaskSearch.mock.calls.at(-1);
+      expect(lastCall?.[0]).toBe('chop');
     } finally {
       vi.useRealTimers();
     }
@@ -249,9 +249,9 @@ describe('TasksScreen (Plan 06-07 Task 3)', () => {
     fireEvent.click(getByLabelText('task-card-chopping'));
     await waitFor(() => expect(getByLabelText('task-details-sheet-stub')).toBeTruthy());
     // The stub records every prop snapshot. The final call should be visible:true
-    const lastCall = taskDetailsSpy.mock.calls[taskDetailsSpy.mock.calls.length - 1];
-    expect(lastCall[0].visible).toBe(true);
-    expect(lastCall[0].task?.id).toBe('01HVCHOPPING00000000000000');
+    const lastCall = taskDetailsSpy.mock.calls.at(-1);
+    expect(lastCall?.[0].visible).toBe(true);
+    expect(lastCall?.[0].task?.id).toBe('01HVCHOPPING00000000000000');
   });
 
   it('tapping the footer "Send request →" link opens the SendRequestSheet', async () => {
@@ -259,7 +259,7 @@ describe('TasksScreen (Plan 06-07 Task 3)', () => {
     await waitFor(() => expect(getByLabelText('task-card-chopping')).toBeTruthy());
     fireEvent.click(getByLabelText('tasks-footer-send-request'));
     await waitFor(() => expect(getByLabelText('send-request-sheet-stub')).toBeTruthy());
-    const lastCall = sendRequestSpy.mock.calls[sendRequestSpy.mock.calls.length - 1];
-    expect(lastCall[0].visible).toBe(true);
+    const lastCall = sendRequestSpy.mock.calls.at(-1);
+    expect(lastCall?.[0].visible).toBe(true);
   });
 });
