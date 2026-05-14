@@ -88,29 +88,33 @@ function deviceTz(): string {
   }
 }
 
-/** Build the FilterChip label per UI-SPEC §13 ("All time ▾" default + per-range labels). */
+/** Build the FilterChip label per UI-SPEC §13 ("All time" default + per-range labels). */
+// Plan 06-12 Task 3 — the trailing `▾` glyph used to live in the label
+// string AND the FilterChip component rendered its own <ChevronDown />,
+// producing two chevrons (06-COSMETIC-GAPS Finding 10). Keep the icon-
+// component approach and drop the inline glyph here.
 function filterChipLabel(named: NamedRange, custom: { start: string; end: string } | null): string {
   switch (named) {
     case 'today':
-      return 'Today ▾';
+      return 'Today';
     case 'yesterday':
-      return 'Yesterday ▾';
+      return 'Yesterday';
     case 'this-week':
-      return 'This week ▾';
+      return 'This week';
     case 'this-month':
-      return 'This month ▾';
+      return 'This month';
     case 'all':
-      return 'All time ▾';
+      return 'All time';
     case 'custom': {
-      if (custom == null) return 'Custom range ▾';
+      if (custom == null) return 'Custom range';
       const start = new Date(`${custom.start}T00:00:00`);
       const end = new Date(`${custom.end}T00:00:00`);
       if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
-        return 'Custom range ▾';
+        return 'Custom range';
       }
       const startLbl = `${MONTH_ABBR[start.getMonth()]} ${start.getDate()}`;
       const endLbl = `${MONTH_ABBR[end.getMonth()]} ${end.getDate()}`;
-      return `${startLbl} – ${endLbl} ▾`;
+      return `${startLbl} – ${endLbl}`;
     }
   }
 }
