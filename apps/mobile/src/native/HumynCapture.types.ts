@@ -43,6 +43,19 @@ export interface SegmentCompleteEvent {
    * stamped into the metadata JSON's `metadata.metadata.imu_min_rate_hz_observed_p1`.
    */
   imuMinRateHzObservedP1: number;
+  /**
+   * Phase 6 D-05 (Plan 06-04) — absolute path to the first-frame JPEG
+   * thumbnail extracted by `FinalizeWorker` step 8.5, or `null` when the
+   * native extractor failed (best-effort). The Plan 06-09 JS-side
+   * segment-complete handler in `RecordingScreen.tsx` reads this and
+   * passes it to `thumbnailLedger.writeEntry({ thumbnailPath, ... })` so
+   * the History row renders the local JPEG (D-05); absent/null falls
+   * back to the gradient + first-letter task-name overlay (D-04).
+   *
+   * Optional on the type for backward compatibility with native builds
+   * that pre-date Plan 06-04 (older payloads simply omit the key).
+   */
+  thumbnailPath?: string | null;
 }
 
 /** Emitted on session-end after the final segment finalizes. */
