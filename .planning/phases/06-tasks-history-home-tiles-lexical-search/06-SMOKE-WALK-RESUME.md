@@ -20,7 +20,7 @@ resume from §5 and finish §5 → §6 → §7.
 
 ---
 
-## Walk progress (as of 2026-05-14 ~13:50 IST)
+## Walk progress (as of 2026-05-14 ~16:00 IST)
 
 | §   | Title                            | Status                                                                                                                                                  |
 | --- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -28,58 +28,80 @@ resume from §5 and finish §5 → §6 → §7.
 | §2  | Tasks tab (TASK-01..10)          | **PASS** (all 10 boxes ticked; 2 fix-packs landed mid-walk: search-includes-category migration 0008 + JSON body for /task-requests)                     |
 | §3  | Home tab (HOME-01..06,09,10)     | **PASS** with caveats (HOME-01 + HOME-02 + HOME-03 + HOME-04 + HOME-05-visible + HOME-09 all confirmed; HOME-10 is the documented Plan 06-08 stub)      |
 | §4  | History tab (HIST-01..06,10,11)  | **PASS** (HIST-04 empty state confirmed verbatim; row layout / day-grouping / filter chip / no-delete-affordance all OK on the one recorded row)        |
-| §5  | Player + streaming (HIST-07..09) | **IN PROGRESS** (4 functional bugs fixed; one still open — see below)                                                                                   |
+| §5  | Player + streaming (HIST-07..09) | **PASS** with 2 deferred items — see §5 close-out below                                                                                                 |
 | §6  | Cross-cutting                    | PENDING                                                                                                                                                 |
 | §7  | Sign-off                         | PENDING                                                                                                                                                 |
 
 ---
 
-## Active §5 bug (resume point)
+## §5 close-out (2026-05-14 ~16:00 IST)
 
-The video Player keeps showing **"Couldn't load video. Tap to retry."**
-even after these 5 fixes landed (commit `5aa4288`):
+The "Couldn't load video. Tap to retry." error from the prior session
+was traced to a thread-affinity bug in `PlayerController`. Resolved.
+Five more player-side fixes landed in this session. Two issues remain
+deferred (not blocking sign-off) — both captured in the Findings list
+below.
 
-1. Metro `sourceExts` order (ts/tsx before json)
-2. `/task-requests` JSON body
-3. `/recordings/:id/stream-url` S3 presigned fallback when CF env unset
-4. PlayerScreen TextureView wrap-not-style
-5. PlayerController `setLooper(main)` + `http://localhost:*` validator
-   allow-list
+### Root cause of the original block
 
-After (5), the device's stream-url call returns 200 with a presigned
-URL pointing to `http://localhost:4566/humyn-recordings-dev/recordings/...`,
-ExoPlayer should accept it (validator now passes http://localhost), but
-the user still sees the "Couldn't load video" runtime-error overlay.
-Last logcat capture didn't show a HumynPlayer onPlayerError line —
-suggesting the failure may be in the JS `resolveSource` try/catch
-BEFORE the native call OR something silent in ExoPlayer's HTTP fetch.
+`PlayerController.prepare` called `ep.setMediaItem(...)` and
+`ep.prepare()` from RN's `mqt_native_modules` thread while the
+ExoPlayer's application looper had been pinned to main (commit
+`5aa4288`'s `setLooper(Main)` fix). ExoPlayer's `verifyApplicationThread()`
+threw `IllegalStateException`, the catch fired `cb(Result.failure(t))`
+silently (no `Log.w` in the catch), the JS Promise rejected, and
+`resolveSource`'s blanket `catch {}` set `errorState='network'`. No
+`HumynPlayer playback error` log line because ExoPlayer's
+`onPlayerError` listener was never registered — the throw fired
+before `addListener`.
 
-**Next investigation steps (run these first when you resume):**
+### Player-side fixes landed this session
 
-1. Clear logcat + tail with a wide filter, then have owner tap retry:
-   ```bash
-   adb logcat -c
-   adb logcat -s 'HumynPlayer:*' 'ExoPlayerImpl:*' 'HttpDataSource:*' 'DefaultDataSource:*' 'OkHttpClient:*' 'AndroidRuntime:*' '*:E'
-   ```
-2. If no HumynPlayer error fires → the JS `resolveSource` is throwing
-   pre-native. Add a debug `console.log` to `apps/mobile/src/screens/history/PlayerScreen.tsx`
-   inside `resolveSource` after `getRecordingStreamUrl` returns + before
-   `HumynPlayer.prepare`.
-3. Probe the presigned URL from the device-side perspective. `curl` and
-   `wget` aren't on the device shell; use `adb shell am start -a android.intent.action.VIEW -d "<url>"`
-   to open it in a browser — if the browser can fetch the bytes,
-   ExoPlayer can too.
-4. Check whether ExoPlayer needs `setAllowChunklessPreparation(true)` or
-   a different `DataSource.Factory` for plain MP4 served over HTTP without
-   `Accept-Ranges`. LocalStack S3 may not advertise `Accept-Ranges: bytes`
-   which ExoPlayer needs for HEVC progressive playback.
-5. Alternate hypothesis: the recording uploaded as a `pending` /
-   `uploading` chip is now actually `verified`, which triggered the
-   Phase 5 verified-event drain to call `clearLocalPath(recordingId)`.
-   Verify by reading the MMKV ledger entry on the device — if
-   `mp4LocalPath` is empty, we're 100% on the remote path. If it's
-   still set, `RNFS.exists()` may be returning true on a path that
-   the player can't actually read.
+All in one fixpack:
+
+1. **PlayerController main-looper dispatch.** Wrapped every player
+   touch (`prepare`, `play`, `pause`, `seekTo`, `release`,
+   `onSurfaceAvailable`, `onSurfaceDestroyed`) in an `onMain {}` helper
+   so ExoPlayer's thread-affinity check always passes. Added `Log.w`
+   in the prepare catch for future visibility.
+2. **TIME_UNSET → NaN coercion.** Progress emit now sends `Double.NaN`
+   when `ep.duration == C.TIME_UNSET` instead of the raw `Long.MIN_VALUE`
+   sentinel — JS Number.isFinite guards now work.
+3. **`emitProgress()` on STATE_READY.** Pushes duration/position to JS
+   the moment the timeline resolves, even before the user taps play —
+   total-time + scrub-bar now correct on first render.
+4. **ScrubBar NaN-aware percentages.** With NaN duration, fall back to
+   0 % fills (not the previous saturating `safeDuration=1` which
+   misreported playback as ended).
+5. **Authoritative duration via route param.** `HistoryScreen.onRowTap`
+   now passes `durationMs` (mirrors `recordings.duration_ms`) to
+   PlayerScreen, used as the initial total-time seed. Necessary because
+   ExoPlayer can't derive duration from HumynCapture's fragmented MP4
+   output (see Finding 9 below).
+6. **Drag-to-seek via PanResponder.** Replaced the v2-deferred
+   tap-to-midpoint stub with a real drag-to-seek wrapper (`hitSlop=12`
+   on a 24 px-tall transparent grip over the 4 px visible track).
+   Drag computes delta from `e.nativeEvent.pageX - pressOriginPageX`
+   because RN 0.83 + Fabric's `gestureState.dx` was confirmed via
+   diagnostic logging to stay at 0 across move events. Drag logic
+   verified end-to-end on device.
+
+### What still doesn't work (deferred to Findings)
+
+- **`gestureState.dx === 0` on RN 0.83 Fabric** — diagnosed but the
+  `pageX`-delta workaround makes it moot for the scrub bar. (Not
+  filed as a finding — the workaround stands.)
+- **Seek lands at byte 0 even when ExoPlayer reports the right
+  position** — root-caused to HumynCapture's fragmented MP4 output
+  carrying no `sidx` / `mfra` seek-index boxes. media3 1.10's
+  `FragmentedMp4Muxer.Builder` exposes no API to emit either; the
+  jar strings show literally zero references to "sidx" or "mfra".
+  Switching to flat MP4 would violate `idea-brief.md §6.6`'s
+  mid-recording crash-resilience guarantee. **Filed as Finding 9 —
+  needs a Phase 3 follow-on plan (finalize-time remux step).**
+- **"View only — not downloadable." sticks** — design-spec §14 +
+  06-UI-SPEC line 291 both spec a persistent footer; owner wants
+  toast-with-5s-fadeout. **Filed as Finding 8.**
 
 ---
 
@@ -115,6 +137,24 @@ until then so the next session has one source of truth.**
    behavior opens the History row (which doesn't exist server-side yet
    if the upload is still pending) and shows HIST-04 empty state. Not
    a Phase 6 issue; Phase 5 D-10 wiring decision.
+8. **Player "View only — not downloadable." footer sticks** — owner
+   wants toast-with-5s-fadeout; design-spec §14 + 06-UI-SPEC line 291
+   spec it as a persistent footer (12 / `text2` style on dark =
+   white@60 %). Owner-vs-spec divergence; defer to a UI/copy revision
+   plan. **Found 2026-05-14 §5 close-out.**
+9. **Player drag-to-seek lands at byte 0** — ExoPlayer's
+   `seekTo(positionMs)` updates the internal `currentPosition` to the
+   target ms, then snaps back to byte 0 because the recording's
+   fragmented MP4 (Plan 03-04 / CAP-02 / `idea-brief.md §6.6`) carries
+   no `sidx` or `mfra` seek-index boxes. media3 1.10.0's
+   `FragmentedMp4Muxer.Builder` exposes no API to emit either (jar
+   strings: zero "sidx"/"mfra" references). Switching to flat MP4
+   violates the mid-recording crash-resilience constraint. **Needs a
+   Phase 3 follow-on plan: a finalize-time remux step (read fmp4 →
+   write flat MP4 with proper moov/sample-tables; adds ~5–10 s +
+   transient disk doubling per recording). The PlayerScreen drag-to-
+   seek wiring is correct and will start working the moment the
+   recording side emits seekable MP4s.** Found 2026-05-14 §5 close-out.
 
 ---
 

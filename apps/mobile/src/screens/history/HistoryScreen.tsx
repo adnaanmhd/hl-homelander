@@ -317,7 +317,11 @@ export function HistoryScreen(): React.JSX.Element {
   const onRowTap = useCallback(
     (r: HistoryRowItem) => {
       logEvent('history_row_opened', { recording_id: r.id });
-      navigation.navigate('Player', { recordingId: r.id, taskName: r.taskName });
+      navigation.navigate('Player', {
+        recordingId: r.id,
+        taskName: r.taskName,
+        durationMs: r.durationMs,
+      });
     },
     [navigation],
   );
