@@ -4,19 +4,25 @@ slug: tasks-history-home-tiles-lexical-search
 type: smoke-walk-resume
 canonical: false
 created: 2026-05-14
-status: reopened-for-06-12
-closed_at: null
+status: closed
+closed_at: 2026-05-14
 closed_commit: null
 ---
 
 # Phase 6 manual smoke — resume handoff
 
-> **REOPENED 2026-05-14** during owner §7 review. Walk had signed at
-> HEAD `40040fe` but the owner flagged 4 new cosmetic gaps + promoted
-> the Tasks-tab pull-to-refresh + the seek-deferral. All findings are
-> captured in `06-COSMETIC-GAPS.md`; cleanup work is scoped in
-> `06-12-PLAN.md`. **Sign-off flips back to YES only after Plan 06-12
-> lands.** Pick-up point: execute `06-12-PLAN.md` end-to-end.
+> **CLOSED 2026-05-14.** Plan 06-12 cosmetic cleanup landed (commits
+> `7a55e0c`, `a55d943`, `4bec668`, `a8664dd`, `10c6d26`). Owner spot-
+> check on Pixel 10a green across all 5 surfaces. `06-MANUAL-SMOKE.md`
+> §7 sign-off flipped to **YES**. One new finding (14 — Home YOUR
+> CONTRIBUTION right-tile has no unit label) logged in
+> `06-COSMETIC-GAPS.md`, deferred to Phase 7. Phase 6 closes.
+>
+> Historical reopen note (2026-05-14): Walk had originally signed at
+> HEAD `40040fe` but the owner reopened §7 to add 4 new cosmetic gaps +
+> promoted the Tasks-tab pull-to-refresh + the seek-deferral. All
+> findings captured in `06-COSMETIC-GAPS.md`; cleanup scoped in
+> `06-12-PLAN.md`. That cleanup is now done.
 
 ---
 
