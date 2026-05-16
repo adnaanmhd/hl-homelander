@@ -473,12 +473,27 @@ export default function HomeScreen(): React.JSX.Element {
               accessibilityRole="button"
               accessibilityLabel="pending-uploads-tile"
               onPress={() => {
-                // Plan 06-12 follow-on (Finding 7) — Phase 5 D-10 owns the
-                // tap-to-retry kick. Previously this also navigated to the
-                // History tab, which surfaced HIST-04's empty state because
-                // a pending upload has no server-side row yet. Drop the
-                // navigation; just kick the drain.
-                void HumynUpload.drainNowSafe().catch(() => undefined);
+                // Multi-purpose tap (owner directive 2026-05-16):
+                //   1) Revive any DEAD_LETTER rows via the SAFE primitive —
+                //      `drainNow()` skips dead-letter rows
+                //      (UploadCoordinator.kt:206-213), so a tap without this
+                //      is a no-op for the rows that need help.
+                //      `reviveDeadLetterSafe` is the safe primitive (NOT
+                //      `reupload`, which has a FULL-RESET footgun — see
+                //      `.planning/debug/resolved/uploads-stuck-multi-segment.md`).
+                //   2) Kick the drain.
+                //   3) Navigate to the History tab, which now merges in-flight
+                //      device-queue rows alongside server rows and renders
+                //      progress bars on actively-uploading entries.
+                void (async () => {
+                  for (const r of pendingRows) {
+                    if (r.state === 'dead-letter') {
+                      await HumynUpload.reviveDeadLetterSafe(r.recordingId);
+                    }
+                  }
+                  await HumynUpload.drainNowSafe().catch(() => undefined);
+                })();
+                navigation.navigate('MainTabs', { screen: 'History' });
               }}
               style={styles.card}
             >

@@ -50,7 +50,11 @@ import Text from '../../ui/primitives/Text';
 import { TopBar } from '../../components/TopBar';
 import { useTabTopBarProps } from '../../hooks/useTabTopBarProps';
 import { colors, spacing, typography } from '../../ui/tokens';
-import { HistoryRow, type HistoryRowItem } from '../../components/HistoryRow';
+import {
+  HistoryRow,
+  type HistoryRowItem,
+  type HistoryRowDeviceState,
+} from '../../components/HistoryRow';
 import { HistoryDayHeader } from '../../components/HistoryDayHeader';
 import { FilterChip } from '../../components/FilterChip';
 import { FilterSheet } from '../shared/FilterSheet';
@@ -60,8 +64,22 @@ import { fetchRecordings } from '../../services/recordingsApi';
 import { groupByDay, type GroupableRow } from '../../services/historyGrouping';
 import { readEntry, type ThumbnailLedgerEntry } from '../../services/thumbnailLedger';
 import { fetchTasks } from '../../services/tasksApi';
-import { HumynUpload, onConnectivityChanged } from '../../native/HumynUpload';
+import {
+  HumynUpload,
+  onConnectivityChanged,
+  onUploadQueueChanged,
+  onUploadProgress,
+  type UploadProgressEvent,
+  type UploadQueueRow,
+} from '../../native/HumynUpload';
+import { decodeGoogleSubFromJwt } from '../../lib/jwtSub';
 import { logEvent } from '../../util/analytics';
+
+/** Map the on-device `UploadQueueRow.state` to the HistoryRow device-state type — strip 'verified' (those rows are already cleared from the queue / fully reflected by server qaStatus). */
+function toDeviceState(s: UploadQueueRow['state']): HistoryRowDeviceState | undefined {
+  if (s === 'verified') return undefined;
+  return s;
+}
 
 const PAGE_LIMIT = 30;
 
@@ -150,6 +168,38 @@ export function HistoryScreen(): React.JSX.Element {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [filterOpen, setFilterOpen] = useState<boolean>(false);
   const [taskNameById, setTaskNameById] = useState<Record<string, string>>({});
+  // Owner-directive 2026-05-16 — History merges in-flight device-queue rows
+  // alongside server rows so the Home tile's "tap to view all" leads here and
+  // the user sees uploading segments with live progress bars, not just the
+  // already-verified set. `deviceRows` mirrors HumynUpload.getQueue() filtered
+  // to the current user; `progressById` carries byte-progress percent for the
+  // actively uploading recordingId. Same subscription pattern as HomeScreen
+  // (lines 245-265) — keep them in sync.
+  const jwt = useAppStore((s) => s.jwt);
+  const currentSub = useMemo(() => decodeGoogleSubFromJwt(jwt), [jwt]);
+  const [deviceRows, setDeviceRows] = useState<UploadQueueRow[]>([]);
+  const [progressById, setProgressById] = useState<Record<string, number>>({});
+  useEffect(() => {
+    let mounted = true;
+    HumynUpload.getQueueSafe()
+      .then((all) => {
+        if (mounted) setDeviceRows(all.filter((r) => r.ownerUserId === currentSub));
+      })
+      .catch(() => undefined);
+    const sub = onUploadQueueChanged((all) => {
+      if (mounted) setDeviceRows(all.filter((r) => r.ownerUserId === currentSub));
+    });
+    const subProgress = onUploadProgress((e: UploadProgressEvent) => {
+      if (!mounted) return;
+      const pct = e.bytesTotal > 0 ? (e.bytesUploaded / e.bytesTotal) * 100 : 0;
+      setProgressById((prev) => ({ ...prev, [e.recordingId]: pct }));
+    });
+    return () => {
+      mounted = false;
+      sub.remove();
+      subProgress.remove();
+    };
+  }, [currentSub]);
 
   // HOME/HIST-10 offline signal — Plan 06-12 follow-on (Finding 6, owner
   // directive 2026-05-14) wires to the native NetworkMonitor's connectivity
@@ -298,10 +348,48 @@ export function HistoryScreen(): React.JSX.Element {
   // signature `groupByDay` requires (purely a structural-typing
   // accommodation, no runtime cost).
   type HistoryRowGroupable = HistoryRowItem & GroupableRow;
-  const rows: HistoryRowGroupable[] = useMemo(
-    () => rawRows.map((r) => toRowItem(r, taskNameById) as HistoryRowGroupable),
-    [rawRows, taskNameById],
-  );
+  // Merge: server rows ⊕ device-queue rows that aren't on server yet.
+  //   - Server rows (`rawRows`) are authoritative on `qaStatus`.
+  //   - Device-only rows (no /init yet — common while a session is paused
+  //     mid-recording or just after a force-stop) are SYNTHESIZED from the
+  //     `UploadQueueRow` so the user sees their in-flight uploads here, not
+  //     just on the Home tile.
+  //   - For rows on BOTH sides, the device's live state takes precedence on
+  //     the chip variant (handled inside HistoryRow via `deviceState` prop) —
+  //     the server may say `pending` for several seconds before the device
+  //     marks the row `uploading` and starts emitting progress ticks.
+  const deviceRowsById = useMemo(() => {
+    const map: Record<string, UploadQueueRow> = {};
+    for (const r of deviceRows) map[r.recordingId] = r;
+    return map;
+  }, [deviceRows]);
+  const rows: HistoryRowGroupable[] = useMemo(() => {
+    const serverIds = new Set(rawRows.map((r) => r.recording_id));
+    const serverRows = rawRows.map((r) => toRowItem(r, taskNameById) as HistoryRowGroupable);
+    // Synthesize a HistoryRowItem for every device-queue row that isn't on
+    // the server yet AND isn't already in a `verified` end-state (those are
+    // about to be cleared by the verified event; the server row covers them).
+    const synthesized: HistoryRowGroupable[] = deviceRows
+      .filter((r) => !serverIds.has(r.recordingId) && r.state !== 'verified')
+      .map(
+        (r): HistoryRowGroupable => ({
+          id: r.recordingId,
+          taskName: taskNameById[r.taskId] ?? 'Recording',
+          durationMs: (r.durationSeconds ?? 0) * 1000,
+          createdAt: new Date(r.enqueuedAt).toISOString(),
+          // qaStatus is a stub for synthesized rows — the chip variant is
+          // overridden by `deviceState` further down. We use 'pending' since
+          // a device-queued, server-unknown row IS pre-`/init` and thus
+          // logically pending.
+          qaStatus: 'pending',
+          verifiedAtIso: null,
+        }),
+      );
+    // Newest first (server already returns descending; sort merged set).
+    return [...synthesized, ...serverRows].sort((a, b) =>
+      a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0,
+    );
+  }, [rawRows, deviceRows, taskNameById]);
 
   // HIST-02 — group into SectionList sections per UI-SPEC §History.
   const sections = useMemo(() => groupByDay<HistoryRowGroupable>(rows), [rows]);
@@ -343,6 +431,18 @@ export function HistoryScreen(): React.JSX.Element {
     },
     [navigation],
   );
+
+  // ---------------------------------------------------------------------
+  // Failed-row Retry tap — only fires for rows with qa_status ∈
+  // {'hash-mismatch', 'rejected'} (the chip-failed variant). Routes through
+  // HumynUpload.reupload() which the coordinator dispatches to
+  // POST /recordings/:id/reupload (server accepts hash-mismatch → mints
+  // fresh upload ids → device re-PUTs every part → /finalize → re-verify).
+  // ---------------------------------------------------------------------
+  const onRowRetry = useCallback((r: HistoryRowItem) => {
+    logEvent('history_row_retry', { recording_id: r.id, qa_status: r.qaStatus });
+    void HumynUpload.reupload(r.id).catch(() => undefined);
+  }, []);
 
   // ---------------------------------------------------------------------
   // Empty-state — HIST-04 (no filter, no rows) vs HIST-05 (filter active,
@@ -439,6 +539,14 @@ export function HistoryScreen(): React.JSX.Element {
             ledgerEntry={ledgerByRecordingId[item.id] ?? null}
             offline={offline}
             onTap={onRowTap}
+            onRetry={onRowRetry}
+            {...(deviceRowsById[item.id]
+              ? (() => {
+                  const ds = toDeviceState(deviceRowsById[item.id]!.state);
+                  return ds ? { deviceState: ds } : {};
+                })()
+              : {})}
+            {...(progressById[item.id] != null ? { progressPct: progressById[item.id]! } : {})}
           />
         )}
         renderSectionHeader={({ section }) => <HistoryDayHeader title={section.title} />}

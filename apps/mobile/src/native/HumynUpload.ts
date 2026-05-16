@@ -107,6 +107,24 @@ interface HumynUploadNativeModule {
    */
   reupload(recordingId: string): Promise<void>;
   /**
+   * SAFE dead-letter revival primitive — preferred over [reupload] for the
+   * cold-start auto-revive sweep + the Home pending-uploads tile tap.
+   * Operates ONLY on rows currently in DEAD_LETTER state; no-op for every
+   * other state (so a sweep never silently mutates an in-flight row).
+   *
+   * Performs the LOCAL-RESET branch unconditionally: state → UPLOADING,
+   * deadLetterReason cleared; uploadId / imuUploadId / parts / etags / reupload
+   * flag are KEPT UNCHANGED. The drainer's `when` then takes either /parts
+   * (uploadId set — preserves DONE part ETags, UP-04) or the idempotent /init
+   * self-heal (uploadId null — re-presigns against the existing s3UploadId).
+   *
+   * Closes the FULL-RESET footgun in [reupload]: when called on a row whose
+   * `reupload=true` is already set, [reupload] destructively wipes uploadId
+   * and every cached part ETag → the drainer pounds /reupload → 409 storm.
+   * Trail: `.planning/debug/resolved/uploads-stuck-multi-segment.md`.
+   */
+  reviveDeadLetter(recordingId: string): Promise<void>;
+  /**
    * Wave-1.5 Item 8 — cold-start drain kick (no unpause). Used by
    * `installUploadReconcile()` on boot: if `getQueueSafe()` returns a row in
    * {PENDING, UPLOADING}, kick the drainer. Distinct from `resume()`: does NOT
@@ -169,6 +187,21 @@ export const HumynUpload = {
   clearVerified: (recordingIds: string[]): Promise<void> => ensure().clearVerified(recordingIds),
   /** Flip a row into re-upload mode (UP-16). Throws if the module is absent. */
   reupload: (recordingId: string): Promise<void> => ensure().reupload(recordingId),
+  /**
+   * SAFE dead-letter revival — only mutates DEAD_LETTER rows; no-op otherwise.
+   * Preferred over [reupload] for the cold-start sweep + Home tile tap.
+   * Throws if the module is absent — use [reviveDeadLetterSafe] from boot
+   * paths (the boot-time variants never throw).
+   */
+  reviveDeadLetter: (recordingId: string): Promise<void> => ensure().reviveDeadLetter(recordingId),
+  /** Boot-safe `reviveDeadLetter()` — never throws; no-op when the module is unavailable. */
+  reviveDeadLetterSafe: async (recordingId: string): Promise<void> => {
+    try {
+      await ensure().reviveDeadLetter(recordingId);
+    } catch {
+      /* no native module / JSDOM — non-fatal */
+    }
+  },
   /**
    * Wave-1.5 Item 8 — kick the drainer (no unpause). Throws if the module is
    * absent. Distinct from `resume()`: does NOT flip the paused flag.

@@ -557,6 +557,32 @@ class UploadCoordinator(
         // POST /recordings/:id/reupload — body is just { partsCount } (Plan 05-05).
         val body = JSONObject().put("partsCount", partsCount)
         executeTracked(authedJsonRequest("$baseUrl/recordings/${row.recordingId}/reupload", body, row.reuploadIdempotencyKey)).use { resp ->
+            // 409 self-heal: the server gates /reupload on qa_status='hash-mismatch'.
+            // A 409 here means the row is in some OTHER state — almost always still
+            // 'pending' — because a stray Retry tap on a non-DEAD_LETTER row, or a
+            // re-delivered `re-upload` server event, flipped row.reupload=true even
+            // though the server never reached hash-mismatch. Without this self-heal
+            // the row is permanently trapped: drain → /reupload → 409 → 3-retry
+            // transient backoff → next row → comes back → 409 again, forever (mixed
+            // with 429s from the per-user 30/min rate limiter on /reupload).
+            //
+            // Clear the flag here so the NEXT drain takes the /init branch — /init
+            // is idempotent for an existing pending row (the SELECT-first guard at
+            // init.ts:270-286 returns the SAME s3UploadId via replyExistingRowIdempotent),
+            // every part is re-PUT, /finalize is called, the row drains cleanly.
+            // The local mp4/csv/json are still on disk so a re-PUT is always possible.
+            //
+            // We still throw IOException so the CURRENT drain attempt is treated as
+            // a transient failure and the per-row backoff fires before the /init
+            // retry — keeps the server from getting hammered.
+            //
+            // Trail: .planning/debug/resolved/uploads-stuck-multi-segment.md
+            // (2026-05-16 demo) — the 17-row /reupload→409 storm closed by this fix.
+            if (resp.code == 409) {
+                row.reupload = false
+                queueStore.upsert(row)
+                throw IOException("/recordings/${row.recordingId}/reupload -> 409 (cleared row.reupload — next drain takes the /init self-heal path)")
+            }
             if (!resp.isSuccessful) throw IOException("/recordings/${row.recordingId}/reupload -> ${resp.code}")
             return parseInitResponse(resp.body?.string().orEmpty(), "/recordings/:id/reupload")
         }

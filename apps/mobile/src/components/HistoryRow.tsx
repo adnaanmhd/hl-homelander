@@ -105,6 +105,21 @@ export interface HistoryRowItem {
   verifiedAtIso?: string | null;
 }
 
+/**
+ * On-device upload queue state for this row (when the row has a corresponding
+ * `UploadQueueRow` on the device — i.e. the upload is in-flight or stalled).
+ * Mirrors `UploadQueueRow['state']` literals so HistoryScreen can pass it
+ * through without an extra mapping layer. Optional — server-only rows
+ * (verified rows whose local queue entry was cleared on the verified event)
+ * omit it and fall back to the server `qaStatus` for the chip variant.
+ */
+export type HistoryRowDeviceState =
+  | 'pending'
+  | 'uploading'
+  | 'finalizing'
+  | 'awaiting-verify'
+  | 'dead-letter';
+
 export interface HistoryRowProps {
   row: HistoryRowItem;
   /** Per-recording MMKV overlay (Plan 06-04). Null when missing (D-04 fallback). */
@@ -113,13 +128,50 @@ export interface HistoryRowProps {
   offline: boolean;
   /** Tap handler — opens the Player route (Plan 06-10 owns the route registration). */
   onTap: (row: HistoryRowItem) => void;
+  /** Optional Retry handler — invoked when the user taps the "Upload failed — Retry" affordance on a failed row. */
+  onRetry?: (row: HistoryRowItem) => void;
+  /**
+   * Optional on-device upload state — overrides the server `qaStatus` for the
+   * chip + progress-bar render. Set by HistoryScreen when a row has a live
+   * `UploadQueueRow` entry. A server-side `verified` row whose device queue
+   * entry was already cleared (the common steady state) omits this and falls
+   * back to `qaStatus`.
+   */
+  deviceState?: HistoryRowDeviceState;
+  /**
+   * Optional 0..100 byte-progress percent for an actively uploading row.
+   * Plumbed through from `HumynUpload.onUploadProgress`. Renders an inline
+   * determinate-progress bar — mirrors the Home Pending-Uploads-tile pattern
+   * verbatim (same track / fill styles, same Math.max/min/round clamp).
+   */
+  progressPct?: number;
 }
 
 /**
- * Map the row's `qa_status` (+ device `offline` signal) to one of the five
- * UI-SPEC §13 conceptual chip identifiers. Pure function.
+ * Map the row's `qa_status` (+ device `offline` signal + optional on-device
+ * upload `deviceState`) to one of the five UI-SPEC §13 conceptual chip
+ * identifiers. Pure function.
+ *
+ * When `deviceState` is set, it OVERRIDES the server `qaStatus` for the
+ * variant decision — the device is the authoritative source for in-flight
+ * upload progress (the server only learns about a row at `/init` and may lag
+ * behind device state by seconds during a drain). `qaStatus` is still
+ * consulted when `deviceState` is absent (the common steady state for
+ * verified rows whose device queue entry was cleared by the verified event).
  */
-export function chipVariant(qa: HistoryRowItem['qaStatus'], offline: boolean): HistoryChipVariant {
+export function chipVariant(
+  qa: HistoryRowItem['qaStatus'],
+  offline: boolean,
+  deviceState?: HistoryRowDeviceState,
+): HistoryChipVariant {
+  // Device state takes precedence — it reflects the in-flight reality before
+  // the server has caught up (or, for dead-letter, before any operator action).
+  if (deviceState != null) {
+    if (deviceState === 'dead-letter') return 'chip-failed';
+    if (deviceState === 'awaiting-verify') return 'chip-verifying';
+    if (offline) return 'chip-paused-no-wifi';
+    return 'chip-progress'; // pending / uploading / finalizing
+  }
   if (qa === 'verified') return 'chip-success';
   if (qa === 'hash-mismatch' || qa === 'rejected') return 'chip-failed';
   if (offline && (qa === 'pending' || qa === 'uploaded')) return 'chip-paused-no-wifi';
@@ -172,9 +224,17 @@ export function HistoryRow({
   ledgerEntry,
   offline,
   onTap,
+  onRetry,
+  deviceState,
+  progressPct,
 }: HistoryRowProps): React.JSX.Element {
-  const variant = useMemo(() => chipVariant(row.qaStatus, offline), [row.qaStatus, offline]);
+  const variant = useMemo(
+    () => chipVariant(row.qaStatus, offline, deviceState),
+    [row.qaStatus, offline, deviceState],
+  );
   const baseVariant = toBaseChipVariant(variant);
+  const isLiveUploading = deviceState === 'uploading' && progressPct != null;
+  const clampedPct = progressPct != null ? Math.max(0, Math.min(100, Math.round(progressPct))) : 0;
   const meta = useMemo(
     () => metaDateLine(row.createdAt, row.durationMs),
     [row.createdAt, row.durationMs],
@@ -236,7 +296,10 @@ export function HistoryRow({
           {meta}
         </Text>
         <View style={styles.chipRow}>
-          <UploadStatusChip variant={baseVariant} />
+          <UploadStatusChip
+            variant={baseVariant}
+            {...(isLiveUploading ? { percent: clampedPct } : {})}
+          />
           {showUploadedAt ? (
             <Text
               variant="caption"
@@ -247,13 +310,21 @@ export function HistoryRow({
             </Text>
           ) : null}
           {showFailedRetry ? (
-            <Text
-              variant="caption"
+            // Nested Pressable — captures the tap so the outer row Pressable
+            // (which navigates to Player) does NOT fire. RN's responder system
+            // gives the inner Pressable precedence; no explicit stopPropagation
+            // needed.
+            <Pressable
+              accessibilityRole="button"
               accessibilityLabel="history-row-failed-retry"
-              style={styles.chipSidecarLabelAccent}
+              onPress={() => onRetry?.(row)}
+              hitSlop={8}
+              disabled={onRetry == null}
             >
-              Upload failed — Retry
-            </Text>
+              <Text variant="caption" style={styles.chipSidecarLabelAccent}>
+                Upload failed — Retry
+              </Text>
+            </Pressable>
           ) : null}
           {showPausedNoWifi ? (
             <Text
@@ -274,6 +345,18 @@ export function HistoryRow({
             </Text>
           ) : null}
         </View>
+        {/* Live upload progress bar — mirrors the Home Pending-Uploads-tile
+            track/fill pattern verbatim. Only rendered when the row is
+            actively uploading on device AND we have a byte-progress tick to
+            paint. */}
+        {isLiveUploading ? (
+          <View accessibilityLabel="history-row-progress-track" style={styles.progressTrack}>
+            <View
+              accessibilityLabel="history-row-progress-fill"
+              style={[styles.progressFill, { width: `${clampedPct}%` }]}
+            />
+          </View>
+        ) : null}
         {/* HIST-11 — disabled feedback-coming-soon slot. NOT pressable,
             NOT a real interactive control; just an inline trailing badge per
             UI-SPEC §13. No onPress; rendered as a plain Text so the disabled
@@ -345,6 +428,21 @@ const styles = StyleSheet.create({
   chipSidecarLabelAccent: {
     color: colors.accent,
     fontFamily: typography.fontFamily.semibold,
+  },
+  // Mirrors HomeScreen.tsx's `progressTrack` / `progressFill` shape verbatim
+  // (height 3, line bg, chipProgressText fill, full-radius). Inset slightly
+  // from the chip row so the bar reads as part of THIS row, not as a divider.
+  progressTrack: {
+    marginTop: spacing.s,
+    height: 3,
+    backgroundColor: colors.line,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: 3,
+    backgroundColor: colors.chipProgressText,
+    borderRadius: 999,
   },
   comingSoon: {
     marginTop: spacing.xs,
