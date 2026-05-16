@@ -367,6 +367,57 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    /**
+     * SAFE dead-letter revival primitive — preferred over [reupload] for the
+     * cold-start auto-revive sweep (`uploadReconcile.ts`) + the Home pending-
+     * uploads tile tap. Closes the FULL-RESET footgun on [reupload]: when the
+     * row already has `reupload == true` (set by a prior stray Retry tap on a
+     * non-DEAD_LETTER row, or a re-delivered server `re-upload` event),
+     * [reupload]'s else-branch destructively wipes `uploadId` + every cached
+     * part ETag and the drainer then pounds `/recordings/:id/reupload` until
+     * the server's per-user rate limit kicks in. See debug session
+     * `.planning/debug/resolved/uploads-stuck-multi-segment.md`.
+     *
+     * Unlike [reupload], this operates ONLY on `DEAD_LETTER` rows. It performs
+     * the LOCAL-RESET branch UNCONDITIONALLY: state → UPLOADING,
+     * deadLetterReason cleared. `uploadId` / `imuUploadId` / `videoParts` /
+     * `imuParts` / `metadataPut` / `reupload` are KEPT UNCHANGED so the
+     * drainer's `when` (UploadCoordinator.kt:318-322) takes either:
+     *   - `/parts` re-presign (when uploadId is set — preserves DONE part ETags,
+     *     UP-04), OR
+     *   - the idempotent `/init` self-heal (when uploadId is null — re-mints
+     *     against the row's existing s3UploadId via the SELECT-first guard).
+     *
+     * No-op (resolves null) if the row doesn't exist OR is NOT in DEAD_LETTER
+     * state (so a sweep over a mixed queue never silently mutates an UPLOADING
+     * row mid-transfer).
+     */
+    @ReactMethod
+    fun reviveDeadLetter(recordingId: String, promise: Promise) {
+        bgExecutor.execute {
+            try {
+                val row = queueStore.read().find { it.recordingId == recordingId }
+                if (row == null || row.state != UploadState.DEAD_LETTER) {
+                    promise.resolve(null)
+                    return@execute
+                }
+                row.state = UploadState.UPLOADING
+                row.deadLetterReason = null
+                queueStore.upsert(row)
+                emitQueueChanged()
+                runCatching { coordinator.drain() }
+                signalUploadActiveBestEffort()
+                promise.resolve(null)
+            } catch (t: Throwable) {
+                promise.reject(
+                    "UPLOAD_REVIVE_DEAD_LETTER_FAILED",
+                    t.message ?: "reviveDeadLetter failed",
+                    t,
+                )
+            }
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Battery-optimization exemption + OEM autostart (UP-09) — drives the
     // BatteryOptimizationScreen first-upload walkthrough.

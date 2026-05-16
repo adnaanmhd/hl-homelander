@@ -352,6 +352,10 @@ export default async function recordingsInitRoute(app: FastifyInstance): Promise
           flavor,
           s3UploadId: videoMu.UploadId,
           partsCount: body.partsCount,
+          // /init mints the multipart upload; mirror /reupload's behavior of
+          // stamping uploadStartedAt here so the column reflects when the
+          // server first handed the client signed URLs to push bytes.
+          uploadStartedAt: new Date(),
           // UP-18 — the client sends ip_address: null; the server populates it.
           // req.ip honors Fastify's trustProxy setting (a no-op until the prod
           // ALB is fronted with trustProxy configured to the proxy CIDR — until

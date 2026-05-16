@@ -84,7 +84,22 @@ export async function reconcileOnce(): Promise<number> {
   // Wrapped in try/catch + boot-safe via drainNowSafe — never crashes boot.
   try {
     const queue = await HumynUpload.getQueueSafe();
-    const hasStale = queue.some((r) => r.state === 'pending' || r.state === 'uploading');
+    // Dead-letter auto-revive (the "missing recovery step" for client-side
+    // dead-letters). A row hits DEAD_LETTER after 6 part-PUT retries
+    // (~127 s wall-clock) on a transient like "Socket closed". `drainNow()`
+    // deliberately SKIPS dead-letter rows (UploadCoordinator.kt:206-213), so
+    // without an explicit revive a single flaky window during a long session
+    // can strand many rows permanently — requiring per-row taps on
+    // PendingUploadsScreen. Revive them here on every cold start / AppState→
+    // active before the drain kick. We use `reviveDeadLetterSafe` (NOT
+    // `reupload`) — the latter has a FULL-RESET footgun when `row.reupload`
+    // was already set, see `.planning/debug/resolved/uploads-stuck-multi-segment.md`.
+    const deadLetters = queue.filter((r) => r.state === 'dead-letter');
+    for (const r of deadLetters) {
+      await HumynUpload.reviveDeadLetterSafe(r.recordingId);
+    }
+    const hasStale =
+      deadLetters.length > 0 || queue.some((r) => r.state === 'pending' || r.state === 'uploading');
     if (hasStale) {
       await HumynUpload.drainNowSafe();
     }

@@ -107,6 +107,7 @@ export const EVENT_NAMES = [
   'history_view',
   'history_filter_changed',
   'history_row_opened',
+  'history_row_retry',
 ] as const;
 
 export type EventName = (typeof EVENT_NAMES)[number];
