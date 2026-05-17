@@ -58,6 +58,51 @@ export interface SegmentCompleteEvent {
   thumbnailPath?: string | null;
 }
 
+/**
+ * Quick task 260517-p5g CAPTURE-QA-01..04 — emitted by the native
+ * FinalizeWorker when a segment fails one of the capture-quality gates
+ * (mean_fps < 28, MP4-track-header w<1920 || h<1080, videoFrameTimestamps
+ * < 2 entries) and is therefore canceled. The segment NEVER enters the
+ * upload queue; the RecordingScreen handler writes a History-row ledger
+ * entry then deletes the MP4 + CSV + metadata JSON bundle files from
+ * cacheDir (write-then-delete).
+ */
+export type SegmentCancelReason = 'fps_dropped' | 'resolution_dropped' | 'insufficient_frames';
+
+export interface SegmentCanceledEvent {
+  /** ULID for the canceled segment. */
+  segmentId: string;
+  /** ULID for the recording (per-segment, mirrors SegmentCompleteEvent). */
+  recordingId: string;
+  /** Task ID copied from the sidecar (so the History ledger entry can resolve task name). */
+  taskId: string;
+  /** YYYYMMDD_HHMMSS_NNN — for the History ledger filename field. */
+  filenameBase: string;
+  /** Absolute filesystem path to the segment's MP4 — to be unlinked AFTER the ledger write. */
+  mp4Path: string;
+  /** Absolute path to the IMU sidecar CSV — to be unlinked. */
+  csvPath: string;
+  /**
+   * Absolute path to the (never-written) metadata JSON — unlinked
+   * defensively; the FinalizeWorker cancel branch does NOT call
+   * `MetadataComposer.compose`, so the JSON file should not exist on
+   * disk, but the unlink is best-effort idempotent.
+   */
+  jsonPath: string;
+  /** Wallclock at session start — for the History row's createdAt. */
+  recordedAt: string;
+  /** Wall-clock duration even when truncated (the user still spent time). */
+  durationMs: number;
+  /** Reason code matching the native CancelReason taxonomy. */
+  reason: SegmentCancelReason;
+  /** Measured mean FPS — present only when reason === 'fps_dropped'. */
+  meanFps: number | null;
+  /** Muxed-track width — present only when reason === 'resolution_dropped'. */
+  width: number | null;
+  /** Muxed-track height — present only when reason === 'resolution_dropped'. */
+  height: number | null;
+}
+
 /** Emitted on session-end after the final segment finalizes. */
 export interface SessionStopEvent {
   sessionId: string;
