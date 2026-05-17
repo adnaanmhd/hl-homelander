@@ -70,7 +70,7 @@ object FinalizeWorker {
             //
             // Gate ordering — deterministic per scope spec:
             //   Step 1.5: videoFrameTimestamps.size < 2 → InsufficientFrames
-            //   Step 1.6: meanFps < 28.0                → FpsDropped
+            //   Step 1.6: meanFps < 29.0                → FpsDropped
             //   Step 1.7: width < 1920 OR height < 1080 → ResolutionDropped
             //
             // FPS check runs BEFORE resolution check so simultaneous fps+res
@@ -269,12 +269,16 @@ object FinalizeWorker {
     ): CancelReason? {
         // Step 1.5: insufficient frames.
         if (videoTimestampsNs.size < 2) return CancelReason.InsufficientFrames
-        // Step 1.6: mean fps < 28.0 (fps wins over resolution).
+        // Step 1.6: mean fps < 29.0 (fps wins over resolution). Threshold
+        // tightened from 28.0 → 29.0 on 2026-05-17 after the Pixel-10a +
+        // Pixel-8a cancel-walk; healthy recordings on those devices
+        // stamped ~30 fps clean, so 29.0 catches genuine drops without
+        // flagging measurement noise around the LOCKED 30 fps target.
         val spanSeconds = (videoTimestampsNs.last() - videoTimestampsNs.first()).toDouble() / 1_000_000_000.0
         val meanFps = if (spanSeconds > 0.0) {
             (videoTimestampsNs.size - 1).toDouble() / spanSeconds
         } else 0.0
-        if (meanFps < 28.0) return CancelReason.FpsDropped(meanFps)
+        if (meanFps < 29.0) return CancelReason.FpsDropped(meanFps)
         // Step 1.7: muxed resolution.
         if (muxedWidth < 1920 || muxedHeight < 1080) {
             return CancelReason.ResolutionDropped(muxedWidth, muxedHeight)
@@ -487,7 +491,7 @@ sealed class CancelReason {
     abstract val code: String
 
     /**
-     * Mean FPS over the segment's frame timestamps fell below 28.0.
+     * Mean FPS over the segment's frame timestamps fell below 29.0.
      * `meanFps` is the measured value used to make the gating decision.
      */
     data class FpsDropped(val meanFps: Double) : CancelReason() {

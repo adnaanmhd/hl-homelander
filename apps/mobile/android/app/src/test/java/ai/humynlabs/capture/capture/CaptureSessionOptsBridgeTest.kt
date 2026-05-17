@@ -182,16 +182,12 @@ class CaptureSessionOptsBridgeTest {
     }
 
     @Test
-    fun `missing contributor name throws invalid_opts name`() {
+    fun `empty contributor name is accepted (2026-05-17 owner decision)`() {
+        // Profile name must not gate recording — the bridge accepts an empty
+        // name and passes it through to the sidecar JSON. Email stays
+        // required (see `missing contributor email throws invalid_opts email`
+        // below for the symmetric guard).
         val m = validMap()
-        // Replace the contributor sub-map with an empty-name variant —
-        // the JS-side guard in buildCaptureOpts (UAT 2026-05-13 gap
-        // closure, Plan 05-15) MUST be the first observable failure for
-        // an empty name; this test pins that the Kotlin bridge remains
-        // a defense-in-depth backstop (T-3.3-01) that fires identically
-        // if a malicious / buggy JS caller bypasses the JS guard and
-        // calls NativeModules.HumynCapture.start directly with an empty
-        // contributor.name.
         m.putMap(
             "contributor",
             JavaOnlyMap().apply {
@@ -202,12 +198,9 @@ class CaptureSessionOptsBridgeTest {
                 putBoolean("consent", true)
             },
         )
-        try {
-            CaptureSessionOptsBridge.fromBridge(m)
-            fail("should throw on empty contributor.name")
-        } catch (e: IllegalArgumentException) {
-            assertTrue("message=${e.message}", e.message!!.contains("invalid_opts: name"))
-        }
+        val opts = CaptureSessionOptsBridge.fromBridge(m)
+        assertEquals("", opts.contributor.name)
+        assertEquals("alice@example.com", opts.contributor.email)
     }
 
     @Test
