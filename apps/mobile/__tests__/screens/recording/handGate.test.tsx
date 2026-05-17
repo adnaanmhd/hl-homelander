@@ -114,6 +114,9 @@ vi.mock('../../../src/native/HumynCapture', () => ({
   stop: mockHcStop,
   onSegmentStart: mockHcOnSegmentStart,
   onSegmentComplete: mockHcOnSegmentComplete,
+  // Quick task 260517-p5g CAPTURE-QA-04 — new subscription. Reuses the
+  // shared mock-subscription factory so callers get a removable handle.
+  onSegmentCanceled: vi.fn(() => ({ remove: vi.fn() })),
   onSessionStop: mockHcOnSessionStop,
   onThermalAbort: mockHcOnThermalAbort,
   onError: mockHcOnError,
