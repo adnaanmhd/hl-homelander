@@ -97,9 +97,11 @@ vi.mock('../../src/services/recordingsApi', () => ({
   fetchRecordings: vi.fn(async () => ({ items: [], next_cursor: null })),
 }));
 
-// thumbnailLedger — HistoryScreen reads per-recording overlays.
+// thumbnailLedger — HistoryScreen reads per-recording overlays + (quick task
+// 260517-p5g CAPTURE-QA-05) every entry for canceled-row synthesis.
 vi.mock('../../src/services/thumbnailLedger', () => ({
   readEntry: vi.fn(() => null),
+  readAllEntries: vi.fn(() => []),
 }));
 
 // uploadReconcile — HomeScreen schedules reconcileOnce on focus.

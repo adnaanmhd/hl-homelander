@@ -89,6 +89,9 @@ vi.mock('../../src/services/recordingsApi', () => ({
 }));
 vi.mock('../../src/services/thumbnailLedger', () => ({
   readEntry: vi.fn(() => null),
+  // Quick task 260517-p5g CAPTURE-QA-05 — HistoryScreen now enumerates the
+  // ledger for canceled-row synthesis; mock the new export with an empty list.
+  readAllEntries: vi.fn(() => []),
 }));
 vi.mock('../../src/services/uploadReconcile', () => ({
   reconcileOnce: vi.fn(async () => 0),
