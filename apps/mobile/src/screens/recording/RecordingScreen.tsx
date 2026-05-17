@@ -79,6 +79,7 @@ import { decodeGoogleSubFromJwt } from '../../lib/jwtSub';
 import { shouldShowBatteryOptimizationPrompt } from '../onboarding/BatteryOptimizationScreen';
 import { setPendingUploadToast } from '../../state/uploadToastBus';
 import { writeEntry as writeThumbnailLedgerEntry } from '../../services/thumbnailLedger';
+import { handleSegmentCanceled } from './lib/handleSegmentCanceled';
 
 interface NavigationLike {
   goBack(): void;
@@ -804,9 +805,28 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         /* MMKV failure is best-effort — row falls back to D-04 overlay */
       }
     });
+
+    // Quick task 260517-p5g CAPTURE-QA-04..06 — subscribe to the native
+    // onSegmentCanceled event so a capture-quality-gate failure (mean_fps
+    // < 28, MP4-track-header w<1920 || h<1080, N<2) lands as a non-
+    // retryable History row rather than silently dropping the segment.
+    // The handler writes a History ledger entry FIRST, then deletes the
+    // bundle files (write-then-delete), and NEVER calls HumynUpload.enqueue.
+    // Logic is in `./lib/handleSegmentCanceled.ts` so it's unit-testable
+    // without mounting the screen.
+    const cancelSub = HumynCapture.onSegmentCanceled((e) => {
+      segMetaRef.current = { ...segMetaRef.current, recordingId: e.recordingId };
+      void handleSegmentCanceled(e, {
+        isPractice,
+        taskId,
+        writeLedgerEntry: writeThumbnailLedgerEntry,
+        unlink: (p) => RNFS.unlink(p),
+      });
+    });
     return () => {
       startSub.remove();
       completeSub.remove();
+      cancelSub.remove();
     };
   }, [isPractice, taskId]);
 

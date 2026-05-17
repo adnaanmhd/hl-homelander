@@ -244,14 +244,24 @@ vi.mock('../../../src/state/appStore', () => ({
     }),
 }));
 
-const { fetchRecordingsMock, fetchTasksMock, readEntryMock, computeRangeMock, groupByDayMock } =
-  vi.hoisted(() => ({
-    fetchRecordingsMock: vi.fn(),
-    fetchTasksMock: vi.fn(),
-    readEntryMock: vi.fn(),
-    computeRangeMock: vi.fn(),
-    groupByDayMock: vi.fn(),
-  }));
+const {
+  fetchRecordingsMock,
+  fetchTasksMock,
+  readEntryMock,
+  readAllEntriesMock,
+  computeRangeMock,
+  groupByDayMock,
+} = vi.hoisted(() => ({
+  fetchRecordingsMock: vi.fn(),
+  fetchTasksMock: vi.fn(),
+  readEntryMock: vi.fn(),
+  // Quick task 260517-p5g CAPTURE-QA-05 — HistoryScreen now reads the full
+  // ledger to synthesize canceled-segment rows. Default to empty for the
+  // existing tests; the canceled-row synthesis path has its own test.
+  readAllEntriesMock: vi.fn().mockReturnValue([]),
+  computeRangeMock: vi.fn(),
+  groupByDayMock: vi.fn(),
+}));
 
 vi.mock('../../../src/services/recordingsApi', () => ({
   fetchRecordings: fetchRecordingsMock,
@@ -264,6 +274,7 @@ vi.mock('../../../src/services/tasksApi', () => ({
 
 vi.mock('../../../src/services/thumbnailLedger', () => ({
   readEntry: readEntryMock,
+  readAllEntries: readAllEntriesMock,
 }));
 
 vi.mock('../../../src/services/timeRange', () => ({

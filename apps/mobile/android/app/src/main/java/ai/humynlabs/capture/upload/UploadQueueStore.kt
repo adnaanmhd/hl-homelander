@@ -137,11 +137,27 @@ class UploadQueueStore(private val context: Context) {
     }
 
     /**
-     * Add a row to the queue. REFUSES (silently, with a warning) any practice
-     * recording (D-08). Idempotent on `recordingId` — a re-enqueue of an
-     * already-present recording is a no-op.
+     * Add a row to the queue. REFUSES (silently, with a warning) any
+     * canceled segment (cancelReason != null — quick task 260517-p5g
+     * CAPTURE-QA-04) or practice recording (D-08). Idempotent on
+     * `recordingId` — a re-enqueue of an already-present recording is a
+     * no-op.
+     *
+     * The canceled-segment short-circuit is belt-and-braces: the JS-side
+     * `RecordingScreen.onSegmentCanceled` handler is the primary gate
+     * (it never calls `HumynUpload.enqueue` for canceled segments). This
+     * check catches a future native-side regression that ever constructs
+     * a canceled `UploadRow` directly.
      */
     fun enqueue(row: UploadRow) {
+        if (row.cancelReason != null) {
+            Log.w(
+                TAG,
+                "enqueue refused: canceled segment ${row.recordingId} " +
+                    "(reason=${row.cancelReason}) — never uploads (CAPTURE-QA-04)",
+            )
+            return
+        }
         if (isPracticeRow(row.mp4Path, row.taskId)) {
             Log.w(TAG, "enqueue refused: practice recording ${row.recordingId} — not uploaded (D-08)")
             return

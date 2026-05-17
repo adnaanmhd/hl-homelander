@@ -40,6 +40,17 @@ data class SidecarPayload(
     val contributorInfo: ContributorInfo,
     val startGate: StartGate,
     val captureDeviceInfoPartial: CaptureDeviceInfoPartial,
+    /**
+     * Quick task 260517-p5g CAPTURE-QA-03 — surface rotation captured at
+     * session start (one of `"landscape_left"` / `"landscape_right"`). Stamped
+     * into the canonical `video_metadata.json`'s `metadata.orientation` field
+     * by `MetadataComposer.compose()` (replaces the previous "landscape" literal).
+     *
+     * Backward-compatible — older sidecars on disk that pre-date this field
+     * deserialize via `SidecarManager.read`'s `optString` fallback to
+     * `"landscape_left"` (the safe default; see [SidecarManager.read]).
+     */
+    val recordedRotation: String = "landscape_left",
 )
 
 data class TaskInfoPartial(
@@ -135,6 +146,12 @@ object SidecarManager {
                     .put("ip_address", payload.captureDeviceInfoPartial.ipAddress ?: JSONObject.NULL)
                     .put("location", payload.captureDeviceInfoPartial.location ?: JSONObject.NULL),
             )
+            // Quick task 260517-p5g CAPTURE-QA-03 — recorded surface rotation
+            // for the segment, captured at session start. Stamped into
+            // metadata.orientation by MetadataComposer.compose. Backward-
+            // compatible: older sidecars without this key read as
+            // "landscape_left" via SidecarManager.read's optString fallback.
+            .put("recorded_rotation", payload.recordedRotation)
 
         // WR-11 fix — sidecar write uses the same `.partial → ATOMIC_MOVE`
         // pattern as MetadataComposer.writeAtomic. The previous direct
@@ -223,6 +240,14 @@ object SidecarManager {
                     if (cd.isNull("ip_address")) null else cd.getString("ip_address"),
                     if (cd.isNull("location")) null else cd.getString("location"),
                 ),
+                // Quick task 260517-p5g CAPTURE-QA-03 — backward-compatible:
+                // older sidecars (pre-2026-05-17) without this key default
+                // to "landscape_left" (the safe landscape orientation).
+                recordedRotation = if (json.has("recorded_rotation") && !json.isNull("recorded_rotation")) {
+                    json.getString("recorded_rotation")
+                } else {
+                    "landscape_left"
+                },
             )
         } catch (e: JSONException) {
             throw IllegalArgumentException("sidecar_corrupt", e)

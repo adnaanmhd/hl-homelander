@@ -55,6 +55,11 @@ class HumynCompatModule(reactContext: ReactApplicationContext) :
                     putBoolean("oisOff", result.oisOff)
                     putBoolean("hdrSdrForced", result.hdrSdrForced)
                     putString("encoderClipPath", result.encoderClipPath)
+                    // Quick task 260517-p5g CAPTURE-QA-02 — surface the 1920×1080
+                    // deliverability check so compatService.ts can fail-closed when
+                    // the encoder silently falls back to 720p (independent of the
+                    // separate KEY_WIDTH/HEIGHT codec-presence probe).
+                    putBoolean("resolutionDeliverable", result.resolutionDeliverable)
                 }
                 promise.resolve(map)
             } catch (t: Throwable) {

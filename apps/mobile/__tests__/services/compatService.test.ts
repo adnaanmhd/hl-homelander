@@ -60,11 +60,17 @@ vi.mock('react-native', () => ({
 }));
 
 // Default fixtures — happy path (all checks pass).
+//
+// Quick task 260517-p5g CAPTURE-QA-02 — the happy-path fixture now sets
+// `resolutionDeliverable: true` so `compat.resolution` passes. The
+// negative test (Test N below) flips it to false and asserts the
+// roll-up rejects the device.
 const HAPPY_ENCODER = {
   bFramePresent: false,
   oisOff: true,
   hdrSdrForced: true,
   encoderClipPath: '/tmp/x.mp4',
+  resolutionDeliverable: true,
 };
 const HAPPY_IMU = { sustainedHz: 200, p99IntervalMs: 6, samplesCollected: 6000 };
 const HAPPY_CAPS = {

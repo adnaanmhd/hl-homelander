@@ -61,6 +61,14 @@ export type UploadQueueRow = {
    * to plumb it through `UploadRow` / `rowToMap`.)
    */
   durationSeconds?: number;
+  /**
+   * Quick task 260517-p5g CAPTURE-QA-04 / CAPTURE-QA-05 — when set, this row
+   * represents a CANCELED segment that must NEVER be rendered as pending
+   * upload. The native `UploadQueueStore.enqueue` short-circuits canceled rows
+   * before they ever land on disk; the JS-side `PendingUploadsScreen` filters
+   * them out as a belt-and-braces backstop (defense-in-depth).
+   */
+  cancelReason?: 'fps_dropped' | 'resolution_dropped' | 'insufficient_frames';
 };
 
 /** Progress tick for one in-flight recording. */
