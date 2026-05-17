@@ -1,5 +1,10 @@
 package ai.humynlabs.capture.capture
 
+import android.media.MediaCodec
+import android.media.MediaCodecInfo
+import android.media.MediaExtractor
+import android.media.MediaFormat
+import android.os.Build
 import org.json.JSONObject
 import java.io.File
 
@@ -55,6 +60,20 @@ object MetadataComposer {
         val contributorInfo: ContributorInfo,
         val startGate: StartGate,
         val captureDeviceInfoPartial: CaptureDeviceInfoPartial,
+        /**
+         * Quick task 260517-p5g CAPTURE-QA-03 — surface rotation captured at
+         * session start. One of `"landscape_left"` (`Surface.ROTATION_90`) or
+         * `"landscape_right"` (`Surface.ROTATION_270`); when the device reports
+         * `ROTATION_0` / `ROTATION_180` despite the landscape lock the safe
+         * default is `"landscape_left"` (logged as a warning). Used by
+         * [compose] to stamp `metadata.orientation` truthfully instead of the
+         * previous "landscape" literal.
+         *
+         * Default `"landscape_left"` keeps existing test fixtures that
+         * pre-date this field passing — production code always passes an
+         * explicit value via `FinalizeWorker.adaptSidecar`.
+         */
+        val recordedRotation: String = "landscape_left",
     )
 
     data class TaskInfoPartial(
@@ -100,6 +119,43 @@ object MetadataComposer {
         val p99Ms: Double,
     )
 
+    /**
+     * Truth-source video shape gathered at finalize time (quick task
+     * 260517-p5g CAPTURE-QA-03). All spec-relevant video fields read off
+     * THIS struct rather than inline literals in [compose] — the encoder's
+     * `OUTPUT_FORMAT_CHANGED` MediaFormat snapshot + the MediaExtractor
+     * track-header read are the truth-source, never `idea-brief.md` §2.1
+     * constants.
+     */
+    data class VideoReport(
+        /** MediaExtractor `KEY_WIDTH` — the muxed track-header truth. */
+        val width: Int,
+        /** MediaExtractor `KEY_HEIGHT` — the muxed track-header truth. */
+        val height: Int,
+        /** Canonical codec token: `"hevc"` / `"h264"` / `<mime-stripped>`. */
+        val codec: String,
+        /** Encoder profile token: `"main"` / `"main10"` / `<other>`. */
+        val profile: String,
+        /** Encoder `OUTPUT_FORMAT` `KEY_BIT_RATE`; `null` when the encoder didn't report it (older APIs). */
+        val bitrateBps: Int?,
+        /** Configured target — `HevcEncoder.BIT_RATE` (the fallback when the encoder doesn't report). */
+        val bitrateBpsConfigured: Int,
+        /** `"cbr"` / `"vbr"` / `"cq"` derived from `KEY_BITRATE_MODE`. */
+        val bitrateModeToken: String,
+        /** GOP frames — `KEY_I_FRAME_INTERVAL_SEC * frameRate` (default 1 * 30 = 30). */
+        val gopFrames: Int,
+        /** Color standard token: `"bt709"` / `"bt2020"` / `"bt601"`. */
+        val colorStandardToken: String,
+        /** Color transfer token: `"sdr"` / `"hlg"` / `"pq"`. */
+        val colorTransferToken: String,
+        /** Color range token: `"limited"` / `"full"`. */
+        val colorRangeToken: String,
+        /** 8 (HEVC Main) or 10 (HEVC Main10). */
+        val colorDepthBits: Int,
+        /** Encoder `OUTPUT_FORMAT` `KEY_MAX_B_FRAMES`; `null` when unreported. */
+        val bFramesReported: Int?,
+    )
+
     /** Native-derived metrics gathered at finalize time. */
     data class FinalizeMetrics(
         val mp4Sha: String,
@@ -119,6 +175,22 @@ object MetadataComposer {
         val imuEndTimestampIso: String,
         val environment: String, // e.g. "residential"
         val timeOfDay: String,   // "day" | "night"
+        /**
+         * Measured mean FPS over the segment's frame timestamps —
+         * `(N - 1) / ((lastTs_ns - firstTs_ns) / 1e9)`. Quick task
+         * 260517-p5g CAPTURE-QA-01 / CAPTURE-QA-03. Always reported on
+         * the happy path (FinalizeWorker cancels the segment before
+         * compose() runs when `N < 2`).
+         */
+        val measuredMeanFps: Double,
+        /** Truth-source video shape — see [VideoReport]. CAPTURE-QA-03. */
+        val videoReport: VideoReport,
+        /**
+         * Recorded surface rotation captured at session start — one of
+         * `"landscape_left"` / `"landscape_right"`. Quick task 260517-p5g
+         * CAPTURE-QA-03; sourced from `SidecarPayload.recordedRotation`.
+         */
+        val recordedRotation: String,
     )
 
     /**
@@ -167,11 +239,22 @@ object MetadataComposer {
             .put("consecutive_hits_required", sidecar.startGate.consecutiveHitsRequired)
             .put("platform_cadence_ms", sidecar.startGate.platformCadenceMs)
 
-        // Locked spec values from idea-brief.md §2.1 are hard-coded:
-        // resolution, fps, codec, profile, bitrate, gop, color, audio.
-        // T-3.5-04 mitigation: drift from idea-brief is caught by the
-        // `locked spec values are hard-coded` test.
+        // Quick task 260517-p5g CAPTURE-QA-03 — every spec-relevant video
+        // field reads from the encoder OUTPUT_FORMAT_CHANGED MediaFormat
+        // snapshot + the MediaExtractor track-header read carried in
+        // m.videoReport (truth-source). `fps` derives from
+        // m.measuredMeanFps (computed in FinalizeWorker.finalize). The
+        // previous hardcoded literals ("1920x1080" / 30 / "hevc" / "main"
+        // / 8_000_000 / "cbr" / 30 / 8 / "bt709" / false / "landscape")
+        // would silently up-stamp an OEM-throttled / 720p-fallback segment
+        // with spec-passing metadata and poison training; that drift is
+        // now guarded by MetadataComposerLiteralsTest's comment-stripped
+        // grep gate. `hdr` + `image_stabilization` remain configured-
+        // literal because they are CAMERA flags (verified at compat-check
+        // time via EncoderProbe `hdrSdrForced` / `oisOff`), not encoder
+        // flags — see the inline cites below.
         val metadata = JSONObject()
+            // Project identity — NOT a capture-spec value.
             .put("footage_type", "egocentric_head")
             .put("filename", m.mp4Filename)
             .put("file_size_bytes", m.mp4SizeBytes)
@@ -203,20 +286,46 @@ object MetadataComposer {
             .put("end_timestamp", m.endTimestampIso)
             .put("imu_start_timestamp", m.imuStartTimestampIso)
             .put("imu_end_timestamp", m.imuEndTimestampIso)
+            // File-format constant (the extension is in filenameBase) — not a capture-spec value.
             .put("container_format", "mp4")
             .put("duration_seconds", m.durationSeconds)
-            .put("orientation", "landscape")
-            .put("resolution", "1920x1080")
-            .put("fps", 30)
-            .put("video_codec", "hevc")
-            .put("video_profile", "main")
-            .put("bitrate_bps", 8_000_000)
-            .put("bitrate_mode", "cbr")
-            .put("gop", 30)
-            .put("color_depth_bits", 8)
-            .put("color_space", "bt709")
+            // CAPTURE-QA-03 — rotation captured at session start (SidecarPayload.recordedRotation).
+            .put("orientation", sidecar.recordedRotation)
+            // CAPTURE-QA-03 — videoReport.width × videoReport.height from MediaExtractor (muxed-track truth).
+            .put("resolution", "${m.videoReport.width}x${m.videoReport.height}")
+            // CAPTURE-QA-01 / CAPTURE-QA-03 — measuredMeanFps = (N - 1) / ((lastTs - firstTs) / 1e9).
+            .put("fps", m.measuredMeanFps)
+            // CAPTURE-QA-03 — codec / profile from encoder OUTPUT_FORMAT KEY_MIME + KEY_PROFILE.
+            .put("video_codec", m.videoReport.codec)
+            .put("video_profile", m.videoReport.profile)
+            // CAPTURE-QA-03 — encoder-reported bitrate (KEY_BIT_RATE on OUTPUT_FORMAT, API 28+);
+            // falls back to the configured target (HevcEncoder.BIT_RATE) when the encoder doesn't
+            // report it (older API levels). bitrate_source distinguishes the two for consumers.
+            .put("bitrate_bps", m.videoReport.bitrateBps ?: m.videoReport.bitrateBpsConfigured)
+            .put(
+                "bitrate_source",
+                if (m.videoReport.bitrateBps != null) "reported" else "configured",
+            )
+            // CAPTURE-QA-03 — derived from encoder MediaFormat KEY_BITRATE_MODE.
+            .put("bitrate_mode", m.videoReport.bitrateModeToken)
+            // CAPTURE-QA-03 — KEY_I_FRAME_INTERVAL_SEC × frameRate (default 1 × 30 = 30).
+            .put("gop", m.videoReport.gopFrames)
+            // CAPTURE-QA-03 — colorDepth ∈ {8, 10}; 8 is HEVC Main, 10 is Main10 (encoder-attested).
+            .put("color_depth_bits", m.videoReport.colorDepthBits)
+            // CAPTURE-QA-03 — derived from encoder MediaFormat KEY_COLOR_STANDARD.
+            .put("color_space", m.videoReport.colorStandardToken)
+            // Camera flag (NOT an encoder flag). Verified at compat-check time via
+            // EncoderProbe.hdrSdrForced (apps/mobile/android/app/src/main/java/ai/humynlabs/capture/compat/EncoderProbe.kt).
+            // Approved exception to CAPTURE-QA-03 — the truthful value lives in compat, not finalize.
             .put("hdr", false)
-            .put("b_frames", false)
+            // CAPTURE-QA-03 — encoder-reported via OUTPUT_FORMAT KEY_MAX_B_FRAMES (API 25+).
+            // > 0 means at least one B-frame was configured; null (unreported) means the encoder
+            // didn't expose the key, in which case we assert the configured 0 (HevcEncoder configures
+            // KEY_MAX_B_FRAMES=0 + KEY_LATENCY=1, so an unreported value of 0 is correct).
+            .put("b_frames", (m.videoReport.bFramesReported ?: 0) > 0)
+            // Camera flag (NOT an encoder flag). Verified at compat-check time via
+            // EncoderProbe.oisOff (apps/mobile/android/app/src/main/java/ai/humynlabs/capture/compat/EncoderProbe.kt).
+            // Approved exception to CAPTURE-QA-03 — the truthful value lives in compat, not finalize.
             .put("image_stabilization", false)
             .put("start_gate", startGate)
 
@@ -283,5 +392,163 @@ object MetadataComposer {
             partial.delete()
             throw e
         }
+    }
+
+    // ============================================================
+    // Quick task 260517-p5g CAPTURE-QA-03 — pure-fn token mapping helpers.
+    // Kept pure (no MediaCodec / MediaExtractor allocation) so they can be
+    // exercised directly by MetadataComposerLiteralsTest. The composer
+    // consumes the tokens via VideoReport rather than MediaFormat ints,
+    // which keeps compose() free of MediaCodec / MediaFormat imports at
+    // the JSON-emit boundary.
+    // ============================================================
+
+    /** MediaFormat.COLOR_STANDARD_* → JSON token. Unknown → `"unknown"`. */
+    internal fun colorStandardToToken(v: Int): String = when (v) {
+        MediaFormat.COLOR_STANDARD_BT709 -> "bt709"
+        MediaFormat.COLOR_STANDARD_BT2020 -> "bt2020"
+        MediaFormat.COLOR_STANDARD_BT601_PAL -> "bt601"
+        MediaFormat.COLOR_STANDARD_BT601_NTSC -> "bt601"
+        else -> "unknown"
+    }
+
+    /** MediaFormat.COLOR_TRANSFER_* → JSON token. Unknown → `"unknown"`. */
+    internal fun colorTransferToToken(v: Int): String = when (v) {
+        MediaFormat.COLOR_TRANSFER_SDR_VIDEO -> "sdr"
+        MediaFormat.COLOR_TRANSFER_HLG -> "hlg"
+        MediaFormat.COLOR_TRANSFER_ST2084 -> "pq"
+        else -> "unknown"
+    }
+
+    /** MediaFormat.COLOR_RANGE_* → JSON token. Unknown → `"limited"` (safe HEVC default). */
+    internal fun colorRangeToToken(v: Int): String = when (v) {
+        MediaFormat.COLOR_RANGE_LIMITED -> "limited"
+        MediaFormat.COLOR_RANGE_FULL -> "full"
+        else -> "limited"
+    }
+
+    /** Encoder MIME → canonical codec token. */
+    internal fun mimeToCodecToken(mime: String?): String = when (mime) {
+        MediaFormat.MIMETYPE_VIDEO_HEVC -> "hevc"
+        MediaFormat.MIMETYPE_VIDEO_AVC -> "h264"
+        null -> "unknown"
+        else -> mime.removePrefix("video/")
+    }
+
+    /** HEVC profile constant → token. Unknown → `"unknown"`. */
+    internal fun hevcProfileToToken(p: Int): String = when (p) {
+        MediaCodecInfo.CodecProfileLevel.HEVCProfileMain -> "main"
+        MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10 -> "main10"
+        MediaCodecInfo.CodecProfileLevel.HEVCProfileMainStill -> "main-still"
+        else -> "unknown"
+    }
+
+    /** MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_* → token. */
+    internal fun bitrateModeToToken(v: Int): String = when (v) {
+        MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR -> "cbr"
+        MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR -> "vbr"
+        MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CQ -> "cq"
+        else -> "unknown"
+    }
+
+    /**
+     * Quick task 260517-p5g CAPTURE-QA-03 — build a [VideoReport] from
+     * the encoder's `OUTPUT_FORMAT_CHANGED` MediaFormat snapshot + the
+     * MediaExtractor track-header read of the muxed MP4.
+     *
+     * Source-of-truth split:
+     *   - width / height come from `MediaExtractor.KEY_WIDTH` / `KEY_HEIGHT`
+     *     of the first video track — what was MUXED is the ultimate truth.
+     *   - codec / profile / bitrate / bitrate_mode / color tokens / b-frames
+     *     come from the encoder's `outputFormat` snapshot (already
+     *     populated by `INFO_OUTPUT_FORMAT_CHANGED` by the time finalize
+     *     runs — the segment has stopped, the encoder is about to be
+     *     released).
+     *
+     * Falls back to the configured bitrate ([HevcEncoder.BIT_RATE]) and a
+     * sensible default (8-bit Main HEVC, BT.709 limited SDR, GOP 30) when
+     * the encoder doesn't report a key on the targeted API level.
+     */
+    fun buildVideoReport(encoder: MediaCodec?, mp4: File): VideoReport {
+        // 1. MediaExtractor — width / height from the muxed first video track.
+        var width = 0
+        var height = 0
+        val extractor = MediaExtractor()
+        try {
+            extractor.setDataSource(mp4.absolutePath)
+            for (i in 0 until extractor.trackCount) {
+                val fmt = extractor.getTrackFormat(i)
+                val mime = fmt.getString(MediaFormat.KEY_MIME) ?: continue
+                if (mime.startsWith("video/")) {
+                    if (fmt.containsKey(MediaFormat.KEY_WIDTH)) width = fmt.getInteger(MediaFormat.KEY_WIDTH)
+                    if (fmt.containsKey(MediaFormat.KEY_HEIGHT)) height = fmt.getInteger(MediaFormat.KEY_HEIGHT)
+                    break
+                }
+            }
+        } catch (_: Throwable) {
+            // Best-effort — leaves width/height = 0 which the caller's
+            // resolution gate rejects (width<1920 → resolution_dropped).
+        } finally {
+            try { extractor.release() } catch (_: Throwable) {}
+        }
+
+        // 2. Encoder OUTPUT_FORMAT snapshot — codec / profile / bitrate /
+        //    bitrate-mode / color tokens / b-frames. The encoder is
+        //    null-tolerant for tests that exercise compose() without a
+        //    real encoder.
+        val of = try { encoder?.outputFormat } catch (_: Throwable) { null }
+        val codec = mimeToCodecToken(of?.getString(MediaFormat.KEY_MIME))
+        val profile = if (of != null && of.containsKey(MediaFormat.KEY_PROFILE)) {
+            hevcProfileToToken(of.getInteger(MediaFormat.KEY_PROFILE))
+        } else "main"
+        val bitrateBps: Int? = if (of != null && of.containsKey(MediaFormat.KEY_BIT_RATE)) {
+            of.getInteger(MediaFormat.KEY_BIT_RATE)
+        } else null
+        val bitrateModeToken = if (of != null && of.containsKey(MediaFormat.KEY_BITRATE_MODE)) {
+            bitrateModeToToken(of.getInteger(MediaFormat.KEY_BITRATE_MODE))
+        } else "cbr"
+        val gopFrames = if (of != null && of.containsKey(MediaFormat.KEY_I_FRAME_INTERVAL) &&
+            of.containsKey(MediaFormat.KEY_FRAME_RATE)
+        ) {
+            val iSec = of.getInteger(MediaFormat.KEY_I_FRAME_INTERVAL)
+            val fr = of.getInteger(MediaFormat.KEY_FRAME_RATE)
+            (iSec * fr).coerceAtLeast(1)
+        } else HevcEncoder.GOP_INTERVAL_SEC * HevcEncoder.FRAME_RATE
+        val colorStandardToken = if (of != null && of.containsKey(MediaFormat.KEY_COLOR_STANDARD)) {
+            colorStandardToToken(of.getInteger(MediaFormat.KEY_COLOR_STANDARD))
+        } else "bt709"
+        val colorTransferToken = if (of != null && of.containsKey(MediaFormat.KEY_COLOR_TRANSFER)) {
+            colorTransferToToken(of.getInteger(MediaFormat.KEY_COLOR_TRANSFER))
+        } else "sdr"
+        val colorRangeToken = if (of != null && of.containsKey(MediaFormat.KEY_COLOR_RANGE)) {
+            colorRangeToToken(of.getInteger(MediaFormat.KEY_COLOR_RANGE))
+        } else "limited"
+        // HEVC Main profile = 8-bit; Main10 = 10-bit. Derived from the profile token
+        // (encoder-attested, not a literal).
+        val colorDepthBits = if (profile == "main10") 10 else 8
+        // KEY_MAX_B_FRAMES is API 25+; the encoder may or may not echo it back
+        // on OUTPUT_FORMAT. Null = unreported (the composer's b_frames render
+        // path treats null as "encoder didn't report → assert configured 0").
+        val bFramesReported: Int? = if (Build.VERSION.SDK_INT >= 25 && of != null &&
+            of.containsKey(MediaFormat.KEY_MAX_B_FRAMES)
+        ) {
+            of.getInteger(MediaFormat.KEY_MAX_B_FRAMES)
+        } else null
+
+        return VideoReport(
+            width = width,
+            height = height,
+            codec = codec,
+            profile = profile,
+            bitrateBps = bitrateBps,
+            bitrateBpsConfigured = HevcEncoder.BIT_RATE,
+            bitrateModeToken = bitrateModeToken,
+            gopFrames = gopFrames,
+            colorStandardToken = colorStandardToken,
+            colorTransferToken = colorTransferToken,
+            colorRangeToken = colorRangeToken,
+            colorDepthBits = colorDepthBits,
+            bFramesReported = bFramesReported,
+        )
     }
 }
