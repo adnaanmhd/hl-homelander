@@ -21,7 +21,7 @@ import java.io.File
  *
  * Tests A–F per PLAN §Task 1 `<behavior>` block. The two gates are:
  *   1. `videoFrameTimestamps.size < 2` → `reason="insufficient_frames"`
- *   2. mean FPS over the timestamps < 28.0 → `reason="fps_dropped"`
+ *   2. mean FPS over the timestamps < 29.0 → `reason="fps_dropped"`
  *   3. muxed MP4 KEY_WIDTH < 1920 OR KEY_HEIGHT < 1080 → `reason="resolution_dropped"`
  *
  * Ordering: fps wins on simultaneous low-fps + low-resolution (Test D).
@@ -134,9 +134,11 @@ class FinalizeWorkerGatesTest {
     }
 
     @Test
-    fun `Test F — exactly 1920×1080 at exactly 28 fps passes (boundary)`() {
-        // Spec gate is mean_fps >= 28.0; at exactly 28.0 the segment must pass.
-        val ts = fpsTimestamps(meanFps = 28.0, count = 30)
+    fun `Test F — exactly 1920×1080 at exactly 29 fps passes (boundary)`() {
+        // Spec gate is mean_fps >= 29.0 (tightened from 28.0 on 2026-05-17
+        // after the Pixel-10a + Pixel-8a cancel-walk); at exactly 29.0 the
+        // segment must pass.
+        val ts = fpsTimestamps(meanFps = 29.0, count = 30)
         val result = FinalizeWorker.decideCancelReason(ts, muxedWidth = 1920, muxedHeight = 1080)
         assertNull(result)
         // And 4K (wider than spec) also passes.

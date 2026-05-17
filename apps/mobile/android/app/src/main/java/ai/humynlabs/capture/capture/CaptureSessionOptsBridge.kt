@@ -81,7 +81,11 @@ object CaptureSessionOptsBridge {
 
         val contributorMap = map.getMap("contributor")
             ?: throw IllegalArgumentException("invalid_opts: contributor")
-        val contributorName = requireNonEmpty(contributorMap, "name")
+        // `name` is OPTIONAL since 2026-05-17 (owner decision: profile name
+        // must not gate recording). Empty string flows through to the sidecar
+        // JSON's `contributor.name`. `email` stays required.
+        val contributorName =
+            if (contributorMap.isNull("name")) "" else (contributorMap.getString("name") ?: "")
         val contributorEmail = requireNonEmpty(contributorMap, "email")
         val age: Int? = if (contributorMap.isNull("age")) null else contributorMap.getInt("age")
         val gender: String? = if (contributorMap.isNull("gender")) {

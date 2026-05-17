@@ -55,7 +55,18 @@ key_files:
 
 # Quick task 260517-p5g: Capture spec enforcement + metadata truthfulness — Summary
 
-Gate uploads on actual capture quality (mean FPS ≥ 28, resolution ≥ 1080p) and replace every hardcoded spec value in the segment metadata JSON with measured / probed / reported values. Android only — iOS native modules remain deferred. Owner directive: re-uphold the core value ("capture quality is non-negotiable") that had drifted from "stamped intent" to "measured truth."
+Gate uploads on actual capture quality (mean FPS ≥ 29 — see Follow-on below, was 28 at landing time, resolution ≥ 1080p) and replace every hardcoded spec value in the segment metadata JSON with measured / probed / reported values. Android only — iOS native modules remain deferred. Owner directive: re-uphold the core value ("capture quality is non-negotiable") that had drifted from "stamped intent" to "measured truth."
+
+## Follow-on (2026-05-17, post-walk)
+
+Smoke walk on Pixel 10a + Pixel 8a confirmed the cancel pipeline end-to-end (force-induced `mean_fps < 1000.0` to trip every segment → Pending Uploads stayed empty → History rendered "Canceled — frame rate dropped" non-retryable). Samsung A55 leg of the walk was skipped per owner.
+
+Two post-walk adjustments landed in a single follow-on commit on top of the original 5-commit chain (`ee46baf`..`cb9a914`):
+
+1. **FPS threshold tightened 28 → 29.** Both walked devices stamped ~30 fps clean on healthy recordings, so the 28.0 tolerance was wider than the LOCKED 30 fps target needed. 29.0 catches genuine drops without flagging measurement noise. Touched: `FinalizeWorker.kt:277` (literal), `FinalizeWorker.kt:73 / 272 / 494` (doc comments), `FinalizeWorker.kt CancelReason.FpsDropped` doc, `FinalizeWorkerGatesTest.kt Test F` (boundary asserts 29.0 passes), `HumynCapture.types.ts:64` / `HumynCapture.ts:154` / `RecordingScreen.tsx:811` (doc comments), `REQUIREMENTS.md` CAPTURE-QA-01, `STATE.md` Decisions entry, `CLAUDE.md` banner.
+2. **`contributor.name` no longer gates recording.** Owner directive during the walk: profile name must not block a Start press. JS-side `buildCaptureOpts` and Kotlin-side `CaptureSessionOptsBridge` now accept an empty `contributor.name` and pass it through to the sidecar JSON; `contributor.email` stays required at both layers (defense-in-depth). `RecordingScreen`'s `profile_incomplete` toast now reads "Please complete your profile in Profile → Email." Tests inverted in both layers. `STATE.md` Decisions entry added.
+
+The PLAN.md text above this section is left as-is (point-in-time history of what was planned; the follow-on is the only post-walk delta).
 
 ## Commits (worktree branch `worktree-agent-abc6aa0b734ddc5bc`)
 
@@ -75,7 +86,7 @@ Base commit: `9c2bea4` (pre-dispatch PLAN.md).
 
 - **`FinalizeWorker.finalize`** — pre-finalize gate sequence:
   - Step 1.5 `videoFrameTimestamps.size < 2` → `CancelReason.InsufficientFrames`.
-  - Step 1.6 `meanFps = (N - 1) / span_seconds < 28.0` → `CancelReason.FpsDropped(meanFps)` (priority on simultaneous fps+res failure).
+  - Step 1.6 `meanFps = (N - 1) / span_seconds < 29.0` → `CancelReason.FpsDropped(meanFps)` (priority on simultaneous fps+res failure). _(Threshold tightened 28.0 → 29.0 by the post-walk follow-on commit — see Follow-on section above.)_
   - Step 1.7 muxed track header `width < 1920 OR height < 1080` → `CancelReason.ResolutionDropped(w, h)`.
   - Gate logic extracted into pure helpers `decideCancelReason` / `computeMeanFps` / `readMuxedResolution` so tests don't need to construct a full `Segment` (Robolectric can't shadow Camera2 / MediaCodec / MediaMuxer).
   - On cancel: emit `onSegmentCanceled` with the documented payload, delete the sidecar (orphan-sidecar contract), return — no `MetadataComposer.compose`, no upload enqueue.

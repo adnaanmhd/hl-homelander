@@ -151,7 +151,7 @@ export function onSegmentComplete(
 /**
  * Quick task 260517-p5g CAPTURE-QA-04 — subscribe to `onSegmentCanceled`
  * events. Fires when the native `FinalizeWorker` rejects a segment via
- * one of the three capture-quality gates (mean_fps<28 / w<1920 || h<1080
+ * one of the three capture-quality gates (mean_fps<29 / w<1920 || h<1080
  * / N<2). The segment NEVER enters the upload queue; the listener writes
  * a History-row ledger entry then deletes the MP4 + CSV + JSON bundle
  * files (write-then-delete). Caller MUST `.remove()` the returned

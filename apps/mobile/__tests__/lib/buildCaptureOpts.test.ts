@@ -85,26 +85,15 @@ describe('buildCaptureOpts (D-API-02 shape)', () => {
     ).toThrow(/without recorded consent/);
   });
 
-  it('THROWS (code=profile_incomplete) when user.name is empty (V11-mirror — name never defaulted)', () => {
-    expect(() => buildCaptureOpts(validArgs({ user: { ...validArgs().user, name: '' } }))).toThrow(
-      /profile name/,
-    );
-    try {
-      buildCaptureOpts(validArgs({ user: { ...validArgs().user, name: '' } }));
-    } catch (e) {
-      expect((e as { code?: string }).code).toBe('profile_incomplete');
-    }
+  it('ACCEPTS empty user.name (2026-05-17 owner decision — name must not gate recording)', () => {
+    const opts = buildCaptureOpts(validArgs({ user: { ...validArgs().user, name: '' } }));
+    expect(opts.contributor.name).toBe('');
+    expect(opts.contributor.email).toBe(validArgs().user.email);
   });
 
-  it('THROWS (code=profile_incomplete) when user.name is whitespace-only', () => {
-    expect(() =>
-      buildCaptureOpts(validArgs({ user: { ...validArgs().user, name: '   ' } })),
-    ).toThrow(/profile name/);
-    try {
-      buildCaptureOpts(validArgs({ user: { ...validArgs().user, name: '   ' } }));
-    } catch (e) {
-      expect((e as { code?: string }).code).toBe('profile_incomplete');
-    }
+  it('ACCEPTS whitespace-only user.name (passes through unchanged)', () => {
+    const opts = buildCaptureOpts(validArgs({ user: { ...validArgs().user, name: '   ' } }));
+    expect(opts.contributor.name).toBe('   ');
   });
 
   it('THROWS (code=profile_incomplete) when user.email is empty', () => {

@@ -734,7 +734,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         await HumynScreenBrightness.set(-1).catch(() => undefined);
         showToast(
           code === 'profile_incomplete'
-            ? 'Please complete your profile in Profile → Name.'
+            ? 'Please complete your profile in Profile → Email.'
             : code === 'storage_full'
               ? 'Not enough storage to record.'
               : code === 'thermal_throttling'
@@ -808,7 +808,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
 
     // Quick task 260517-p5g CAPTURE-QA-04..06 — subscribe to the native
     // onSegmentCanceled event so a capture-quality-gate failure (mean_fps
-    // < 28, MP4-track-header w<1920 || h<1080, N<2) lands as a non-
+    // < 29, MP4-track-header w<1920 || h<1080, N<2) lands as a non-
     // retryable History row rather than silently dropping the segment.
     // The handler writes a History ledger entry FIRST, then deletes the
     // bundle files (write-then-delete), and NEVER calls HumynUpload.enqueue.

@@ -61,7 +61,7 @@ export interface SegmentCompleteEvent {
 /**
  * Quick task 260517-p5g CAPTURE-QA-01..04 — emitted by the native
  * FinalizeWorker when a segment fails one of the capture-quality gates
- * (mean_fps < 28, MP4-track-header w<1920 || h<1080, videoFrameTimestamps
+ * (mean_fps < 29, MP4-track-header w<1920 || h<1080, videoFrameTimestamps
  * < 2 entries) and is therefore canceled. The segment NEVER enters the
  * upload queue; the RecordingScreen handler writes a History-row ledger
  * entry then deletes the MP4 + CSV + metadata JSON bundle files from
