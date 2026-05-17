@@ -338,6 +338,15 @@ class CaptureSession private constructor(
                 ipAddress = null,
                 location = opts.location,
             ),
+            // Quick task 260517-p5g CAPTURE-QA-03 — capture the surface rotation
+            // at session start so MetadataComposer can stamp metadata.orientation
+            // truthfully (replaces the previous "landscape" literal). The
+            // RecordingScreen locks landscape; the user's physical orientation
+            // selects ROTATION_90 ("landscape_left") or ROTATION_270
+            // ("landscape_right"). ROTATION_0 / ROTATION_180 fall through to
+            // "landscape_left" (defensive — should never happen post-lock) with
+            // a log warning so the safe default stays non-null.
+            recordedRotation = readRecordedRotation(),
         )
         SidecarManager.write(sidecarFile, sidecar)
 
@@ -445,6 +454,47 @@ class CaptureSession private constructor(
         Handler(pumpThread.looper).post { runPumpLoop(seg) }
 
         return seg
+    }
+
+    /**
+     * Quick task 260517-p5g CAPTURE-QA-03 — read the display surface
+     * rotation at session start and translate it to the canonical token
+     * stamped into the metadata JSON.
+     *
+     * Mapping (per `Surface.ROTATION_*`):
+     *   `ROTATION_90`  → `"landscape_left"`
+     *   `ROTATION_270` → `"landscape_right"`
+     *   `ROTATION_0` / `ROTATION_180` → `"landscape_left"` (safe default;
+     *      should never happen post-RecordingScreen's landscape lock, but
+     *      keeps the metadata field non-null on every code path).
+     *
+     * API 30+ uses `Context.display`; older API levels fall back to the
+     * `WindowManager` accessor (deprecated on R+ but still works).
+     */
+    private fun readRecordedRotation(): String {
+        val rotation: Int = try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                ctx.display?.rotation ?: Surface.ROTATION_90
+            } else {
+                @Suppress("DEPRECATION")
+                val wm = ctx.getSystemService(Context.WINDOW_SERVICE) as? android.view.WindowManager
+                @Suppress("DEPRECATION")
+                wm?.defaultDisplay?.rotation ?: Surface.ROTATION_90
+            }
+        } catch (_: Throwable) {
+            Surface.ROTATION_90
+        }
+        return when (rotation) {
+            Surface.ROTATION_90 -> "landscape_left"
+            Surface.ROTATION_270 -> "landscape_right"
+            else -> {
+                Log.w(
+                    "HumynCapture",
+                    "readRecordedRotation: unexpected display rotation=$rotation (expected ROTATION_90/270 post landscape-lock); defaulting to landscape_left",
+                )
+                "landscape_left"
+            }
+        }
     }
 
     /**

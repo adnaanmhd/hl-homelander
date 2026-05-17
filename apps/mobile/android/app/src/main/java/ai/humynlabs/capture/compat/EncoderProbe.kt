@@ -58,6 +58,17 @@ class EncoderProbe(private val ctx: Context) {
         val oisOff: Boolean,
         val hdrSdrForced: Boolean,
         val encoderClipPath: String,
+        /**
+         * Quick task 260517-p5g CAPTURE-QA-02 — `true` iff the encoder's
+         * `INFO_OUTPUT_FORMAT_CHANGED` fired during the 5-second probe AND
+         * its `outputFormat` snapshot reported `KEY_WIDTH = 1920` /
+         * `KEY_HEIGHT = 1080`. When `OUTPUT_FORMAT_CHANGED` never fires
+         * (the encoder couldn't even produce output at the requested
+         * surface size) OR fires but reports a fallback resolution
+         * (`1280x720`, etc.) the value is `false` and the compat-check
+         * fails the device fail-closed.
+         */
+        val resolutionDeliverable: Boolean,
     )
 
     companion object {
@@ -75,6 +86,12 @@ class EncoderProbe(private val ctx: Context) {
         var encodedBytes: ByteArray = byteArrayOf()
         var oisOff = true
         var hdrSdrForced = true
+        // Quick task 260517-p5g CAPTURE-QA-02 — fail-closed default; only flips
+        // true when INFO_OUTPUT_FORMAT_CHANGED actually fires AND reports
+        // exactly 1920×1080. An encoder that silently falls back to 720p OR
+        // never emits OUTPUT_FORMAT_CHANGED in the 5 s probe window stays
+        // resolutionDeliverable=false → compatService rejects the device.
+        var resolutionDeliverable = false
         try {
             // Configure MediaCodec encoder per spec.
             val format = MediaFormat.createVideoFormat(MIME, WIDTH, HEIGHT).apply {
@@ -163,7 +180,17 @@ class EncoderProbe(private val ctx: Context) {
             while (System.nanoTime() < end) {
                 val outIdx = encoder.dequeueOutputBuffer(info, 10_000)
                 if (outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED && !muxerStarted) {
-                    trackIdx = muxer.addTrack(encoder.outputFormat); muxer.start(); muxerStarted = true
+                    // Quick task 260517-p5g CAPTURE-QA-02 — snapshot the encoder's
+                    // OUTPUT_FORMAT here and verify the requested 1920×1080 surface
+                    // was actually delivered. A logical-multi-camera or thermal-
+                    // throttled codec may silently fall back to a lower resolution;
+                    // resolutionDeliverable flips true only when both dimensions
+                    // exactly match the spec.
+                    val of = encoder.outputFormat
+                    val w = if (of.containsKey(MediaFormat.KEY_WIDTH)) of.getInteger(MediaFormat.KEY_WIDTH) else 0
+                    val h = if (of.containsKey(MediaFormat.KEY_HEIGHT)) of.getInteger(MediaFormat.KEY_HEIGHT) else 0
+                    resolutionDeliverable = (w == WIDTH && h == HEIGHT)
+                    trackIdx = muxer.addTrack(of); muxer.start(); muxerStarted = true
                 } else if (outIdx >= 0) {
                     val buf: ByteBuffer? = encoder.getOutputBuffer(outIdx)
                     if (buf != null && info.size > 0) {
@@ -230,6 +257,7 @@ class EncoderProbe(private val ctx: Context) {
                 oisOff = oisOff,
                 hdrSdrForced = hdrSdrForced,
                 encoderClipPath = cacheFile.absolutePath,
+                resolutionDeliverable = resolutionDeliverable,
             )
         } finally {
             // CRITICAL: NEVER leave a probe clip on disk. D-COMPAT-04 / T-2.12-01.
