@@ -46,6 +46,26 @@ class StartGateCarryoverTest {
         imuEndTimestampIso = "2026-05-05T00:40:20.000+05:30",
         environment = "residential",
         timeOfDay = "day",
+        // Quick task 260517-p5g CAPTURE-QA-01 / CAPTURE-QA-03 — measured
+        // values that the composer now reads from the FinalizeMetrics
+        // (previously hardcoded inside compose()).
+        measuredMeanFps = 30.0,
+        videoReport = MetadataComposer.VideoReport(
+            width = 1920,
+            height = 1080,
+            codec = "hevc",
+            profile = "main",
+            bitrateBps = 8_000_000,
+            bitrateBpsConfigured = 8_000_000,
+            bitrateModeToken = "cbr",
+            gopFrames = 30,
+            colorStandardToken = "bt709",
+            colorTransferToken = "sdr",
+            colorRangeToken = "limited",
+            colorDepthBits = 8,
+            bFramesReported = 0,
+        ),
+        recordedRotation = "landscape_left",
     )
 
     /**

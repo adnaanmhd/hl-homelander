@@ -56,6 +56,7 @@
     "video_codec": "hevc",
     "video_profile": "main",
     "bitrate_bps": 8000000,
+    "bitrate_source": "reported",
     "bitrate_mode": "cbr",
     "gop": 30,
     "color_depth_bits": 8,
