@@ -107,6 +107,15 @@
 - [x] **CAP-18**: Files (MP4 / CSV / JSON) are NEVER decoded, re-encoded, transcoded, or stripped — they travel byte-for-byte from device to S3
 - [x] **CAP-19**: System records a runtime IMU sample-rate observation (`imu_min_rate_hz_observed_p1`) and rejects segments client-side if sustained rate drops below 80 Hz **[research]**
 
+### Recording — Capture Quality Gate (Finalize-time enforcement)
+
+- [x] **CAPTURE-QA-01**: Finalize gates uploads on `mean_fps ≥ 28.0` computed as `(N - 1) / ((lastTs_ns - firstTs_ns) / 1e9)` over the segment's frame timestamps; failing segments are canceled with `reason="fps_dropped"` and never enter the upload queue. (`videoFrameTimestamps.size < 2` → `reason="insufficient_frames"`.)
+- [x] **CAPTURE-QA-02**: Finalize gates uploads on resolution by reading the muxed MP4's video-track header (`MediaExtractor KEY_WIDTH / KEY_HEIGHT`); `width < 1920 OR height < 1080` → canceled with `reason="resolution_dropped"`. EncoderProbe's compat-check is tightened to verify the 1920×1080 surface is actually deliverable (encoder `OUTPUT_FORMAT_CHANGED` reports the requested resolution), not just that the HEVC codec exists.
+- [x] **CAPTURE-QA-03**: Every spec-relevant field in `MetadataComposer.compose()` is derived from measured / probed / reported sources: `fps` from `measuredMeanFps`; `resolution` / `video_codec` / `video_profile` / `bitrate_bps` / `bitrate_mode` / `gop` / `color_space` / `color_depth_bits` / `b_frames` from the encoder's `OUTPUT_FORMAT_CHANGED` MediaFormat snapshot + the MediaExtractor track-header read; `orientation` from the surface rotation captured at session start (`landscape_left` / `landscape_right`). The composer carries ZERO hardcoded spec literals (regression-guarded by `MetadataComposerLiteralsTest`'s comment-stripped grep gate). `hdr` and `image_stabilization` are camera flags verified at compat-check (`EncoderProbe.hdrSdrForced` / `oisOff`) rather than encoder flags, so they remain configured-literal in the JSON with a cite to the compat-check truth-source.
+- [x] **CAPTURE-QA-04**: A canceled segment never enters the upload queue. `UploadQueueStore.enqueue` short-circuits when `UploadRow.cancelReason != null` (belt-and-braces backstop); the JS-side `RecordingScreen.onSegmentCanceled` handler is the primary gate and never calls `HumynUpload.enqueue` on cancel.
+- [x] **CAPTURE-QA-05**: A canceled segment is recorded as a History row only — Pending Uploads never renders it. The History row's MMKV ledger entry carries `{ cancel: { reason, meanFps?, width?, height? } }`; `HistoryRow` renders the chip-failed visual variant with three reason-specific copy strings: `"Canceled — frame rate dropped"` / `"Canceled — resolution dropped"` / `"Canceled — recording too short"`. The row is non-retryable (no Retry affordance). The server is not notified (local-only — no `/cancel-report` endpoint at MVP).
+- [x] **CAPTURE-QA-06**: After the History ledger entry is persisted, the MP4 + IMU CSV + metadata JSON are deleted from cacheDir (write-then-delete order — `RNFS.unlink` runs only after `writeThumbnailLedgerEntry` resolves). On a write failure, the files are still deleted to reclaim disk; the History row is silently lost (best-effort).
+
 ### Recording — Hand-detection Gate
 
 - [x] **HAND-01**: On record-button press, gate runs once per recording session via a custom Kotlin (Android) / Swift (iOS) RN module wrapping MediaPipe HandLandmarker (`hand_landmarker.task` ~7.8 MB, `RunningMode.IMAGE`, `numHands=2`, all confidences 0.5, CPU delegate)
@@ -379,207 +388,213 @@ Explicitly excluded. Documented to prevent scope creep.
 
 Which phases cover which requirements. Updated during roadmap creation.
 
-| Requirement | Phase   | Status                |
-| ----------- | ------- | --------------------- |
-| AUTH-01     | Phase 2 | Pending               |
-| AUTH-02     | Phase 2 | Pending               |
-| AUTH-03     | Phase 2 | Pending               |
-| AUTH-04     | Phase 2 | Pending               |
-| AUTH-05     | Phase 2 | Pending               |
-| AUTH-06     | Phase 1 | Complete              |
-| AUTH-07     | Phase 2 | Pending               |
-| AUTH-08     | Phase 2 | Complete (Plan 02-19) |
-| AUTH-09     | Phase 2 | Complete (Plan 02-19) |
-| AUTH-10     | Phase 2 | Complete (Plan 02-19) |
-| AUTH-11     | Phase 2 | Pending               |
-| PERM-01     | Phase 2 | Pending               |
-| PERM-02     | Phase 2 | Pending               |
-| PERM-03     | Phase 2 | Pending               |
-| PERM-04     | Phase 2 | Complete (Plan 02-22) |
-| COMPAT-01   | Phase 2 | Pending               |
-| COMPAT-02   | Phase 2 | Pending               |
-| COMPAT-03   | Phase 2 | Pending               |
-| COMPAT-04   | Phase 2 | Pending               |
-| COMPAT-05   | Phase 2 | Pending               |
-| COMPAT-06   | Phase 2 | Pending               |
-| COMPAT-07   | Phase 2 | Pending               |
-| COMPAT-08   | Phase 2 | Pending               |
-| ONB-01      | Phase 2 | Pending               |
-| ONB-02      | Phase 2 | Pending               |
-| ONB-03      | Phase 4 | Complete              |
-| ONB-04      | Phase 4 | Complete              |
-| ONB-05      | Phase 4 | Done (04-08)          |
-| ONB-06      | Phase 4 | Done (04-08)          |
-| ONB-07      | Phase 4 | Complete              |
-| ONB-08      | Phase 4 | Done (plan 04-03)     |
-| HOME-01     | Phase 6 | Pending               |
-| HOME-02     | Phase 6 | Pending               |
-| HOME-03     | Phase 6 | Pending               |
-| HOME-04     | Phase 6 | Pending               |
-| HOME-05     | Phase 6 | Pending               |
-| HOME-06     | Phase 6 | Pending               |
-| HOME-07     | Phase 2 | Complete              |
-| HOME-08     | Phase 2 | Complete              |
-| HOME-09     | Phase 6 | Pending               |
-| HOME-10     | Phase 6 | Pending               |
-| TASK-01     | Phase 6 | Pending               |
-| TASK-02     | Phase 6 | Pending               |
-| TASK-03     | Phase 6 | Pending               |
-| TASK-04     | Phase 6 | Pending               |
-| TASK-05     | Phase 6 | Pending               |
-| TASK-06     | Phase 6 | Pending               |
-| TASK-07     | Phase 6 | Pending               |
-| TASK-08     | Phase 6 | Pending               |
-| TASK-09     | Phase 6 | Pending               |
-| TASK-10     | Phase 6 | Pending               |
-| CAP-01      | Phase 3 | Complete              |
-| CAP-02      | Phase 3 | Complete              |
-| CAP-03      | Phase 3 | Complete              |
-| CAP-04      | Phase 3 | Complete              |
-| CAP-05      | Phase 3 | Complete              |
-| CAP-06      | Phase 3 | Complete              |
-| CAP-07      | Phase 3 | Complete              |
-| CAP-08      | Phase 3 | Complete              |
-| CAP-09      | Phase 3 | Complete              |
-| CAP-10      | Phase 3 | Complete              |
-| CAP-11      | Phase 3 | Complete              |
-| CAP-12      | Phase 3 | Complete              |
-| CAP-13      | Phase 3 | Complete              |
-| CAP-14      | Phase 3 | Complete              |
-| CAP-15      | Phase 3 | Complete              |
-| CAP-16      | Phase 3 | Complete              |
-| CAP-17      | Phase 3 | Complete              |
-| CAP-18      | Phase 3 | Complete              |
-| CAP-19      | Phase 3 | Complete              |
-| HAND-01     | Phase 4 | Complete              |
-| HAND-02     | Phase 4 | Done (04-07)          |
-| HAND-03     | Phase 4 | Complete              |
-| HAND-04     | Phase 4 | Done (04-07)          |
-| HAND-05     | Phase 4 | Done (04-07)          |
-| HAND-06     | Phase 4 | Done (04-07)          |
-| HAND-07     | Phase 4 | Complete              |
-| HAND-08     | Phase 4 | Complete              |
-| HAND-09     | Phase 4 | Complete              |
-| HAND-10     | Phase 4 | Done (04-07)          |
-| HAND-11     | Phase 4 | Complete              |
-| HAND-12     | Phase 4 | Complete              |
-| HAND-13     | Phase 4 | Complete              |
-| HAND-14     | Phase 4 | Complete              |
-| REC-01      | Phase 4 | Done (04-07)          |
-| REC-02      | Phase 4 | Done (04-07)          |
-| REC-03      | Phase 4 | Done (04-07)          |
-| REC-04      | Phase 4 | Done (04-08)          |
-| REC-05      | Phase 4 | Done (04-07)          |
-| REC-06      | Phase 4 | Done (04-07)          |
-| REC-07      | Phase 4 | Done (04-08)          |
-| REC-08      | Phase 4 | Complete              |
-| REC-09      | Phase 4 | Done (04-08)          |
-| REC-10      | Phase 4 | Complete              |
-| REC-11      | Phase 4 | Complete              |
-| REC-12      | Phase 4 | Complete              |
-| REC-13      | Phase 4 | Complete              |
-| REC-14      | Phase 4 | Done (04-08)          |
-| REC-15      | Phase 4 | Done (04-07)          |
-| REC-16      | Phase 4 | Done (04-08)          |
-| UP-01       | Phase 5 | Complete              |
-| UP-02       | Phase 5 | Complete              |
-| UP-03       | Phase 5 | Complete              |
-| UP-04       | Phase 5 | Complete              |
-| UP-05       | Phase 5 | Complete              |
-| UP-06       | Phase 5 | Complete              |
-| UP-07       | Phase 5 | Complete              |
-| UP-08       | Phase 5 | Complete              |
-| UP-09       | Phase 5 | Complete              |
-| UP-10       | Phase 5 | Complete              |
-| UP-11       | Phase 5 | Complete              |
-| UP-12       | Phase 5 | Complete              |
-| UP-13       | Phase 5 | Complete              |
-| UP-14       | Phase 5 | Complete              |
-| UP-15       | Phase 5 | Complete              |
-| UP-16       | Phase 5 | Complete              |
-| UP-17       | Phase 5 | Complete              |
-| UP-18       | Phase 5 | Complete              |
-| UP-19       | Phase 5 | Complete              |
-| HIST-01     | Phase 6 | Pending               |
-| HIST-02     | Phase 6 | Pending               |
-| HIST-03     | Phase 6 | Pending               |
-| HIST-04     | Phase 6 | Pending               |
-| HIST-05     | Phase 6 | Pending               |
-| HIST-06     | Phase 6 | Pending               |
-| HIST-07     | Phase 6 | Pending               |
-| HIST-08     | Phase 6 | Pending               |
-| HIST-09     | Phase 6 | Pending               |
-| HIST-10     | Phase 6 | Pending               |
-| HIST-11     | Phase 6 | Pending               |
-| PROF-01     | Phase 2 | Plan 02-17 (complete) |
-| PROF-02     | Phase 2 | Plan 02-17 (complete) |
-| PROF-03     | Phase 2 | Plan 02-17 (complete) |
-| PROF-04     | Phase 2 | Plan 02-17 (complete) |
-| PROF-05     | Phase 2 | Plan 02-17 (complete) |
-| HELP-01     | Phase 2 | Complete (Plan 02-18) |
-| HELP-02     | Phase 2 | Complete (Plan 02-18) |
-| HELP-03     | Phase 2 | Complete (Plan 02-18) |
-| HELP-04     | Phase 2 | Complete (Plan 02-18) |
-| HELP-05     | Phase 2 | Complete (Plan 02-18) |
-| UPG-01      | Phase 2 | Pending               |
-| UPG-02      | Phase 2 | Pending               |
-| UPG-03      | Phase 2 | Complete (Plan 02-20) |
-| UPG-04      | Phase 2 | Complete (Plan 02-20) |
-| UPG-05      | Phase 2 | Pending               |
-| API-01      | Phase 1 | Complete              |
-| API-02      | Phase 1 | Complete              |
-| API-03      | Phase 1 | Complete              |
-| API-04      | Phase 1 | Complete              |
-| API-05      | Phase 1 | Complete              |
-| API-06      | Phase 1 | Complete              |
-| API-07      | Phase 1 | Complete              |
-| API-08      | Phase 1 | Complete              |
-| API-09      | Phase 1 | Complete              |
-| API-10      | Phase 1 | Complete              |
-| API-11      | Phase 1 | Complete              |
-| API-12      | Phase 1 | Complete              |
-| API-13      | Phase 1 | Complete              |
-| API-14      | Phase 1 | Complete              |
-| API-15      | Phase 1 | Complete              |
-| API-16      | Phase 1 | Complete              |
-| API-17      | Phase 1 | Complete              |
-| VERIFY-01   | Phase 5 | Complete              |
-| VERIFY-02   | Phase 5 | Complete              |
-| VERIFY-03   | Phase 5 | Complete              |
-| VERIFY-04   | Phase 5 | Complete              |
-| VERIFY-05   | Phase 5 | Complete              |
-| VERIFY-06   | Phase 5 | Complete              |
-| VERIFY-07   | Phase 5 | Complete              |
-| FRAUD-01    | Phase 1 | Complete              |
-| FRAUD-02    | Phase 1 | Complete              |
-| FRAUD-03    | v2      | Deferred 2026-05-11   |
-| FRAUD-04    | v2      | Deferred 2026-05-11   |
-| FRAUD-05    | §v2     | Deferred (2026-05-12) |
-| FRAUD-06    | §v2     | Deferred (2026-05-12) |
-| OBS-01      | Phase 7 | Pending               |
-| OBS-02      | Phase 7 | Pending               |
-| OBS-03      | Phase 7 | Pending               |
-| OBS-04      | Phase 7 | Pending               |
-| OBS-05      | Phase 7 | Pending               |
-| DIST-01     | Phase 1 | Complete              |
-| DIST-02     | Phase 1 | Complete              |
-| DIST-03     | Phase 1 | Complete              |
-| DIST-04     | Phase 1 | Complete              |
-| DIST-05     | v2      | Deferred 2026-05-11   |
-| DIST-06     | v2      | Deferred 2026-05-11   |
-| DIST-07     | Phase 1 | Complete              |
-| IOS-01      | v2      | Deferred 2026-05-11   |
-| IOS-02      | v2      | Deferred 2026-05-11   |
-| IOS-03      | v2      | Deferred 2026-05-11   |
-| IOS-04      | v2      | Deferred 2026-05-11   |
-| IOS-05      | v2      | Deferred 2026-05-11   |
-| IOS-06      | v2      | Deferred 2026-05-11   |
-| IOS-07      | v2      | Deferred 2026-05-11   |
-| LEGAL-01    | Phase 1 | Complete              |
-| LEGAL-02    | Phase 1 | Complete              |
-| LEGAL-03    | Phase 1 | Complete              |
-| LEGAL-04    | Phase 1 | Complete              |
-| LEGAL-05    | Phase 1 | Complete (Plan 01-03) |
+| Requirement   | Phase            | Status                |
+| ------------- | ---------------- | --------------------- |
+| AUTH-01       | Phase 2          | Pending               |
+| AUTH-02       | Phase 2          | Pending               |
+| AUTH-03       | Phase 2          | Pending               |
+| AUTH-04       | Phase 2          | Pending               |
+| AUTH-05       | Phase 2          | Pending               |
+| AUTH-06       | Phase 1          | Complete              |
+| AUTH-07       | Phase 2          | Pending               |
+| AUTH-08       | Phase 2          | Complete (Plan 02-19) |
+| AUTH-09       | Phase 2          | Complete (Plan 02-19) |
+| AUTH-10       | Phase 2          | Complete (Plan 02-19) |
+| AUTH-11       | Phase 2          | Pending               |
+| PERM-01       | Phase 2          | Pending               |
+| PERM-02       | Phase 2          | Pending               |
+| PERM-03       | Phase 2          | Pending               |
+| PERM-04       | Phase 2          | Complete (Plan 02-22) |
+| COMPAT-01     | Phase 2          | Pending               |
+| COMPAT-02     | Phase 2          | Pending               |
+| COMPAT-03     | Phase 2          | Pending               |
+| COMPAT-04     | Phase 2          | Pending               |
+| COMPAT-05     | Phase 2          | Pending               |
+| COMPAT-06     | Phase 2          | Pending               |
+| COMPAT-07     | Phase 2          | Pending               |
+| COMPAT-08     | Phase 2          | Pending               |
+| ONB-01        | Phase 2          | Pending               |
+| ONB-02        | Phase 2          | Pending               |
+| ONB-03        | Phase 4          | Complete              |
+| ONB-04        | Phase 4          | Complete              |
+| ONB-05        | Phase 4          | Done (04-08)          |
+| ONB-06        | Phase 4          | Done (04-08)          |
+| ONB-07        | Phase 4          | Complete              |
+| ONB-08        | Phase 4          | Done (plan 04-03)     |
+| HOME-01       | Phase 6          | Pending               |
+| HOME-02       | Phase 6          | Pending               |
+| HOME-03       | Phase 6          | Pending               |
+| HOME-04       | Phase 6          | Pending               |
+| HOME-05       | Phase 6          | Pending               |
+| HOME-06       | Phase 6          | Pending               |
+| HOME-07       | Phase 2          | Complete              |
+| HOME-08       | Phase 2          | Complete              |
+| HOME-09       | Phase 6          | Pending               |
+| HOME-10       | Phase 6          | Pending               |
+| TASK-01       | Phase 6          | Pending               |
+| TASK-02       | Phase 6          | Pending               |
+| TASK-03       | Phase 6          | Pending               |
+| TASK-04       | Phase 6          | Pending               |
+| TASK-05       | Phase 6          | Pending               |
+| TASK-06       | Phase 6          | Pending               |
+| TASK-07       | Phase 6          | Pending               |
+| TASK-08       | Phase 6          | Pending               |
+| TASK-09       | Phase 6          | Pending               |
+| TASK-10       | Phase 6          | Pending               |
+| CAP-01        | Phase 3          | Complete              |
+| CAP-02        | Phase 3          | Complete              |
+| CAP-03        | Phase 3          | Complete              |
+| CAP-04        | Phase 3          | Complete              |
+| CAP-05        | Phase 3          | Complete              |
+| CAP-06        | Phase 3          | Complete              |
+| CAP-07        | Phase 3          | Complete              |
+| CAP-08        | Phase 3          | Complete              |
+| CAP-09        | Phase 3          | Complete              |
+| CAP-10        | Phase 3          | Complete              |
+| CAP-11        | Phase 3          | Complete              |
+| CAP-12        | Phase 3          | Complete              |
+| CAP-13        | Phase 3          | Complete              |
+| CAP-14        | Phase 3          | Complete              |
+| CAP-15        | Phase 3          | Complete              |
+| CAP-16        | Phase 3          | Complete              |
+| CAP-17        | Phase 3          | Complete              |
+| CAP-18        | Phase 3          | Complete              |
+| CAP-19        | Phase 3          | Complete              |
+| CAPTURE-QA-01 | Quick 260517-p5g | Complete              |
+| CAPTURE-QA-02 | Quick 260517-p5g | Complete              |
+| CAPTURE-QA-03 | Quick 260517-p5g | Complete              |
+| CAPTURE-QA-04 | Quick 260517-p5g | Complete              |
+| CAPTURE-QA-05 | Quick 260517-p5g | Complete              |
+| CAPTURE-QA-06 | Quick 260517-p5g | Complete              |
+| HAND-01       | Phase 4          | Complete              |
+| HAND-02       | Phase 4          | Done (04-07)          |
+| HAND-03       | Phase 4          | Complete              |
+| HAND-04       | Phase 4          | Done (04-07)          |
+| HAND-05       | Phase 4          | Done (04-07)          |
+| HAND-06       | Phase 4          | Done (04-07)          |
+| HAND-07       | Phase 4          | Complete              |
+| HAND-08       | Phase 4          | Complete              |
+| HAND-09       | Phase 4          | Complete              |
+| HAND-10       | Phase 4          | Done (04-07)          |
+| HAND-11       | Phase 4          | Complete              |
+| HAND-12       | Phase 4          | Complete              |
+| HAND-13       | Phase 4          | Complete              |
+| HAND-14       | Phase 4          | Complete              |
+| REC-01        | Phase 4          | Done (04-07)          |
+| REC-02        | Phase 4          | Done (04-07)          |
+| REC-03        | Phase 4          | Done (04-07)          |
+| REC-04        | Phase 4          | Done (04-08)          |
+| REC-05        | Phase 4          | Done (04-07)          |
+| REC-06        | Phase 4          | Done (04-07)          |
+| REC-07        | Phase 4          | Done (04-08)          |
+| REC-08        | Phase 4          | Complete              |
+| REC-09        | Phase 4          | Done (04-08)          |
+| REC-10        | Phase 4          | Complete              |
+| REC-11        | Phase 4          | Complete              |
+| REC-12        | Phase 4          | Complete              |
+| REC-13        | Phase 4          | Complete              |
+| REC-14        | Phase 4          | Done (04-08)          |
+| REC-15        | Phase 4          | Done (04-07)          |
+| REC-16        | Phase 4          | Done (04-08)          |
+| UP-01         | Phase 5          | Complete              |
+| UP-02         | Phase 5          | Complete              |
+| UP-03         | Phase 5          | Complete              |
+| UP-04         | Phase 5          | Complete              |
+| UP-05         | Phase 5          | Complete              |
+| UP-06         | Phase 5          | Complete              |
+| UP-07         | Phase 5          | Complete              |
+| UP-08         | Phase 5          | Complete              |
+| UP-09         | Phase 5          | Complete              |
+| UP-10         | Phase 5          | Complete              |
+| UP-11         | Phase 5          | Complete              |
+| UP-12         | Phase 5          | Complete              |
+| UP-13         | Phase 5          | Complete              |
+| UP-14         | Phase 5          | Complete              |
+| UP-15         | Phase 5          | Complete              |
+| UP-16         | Phase 5          | Complete              |
+| UP-17         | Phase 5          | Complete              |
+| UP-18         | Phase 5          | Complete              |
+| UP-19         | Phase 5          | Complete              |
+| HIST-01       | Phase 6          | Pending               |
+| HIST-02       | Phase 6          | Pending               |
+| HIST-03       | Phase 6          | Pending               |
+| HIST-04       | Phase 6          | Pending               |
+| HIST-05       | Phase 6          | Pending               |
+| HIST-06       | Phase 6          | Pending               |
+| HIST-07       | Phase 6          | Pending               |
+| HIST-08       | Phase 6          | Pending               |
+| HIST-09       | Phase 6          | Pending               |
+| HIST-10       | Phase 6          | Pending               |
+| HIST-11       | Phase 6          | Pending               |
+| PROF-01       | Phase 2          | Plan 02-17 (complete) |
+| PROF-02       | Phase 2          | Plan 02-17 (complete) |
+| PROF-03       | Phase 2          | Plan 02-17 (complete) |
+| PROF-04       | Phase 2          | Plan 02-17 (complete) |
+| PROF-05       | Phase 2          | Plan 02-17 (complete) |
+| HELP-01       | Phase 2          | Complete (Plan 02-18) |
+| HELP-02       | Phase 2          | Complete (Plan 02-18) |
+| HELP-03       | Phase 2          | Complete (Plan 02-18) |
+| HELP-04       | Phase 2          | Complete (Plan 02-18) |
+| HELP-05       | Phase 2          | Complete (Plan 02-18) |
+| UPG-01        | Phase 2          | Pending               |
+| UPG-02        | Phase 2          | Pending               |
+| UPG-03        | Phase 2          | Complete (Plan 02-20) |
+| UPG-04        | Phase 2          | Complete (Plan 02-20) |
+| UPG-05        | Phase 2          | Pending               |
+| API-01        | Phase 1          | Complete              |
+| API-02        | Phase 1          | Complete              |
+| API-03        | Phase 1          | Complete              |
+| API-04        | Phase 1          | Complete              |
+| API-05        | Phase 1          | Complete              |
+| API-06        | Phase 1          | Complete              |
+| API-07        | Phase 1          | Complete              |
+| API-08        | Phase 1          | Complete              |
+| API-09        | Phase 1          | Complete              |
+| API-10        | Phase 1          | Complete              |
+| API-11        | Phase 1          | Complete              |
+| API-12        | Phase 1          | Complete              |
+| API-13        | Phase 1          | Complete              |
+| API-14        | Phase 1          | Complete              |
+| API-15        | Phase 1          | Complete              |
+| API-16        | Phase 1          | Complete              |
+| API-17        | Phase 1          | Complete              |
+| VERIFY-01     | Phase 5          | Complete              |
+| VERIFY-02     | Phase 5          | Complete              |
+| VERIFY-03     | Phase 5          | Complete              |
+| VERIFY-04     | Phase 5          | Complete              |
+| VERIFY-05     | Phase 5          | Complete              |
+| VERIFY-06     | Phase 5          | Complete              |
+| VERIFY-07     | Phase 5          | Complete              |
+| FRAUD-01      | Phase 1          | Complete              |
+| FRAUD-02      | Phase 1          | Complete              |
+| FRAUD-03      | v2               | Deferred 2026-05-11   |
+| FRAUD-04      | v2               | Deferred 2026-05-11   |
+| FRAUD-05      | §v2              | Deferred (2026-05-12) |
+| FRAUD-06      | §v2              | Deferred (2026-05-12) |
+| OBS-01        | Phase 7          | Pending               |
+| OBS-02        | Phase 7          | Pending               |
+| OBS-03        | Phase 7          | Pending               |
+| OBS-04        | Phase 7          | Pending               |
+| OBS-05        | Phase 7          | Pending               |
+| DIST-01       | Phase 1          | Complete              |
+| DIST-02       | Phase 1          | Complete              |
+| DIST-03       | Phase 1          | Complete              |
+| DIST-04       | Phase 1          | Complete              |
+| DIST-05       | v2               | Deferred 2026-05-11   |
+| DIST-06       | v2               | Deferred 2026-05-11   |
+| DIST-07       | Phase 1          | Complete              |
+| IOS-01        | v2               | Deferred 2026-05-11   |
+| IOS-02        | v2               | Deferred 2026-05-11   |
+| IOS-03        | v2               | Deferred 2026-05-11   |
+| IOS-04        | v2               | Deferred 2026-05-11   |
+| IOS-05        | v2               | Deferred 2026-05-11   |
+| IOS-06        | v2               | Deferred 2026-05-11   |
+| IOS-07        | v2               | Deferred 2026-05-11   |
+| LEGAL-01      | Phase 1          | Complete              |
+| LEGAL-02      | Phase 1          | Complete              |
+| LEGAL-03      | Phase 1          | Complete              |
+| LEGAL-04      | Phase 1          | Complete              |
+| LEGAL-05      | Phase 1          | Complete (Plan 01-03) |
 
 **Coverage:**
 

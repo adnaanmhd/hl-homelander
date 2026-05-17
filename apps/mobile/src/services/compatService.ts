@@ -137,8 +137,18 @@ export async function runCompatCheck(onProgress?: CompatProgressListener): Promi
   // resolutionMax is {w, h}; long-edge >= 1920 means 1080p+.
   const longEdge = Math.max(caps.resolutionMax.w, caps.resolutionMax.h);
 
+  // Quick task 260517-p5g CAPTURE-QA-02 — compat.resolution now requires
+  // BOTH (a) the device-caps long-edge proving the codec exists at 1080p+
+  // AND (b) the EncoderProbe surface-deliverability check proving the
+  // encoder pipeline actually delivers the 1920×1080 surface (not a
+  // silent 720p fallback). Strict equality with `true` so a stale native
+  // build that pre-dates the field (resolutionDeliverable === undefined)
+  // is treated as a failure, fail-closed.
+  const longEdgeOk = longEdge >= 1920;
+  const resolutionDeliverableOk = enc.resolutionDeliverable === true;
+
   const checks = {
-    resolution: longEdge >= 1920,
+    resolution: longEdgeOk && resolutionDeliverableOk,
     fps: caps.fpsMax >= 30,
     ultrawideDfov: { pass: caps.ultrawideDfovDeg >= 110, measuredDeg: caps.ultrawideDfovDeg },
     imuSustained100Hz: { pass: imu.sustainedHz >= 100, measuredHz: imu.sustainedHz },

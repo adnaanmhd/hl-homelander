@@ -68,10 +68,47 @@ export interface ThumbnailLedgerEntry {
    * `filesDir/recordings/<base>.mp4` — the local copy used by the in-app
    * Player when present. Empty string after the post-`verified` MP4 unlink
    * (D-04 invariant: thumbnail survives, local MP4 does not).
+   *
+   * `null` for canceled rows (the bundle files were deleted post-cancel
+   * per write-then-delete; the History row uses the gradient + first-letter
+   * fallback for the thumbnail).
    */
-  mp4LocalPath: string;
+  mp4LocalPath: string | null;
   /** Wall-clock at ledger write (Date.now()). Useful for cold-start TTL. */
   createdAtMs: number;
+  /**
+   * Quick task 260517-p5g CAPTURE-QA-05 — task ID for the History row
+   * (so the screen can resolve the task name from the taxonomy). Optional
+   * to preserve backward compatibility with pre-CAPTURE-QA-05 ledger
+   * entries (the existing `onSegmentComplete` writer doesn't set it; the
+   * canceled-row writer does).
+   */
+  taskId?: string;
+  /**
+   * Quick task 260517-p5g CAPTURE-QA-05 — recording duration in
+   * milliseconds, for the History row's meta line. Optional for the same
+   * back-compat reason. Canceled rows carry the wall-clock duration even
+   * when truncated below the spec-failing threshold.
+   */
+  durationMs?: number;
+  /**
+   * Quick task 260517-p5g CAPTURE-QA-05 — when set, this row is a
+   * CANCELED segment (capture-quality gate failed in FinalizeWorker).
+   * Renders the History row's chip-failed visual variant with one of
+   * three reason-specific copy strings (see `HistoryRow.tsx`). The
+   * bundle files have already been deleted from disk (write-then-delete).
+   * Server-side: NO row exists; the cancel is local-only (no
+   * `/cancel-report` endpoint at MVP — see CLAUDE.md 2026-05-17 banner).
+   */
+  cancel?: {
+    reason: 'fps_dropped' | 'resolution_dropped' | 'insufficient_frames';
+    /** Present only when reason === 'fps_dropped'. */
+    meanFps?: number;
+    /** Present only when reason === 'resolution_dropped'. */
+    width?: number;
+    /** Present only when reason === 'resolution_dropped'. */
+    height?: number;
+  };
 }
 
 /**
@@ -125,6 +162,41 @@ export function clearLocalPath(recordingId: string): void {
  */
 export function deleteEntry(recordingId: string): void {
   secureMmkv.remove(pendingThumbKey(recordingId));
+}
+
+/**
+ * Quick task 260517-p5g CAPTURE-QA-05 — enumerate every ledger entry on
+ * disk (canceled + non-canceled). Used by HistoryScreen to synthesize a
+ * History row for each canceled-segment ledger entry (a canceled segment
+ * has NO server row since it never reached `/init` — the ledger entry IS
+ * the row).
+ *
+ * Disk cost: sub-ms per entry; the ledger is per-recording so the count
+ * is bounded by the user's lifetime recording count at MVP. When this
+ * grows past a few hundred entries, swap to a single-key indexed manifest
+ * — track as a Phase 6 follow-on (call out in the SUMMARY).
+ *
+ * Defensively swallows JSON-parse failures (per `readEntry`): a corrupt
+ * MMKV value under a `pendingThumb.<id>.v1` key is skipped rather than
+ * crashing the History render.
+ */
+export function readAllEntries(): ThumbnailLedgerEntry[] {
+  const keys = secureMmkv.getAllKeys();
+  const out: ThumbnailLedgerEntry[] = [];
+  for (const k of keys) {
+    if (!k.startsWith('pendingThumb.')) continue;
+    const raw = secureMmkv.getString(k);
+    if (!raw) continue;
+    try {
+      const parsed = JSON.parse(raw) as ThumbnailLedgerEntry;
+      if (parsed && typeof parsed.recordingId === 'string') {
+        out.push(parsed);
+      }
+    } catch {
+      // Corrupt entry — skip rather than crash the History render.
+    }
+  }
+  return out;
 }
 
 /**

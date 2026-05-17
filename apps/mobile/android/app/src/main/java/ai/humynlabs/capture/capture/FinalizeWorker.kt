@@ -1,5 +1,8 @@
 package ai.humynlabs.capture.capture
 
+import android.media.MediaExtractor
+import android.media.MediaFormat
+import android.util.Log
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.WritableMap
 import java.io.File
@@ -59,6 +62,50 @@ object FinalizeWorker {
      */
     internal fun finalize(seg: Segment, emit: (String, WritableMap) -> Unit) {
         try {
+            // ------------------------------------------------------------
+            // Quick task 260517-p5g CAPTURE-QA-01 / CAPTURE-QA-02 — capture-
+            // quality gate, run BEFORE the SHA-256 streaming so a low-fps /
+            // low-res segment short-circuits early (no point hashing a
+            // segment that's about to be deleted).
+            //
+            // Gate ordering — deterministic per scope spec:
+            //   Step 1.5: videoFrameTimestamps.size < 2 → InsufficientFrames
+            //   Step 1.6: meanFps < 28.0                → FpsDropped
+            //   Step 1.7: width < 1920 OR height < 1080 → ResolutionDropped
+            //
+            // FPS check runs BEFORE resolution check so simultaneous fps+res
+            // failure consistently reports "fps_dropped" (the upstream root
+            // cause on an OEM-throttled / thermally-degraded path).
+            // ------------------------------------------------------------
+            val videoTimestampsForGate = seg.videoFrameTimestamps.toLongArray()
+
+            // Insufficient-frames check needs the timestamps; resolution
+            // check needs the muxed MP4 read. Read both up-front, then
+            // delegate to the pure [decideCancelReason] (which encodes the
+            // gate-ordering rule: fps wins on simultaneous failure).
+            val (videoWidth, videoHeight) = if (videoTimestampsForGate.size < 2) {
+                // Skip the MediaExtractor read entirely when we already
+                // know we're cancelling — saves wasted work + keeps the
+                // FinalizeWorkerGatesTest "no MediaExtractor call on N<2"
+                // expectation tight.
+                0 to 0
+            } else {
+                readMuxedResolution(seg.mp4File)
+            }
+
+            val cancelReason = decideCancelReason(videoTimestampsForGate, videoWidth, videoHeight)
+            if (cancelReason != null) {
+                emitCanceled(seg, cancelReason, emit)
+                return
+            }
+
+            // Gate passed. measuredMeanFps is the same arithmetic
+            // [decideCancelReason] used (extracted to a pure helper so
+            // the test fixture can assert numeric agreement).
+            val measuredMeanFps = computeMeanFps(videoTimestampsForGate)
+
+            // Gate passed — proceed with the normal finalize sequence.
+
             // 1. SHA-256 the bytes (CAP-15 + CAP-18). HashStreamer opens the
             //    file via FileChannel.read — never writes. The training pipeline
             //    expects byte-for-byte preserved encoder output.
@@ -70,7 +117,7 @@ object FinalizeWorker {
             //    (Pitfall 3: NOT onSensorChanged dispatch time). The writer
             //    has already been stopped by CaptureSession.closeSegmentResources.
             val imuTimestamps = seg.imuWriter.timestamps()
-            val videoTimestamps = seg.videoFrameTimestamps.toLongArray()
+            val videoTimestamps = videoTimestampsForGate
 
             // 3. Drift {max, mean, p99} (CAP-08). Null when degenerate.
             val drift: MetadataComposer.Drift? =
@@ -88,6 +135,11 @@ object FinalizeWorker {
             // 5. Issue #10 fix — durationMs from end - start, both
             //    elapsedRealtimeNanos. No clock re-read; no System.nano literal.
             val durationSeconds = (seg.endedAtNs - seg.startedAtNs).toDouble() / 1_000_000_000.0
+
+            // 5.5 Quick task 260517-p5g CAPTURE-QA-03 — build the truth-source
+            // VideoReport from the encoder's OUTPUT_FORMAT snapshot + the muxed
+            // track header (already partially read for the resolution gate above).
+            val videoReport = MetadataComposer.buildVideoReport(seg.hevc, seg.mp4File)
 
             // 6. Adapt SidecarManager.SidecarPayload → MetadataComposer.SidecarPayload.
             //    The two types are structurally identical; the nested
@@ -119,6 +171,12 @@ object FinalizeWorker {
                 // value is not load-bearing for the training pipeline at MVP.
                 environment = "residential",
                 timeOfDay = if (java.time.LocalTime.now().hour in 6..18) "day" else "night",
+                // Quick task 260517-p5g CAPTURE-QA-01 / CAPTURE-QA-03 — measured
+                // values replacing the previous hardcoded spec literals in
+                // MetadataComposer.compose().
+                measuredMeanFps = measuredMeanFps,
+                videoReport = videoReport,
+                recordedRotation = seg.sidecar.recordedRotation,
             )
 
             // 7. Atomic write — `{file}.partial` → renameTo (T-3.5-02 mitigation).
@@ -189,6 +247,177 @@ object FinalizeWorker {
     }
 
     /**
+     * Quick task 260517-p5g CAPTURE-QA-01 / CAPTURE-QA-02 — pure gate
+     * decision: given a video-frame-timestamps snapshot + a muxed-
+     * resolution reading, return the [CancelReason] to emit, or `null`
+     * when the segment passes both gates. Extracted as a pure function so
+     * FinalizeWorkerGatesTest can exercise the gating logic without
+     * constructing a full [Segment] (which requires Camera2 / MediaCodec /
+     * MediaMuxer instances Robolectric can't shadow).
+     *
+     * Gate ordering — fps wins on simultaneous fps+resolution failure
+     * (scope spec: the upstream root cause on an OEM-throttled / thermally-
+     * degraded path is fps, so report that first).
+     *
+     * @return [CancelReason] when the segment must be canceled; `null`
+     *   when both gates pass.
+     */
+    internal fun decideCancelReason(
+        videoTimestampsNs: LongArray,
+        muxedWidth: Int,
+        muxedHeight: Int,
+    ): CancelReason? {
+        // Step 1.5: insufficient frames.
+        if (videoTimestampsNs.size < 2) return CancelReason.InsufficientFrames
+        // Step 1.6: mean fps < 28.0 (fps wins over resolution).
+        val spanSeconds = (videoTimestampsNs.last() - videoTimestampsNs.first()).toDouble() / 1_000_000_000.0
+        val meanFps = if (spanSeconds > 0.0) {
+            (videoTimestampsNs.size - 1).toDouble() / spanSeconds
+        } else 0.0
+        if (meanFps < 28.0) return CancelReason.FpsDropped(meanFps)
+        // Step 1.7: muxed resolution.
+        if (muxedWidth < 1920 || muxedHeight < 1080) {
+            return CancelReason.ResolutionDropped(muxedWidth, muxedHeight)
+        }
+        return null
+    }
+
+    /**
+     * Pure computation of mean FPS over a video-frame-timestamps array.
+     * Returns `0.0` on the degenerate `size < 2` case (the caller's
+     * insufficient-frames gate fires first; this fallback keeps the
+     * function total). Used by FinalizeWorkerGatesTest to assert the
+     * `meanFps` numeric stamped into the cancel payload.
+     */
+    internal fun computeMeanFps(videoTimestampsNs: LongArray): Double {
+        if (videoTimestampsNs.size < 2) return 0.0
+        val span = (videoTimestampsNs.last() - videoTimestampsNs.first()).toDouble() / 1_000_000_000.0
+        return if (span > 0.0) (videoTimestampsNs.size - 1).toDouble() / span else 0.0
+    }
+
+    /**
+     * Quick task 260517-p5g CAPTURE-QA-02 — minimal MediaExtractor surface
+     * the cancel-gate logic uses. Extracted as an interface so tests can
+     * inject a fake without spinning up Robolectric's incomplete
+     * MediaExtractor shadow. Production calls [defaultMediaExtractorFactory]
+     * which constructs a real [MediaExtractor].
+     */
+    internal interface MediaExtractorLike {
+        fun getTrackCount(): Int
+        fun getTrackFormat(index: Int): MediaFormat
+        fun release()
+    }
+
+    /** Production factory — wraps the real [MediaExtractor]. */
+    private val defaultMediaExtractorFactory: (File) -> MediaExtractorLike = { mp4 ->
+        val real = MediaExtractor()
+        real.setDataSource(mp4.absolutePath)
+        object : MediaExtractorLike {
+            override fun getTrackCount(): Int = real.trackCount
+            override fun getTrackFormat(index: Int): MediaFormat = real.getTrackFormat(index)
+            override fun release() = real.release()
+        }
+    }
+
+    /**
+     * Test seam — `FinalizeWorkerGatesTest` swaps this with a fake factory
+     * so it can drive the resolution gate without a real MP4. Production
+     * code never touches it; the default is [defaultMediaExtractorFactory].
+     */
+    @JvmField
+    internal var mediaExtractorFactory: (File) -> MediaExtractorLike = defaultMediaExtractorFactory
+
+    /**
+     * Read the first video track's width / height from the muxed MP4 via
+     * [MediaExtractor] (Quick task 260517-p5g CAPTURE-QA-02). Returns
+     * `(0, 0)` on any failure — the caller's resolution gate then cancels
+     * with `resolution_dropped` (fail-closed; never up-stamps an
+     * un-readable segment with a passing 1920×1080).
+     */
+    internal fun readMuxedResolution(mp4: File): Pair<Int, Int> {
+        var w = 0
+        var h = 0
+        val ex: MediaExtractorLike = try {
+            mediaExtractorFactory(mp4)
+        } catch (t: Throwable) {
+            Log.w("FinalizeWorker", "readMuxedResolution: MediaExtractor open failed", t)
+            return 0 to 0
+        }
+        try {
+            for (i in 0 until ex.getTrackCount()) {
+                val fmt = ex.getTrackFormat(i)
+                val mime = if (fmt.containsKey(MediaFormat.KEY_MIME)) fmt.getString(MediaFormat.KEY_MIME) else null
+                if (mime != null && mime.startsWith("video/")) {
+                    if (fmt.containsKey(MediaFormat.KEY_WIDTH)) w = fmt.getInteger(MediaFormat.KEY_WIDTH)
+                    if (fmt.containsKey(MediaFormat.KEY_HEIGHT)) h = fmt.getInteger(MediaFormat.KEY_HEIGHT)
+                    break
+                }
+            }
+        } catch (t: Throwable) {
+            Log.w("FinalizeWorker", "readMuxedResolution: track scan failed", t)
+        } finally {
+            try { ex.release() } catch (_: Throwable) {}
+        }
+        return w to h
+    }
+
+    /**
+     * Quick task 260517-p5g CAPTURE-QA-01 / CAPTURE-QA-04 — emit
+     * `onSegmentCanceled` with the documented payload and tear down the
+     * sidecar (so the app-launch sweep doesn't treat the canceled segment
+     * as a re-finalize candidate). The MP4 / CSV / metadata-JSON cleanup
+     * is owned by the JS side (`RecordingScreen.tsx` handler) per the
+     * "write-then-delete" rule — the History ledger entry is persisted
+     * before the bundle files are deleted.
+     */
+    internal fun emitCanceled(
+        seg: Segment,
+        reason: CancelReason,
+        emit: (String, WritableMap) -> Unit,
+    ) {
+        try {
+            // Delete the sidecar — orphan-sidecar contract: presence means
+            // "finalize incomplete"; absence means "finalize complete (in
+            // some form — uploaded or canceled)". The MP4 / CSV / JSON
+            // bundle is NOT deleted here — the JS-side handler deletes it
+            // AFTER the History ledger entry is persisted (write-then-delete).
+            SidecarManager.delete(seg.sidecarFile)
+        } catch (_: Throwable) { /* best-effort */ }
+
+        val durationMs = (seg.endedAtNs - seg.startedAtNs).toDouble() / 1_000_000.0
+        val payload = Arguments.createMap().apply {
+            putString("segmentId", seg.segmentId)
+            putString("recordingId", seg.recordingId)
+            putString("taskId", seg.sidecar.taskInfoPartial.taskId)
+            putString("filenameBase", seg.filenameBase)
+            putString("mp4Path", seg.mp4File.absolutePath)
+            putString("csvPath", seg.csvFile.absolutePath)
+            putString("jsonPath", seg.jsonFile.absolutePath)
+            putString("recordedAt", seg.sidecar.wallclockStartIso)
+            putDouble("durationMs", durationMs)
+            putString("reason", reason.code)
+            when (reason) {
+                is CancelReason.FpsDropped -> {
+                    putDouble("meanFps", reason.meanFps)
+                    putNull("width")
+                    putNull("height")
+                }
+                is CancelReason.ResolutionDropped -> {
+                    putNull("meanFps")
+                    putInt("width", reason.width)
+                    putInt("height", reason.height)
+                }
+                CancelReason.InsufficientFrames -> {
+                    putNull("meanFps")
+                    putNull("width")
+                    putNull("height")
+                }
+            }
+        }
+        emit("onSegmentCanceled", payload)
+    }
+
+    /**
      * Adapt the package-level [SidecarPayload] (SidecarManager's type) into
      * the nested [MetadataComposer.SidecarPayload] (the composer's type).
      * Field-for-field identical; the adapter exists because Plan 03-06
@@ -239,5 +468,48 @@ object FinalizeWorker {
                 ipAddress = s.captureDeviceInfoPartial.ipAddress,
                 location = s.captureDeviceInfoPartial.location,
             ),
+            // Quick task 260517-p5g CAPTURE-QA-03 — propagate the recorded rotation
+            // captured at session start. MetadataComposer.compose reads this to
+            // stamp metadata.orientation truthfully.
+            recordedRotation = s.recordedRotation,
         )
+}
+
+// ============================================================
+// Quick task 260517-p5g CAPTURE-QA-01 / CAPTURE-QA-02 — cancel-reason
+// taxonomy. Discriminated union of the three terminal cancel codes the
+// FinalizeWorker can emit via `onSegmentCanceled`.
+// ============================================================
+
+/** Cancel reason for `FinalizeWorker.finalize` → `onSegmentCanceled`. */
+sealed class CancelReason {
+    /** Stable bridge code stamped onto the WritableMap payload. */
+    abstract val code: String
+
+    /**
+     * Mean FPS over the segment's frame timestamps fell below 28.0.
+     * `meanFps` is the measured value used to make the gating decision.
+     */
+    data class FpsDropped(val meanFps: Double) : CancelReason() {
+        override val code: String = "fps_dropped"
+    }
+
+    /**
+     * MediaExtractor track-header read of the muxed MP4 reported a
+     * resolution below 1920×1080 (the LOCKED capture spec). `width` /
+     * `height` are the muxed-track values.
+     */
+    data class ResolutionDropped(val width: Int, val height: Int) : CancelReason() {
+        override val code: String = "resolution_dropped"
+    }
+
+    /**
+     * The segment's `videoFrameTimestamps` array carried fewer than 2
+     * entries — degenerate; mean FPS is undefined. Emitted as the first
+     * gate (before fps / resolution) so a 0-frame segment never proceeds
+     * to MediaExtractor.
+     */
+    object InsufficientFrames : CancelReason() {
+        override val code: String = "insufficient_frames"
+    }
 }

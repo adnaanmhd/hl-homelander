@@ -101,6 +101,26 @@ class MetadataSchemaConformanceTest {
         imuEndTimestampIso = "2026-05-05T00:31:20.987+05:30",
         environment = "residential",
         timeOfDay = "day",
+        // Quick task 260517-p5g CAPTURE-QA-01 / CAPTURE-QA-03 — happy-path
+        // fixture: every spec value is the "measured / probed / reported"
+        // truth-source, NOT the previously-inline compose() literal.
+        measuredMeanFps = 29.97,
+        videoReport = MetadataComposer.VideoReport(
+            width = 1920,
+            height = 1080,
+            codec = "hevc",
+            profile = "main",
+            bitrateBps = 8_000_000,
+            bitrateBpsConfigured = 8_000_000,
+            bitrateModeToken = "cbr",
+            gopFrames = 30,
+            colorStandardToken = "bt709",
+            colorTransferToken = "sdr",
+            colorRangeToken = "limited",
+            colorDepthBits = 8,
+            bFramesReported = 0,
+        ),
+        recordedRotation = "landscape_left",
     )
 
     private fun loadTemplate(): JSONObject {
@@ -162,22 +182,39 @@ class MetadataSchemaConformanceTest {
     }
 
     @Test
-    fun `locked spec values are hard-coded`() {
+    fun `spec-relevant values are derived from FinalizeMetrics (CAPTURE-QA-03)`() {
+        // Quick task 260517-p5g CAPTURE-QA-03 — every spec-relevant field
+        // now derives from `FinalizeMetrics.videoReport` + `measuredMeanFps`
+        // + `sidecar.recordedRotation`. The previous "hard-coded literals"
+        // assertion is replaced with this derivation assertion — see
+        // `MetadataComposerLiteralsTest` for the comment-stripped grep gate
+        // that locks in the absence of hardcoded spec literals in compose().
         val md = MetadataComposer.compose(fixtureSidecar(), fixtureMetrics())
             .getJSONObject("metadata")
+        // Project-identity fields (NOT capture-spec values).
         assertEquals("egocentric_head", md.getString("footage_type"))
         assertEquals("mp4", md.getString("container_format"))
-        assertEquals("landscape", md.getString("orientation"))
+        // Derived from sidecar.recordedRotation (was the "landscape" literal).
+        assertEquals("landscape_left", md.getString("orientation"))
+        // Derived from videoReport.width × videoReport.height.
         assertEquals("1920x1080", md.getString("resolution"))
-        assertEquals(30, md.getInt("fps"))
+        // Derived from measuredMeanFps (the fixture uses 29.97 to prove the
+        // path is not a literal 30).
+        assertEquals(29.97, md.getDouble("fps"), 0.0001)
+        // Derived from videoReport.{codec,profile,bitrateBps,bitrateModeToken,
+        // gopFrames,colorDepthBits,colorStandardToken,bFramesReported}.
         assertEquals("hevc", md.getString("video_codec"))
         assertEquals("main", md.getString("video_profile"))
         assertEquals(8_000_000, md.getInt("bitrate_bps"))
+        assertEquals("reported", md.getString("bitrate_source"))
         assertEquals("cbr", md.getString("bitrate_mode"))
         assertEquals(30, md.getInt("gop"))
         assertEquals(8, md.getInt("color_depth_bits"))
         assertEquals("bt709", md.getString("color_space"))
+        // hdr + image_stabilization stay configured-literal (camera flags,
+        // verified at compat-check time via EncoderProbe — see compose() comment).
         assertFalse(md.getBoolean("hdr"))
+        // b_frames derives from videoReport.bFramesReported (== 0 here → false).
         assertFalse(md.getBoolean("b_frames"))
         assertFalse(md.getBoolean("image_stabilization"))
         // GAP-3 (2026-05-11) — audio capture disabled. Fields stamped as
@@ -188,6 +225,50 @@ class MetadataSchemaConformanceTest {
         assertTrue(md.isNull("audio_codec"))
         assertTrue(md.isNull("audio_bitrate_bps"))
         assertTrue(md.isNull("audio_channels"))
+    }
+
+    @Test
+    fun `resolution flows through from videoReport (truth-source proof)`() {
+        // CAPTURE-QA-03 — change videoReport.width/height and watch the
+        // composed JSON change. Proves the field is NOT a literal.
+        val m = fixtureMetrics().copy(
+            videoReport = fixtureMetrics().videoReport.copy(width = 1280, height = 720),
+        )
+        val md = MetadataComposer.compose(fixtureSidecar(), m).getJSONObject("metadata")
+        assertEquals("1280x720", md.getString("resolution"))
+    }
+
+    @Test
+    fun `fps flows through from measuredMeanFps (truth-source proof)`() {
+        val m = fixtureMetrics().copy(measuredMeanFps = 25.5)
+        val md = MetadataComposer.compose(fixtureSidecar(), m).getJSONObject("metadata")
+        assertEquals(25.5, md.getDouble("fps"), 0.0001)
+    }
+
+    @Test
+    fun `orientation flows through from sidecar_recordedRotation (truth-source proof)`() {
+        val sidecar = fixtureSidecar().copy(recordedRotation = "landscape_right")
+        val md = MetadataComposer.compose(sidecar, fixtureMetrics()).getJSONObject("metadata")
+        assertEquals("landscape_right", md.getString("orientation"))
+    }
+
+    @Test
+    fun `bitrate_source is configured when encoder did not report (fallback path)`() {
+        val m = fixtureMetrics().copy(
+            videoReport = fixtureMetrics().videoReport.copy(bitrateBps = null),
+        )
+        val md = MetadataComposer.compose(fixtureSidecar(), m).getJSONObject("metadata")
+        assertEquals(8_000_000, md.getInt("bitrate_bps"))
+        assertEquals("configured", md.getString("bitrate_source"))
+    }
+
+    @Test
+    fun `b_frames is true when encoder reported a non-zero MAX_B_FRAMES (defensive)`() {
+        val m = fixtureMetrics().copy(
+            videoReport = fixtureMetrics().videoReport.copy(bFramesReported = 5),
+        )
+        val md = MetadataComposer.compose(fixtureSidecar(), m).getJSONObject("metadata")
+        assertTrue(md.getBoolean("b_frames"))
     }
 
     @Test

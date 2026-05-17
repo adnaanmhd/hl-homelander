@@ -122,6 +122,10 @@ vi.mock('../../../src/native/HumynCapture', () => ({
   stop: mockHcStop,
   onSegmentStart: mockHcEvtSub,
   onSegmentComplete: mockHcEvtSub,
+  // Quick task 260517-p5g CAPTURE-QA-04 — RecordingScreen now subscribes
+  // to onSegmentCanceled (see RecordingScreen.tsx). The mock returns the
+  // same removable-subscription shape as the other helpers.
+  onSegmentCanceled: mockHcEvtSub,
   onSessionStop: mockHcEvtSub,
   onThermalAbort: mockHcEvtSub,
   onError: mockHcEvtSub,

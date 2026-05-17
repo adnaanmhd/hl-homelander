@@ -31,6 +31,8 @@ import type {
   CaptureStartResponse,
   SegmentStartEvent,
   SegmentCompleteEvent,
+  SegmentCanceledEvent,
+  SegmentCancelReason,
   SessionStopEvent,
   ThermalAbortEvent,
   CaptureErrorEvent,
@@ -146,6 +148,21 @@ export function onSegmentComplete(
   return emitter().addListener('onSegmentComplete', listener);
 }
 
+/**
+ * Quick task 260517-p5g CAPTURE-QA-04 — subscribe to `onSegmentCanceled`
+ * events. Fires when the native `FinalizeWorker` rejects a segment via
+ * one of the three capture-quality gates (mean_fps<28 / w<1920 || h<1080
+ * / N<2). The segment NEVER enters the upload queue; the listener writes
+ * a History-row ledger entry then deletes the MP4 + CSV + JSON bundle
+ * files (write-then-delete). Caller MUST `.remove()` the returned
+ * subscription on unmount or the listener leaks.
+ */
+export function onSegmentCanceled(
+  listener: (e: SegmentCanceledEvent) => void,
+): EmitterSubscription {
+  return emitter().addListener('onSegmentCanceled', listener);
+}
+
 /** Subscribe to `onSessionStop` events. */
 export function onSessionStop(listener: (e: SessionStopEvent) => void): EmitterSubscription {
   return emitter().addListener('onSessionStop', listener);
@@ -185,6 +202,8 @@ export type {
   CaptureStartResponse,
   SegmentStartEvent,
   SegmentCompleteEvent,
+  SegmentCanceledEvent,
+  SegmentCancelReason,
   SessionStopEvent,
   ThermalAbortEvent,
   CaptureErrorEvent,

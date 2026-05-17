@@ -189,6 +189,23 @@ data class UploadRow(
      * presigned URLs). See `HumynUploadModule.reupload()` Path-A.
      */
     var reuploadIdempotencyKey: String = UUID.randomUUID().toString(),
+    /**
+     * Quick task 260517-p5g CAPTURE-QA-04 — when set to a non-null code,
+     * marks this row as a CANCELED segment that must NEVER be uploaded.
+     * [UploadQueueStore.enqueue] short-circuits when this is set (belt-
+     * and-braces backstop; the JS-side `RecordingScreen.onSegmentCanceled`
+     * handler is the primary gate and never calls `HumynUpload.enqueue`
+     * for canceled segments).
+     *
+     * Values mirror [ai.humynlabs.capture.capture.CancelReason.code]:
+     * `"fps_dropped"` / `"resolution_dropped"` / `"insufficient_frames"`.
+     * Null = normal (non-canceled) row — the common case.
+     *
+     * Backward-compatible: missing on disk → null (the JSON has-key check
+     * in [fromJson] tolerates legacy queue.json rows from before this
+     * field existed).
+     */
+    var cancelReason: String? = null,
 ) {
     /**
      * Transient in-memory signal from `fromJson` to `UploadQueueStore.read()`:
@@ -225,6 +242,10 @@ data class UploadRow(
         put("partsIdempotencyKey", partsIdempotencyKey)
         put("finalizeIdempotencyKey", finalizeIdempotencyKey)
         put("reuploadIdempotencyKey", reuploadIdempotencyKey)
+        // Quick task 260517-p5g CAPTURE-QA-04 — only persist when set; a
+        // null cancelReason is the common case and we don't bloat queue.json
+        // on every non-canceled row.
+        if (cancelReason != null) put("cancelReason", cancelReason)
     }
 
     companion object {
@@ -303,6 +324,14 @@ data class UploadRow(
                 partsIdempotencyKey = partsKey,
                 finalizeIdempotencyKey = finalizeKey,
                 reuploadIdempotencyKey = reuploadKey,
+                // Quick task 260517-p5g CAPTURE-QA-04 — backward-compatible
+                // load: legacy rows on disk that pre-date this field deserialize
+                // with cancelReason=null (the common case for non-canceled rows).
+                cancelReason = if (o.has("cancelReason") && !o.isNull("cancelReason")) {
+                    o.getString("cancelReason")
+                } else {
+                    null
+                },
             )
             row._migratedOnLoad = migrated
             return row

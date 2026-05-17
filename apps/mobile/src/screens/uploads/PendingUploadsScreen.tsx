@@ -111,13 +111,23 @@ export default function PendingUploadsScreen({
   const currentSub = useMemo(() => decodeGoogleSubFromJwt(jwt), [jwt]);
   const offline = __test_offlineOverride === true;
 
+  // Quick task 260517-p5g CAPTURE-QA-05 — defensive filter: skip any row
+  // whose `cancelReason` is set. This should never happen at runtime
+  // (UploadQueueStore.enqueue refuses canceled rows + RecordingScreen
+  // is the primary gate that never calls HumynUpload.enqueue for them),
+  // but a future native-side regression that ever lets one through is
+  // belt-and-braces caught here so Pending Uploads NEVER renders a
+  // canceled segment as in-flight.
   const mine = useCallback(
-    (all: UploadQueueRow[]) => all.filter((r) => r.ownerUserId === currentSub),
+    (all: UploadQueueRow[]) =>
+      all.filter((r) => r.ownerUserId === currentSub && r.cancelReason == null),
     [currentSub],
   );
 
   const [rows, setRows] = useState<UploadQueueRow[]>(() =>
-    __test_rows ? __test_rows.filter((r) => r.ownerUserId === currentSub) : [],
+    __test_rows
+      ? __test_rows.filter((r) => r.ownerUserId === currentSub && r.cancelReason == null)
+      : [],
   );
   const [progressById, setProgressById] = useState<Record<string, number>>({});
 

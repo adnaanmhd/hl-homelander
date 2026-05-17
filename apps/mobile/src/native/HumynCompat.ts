@@ -34,6 +34,20 @@ export interface EncoderProbeResult {
   hdrSdrForced: boolean;
   /** Absolute path to the cacheDir probe clip (already deleted by finally — diagnostic only). */
   encoderClipPath: string;
+  /**
+   * Quick task 260517-p5g CAPTURE-QA-02 — `true` iff the encoder's
+   * `INFO_OUTPUT_FORMAT_CHANGED` fired during the 5s probe AND its
+   * `outputFormat` snapshot reported `KEY_WIDTH=1920` /
+   * `KEY_HEIGHT=1080`. Distinct from `DeviceCapsResult.resolutionMax`
+   * which only proves the codec exists at 1080p in the abstract — a
+   * device whose codec exists but whose encoder pipeline silently falls
+   * back to 720p (logical-multi-camera fusion path, thermal throttle,
+   * OEM weirdness) now fails compat closed-loop. Optional (defaults
+   * to `undefined`) so a stale native build that pre-dates this field
+   * doesn't crash the JS bridge — compatService rolls `=== true` into
+   * the resolution check (any other value is treated as a failure).
+   */
+  resolutionDeliverable?: boolean;
 }
 
 export interface ImuProbeResult {
