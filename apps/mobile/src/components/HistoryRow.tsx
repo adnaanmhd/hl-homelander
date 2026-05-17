@@ -103,6 +103,23 @@ export interface HistoryRowItem {
   qaStatus: 'pending' | 'uploaded' | 'verified' | 'hash-mismatch' | 'rejected';
   /** Wall-clock at successful verify (server-side, for the "Uploaded at HH:MM" chip label). */
   verifiedAtIso?: string | null;
+  /**
+   * Quick task 260517-p5g CAPTURE-QA-05 — present when this row is a
+   * CANCELED segment (capture-quality gate failed in FinalizeWorker).
+   * Overrides the chip-variant decision (always chip-failed) and the
+   * sidecar label (one of three reason-specific strings). The row is
+   * non-retryable — no Retry affordance.
+   *
+   * Owner-blessed deviation: the three copy strings below are owner-
+   * approved local copy (CLAUDE.md 2026-05-17 banner). They are NOT
+   * in `design-spec.md` — design-spec doesn't carry the cancel-row
+   * messaging because the cancel surface is new at MVP. The strings
+   * follow the existing chip-failed pattern ("Upload failed — Retry"
+   * shape — short noun-phrase preceded by "Canceled — ").
+   */
+  cancel?: {
+    reason: 'fps_dropped' | 'resolution_dropped' | 'insufficient_frames';
+  };
 }
 
 /**
@@ -163,7 +180,12 @@ export function chipVariant(
   qa: HistoryRowItem['qaStatus'],
   offline: boolean,
   deviceState?: HistoryRowDeviceState,
+  cancel?: HistoryRowItem['cancel'],
 ): HistoryChipVariant {
+  // Quick task 260517-p5g CAPTURE-QA-05 — canceled segments override every
+  // other branch with the chip-failed visual variant. The per-reason copy
+  // string lives in the renderer below (chipSidecarLabel).
+  if (cancel != null) return 'chip-failed';
   // Device state takes precedence — it reflects the in-flight reality before
   // the server has caught up (or, for dead-letter, before any operator action).
   if (deviceState != null) {
@@ -177,6 +199,22 @@ export function chipVariant(
   if (offline && (qa === 'pending' || qa === 'uploaded')) return 'chip-paused-no-wifi';
   if (qa === 'pending' || qa === 'uploaded') return 'chip-progress';
   return 'chip-progress';
+}
+
+/**
+ * Quick task 260517-p5g CAPTURE-QA-05 — per-reason copy for a canceled
+ * History row. Owner-blessed deviation (CLAUDE.md 2026-05-17 banner) —
+ * these strings are not in design-spec.md; the cancel surface is new.
+ */
+export function cancelReasonLabel(reason: NonNullable<HistoryRowItem['cancel']>['reason']): string {
+  switch (reason) {
+    case 'fps_dropped':
+      return 'Canceled — frame rate dropped';
+    case 'resolution_dropped':
+      return 'Canceled — resolution dropped';
+    case 'insufficient_frames':
+      return 'Canceled — recording too short';
+  }
 }
 
 /** Translate the UI-SPEC conceptual variant to the UploadStatusChip base variant. */
@@ -228,12 +266,17 @@ export function HistoryRow({
   deviceState,
   progressPct,
 }: HistoryRowProps): React.JSX.Element {
+  // Quick task 260517-p5g CAPTURE-QA-05 — `row.cancel` overrides the
+  // chip/sidecar/retry decisions below. Owner-blessed deviation per
+  // CLAUDE.md 2026-05-17 banner — the three copy strings are local
+  // (design-spec.md doesn't carry them).
+  const isCanceled = row.cancel != null;
   const variant = useMemo(
-    () => chipVariant(row.qaStatus, offline, deviceState),
-    [row.qaStatus, offline, deviceState],
+    () => chipVariant(row.qaStatus, offline, deviceState, row.cancel),
+    [row.qaStatus, offline, deviceState, row.cancel],
   );
   const baseVariant = toBaseChipVariant(variant);
-  const isLiveUploading = deviceState === 'uploading' && progressPct != null;
+  const isLiveUploading = !isCanceled && deviceState === 'uploading' && progressPct != null;
   const clampedPct = progressPct != null ? Math.max(0, Math.min(100, Math.round(progressPct))) : 0;
   const meta = useMemo(
     () => metaDateLine(row.createdAt, row.durationMs),
@@ -244,10 +287,14 @@ export function HistoryRow({
   // shown in the success tone with the row-specific timestamp). We render that
   // label as a sibling text node when variant === chip-success — the chip itself
   // stays as the success bg/fg palette.
-  const showUploadedAt = variant === 'chip-success';
-  const showFailedRetry = variant === 'chip-failed';
-  const showPausedNoWifi = variant === 'chip-paused-no-wifi';
-  const showInProgress = variant === 'chip-progress' || variant === 'chip-verifying';
+  const showUploadedAt = !isCanceled && variant === 'chip-success';
+  // Canceled rows use the chip-failed visual but DO NOT render the Retry
+  // affordance (they're non-retryable — the bundle is already deleted).
+  const showFailedRetry = !isCanceled && variant === 'chip-failed';
+  const showCanceledLabel = isCanceled;
+  const showPausedNoWifi = !isCanceled && variant === 'chip-paused-no-wifi';
+  const showInProgress =
+    !isCanceled && (variant === 'chip-progress' || variant === 'chip-verifying');
 
   const firstLetter = (row.taskName || '?').slice(0, 1).toUpperCase();
 
@@ -325,6 +372,20 @@ export function HistoryRow({
                 Upload failed — Retry
               </Text>
             </Pressable>
+          ) : null}
+          {showCanceledLabel && row.cancel ? (
+            // Quick task 260517-p5g CAPTURE-QA-05 — canceled rows render the
+            // chip-failed visual with a reason-specific copy string in the
+            // neutral chipSidecarLabel style (NOT the accent retry color —
+            // these rows are non-retryable; the bundle was already deleted).
+            // Owner-blessed deviation per CLAUDE.md 2026-05-17 banner.
+            <Text
+              variant="caption"
+              accessibilityLabel="history-row-canceled-reason"
+              style={styles.chipSidecarLabel}
+            >
+              {cancelReasonLabel(row.cancel.reason)}
+            </Text>
           ) : null}
           {showPausedNoWifi ? (
             <Text

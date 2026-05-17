@@ -62,7 +62,11 @@ import { useAppStore } from '../../state/appStore';
 import { computeRange, type NamedRange } from '../../services/timeRange';
 import { fetchRecordings } from '../../services/recordingsApi';
 import { groupByDay, type GroupableRow } from '../../services/historyGrouping';
-import { readEntry, type ThumbnailLedgerEntry } from '../../services/thumbnailLedger';
+import {
+  readEntry,
+  readAllEntries,
+  type ThumbnailLedgerEntry,
+} from '../../services/thumbnailLedger';
 import { fetchTasks } from '../../services/tasksApi';
 import {
   HumynUpload,
@@ -363,8 +367,17 @@ export function HistoryScreen(): React.JSX.Element {
     for (const r of deviceRows) map[r.recordingId] = r;
     return map;
   }, [deviceRows]);
+  // Quick task 260517-p5g CAPTURE-QA-05 — read every ledger entry on
+  // disk so we can synthesize canceled-segment rows (which have NO
+  // server row — they never reached `/init`). We refresh this on every
+  // rawRows change so a freshly-canceled segment appears on the next
+  // re-render. MMKV reads are sub-ms; the count is bounded by lifetime
+  // recording count at MVP (Phase-6 follow-on tracks the indexed-manifest
+  // swap if cardinality grows past a few hundred).
+  const ledgerEntries: ThumbnailLedgerEntry[] = useMemo(() => readAllEntries(), [rawRows]);
   const rows: HistoryRowGroupable[] = useMemo(() => {
     const serverIds = new Set(rawRows.map((r) => r.recording_id));
+    const deviceRowIdSet = new Set(deviceRows.map((r) => r.recordingId));
     const serverRows = rawRows.map((r) => toRowItem(r, taskNameById) as HistoryRowGroupable);
     // Synthesize a HistoryRowItem for every device-queue row that isn't on
     // the server yet AND isn't already in a `verified` end-state (those are
@@ -385,11 +398,35 @@ export function HistoryScreen(): React.JSX.Element {
           verifiedAtIso: null,
         }),
       );
+    // Quick task 260517-p5g CAPTURE-QA-05 — synthesize a History row for
+    // every CANCELED ledger entry whose recordingId is NOT in the server
+    // set AND NOT in the device-queue set (by definition — a canceled
+    // segment never enters either). HistoryRow reads the `cancel` payload
+    // and switches to the chip-failed visual with the reason-specific copy.
+    const canceledRows: HistoryRowGroupable[] = ledgerEntries
+      .filter(
+        (e) =>
+          e.cancel != null && !serverIds.has(e.recordingId) && !deviceRowIdSet.has(e.recordingId),
+      )
+      .map(
+        (e): HistoryRowGroupable => ({
+          id: e.recordingId,
+          taskName: e.taskId != null ? (taskNameById[e.taskId] ?? 'Recording') : 'Recording',
+          durationMs: e.durationMs ?? 0,
+          // The ledger's createdAtMs is wall-clock; ISO it for the day grouper.
+          createdAt: new Date(e.createdAtMs).toISOString(),
+          // qaStatus is a placeholder — HistoryRow's chip variant is
+          // overridden by `cancel` set on the row (see HistoryRow.chipVariant).
+          qaStatus: 'rejected',
+          verifiedAtIso: null,
+          cancel: e.cancel!,
+        }),
+      );
     // Newest first (server already returns descending; sort merged set).
-    return [...synthesized, ...serverRows].sort((a, b) =>
+    return [...canceledRows, ...synthesized, ...serverRows].sort((a, b) =>
       a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0,
     );
-  }, [rawRows, deviceRows, taskNameById]);
+  }, [rawRows, deviceRows, taskNameById, ledgerEntries]);
 
   // HIST-02 — group into SectionList sections per UI-SPEC §History.
   const sections = useMemo(() => groupByDay<HistoryRowGroupable>(rows), [rows]);
