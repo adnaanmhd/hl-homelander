@@ -435,6 +435,36 @@ object MetadataComposer {
         else -> mime.removePrefix("video/")
     }
 
+    /**
+     * BUG-260518-04 fix — choose the canonical codec token from up to three
+     * candidate MIME sources in priority order:
+     *
+     *   1. [extractorMime] — what the muxed MP4's first video track header
+     *      actually carries (MediaExtractor KEY_MIME). Highest authority:
+     *      it's what was committed to the file the training pipeline reads.
+     *   2. [encoderMime] — what the encoder's OUTPUT_FORMAT snapshot reports
+     *      (`encoder.outputFormat.getString(KEY_MIME)`). Some Android encoders
+     *      only expose MIME on the INPUT format and leave OUTPUT_FORMAT
+     *      KEY_MIME as `null` (the Pixel 8a / 10a observed behavior on
+     *      apkRollout build 22ffec5).
+     *   3. [configuredMime] — what we configured the encoder with at create
+     *      time (`HevcEncoder.MIME` → `MediaCodec.createEncoderByType(MIME)`).
+     *      The encoder cannot produce a different codec than what
+     *      createEncoderByType demanded; safe last-resort.
+     *
+     * Returns the canonical token (`"hevc"` / `"h264"` / `<mime-stripped>`),
+     * or `"unknown"` only when ALL THREE sources are null. That last case
+     * implies the muxed MP4 is unreadable AND the encoder reported nothing AND
+     * the caller didn't pass a configured constant — at which point the
+     * upstream resolution gate (width<1920 → `resolution_dropped`) would have
+     * already canceled the segment.
+     */
+    internal fun chooseCodecToken(
+        extractorMime: String?,
+        encoderMime: String?,
+        configuredMime: String?,
+    ): String = mimeToCodecToken(extractorMime ?: encoderMime ?: configuredMime)
+
     /** HEVC profile constant → token. Unknown → `"unknown"`. */
     internal fun hevcProfileToToken(p: Int): String = when (p) {
         MediaCodecInfo.CodecProfileLevel.HEVCProfileMain -> "main"
@@ -471,8 +501,15 @@ object MetadataComposer {
      */
     fun buildVideoReport(encoder: MediaCodec?, mp4: File): VideoReport {
         // 1. MediaExtractor — width / height from the muxed first video track.
+        //    BUG-260518-04 — also capture the muxed video track's MIME. This
+        //    is the spec-compliant CAPTURE-QA-01 codec source (it's what was
+        //    actually committed to the MP4 the training pipeline will read),
+        //    and supersedes the encoder OUTPUT_FORMAT snapshot which some
+        //    Android encoders (Pixel 8a / 10a observed on apkRollout 22ffec5)
+        //    leave with KEY_MIME = null even when KEY_PROFILE etc. populate.
         var width = 0
         var height = 0
+        var extractorVideoMime: String? = null
         val extractor = MediaExtractor()
         try {
             extractor.setDataSource(mp4.absolutePath)
@@ -480,6 +517,7 @@ object MetadataComposer {
                 val fmt = extractor.getTrackFormat(i)
                 val mime = fmt.getString(MediaFormat.KEY_MIME) ?: continue
                 if (mime.startsWith("video/")) {
+                    extractorVideoMime = mime
                     if (fmt.containsKey(MediaFormat.KEY_WIDTH)) width = fmt.getInteger(MediaFormat.KEY_WIDTH)
                     if (fmt.containsKey(MediaFormat.KEY_HEIGHT)) height = fmt.getInteger(MediaFormat.KEY_HEIGHT)
                     break
@@ -487,7 +525,9 @@ object MetadataComposer {
             }
         } catch (_: Throwable) {
             // Best-effort — leaves width/height = 0 which the caller's
-            // resolution gate rejects (width<1920 → resolution_dropped).
+            // resolution gate rejects (width<1920 → resolution_dropped). The
+            // codec falls back to encoder OUTPUT_FORMAT MIME → HevcEncoder.MIME
+            // via chooseCodecToken below.
         } finally {
             try { extractor.release() } catch (_: Throwable) {}
         }
@@ -497,7 +537,15 @@ object MetadataComposer {
         //    null-tolerant for tests that exercise compose() without a
         //    real encoder.
         val of = try { encoder?.outputFormat } catch (_: Throwable) { null }
-        val codec = mimeToCodecToken(of?.getString(MediaFormat.KEY_MIME))
+        // BUG-260518-04 — codec priority: muxed-track MIME (CAPTURE-QA-01 truth)
+        // → encoder OUTPUT_FORMAT MIME → configured HevcEncoder.MIME. Only "unknown"
+        // when ALL THREE are null (which implies the MP4 is unreadable, in which
+        // case the upstream resolution gate already canceled the segment).
+        val codec = chooseCodecToken(
+            extractorMime = extractorVideoMime,
+            encoderMime = of?.getString(MediaFormat.KEY_MIME),
+            configuredMime = HevcEncoder.MIME,
+        )
         val profile = if (of != null && of.containsKey(MediaFormat.KEY_PROFILE)) {
             hevcProfileToToken(of.getInteger(MediaFormat.KEY_PROFILE))
         } else "main"
