@@ -428,7 +428,7 @@ class CaptureSession private constructor(
             hevc = hevc!!,
             muxer = muxer!!,
             imuWriter = imuWriter!!,
-            videoFrameTimestamps = java.util.concurrent.CopyOnWriteArrayList(),
+            videoFrameTimestamps = PrimitiveLongBuffer(PrimitiveLongBuffer.VIDEO_CAPACITY),
             pumpThread = pumpThread,
             pumpExitLatch = CountDownLatch(1),
         )
@@ -1043,23 +1043,28 @@ internal data class Segment(
     val muxer: FragmentedMuxerWrapper,
     val imuWriter: ImuWriter,
     /**
-     * CR-01 fix — `CopyOnWriteArrayList` so the encoder pump thread (writer)
-     * and the finalize executor (reader, via `toLongArray()`) see a
-     * memory-model-correct view. The previous `mutableListOf<Long>()`
-     * (an unsynchronized `ArrayList`) admitted ConcurrentModificationException
+     * CR-01 fix — memory-model-correct shared collection between the encoder
+     * pump thread (writer) and the finalize executor (reader, via
+     * `toLongArray()`). The previous `mutableListOf<Long>()` (an
+     * unsynchronized `ArrayList`) admitted ConcurrentModificationException
      * during finalize's snapshot AND silently truncated arrays on partial
      * visibility — both of which corrupt the CAP-08 drift methodology.
      *
-     * Per-frame allocation cost on COW: each `add` copies the underlying
-     * array. At 30 fps × 600 s = 18 000 frames per segment, that is
-     * O(n²) writes — acceptable here because the writes are tiny longs
-     * and the total work is well under a second on a Pixel-class device.
-     * If profiling on a real device shows hot-path pressure, swap to a
-     * pre-allocated `LongArray` + `AtomicInteger` write index (sized for
-     * `max_frames_per_segment` = 21 600 with safety margin); both are
-     * memory-model-correct.
+     * **Debug session `humyncapture-imu-oom-rollover` (2026-05-18).** Was
+     * `CopyOnWriteArrayList<Long>`, which boxed every `add(Long)` AND copied
+     * the entire backing `Object[]` on every `add` (O(n²) garbage generation
+     * for n adds). At 30 fps × 600 s = 18 000 adds per segment, that's
+     * ~162 M intermediate `Object[]` allocations per segment, all young-gen
+     * but a constant GC firehose. Across 7 continuous 10-min segments on the
+     * Pixel 10a manual-smoke walk the cumulative pressure (alongside the
+     * `ImuWriter.timestampList` boxing) saturated the 256 MB growth limit
+     * and the process OOMed. Now a primitive [PrimitiveLongBuffer] —
+     * pre-allocated `LongArray` of [PrimitiveLongBuffer.VIDEO_CAPACITY]
+     * longs (~173 KB), never grows, no boxing, memory-model-correct via the
+     * `AtomicInteger` write-index. Single-writer (encoder pump);
+     * single-reader-snapshot (finalize).
      */
-    val videoFrameTimestamps: java.util.concurrent.CopyOnWriteArrayList<Long>,
+    val videoFrameTimestamps: PrimitiveLongBuffer,
     val pumpThread: HandlerThread,
     /**
      * CR-04 fix — pump-loop exit signal. The pump runnable (runPumpLoop)
