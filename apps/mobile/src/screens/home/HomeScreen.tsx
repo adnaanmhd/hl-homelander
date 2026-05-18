@@ -131,6 +131,12 @@ function chipVariantFor(row: UploadQueueRow): UploadStatusChipVariant {
     case 'awaiting-verify':
       return 'verifying';
     case 'dead-letter':
+    case 'needs-attention':
+      // Debug session `.planning/debug/upload-queue-hol-finalizing.md`
+      // (Fix C item 4) — NEEDS_ATTENTION shares the chip-failed visual.
+      // The Home tile's tap handler does NOT auto-revive these (auto-revive
+      // is for DEAD_LETTER rows whose retry exhaustion is fully transient);
+      // users open History and manually tap Retry on the chip-failed row.
       return 'failed';
     case 'verified':
       return 'success';

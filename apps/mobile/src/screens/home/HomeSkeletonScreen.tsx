@@ -81,6 +81,9 @@ function chipVariantFor(row: UploadQueueRow): UploadStatusChipVariant {
     case 'awaiting-verify':
       return 'verifying';
     case 'dead-letter':
+    case 'needs-attention':
+      // Debug session `.planning/debug/upload-queue-hol-finalizing.md`
+      // (Fix C item 4) — NEEDS_ATTENTION shares the chip-failed visual.
       return 'failed';
     case 'verified':
       return 'success';

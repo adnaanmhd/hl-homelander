@@ -54,7 +54,20 @@ fun partsCountFor(videoSizeBytes: Long, chunkBytes: Long): Int {
     return ((videoSizeBytes + chunkBytes - 1) / chunkBytes).toInt().coerceAtLeast(1)
 }
 
-/** Row lifecycle state. */
+/**
+ * Row lifecycle state.
+ *
+ * `NEEDS_ATTENTION` (added 2026-05-18 by debug session
+ * `.planning/debug/upload-queue-hol-finalizing.md`, Fix C item 4) is a
+ * terminal-but-recoverable state for rows where every automatic recovery path
+ * exhausted its budget — a hung `/finalize`, a `qa_status` that wouldn't
+ * advance, a stuck FINALIZING row that the GET-recordings/:id reconciler
+ * couldn't resolve. The row stays on disk, the local bundle is preserved, and
+ * the History UI surfaces a manual Retry affordance on the existing
+ * chip-failed visual. Distinct from DEAD_LETTER (which is for permanent
+ * server-rejection errors like 409/403): NEEDS_ATTENTION is "give up
+ * auto-retrying, ask the user".
+ */
 enum class UploadState {
     PENDING,
     UPLOADING,
@@ -62,6 +75,7 @@ enum class UploadState {
     AWAITING_VERIFY,
     VERIFIED,
     DEAD_LETTER,
+    NEEDS_ATTENTION,
 }
 
 /** Per-part transfer status. */
@@ -206,6 +220,60 @@ data class UploadRow(
      * field existed).
      */
     var cancelReason: String? = null,
+    /**
+     * Debug session `upload-queue-hol-finalizing` (Fix C item 4) — count of
+     * automatic recovery attempts a worker has made on this row in its
+     * CURRENT terminal-blocking state (FINALIZING reconciliation, /finalize
+     * timeout-induced retry, etc.). When the counter exceeds
+     * [UploadCoordinator.NEEDS_ATTENTION_THRESHOLD] (default 6 → caps
+     * automatic retries at ~ 30s+1m+2m+5m+15m+1h on a typical backoff
+     * schedule, plus any synchronous catch-up), the worker transitions the
+     * row to [UploadState.NEEDS_ATTENTION] and stops the auto-retry loop;
+     * the user can then manually retry from History UI (which flips the
+     * row back to UPLOADING/PENDING + resets the counter to 0).
+     *
+     * Reset to 0 by:
+     *  - any successful partial advance (a PUT lands, /finalize returns 2xx,
+     *    /finalize is reconciled via GET /recordings/:id);
+     *  - the user's manual Retry tap on a NEEDS_ATTENTION row (handled in
+     *    `HumynUploadModule.retryNeedsAttention()`).
+     *
+     * Backward-compatible: missing on disk → 0. Field is NOT persisted when
+     * zero (the common case) — only emitted on rows that have failed at
+     * least once.
+     */
+    var attemptCount: Int = 0,
+    /**
+     * Debug session `upload-queue-hol-finalizing` (Fix C item 4) —
+     * `System.currentTimeMillis()` of the last failed automatic recovery
+     * attempt (or 0 if the row has never failed). Used by the drainer's
+     * per-row backoff: a worker won't re-attempt a row whose
+     * `lastFailureAt` plus the schedule entry for [attemptCount] is still
+     * in the future. Also surfaced to the JS bridge so the
+     * History-UI Retry button can render time-since-last-attempt copy
+     * ("Stuck for 12 min — Retry").
+     *
+     * Reset to 0 alongside [attemptCount] on success or manual retry.
+     * Backward-compatible: missing on disk → 0. Not persisted when zero.
+     */
+    var lastFailureAt: Long = 0L,
+    /**
+     * Debug session `upload-queue-hol-finalizing` (Fix C item 4) — the
+     * `state.name` value at which the most recent failure occurred (e.g.
+     * `"FINALIZING"` for a /finalize watchdog timeout, `"UPLOADING"` for a
+     * stuck-part path). Mostly diagnostic — surfaced to the JS bridge for
+     * the History-UI retry copy + the post-walk debug-bundle ZIP. NOT
+     * persisted when null.
+     */
+    var lastFailureState: String? = null,
+    /**
+     * Debug session `upload-queue-hol-finalizing` (Fix C item 4) — a short
+     * description of the most recent failure mode (e.g.
+     * `"finalize timed out after 60s"`, `"hung after 3 retries"`). Used by
+     * the History-UI Retry button's per-row reason copy when the row is in
+     * NEEDS_ATTENTION. NOT persisted when null.
+     */
+    var lastFailureReason: String? = null,
 ) {
     /**
      * Transient in-memory signal from `fromJson` to `UploadQueueStore.read()`:
@@ -246,6 +314,14 @@ data class UploadRow(
         // null cancelReason is the common case and we don't bloat queue.json
         // on every non-canceled row.
         if (cancelReason != null) put("cancelReason", cancelReason)
+        // Debug session `upload-queue-hol-finalizing` Fix C item 4 — only
+        // persist these when non-default (the common case is a healthy row
+        // with attemptCount=0 / lastFailureAt=0 / null reason; don't bloat
+        // queue.json with empty fields on every row).
+        if (attemptCount > 0) put("attemptCount", attemptCount)
+        if (lastFailureAt > 0L) put("lastFailureAt", lastFailureAt)
+        if (lastFailureState != null) put("lastFailureState", lastFailureState)
+        if (lastFailureReason != null) put("lastFailureReason", lastFailureReason)
     }
 
     companion object {
@@ -329,6 +405,22 @@ data class UploadRow(
                 // with cancelReason=null (the common case for non-canceled rows).
                 cancelReason = if (o.has("cancelReason") && !o.isNull("cancelReason")) {
                     o.getString("cancelReason")
+                } else {
+                    null
+                },
+                // Debug session `upload-queue-hol-finalizing` Fix C item 4 —
+                // backward-compatible load. Legacy rows pre-date these fields
+                // and deserialize with attemptCount=0 / lastFailureAt=0 /
+                // null reason (the common case for healthy rows).
+                attemptCount = o.optInt("attemptCount", 0),
+                lastFailureAt = o.optLong("lastFailureAt", 0L),
+                lastFailureState = if (o.has("lastFailureState") && !o.isNull("lastFailureState")) {
+                    o.getString("lastFailureState")
+                } else {
+                    null
+                },
+                lastFailureReason = if (o.has("lastFailureReason") && !o.isNull("lastFailureReason")) {
+                    o.getString("lastFailureReason")
                 } else {
                     null
                 },

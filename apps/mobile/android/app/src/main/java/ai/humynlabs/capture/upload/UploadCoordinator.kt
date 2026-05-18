@@ -16,10 +16,44 @@ import java.util.concurrent.Future
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
-import java.util.concurrent.locks.ReentrantLock
 
 /**
  * Phase 5 / Plan 05-06 — the upload-queue drainer.
+ *
+ * **2026-05-18 — Fix C lands here (debug session
+ * `.planning/debug/upload-queue-hol-finalizing.md`).** The previous shape was a
+ * strictly-serial `for (row in queueStore.read())` under a single
+ * `ReentrantLock` (`drainLock`) — a hung `/finalize` on row N held the lock
+ * forever and every row N+1 stayed `PENDING` with `parts 0/0`. Pixel 8a walk
+ * 2026-05-18 captured 27 such rows behind one stuck `FINALIZING` head. Replaced
+ * with:
+ *
+ *   1. **Bounded concurrent workers.** Up to [UPLOAD_PARALLELISM_CAP] (default 2)
+ *      worker threads drain in parallel. Each worker pulls one row, reserves it
+ *      via a per-row in-progress set, runs `uploadOne()`, releases. A hung row
+ *      blocks only its own worker; the other worker keeps draining the queue.
+ *   2. **`/finalize` watchdog.** The per-call `callTimeout` (60s) on `/finalize`
+ *      is sized to be long enough for a healthy server's slowest path
+ *      (BullMQ enqueue + finalize-worker handler) but short enough that a hung
+ *      server doesn't pin the row forever. The watchdog is per-call, not
+ *      client-wide — part PUTs still rely on `ChunkUploader`'s 30s no-progress
+ *      watchdog (a fixed `readTimeout` on a slow-but-progressing cellular
+ *      transfer would kill it).
+ *   3. **FINALIZING reconciliation.** Before re-POSTing `/finalize` on a row
+ *      already in `FINALIZING`, the worker first `GET /recordings/:id` — if
+ *      the server says `qa_status ∈ {uploaded, verified}`, the row is marked
+ *      `AWAITING_VERIFY` locally and the worker moves on (no re-finalize). This
+ *      is what would have recovered `01KRVPP7RKSYXD3DK2H5KKXYXA` on the walk
+ *      without a process-kill.
+ *   4. **NEEDS_ATTENTION terminal-but-recoverable state.** After
+ *      [NEEDS_ATTENTION_THRESHOLD] (default 6) automatic recovery attempts on a
+ *      single row, the worker transitions it to [UploadState.NEEDS_ATTENTION]
+ *      and surrenders. The History UI surfaces a manual Retry affordance that
+ *      flips the row back to UPLOADING/PENDING and resets the counter. Distinct
+ *      from `DEAD_LETTER` (which is for permanent server-rejection errors
+ *      like 409/403); NEEDS_ATTENTION is "give up auto-retrying, ask the user".
+ *
+ * The rest of the multipart flow (the Pattern-1 [uploadOne] body) is unchanged.
  *
  * [drain] reads the durable queue ([UploadQueueStore.read]) and, for each row
  * that still needs work and is owned by the currently signed-in user, runs the
@@ -56,19 +90,20 @@ import java.util.concurrent.locks.ReentrantLock
  *  - rows whose `ownerUserId != getCurrentSub()` are skipped — a row owned by a
  *    logged-out / different user just waits (UP-13, T-5-06-03).
  *
- * Threading: [drain] hops onto a single-thread executor (it's also called from
- * the FGS thread in Plan 05-07 — the FGS owns the `startForeground`-with-
- * `dataSync` lifecycle; this plan provides the `drain()` logic + sends the
- * `ACTION_SET_UPLOAD_ACTIVE` intent from `HumynUploadModule.enqueue()`). The
- * parallel part PUTs run on a small fixed pool, capped by the semaphore. NEVER
- * on the JS / main thread.
+ * Threading: [drain] hops onto a single-thread dispatch executor; the dispatch
+ * thread reserves rows and submits them to the worker pool. The worker pool
+ * runs [UPLOAD_PARALLELISM_CAP] rows in parallel. The parallel part PUTs
+ * INSIDE each `uploadOne()` are bounded by [partSemaphore] (a process-wide cap
+ * across all workers, so two concurrent rows × per-part parallelism doesn't
+ * explode total in-flight HTTPS).
  *
  * The auth context (API base URL, bearer JWT, signed-in `sub`) is pushed from
  * the JS side via `HumynUploadModule.setUploadContext(...)` into
  * [UploadAuthContext] — the JWT lives in encrypted MMKV which is awkward to read
  * from Kotlin, so the bridge injects it instead (and refreshes it on `resume()`).
  * Presigned S3 PUTs carry NO bearer (they're presigned); only `/init`,
- * `/finalize`, `/reupload` get the `Authorization: Bearer` header.
+ * `/finalize`, `/reupload`, `GET /recordings/:id` get the
+ * `Authorization: Bearer` header.
  */
 class UploadCoordinator(
     /** The durable queue store this coordinator drains — also reused by `HumynUploadModule` so there's a single lock. */
@@ -84,6 +119,27 @@ class UploadCoordinator(
     private val chunkUploader: ChunkUploader = ChunkUploader(DEFAULT_HTTP_CLIENT),
     /** Wave-2 #5 — sleep between bounded in-loop transient retries. Test seam: pass 1L so the retry test doesn't sleep 5 s. */
     private val transientRetryDelayMs: Long = TRANSIENT_RETRY_DELAY_MS,
+    /**
+     * Debug session `upload-queue-hol-finalizing` (Fix C item 1) — number of
+     * concurrent worker threads. Default [UPLOAD_PARALLELISM_CAP] (=2). Tests
+     * pass 1 to force serial drain (a lot of existing tests assume serial),
+     * or 4 to exercise the worker pool.
+     */
+    private val parallelismCap: Int = UPLOAD_PARALLELISM_CAP,
+    /**
+     * Debug session `upload-queue-hol-finalizing` (Fix C item 2) — per-call
+     * timeout for `/finalize` POSTs and `GET /recordings/:id` reads. Default
+     * [FINALIZE_CALL_TIMEOUT_MS] (=60_000). Tests override to 100ms so a
+     * deadlocked-server simulation doesn't take 60s.
+     */
+    private val finalizeCallTimeoutMs: Long = FINALIZE_CALL_TIMEOUT_MS,
+    /**
+     * Debug session `upload-queue-hol-finalizing` (Fix C item 4) — how many
+     * automatic recovery attempts before transitioning to NEEDS_ATTENTION.
+     * Default [NEEDS_ATTENTION_THRESHOLD] (=6). Tests pass 2 so a
+     * NEEDS_ATTENTION transition lands in two iterations instead of six.
+     */
+    private val needsAttentionThreshold: Int = NEEDS_ATTENTION_THRESHOLD,
 ) {
 
     /**
@@ -125,26 +181,54 @@ class UploadCoordinator(
     fun hasNetwork(): Boolean = networkMonitor.hasNetwork()
 
     private val apiClient: OkHttpClient = DEFAULT_HTTP_CLIENT
+
+    /**
+     * Dispatch executor — single thread, picks the next eligible row + submits
+     * it to a worker. Submitting is fast (just a Set insert); the heavy
+     * `uploadOne` work happens on a [workerExecutor] thread.
+     */
     private val drainExecutor: ExecutorService = Executors.newSingleThreadExecutor { r ->
-        Thread(r, "humyn-upload-drain").apply { isDaemon = true }
+        Thread(r, "humyn-upload-dispatch").apply { isDaemon = true }
     }
 
     /**
-     * Serialises [drainNow]. `drainNow()` is `public` and called DIRECTLY off
-     * three threads — `HumynForegroundService.startUploadDrain()` (its
-     * `HandlerThread`), `UploadJobService.onStartJob()` (a fresh `Thread`), and
-     * `HumynUploadModule.drain()` (the [drainExecutor]). Without mutual exclusion
-     * two of them could run `uploadOne(row)` on the same row simultaneously —
-     * each re-POSTing `/recordings/init`, each laying out `row.videoParts`, each
-     * writing the shared mutable `row` back, `row.uploadId` clobbered by whichever
-     * finishes last (the CR-03 defect). `drainNow()` acquires this with
-     * `tryLock()` — a second concurrent drain returns immediately (its work is
-     * already covered by the in-progress drain, and the FGS / JobService callers
-     * re-check `queueHasWork()` afterwards, so a skipped drain is not a skipped
-     * upload). `tryLock()` (not `lock()`) means a contender never blocks; the
-     * lock is released in a `finally` wrapping the whole body.
+     * Debug session `upload-queue-hol-finalizing` (Fix C item 1) — worker pool.
+     * Up to [parallelismCap] [uploadOne] invocations may run concurrently;
+     * each worker pulls one row at a time. Independent of [partExecutor] (which
+     * runs the per-part PUTs INSIDE each `uploadOne`).
      */
-    private val drainLock = ReentrantLock()
+    private val workerExecutor: ExecutorService = Executors.newFixedThreadPool(
+        parallelismCap.coerceAtLeast(1),
+    ) { r ->
+        Thread(r, "humyn-upload-worker").apply { isDaemon = true }
+    }
+
+    /**
+     * Debug session `upload-queue-hol-finalizing` (Fix C item 1) — the set of
+     * `recordingId`s currently being uploaded by a worker. Replaces the
+     * previous cross-row [java.util.concurrent.locks.ReentrantLock]
+     * (`drainLock`). Per-row reservation: a worker that wants to pick row X
+     * tries to `add(X)` to this set; if `add` returns false, another worker
+     * already owns it. The set is `Collections.synchronizedSet` so add/remove
+     * are atomic. Cleared per-row in a `finally` wrapping `uploadOne`.
+     *
+     * Why not a per-row lock object? A set is simpler (one allocation, atomic
+     * Set#add returns the win/lose signal) and avoids the GC churn of
+     * thread-local lock maps. Per-row independence is what matters; mutual
+     * exclusion is implied by membership in the set.
+     */
+    private val inProgressIds: MutableSet<String> = java.util.Collections.synchronizedSet(mutableSetOf())
+
+    /**
+     * Re-entry guard for [drainNow]. The FGS / UIDT JobService / module-
+     * drain trio can all kick a drain simultaneously; without mutual
+     * exclusion they would each build their own dispatched-futures list +
+     * each `f.get()` block the calling thread. `tryLock()` (not `lock()`)
+     * means a contender just returns — the in-progress dispatch already
+     * covers all eligible rows, and FGS/JobService callers re-check
+     * `queueHasWork()` afterwards. Mirrors the pre-Fix-C `drainLock` shape.
+     */
+    private val dispatchLock = java.util.concurrent.locks.ReentrantLock()
     private val partExecutor: ExecutorService = Executors.newFixedThreadPool(6) { r ->
         Thread(r, "humyn-upload-part").apply { isDaemon = true }
     }
@@ -167,93 +251,245 @@ class UploadCoordinator(
 
     /**
      * `true` if the durable queue still has at least one row that isn't already
-     * `VERIFIED` or `DEAD_LETTER` — i.e. there's transfer work outstanding. Used
-     * by `HumynForegroundService` to decide whether to keep the upload FGS alive
-     * (Plan 05-07's 5-min idle stop + the Android-15 `onTimeout` → UIDT handoff),
-     * and by `UploadJobService` to decide `jobFinished(params, wantsReschedule)`.
-     * Tolerant of a corrupt/missing queue file (`queueStore.read()` returns empty).
+     * `VERIFIED`, `DEAD_LETTER`, or `NEEDS_ATTENTION` — i.e. there's automated
+     * transfer work outstanding. Used by `HumynForegroundService` to decide
+     * whether to keep the upload FGS alive (Plan 05-07's 5-min idle stop + the
+     * Android-15 `onTimeout` → UIDT handoff), and by `UploadJobService` to
+     * decide `jobFinished(params, wantsReschedule)`. Tolerant of a corrupt/
+     * missing queue file (`queueStore.read()` returns empty).
+     *
+     * Debug session `upload-queue-hol-finalizing` (Fix C item 4) —
+     * `NEEDS_ATTENTION` rows are NOT "work outstanding" from the FGS's POV:
+     * they're parked waiting on a user retry tap. Surfacing them here would
+     * keep the FGS alive forever on a phone with one bad row.
      */
     fun queueHasWork(): Boolean =
         queueStore.read().any {
-            it.state != UploadState.VERIFIED && it.state != UploadState.DEAD_LETTER
+            it.state != UploadState.VERIFIED &&
+                it.state != UploadState.DEAD_LETTER &&
+                it.state != UploadState.NEEDS_ATTENTION
         }
 
     /**
      * Synchronous drain — exposed for the FGS thread (Plan 05-07) which calls it
      * directly on its own background thread, the UIDT `UploadJobService` thread,
-     * and for tests. Iterates the queue, uploads each eligible row, dead-letters
-     * on a [DeadLetterException], leaves a transient failure as-is (the next drain
-     * retries).
+     * and for tests.
      *
-     * Serialised by [drainLock] via `tryLock()` — if a drain is already running
-     * (on any of the three caller threads), this call returns immediately. That's
-     * safe: the in-progress drain already covers all the queued work, and the FGS
-     * / `UploadJobService` callers re-check `queueHasWork()` after `drainNow()`
-     * returns, so a "lost" (skipped) drain is not a lost upload. The lock is
-     * released in a `finally` wrapping the entire body — any exception (including
-     * a `DeadLetterException` rethrown out of `uploadOne` and caught here per-row)
-     * still releases it.
+     * **2026-05-18 — Fix C concurrency refactor.** Replaced the single
+     * `ReentrantLock` + serial-`for` loop with a worker-pool dispatch: pick the
+     * next eligible row, atomic-reserve it via [inProgressIds], hand it to
+     * [workerExecutor]. Up to [parallelismCap] workers run concurrently — a
+     * hung row blocks only its own worker, not other rows.
+     *
+     * The drain is synchronous from the caller's POV — it waits until every
+     * dispatched worker has finished — but the workers run in parallel under
+     * the hood. This preserves the contract used by the FGS / UIDT JobService
+     * / tests (call `drainNow()`, then expect the queue to have advanced).
+     * Concurrency is purely about how rows process internally.
+     *
+     * Re-entry guard: if another caller is already inside drainNow(), the new
+     * caller returns immediately. The in-progress caller is already responsible
+     * for the queue's eligible work; a redundant dispatch tick adds nothing.
      */
     fun drainNow() {
-        if (!drainLock.tryLock()) {
-            Log.d(TAG, "drainNow skipped — a drain is already running")
+        // Re-entry guard. The previous `tryLock` shape did the same thing; we
+        // keep it for the FGS + JobService + module-drain trio that can all
+        // call drainNow() simultaneously.
+        if (!dispatchLock.tryLock()) {
+            Log.d(TAG, "drainNow skipped — a dispatch tick is already running")
             return
         }
         try {
-            if (isPaused()) { Log.d(TAG, "drainNow paused at before-iteration"); return }
+            if (isPaused()) { Log.d(TAG, "drainNow paused at top of dispatcher"); return }
             val sub = getCurrentSub() ?: return
             if (!networkMonitor.hasNetwork()) return
+
+            // Build the eligible-row snapshot ONCE per dispatch tick. uploadOne
+            // upserts each row back to disk, so a subsequent drainNow() picks
+            // up any newly-eligible rows. The snapshot is filtered for ownership
+            // + not-already-in-progress + non-terminal state.
+            val dispatched = mutableListOf<Future<*>>()
             for (row in queueStore.read()) {
-                if (isPaused()) { Log.d(TAG, "drainNow paused at per-row checkpoint, row=${row.recordingId}"); break }
+                if (isPaused()) { Log.d(TAG, "drainNow paused mid-dispatch"); break }
                 if (row.ownerUserId != sub) continue
-                if (row.state == UploadState.AWAITING_VERIFY ||
-                    row.state == UploadState.VERIFIED ||
-                    row.state == UploadState.DEAD_LETTER
-                ) {
+                if (!isEligibleForAutomaticDrain(row)) continue
+                // Per-row backoff: if this row's lastFailureAt + backoff
+                // schedule entry is still in the future, skip — a later drain
+                // tick (or the next FGS heartbeat / JobService run /
+                // connectivity change) will pick it up when the backoff has
+                // elapsed.
+                if (!isBackoffElapsed(row)) {
+                    Log.d(TAG, "row ${row.recordingId} backoff not elapsed (attempt=${row.attemptCount})")
                     continue
                 }
-                // Wave-2 #5 — bounded in-loop retry on a transient. A single
-                // transient (e.g., the /init 500 surfaced by the §4a walk, or a
-                // mid-PUT TCP reset on flaky cellular) previously sat the row
-                // until the next external trigger fired (cold-start drainNow,
-                // JWT change, FGS heartbeat, UIDT JobService, tile-tap, Retry).
-                // The bounded retry tries up to 3 attempts spaced 5 s apart per
-                // row, then falls through to the next row + relies on the next
-                // external trigger if all 3 still fail. uploadOne is re-drain-
-                // safe (DONE parts are preserved with their ETags; the next
-                // attempt takes the /parts branch and skips them — UP-04 / CR-01).
-                var attempts = 0
-                val maxAttempts = 3
-                while (true) {
-                    if (isPaused()) break
+                // Per-row reservation. If another worker has this row in
+                // flight (shouldn't happen with the dispatchLock guard, but
+                // defensive), skip — they'll handle it.
+                if (!inProgressIds.add(row.recordingId)) continue
+                // Submit to the worker pool. Workers run uploadOne on this row,
+                // then release the reservation.
+                dispatched += workerExecutor.submit {
                     try {
-                        uploadOne(row)
-                        break
-                    } catch (e: DeadLetterException) {
-                        Log.w(TAG, "row ${row.recordingId} DEAD_LETTER: ${e.message}")
-                        row.state = UploadState.DEAD_LETTER
-                        row.deadLetterReason = e.message ?: "upload failed"
-                        queueStore.upsert(row)
-                        emitQueueChanged()
-                        lastEmitMs.remove(row.recordingId)
-                        break
-                    } catch (e: Exception) {
-                        attempts++
-                        // Never log presigned URLs — T-5-06-02. `recordingId` is a ULID, safe.
-                        Log.w(TAG, "row ${row.recordingId} upload failed transiently (attempt $attempts/$maxAttempts): ${e.message}")
-                        if (attempts >= maxAttempts) break
-                        try {
-                            Thread.sleep(transientRetryDelayMs)
-                        } catch (ie: InterruptedException) {
-                            Thread.currentThread().interrupt()
-                            break
-                        }
+                        runWorker(row)
+                    } catch (t: Throwable) {
+                        // Last-resort net — should never escape runWorker;
+                        // log so we'd notice in Crashlytics.
+                        Log.e(TAG, "worker for ${row.recordingId} crashed (unexpected)", t)
+                    } finally {
+                        inProgressIds.remove(row.recordingId)
                     }
                 }
             }
+
+            // Wait for every dispatched worker to finish. Synchronous-drain
+            // contract: when this returns, all workers we kicked are done.
+            // Exceptions inside a worker were already caught by runWorker
+            // (transient → retry loop; DeadLetterException → DEAD_LETTER) so
+            // f.get() shouldn't throw here.
+            for (f in dispatched) {
+                try {
+                    f.get()
+                } catch (_: java.util.concurrent.ExecutionException) {
+                    // Already logged in the runnable; nothing to do here.
+                } catch (ie: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    break
+                }
+            }
         } finally {
-            drainLock.unlock()
+            dispatchLock.unlock()
         }
+    }
+
+    /**
+     * Debug session `upload-queue-hol-finalizing` (Fix C item 1) — a single
+     * worker iteration: run the bounded transient-retry loop on a SINGLE row.
+     * The outer dispatcher ([drainNow]) decides what rows are eligible; this
+     * function only sees one row and either drains it or gives up. The
+     * `attemptCount`/`lastFailureAt`/NEEDS_ATTENTION transition lives in the
+     * catch blocks below.
+     */
+    private fun runWorker(row: UploadRow) {
+        // Wave-2 #5 — bounded in-loop retry on a transient. A single
+        // transient (e.g., the /init 500 surfaced by the §4a walk, or a
+        // mid-PUT TCP reset on flaky cellular) previously sat the row
+        // until the next external trigger fired (cold-start drainNow,
+        // JWT change, FGS heartbeat, UIDT JobService, tile-tap, Retry).
+        // The bounded retry tries up to 3 attempts spaced 5 s apart per
+        // row, then falls through to the next row + relies on the next
+        // external trigger if all 3 still fail. uploadOne is re-drain-
+        // safe (DONE parts are preserved with their ETags; the next
+        // attempt takes the /parts branch and skips them — UP-04 / CR-01).
+        var attempts = 0
+        val maxAttempts = 3
+        while (true) {
+            if (isPaused()) break
+            try {
+                uploadOne(row)
+                // Success — clear failure markers + bail.
+                if (row.attemptCount != 0 || row.lastFailureState != null) {
+                    row.attemptCount = 0
+                    row.lastFailureAt = 0L
+                    row.lastFailureState = null
+                    row.lastFailureReason = null
+                    runCatching { queueStore.upsert(row) }
+                }
+                break
+            } catch (e: DeadLetterException) {
+                Log.w(TAG, "row ${row.recordingId} DEAD_LETTER: ${e.message}")
+                row.state = UploadState.DEAD_LETTER
+                row.deadLetterReason = e.message ?: "upload failed"
+                queueStore.upsert(row)
+                emitQueueChanged()
+                lastEmitMs.remove(row.recordingId)
+                break
+            } catch (e: Exception) {
+                attempts++
+                // Never log presigned URLs — T-5-06-02. `recordingId` is a ULID, safe.
+                Log.w(TAG, "row ${row.recordingId} upload failed transiently (attempt $attempts/$maxAttempts): ${e.message}")
+                if (attempts >= maxAttempts) {
+                    // Persist the failure marker BEFORE deciding NEEDS_ATTENTION
+                    // — the persistent counter is what makes auto-recovery
+                    // budget durable across process kills.
+                    row.attemptCount = (row.attemptCount + 1).coerceAtMost(Int.MAX_VALUE / 2)
+                    row.lastFailureAt = System.currentTimeMillis()
+                    row.lastFailureState = row.state.name
+                    row.lastFailureReason = sanitizeFailureReason(e.message)
+                    if (row.attemptCount >= needsAttentionThreshold) {
+                        // Fix C item 4 — surrender to user. The row stays on
+                        // disk, the bundle is preserved, the History UI
+                        // surfaces a manual Retry affordance (which calls
+                        // HumynUploadModule.retryNeedsAttention → resets
+                        // attemptCount + state).
+                        Log.w(
+                            TAG,
+                            "row ${row.recordingId} NEEDS_ATTENTION after ${row.attemptCount} attempts " +
+                                "(last failure in ${row.lastFailureState ?: "?"}: ${row.lastFailureReason ?: "?"})",
+                        )
+                        row.state = UploadState.NEEDS_ATTENTION
+                    }
+                    queueStore.upsert(row)
+                    emitQueueChanged()
+                    break
+                }
+                try {
+                    Thread.sleep(transientRetryDelayMs)
+                } catch (ie: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    break
+                }
+            }
+        }
+    }
+
+    /**
+     * Debug session `upload-queue-hol-finalizing` — true iff the row should be
+     * picked up by an automatic drain attempt. Skips:
+     *  - terminal states (VERIFIED, DEAD_LETTER, NEEDS_ATTENTION) — these
+     *    require either a server-side event or an explicit user-driven retry;
+     *  - AWAITING_VERIFY — the row is waiting on a server `verified` event,
+     *    not on the device.
+     */
+    private fun isEligibleForAutomaticDrain(row: UploadRow): Boolean = when (row.state) {
+        UploadState.AWAITING_VERIFY,
+        UploadState.VERIFIED,
+        UploadState.DEAD_LETTER,
+        UploadState.NEEDS_ATTENTION,
+        -> false
+        UploadState.PENDING, UploadState.UPLOADING, UploadState.FINALIZING -> true
+    }
+
+    /**
+     * Debug session `upload-queue-hol-finalizing` (Fix C item 4) — per-row
+     * exponential backoff schedule. A row with `attemptCount = N` must wait
+     * `backoffMsForAttempt(N)` after its `lastFailureAt` before being picked
+     * up by a worker. A row whose `lastFailureAt == 0` (never failed) returns
+     * `true` immediately.
+     *
+     * Schedule (ms): 0 → 30s → 60s → 2m → 5m → 15m → 1h.
+     */
+    private fun isBackoffElapsed(row: UploadRow): Boolean {
+        if (row.lastFailureAt <= 0L) return true
+        val now = System.currentTimeMillis()
+        val due = row.lastFailureAt + backoffMsForAttempt(row.attemptCount)
+        return now >= due
+    }
+
+    private fun backoffMsForAttempt(n: Int): Long = when {
+        n <= 0 -> 0L
+        n == 1 -> 30_000L
+        n == 2 -> 60_000L
+        n == 3 -> 2 * 60_000L
+        n == 4 -> 5 * 60_000L
+        n == 5 -> 15 * 60_000L
+        else -> 60 * 60_000L // 1 h cap
+    }
+
+    private fun sanitizeFailureReason(msg: String?): String? {
+        if (msg.isNullOrBlank()) return null
+        // Strip presigned-URL noise — T-5-06-02. Keep the first ~120 chars.
+        val safe = msg.replace(Regex("https?://\\S+"), "<url>")
+        return safe.take(160)
     }
 
     /** Cancel any in-flight HTTP calls (pause / logout). Queue rows are NOT discarded — they resume. */
@@ -268,8 +504,60 @@ class UploadCoordinator(
     fun shutdown() {
         runCatching { cancelInflight() }
         runCatching { drainExecutor.shutdownNow() }
+        runCatching { workerExecutor.shutdownNow() }
         runCatching { partExecutor.shutdownNow() }
         runCatching { chunkUploader.shutdown() }
+    }
+
+    /**
+     * Debug session `upload-queue-hol-finalizing` — test seam. Waits until the
+     * worker pool has no in-flight work or [timeoutMs] elapses, returning the
+     * remaining in-progress count (0 on success). Used by Robolectric tests
+     * that need to assert post-drain state without sleeping a fixed duration.
+     * Production code never calls this.
+     */
+    internal fun awaitIdle(timeoutMs: Long = 10_000L): Int {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            if (inProgressIds.isEmpty()) return 0
+            try {
+                Thread.sleep(10L)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                return inProgressIds.size
+            }
+        }
+        return inProgressIds.size
+    }
+
+    /**
+     * Debug session `upload-queue-hol-finalizing` (Fix C item 4) — user-driven
+     * retry of a NEEDS_ATTENTION row. Wired up via
+     * [HumynUploadModule.retryNeedsAttention]; the History UI's "Retry"
+     * affordance on the chip-failed visual fires this. Resets `attemptCount`
+     * + `lastFailureAt` + state markers, transitions to UPLOADING (if there's
+     * an uploadId — the worker takes the /parts re-presign branch) or PENDING
+     * (the worker takes the /init self-heal branch). Re-kicks the drainer.
+     *
+     * No-op (returns false) on any non-NEEDS_ATTENTION row.
+     */
+    fun retryNeedsAttention(recordingId: String): Boolean {
+        val row = queueStore.read().firstOrNull { it.recordingId == recordingId } ?: return false
+        if (row.state != UploadState.NEEDS_ATTENTION) return false
+        row.attemptCount = 0
+        row.lastFailureAt = 0L
+        row.lastFailureState = null
+        row.lastFailureReason = null
+        // If the row had an uploadId set when it stalled (mid-finalize or
+        // mid-part-PUT after /init), the worker re-presigns against the
+        // EXISTING multipart upload (preserves DONE parts' ETags). If not,
+        // the worker takes the /init self-heal branch. Either way, we just
+        // need to put the row back into the automatic drain path.
+        row.state = if (row.uploadId != null) UploadState.UPLOADING else UploadState.PENDING
+        queueStore.upsert(row)
+        emitQueueChanged()
+        drain()
+        return true
     }
 
     // -------------------------------------------------------------------------
@@ -284,6 +572,38 @@ class UploadCoordinator(
         val jsonFile = File(row.jsonPath)
         if (!mp4.exists() || !csv.exists() || !jsonFile.exists()) {
             throw DeadLetterException("recording ${row.recordingId}: a bundle file is missing on disk", null)
+        }
+
+        // Debug session `upload-queue-hol-finalizing` (Fix C item 3) — FINALIZING
+        // reconciliation. A row already in FINALIZING means we've successfully
+        // POSTed /finalize before but never confirmed the response (it 5xx'd,
+        // hung past the watchdog, or the response was lost over a flaky link).
+        // Before re-POSTing, ask the server what it thinks: if it already shows
+        // `qa_status ∈ {uploaded, verified}`, the recording is done — we can
+        // mark this row AWAITING_VERIFY locally and bail. This is what would
+        // have recovered `01KRVPP7RKSYXD3DK2H5KKXYXA` on the 2026-05-18 walk
+        // without a process kill: server-side verified, client just hadn't
+        // learned.
+        if (row.state == UploadState.FINALIZING) {
+            val serverQa = runCatching { getRecordingQaStatus(baseUrl, row.recordingId) }.getOrNull()
+            if (serverQa == "verified" || serverQa == "uploaded") {
+                Log.i(
+                    TAG,
+                    "row ${row.recordingId} FINALIZING reconciled — server qa_status=$serverQa, " +
+                        "skipping re-finalize and marking AWAITING_VERIFY",
+                )
+                row.state = UploadState.AWAITING_VERIFY
+                row.lastProgressAt = System.currentTimeMillis()
+                queueStore.upsert(row)
+                emitQueueChanged()
+                lastEmitMs.remove(row.recordingId)
+                return
+            }
+            // Else: server still says `pending` (or returned 4xx — null), or
+            // the GET failed (also null). Fall through to re-finalize via the
+            // normal path. A 404 means the recording row was deleted server-
+            // side (e.g. ops takedown) — re-finalize will get a 404/409 that
+            // dead-letters cleanly.
         }
 
         // 1. /init (or /reupload, or — on a re-drain — /:id/parts) — decide
@@ -504,6 +824,21 @@ class UploadCoordinator(
             .build()
     }
 
+    /**
+     * Build an authed GET request — used by [getRecordingQaStatus] for the
+     * Fix-C-item-3 FINALIZING reconciliation. No Idempotency-Key (GETs are
+     * naturally idempotent and the server's plugin doesn't require one on
+     * read methods).
+     */
+    private fun authedGetRequest(url: String): Request {
+        val token = getBearerToken()
+        return Request.Builder()
+            .url(url)
+            .get()
+            .apply { if (!token.isNullOrBlank()) header("Authorization", "Bearer $token") }
+            .build()
+    }
+
     private fun executeTracked(req: Request): okhttp3.Response {
         val call = apiClient.newCall(req)
         inflight.add(call)
@@ -511,6 +846,77 @@ class UploadCoordinator(
             call.execute()
         } finally {
             inflight.remove(call)
+        }
+    }
+
+    /**
+     * Debug session `upload-queue-hol-finalizing` (Fix C item 2) — variant of
+     * [executeTracked] that applies a per-call timeout via [okhttp3.Call.timeout].
+     * Used for `/finalize` and `GET /recordings/:id` — both can hang server-side
+     * (BullMQ enqueue blocking on a broken Redis pool was the 2026-05-18
+     * trigger), and a hung call here would otherwise sit forever on the
+     * client-wide `readTimeout(0)`. Bypasses the watchdog for everything else
+     * (part PUTs delegate stall-handling to [ChunkUploader]'s 30s no-progress
+     * watchdog, which correctly handles slow-but-progressing transfers; a
+     * fixed `callTimeout` on a part PUT would kill a healthy slow cellular
+     * transfer).
+     */
+    private fun executeTrackedWithTimeout(req: Request, timeoutMs: Long): okhttp3.Response {
+        val call = apiClient.newCall(req)
+        // Apply per-call timeout — OkHttp 4.x `Call.timeout()` returns an
+        // `okio.Timeout`, set in ms or longer. A 0 disables; we pass the
+        // configured ms.
+        call.timeout().timeout(timeoutMs, TimeUnit.MILLISECONDS)
+        inflight.add(call)
+        return try {
+            call.execute()
+        } finally {
+            inflight.remove(call)
+        }
+    }
+
+    /**
+     * Debug session `upload-queue-hol-finalizing` (Fix C item 3) — `GET
+     * /recordings/:id`, returning the server's current `qa_status` string
+     * (or null on any failure — caller treats null as "I don't know, proceed
+     * with re-finalize"). Used to short-circuit a stuck FINALIZING row: if the
+     * server already shows `verified` or `uploaded`, the client can move the
+     * row to AWAITING_VERIFY without re-POSTing /finalize.
+     *
+     * Returns null on:
+     *  - 4xx response (recording doesn't exist server-side, owner mismatch,
+     *    etc — the next drain will hit /finalize and dead-letter cleanly);
+     *  - 5xx response (transient — the next drain retries);
+     *  - timeout (the per-call timeout fired);
+     *  - JSON parse error (defensive).
+     *
+     * The body is expected to follow `RecordingDetailResponseSchema` with a
+     * top-level `qa_status` string. Tolerate missing fields → null.
+     */
+    internal fun getRecordingQaStatus(baseUrl: String, recordingId: String): String? {
+        val url = "$baseUrl/recordings/$recordingId"
+        val req = authedGetRequest(url)
+        try {
+            executeTrackedWithTimeout(req, finalizeCallTimeoutMs).use { resp ->
+                if (!resp.isSuccessful) {
+                    Log.d(TAG, "GET /recordings/$recordingId -> ${resp.code} — falling through")
+                    return null
+                }
+                val text = resp.body?.string().orEmpty()
+                if (text.isBlank()) return null
+                return try {
+                    val obj = JSONObject(text)
+                    val qa = obj.optString("qa_status", "")
+                    if (qa.isBlank()) null else qa
+                } catch (_: org.json.JSONException) {
+                    Log.d(TAG, "GET /recordings/$recordingId returned non-JSON — falling through")
+                    null
+                }
+            }
+        } catch (t: Throwable) {
+            // Includes InterruptedIOException from the per-call timeout.
+            Log.d(TAG, "GET /recordings/$recordingId failed: ${t.javaClass.simpleName}")
+            return null
         }
     }
 
@@ -657,7 +1063,20 @@ class UploadCoordinator(
             put("imuParts", partsArray(row.imuParts))
             put("imuUploadId", row.imuUploadId ?: "")
         }
-        executeTracked(authedJsonRequest("$baseUrl/recordings/${row.recordingId}/finalize", body, row.finalizeIdempotencyKey)).use { resp ->
+        // Debug session `upload-queue-hol-finalizing` (Fix C item 2) — per-call
+        // timeout on /finalize. The client-wide `readTimeout(0)` / `callTimeout(0)`
+        // is the right shape for part PUTs (delegated to ChunkUploader's no-progress
+        // watchdog so a slow-but-progressing cellular transfer doesn't get killed),
+        // but it leaves /finalize vulnerable to a server hang. A server-side BullMQ
+        // enqueue against an erroring Redis pool was the 2026-05-18 trigger that
+        // hung /finalize forever and froze the queue. The 60s call-level timeout
+        // here ensures the call fails into the transient-retry loop instead of
+        // hanging — long enough for a healthy finalize handler's slowest path, short
+        // enough that a stuck row recovers quickly.
+        executeTrackedWithTimeout(
+            authedJsonRequest("$baseUrl/recordings/${row.recordingId}/finalize", body, row.finalizeIdempotencyKey),
+            finalizeCallTimeoutMs,
+        ).use { resp ->
             if (!resp.isSuccessful) throw IOException("/recordings/${row.recordingId}/finalize -> ${resp.code}")
         }
     }
@@ -675,15 +1094,52 @@ class UploadCoordinator(
         internal const val TRANSIENT_RETRY_DELAY_MS = 5_000L
 
         /**
+         * Debug session `upload-queue-hol-finalizing` (Fix C item 1) — default
+         * number of concurrent worker threads. 2 was chosen as the smallest
+         * cap that prevents head-of-line blocking on the upload queue (one
+         * stuck row leaves N-1 workers free to drain the rest) without
+         * blasting cellular networks: 2 workers × 6 part-semaphore permits =
+         * up to 12 in-flight HTTPS requests in the worst case, vs the
+         * previous 6. A Pixel 7a-class radio handles this comfortably; the
+         * device-level part semaphore (a shared [partSemaphore], not
+         * per-worker) caps the worst case at 6, identical to the pre-fix
+         * shape. Tunable via the constructor if a future device class needs
+         * more or a low-bandwidth fleet needs less.
+         */
+        internal const val UPLOAD_PARALLELISM_CAP: Int = 2
+
+        /**
+         * Debug session `upload-queue-hol-finalizing` (Fix C item 2) —
+         * per-call timeout for `/finalize` and `GET /recordings/:id`. 60s is
+         * long enough for the slowest healthy path (BullMQ enqueue + the
+         * finalize-worker handler's S3 CompleteMultipartUpload, p99 ~5s on
+         * LocalStack / a few seconds on real S3), but short enough that a
+         * stuck server doesn't pin the row indefinitely. A failed call here
+         * surfaces as IOException → transient-retry loop → eventual
+         * NEEDS_ATTENTION transition if the server stays sick.
+         */
+        internal const val FINALIZE_CALL_TIMEOUT_MS: Long = 60_000L
+
+        /**
+         * Debug session `upload-queue-hol-finalizing` (Fix C item 4) —
+         * after this many automatic recovery attempts on a single row, the
+         * worker stops trying and transitions the row to NEEDS_ATTENTION.
+         * With the backoff schedule (30s, 60s, 2m, 5m, 15m, 1h), this is
+         * ~ 23 minutes of total wall-clock from the first failure to the
+         * NEEDS_ATTENTION transition — long enough to absorb transient
+         * server outages, short enough that a permanently-stuck row
+         * surfaces to the user before the local bundle hogs storage.
+         */
+        internal const val NEEDS_ATTENTION_THRESHOLD: Int = 6
+
+        /**
          * The process-wide shared coordinator. `HumynUploadModule`, the FGS
          * (`HumynForegroundService` — Plan 05-07's upload-drain-on-the-FGS-thread)
          * and the UIDT `UploadJobService` all call [drainNow] on this ONE
-         * instance; `drainNow()` is serialised by a `ReentrantLock` (`tryLock()` —
-         * a second concurrent drain returns immediately), so only one drain runs
-         * at a time regardless of which thread (FGS `HandlerThread` / UIDT
-         * `UploadJobService` `Thread` / the `drainExecutor`) enters first. Built
-         * lazily from the application context; wired to the process-lived
-         * [UploadAuthContext] / [UploadControlState].
+         * instance; concurrent calls dispatch onto the same worker pool, with
+         * per-row reservations preventing two workers from racing on a single
+         * row. Built lazily from the application context; wired to the
+         * process-lived [UploadAuthContext] / [UploadControlState].
          * Emitters default to no-op until `HumynUploadModule` installs the real
          * ones via [setEmitters] (the FGS / JobService threads have no JS bridge).
          */
@@ -722,6 +1178,13 @@ class UploadCoordinator(
          * `readTimeout(0)` / `callTimeout(0)` — stall-handling is the
          * `ChunkUploader` 30 s no-progress watchdog's job (a fixed `readTimeout`
          * would kill a slow-but-progressing transfer on a bad cellular link).
+         *
+         * Debug session `upload-queue-hol-finalizing` (Fix C item 2) — note
+         * that the client-wide `callTimeout(0)` IS PRESERVED here. The
+         * `/finalize` watchdog (60s) lives on the per-call layer via
+         * [executeTrackedWithTimeout] + `Call.timeout()` — it does NOT touch
+         * the part-PUT path that delegates to ChunkUploader's no-progress
+         * watchdog.
          */
         val DEFAULT_HTTP_CLIENT: OkHttpClient = OkHttpClient.Builder()
             .socketFactory(MssSocketFactory())

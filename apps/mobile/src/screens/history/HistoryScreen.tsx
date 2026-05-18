@@ -470,16 +470,42 @@ export function HistoryScreen(): React.JSX.Element {
   );
 
   // ---------------------------------------------------------------------
-  // Failed-row Retry tap — only fires for rows with qa_status ∈
-  // {'hash-mismatch', 'rejected'} (the chip-failed variant). Routes through
-  // HumynUpload.reupload() which the coordinator dispatches to
-  // POST /recordings/:id/reupload (server accepts hash-mismatch → mints
-  // fresh upload ids → device re-PUTs every part → /finalize → re-verify).
+  // Failed-row Retry tap — fires for rows with the chip-failed variant.
+  // Dispatch depends on the on-device queue state:
+  //
+  //   - device state === 'needs-attention' (debug session
+  //     `.planning/debug/upload-queue-hol-finalizing.md` Fix C item 4):
+  //     automatic retries gave up on a stuck row (e.g. a hung /finalize
+  //     never reconciled by GET /recordings/:id). Route through
+  //     `HumynUpload.retryNeedsAttention` which resets the attempt
+  //     counter + transitions back into the automatic drain loop.
+  //
+  //   - device state === 'dead-letter' OR no device row (server-only
+  //     qa_status ∈ {hash-mismatch, rejected}): route through
+  //     `HumynUpload.reupload()` which the coordinator dispatches to
+  //     POST /recordings/:id/reupload (server accepts hash-mismatch →
+  //     mints fresh upload ids → device re-PUTs every part → /finalize
+  //     → re-verify). This is the historic Plan 05-08 path.
   // ---------------------------------------------------------------------
-  const onRowRetry = useCallback((r: HistoryRowItem) => {
-    logEvent('history_row_retry', { recording_id: r.id, qa_status: r.qaStatus });
-    void HumynUpload.reupload(r.id).catch(() => undefined);
-  }, []);
+  const onRowRetry = useCallback(
+    (r: HistoryRowItem) => {
+      const deviceRow = deviceRowsById[r.id];
+      const isNeedsAttention = deviceRow?.state === 'needs-attention';
+      logEvent('history_row_retry', {
+        recording_id: r.id,
+        qa_status: r.qaStatus,
+        // Use 'unknown' when there's no device row — analytics signature
+        // accepts string|number|boolean only, no null.
+        device_state: deviceRow?.state ?? 'unknown',
+      });
+      if (isNeedsAttention) {
+        void HumynUpload.retryNeedsAttentionSafe(r.id);
+      } else {
+        void HumynUpload.reupload(r.id).catch(() => undefined);
+      }
+    },
+    [deviceRowsById],
+  );
 
   // ---------------------------------------------------------------------
   // Empty-state — HIST-04 (no filter, no rows) vs HIST-05 (filter active,
@@ -579,8 +605,15 @@ export function HistoryScreen(): React.JSX.Element {
             onRetry={onRowRetry}
             {...(deviceRowsById[item.id]
               ? (() => {
-                  const ds = toDeviceState(deviceRowsById[item.id]!.state);
-                  return ds ? { deviceState: ds } : {};
+                  const dr = deviceRowsById[item.id]!;
+                  const ds = toDeviceState(dr.state);
+                  // Surface the NEEDS_ATTENTION reason to the row's Retry label
+                  // (Fix C item 4 — debug session upload-queue-hol-finalizing).
+                  const reason =
+                    ds === 'needs-attention' && dr.lastFailureReason
+                      ? { needsAttentionReason: dr.lastFailureReason }
+                      : {};
+                  return ds ? { deviceState: ds, ...reason } : reason;
                 })()
               : {})}
             {...(progressById[item.id] != null ? { progressPct: progressById[item.id]! } : {})}

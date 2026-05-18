@@ -20,6 +20,14 @@
 //   - no per-row delete affordance, no abort affordance, no edit affordance
 //     (HIST-10 forbids row deletion).
 //
+// 2026-05-18 — debug session `.planning/debug/upload-queue-hol-finalizing.md`
+// (Fix C item 4) added support for the `'needs-attention'` device state on
+// the existing chip-failed visual. NEEDS_ATTENTION rows render the same
+// "Upload failed — Retry" affordance as DEAD_LETTER rows, but the retry
+// path on the screen wires to `HumynUpload.retryNeedsAttention` instead of
+// `reupload` (different transition rules — see HumynUploadModule.kt).
+// This file is render-only; the screen owns the dispatch.
+//
 // Chip-variant mapping (UI-SPEC §13 — five conceptual variants:
 // `chip-success` / `chip-progress` / `chip-failed` / `chip-verifying` /
 // `chip-paused-no-wifi`). The existing Phase 5 `UploadStatusChip.tsx` ships
@@ -129,13 +137,20 @@ export interface HistoryRowItem {
  * through without an extra mapping layer. Optional — server-only rows
  * (verified rows whose local queue entry was cleared on the verified event)
  * omit it and fall back to the server `qaStatus` for the chip variant.
+ *
+ * 2026-05-18 — debug session `upload-queue-hol-finalizing` (Fix C item 4)
+ * added `'needs-attention'` for rows whose automatic retry budget was
+ * exhausted. Same `chip-failed` visual as `'dead-letter'`, but the screen's
+ * retry handler dispatches via `HumynUpload.retryNeedsAttention` instead of
+ * `reupload`.
  */
 export type HistoryRowDeviceState =
   | 'pending'
   | 'uploading'
   | 'finalizing'
   | 'awaiting-verify'
-  | 'dead-letter';
+  | 'dead-letter'
+  | 'needs-attention';
 
 export interface HistoryRowProps {
   row: HistoryRowItem;
@@ -162,6 +177,15 @@ export interface HistoryRowProps {
    * verbatim (same track / fill styles, same Math.max/min/round clamp).
    */
   progressPct?: number;
+  /**
+   * Debug session `upload-queue-hol-finalizing` (Fix C item 4) — optional
+   * short reason string for a NEEDS_ATTENTION row, surfaced from the
+   * coordinator via `UploadQueueRow.lastFailureReason`. When present,
+   * replaces the default "Upload failed — Retry" label with a reason-
+   * specific copy ("Stuck on finalize — Retry"). Truncated to a single
+   * UI line; the full text lives in the debug-bundle ZIP.
+   */
+  needsAttentionReason?: string;
 }
 
 /**
@@ -189,7 +213,10 @@ export function chipVariant(
   // Device state takes precedence — it reflects the in-flight reality before
   // the server has caught up (or, for dead-letter, before any operator action).
   if (deviceState != null) {
-    if (deviceState === 'dead-letter') return 'chip-failed';
+    // 2026-05-18 — needs-attention shares the chip-failed visual with
+    // dead-letter (both are "Upload failed" shapes with a Retry affordance);
+    // the screen's retry handler dispatches by inspecting the deviceState.
+    if (deviceState === 'dead-letter' || deviceState === 'needs-attention') return 'chip-failed';
     if (deviceState === 'awaiting-verify') return 'chip-verifying';
     if (offline) return 'chip-paused-no-wifi';
     return 'chip-progress'; // pending / uploading / finalizing
@@ -257,6 +284,21 @@ function uploadedAtLabel(row: HistoryRowItem): string {
   return `Uploaded at ${hh}:${mm}`;
 }
 
+/**
+ * Debug session `upload-queue-hol-finalizing` (Fix C item 4) — Retry label
+ * for a NEEDS_ATTENTION row. Falls back to the existing "Upload failed —
+ * Retry" copy when no reason is supplied (e.g. legacy on-disk rows that
+ * pre-date the failure-marker fields). When a reason is present, prefixes
+ * it onto the Retry CTA.
+ */
+function retryLabelFor(deviceState: HistoryRowDeviceState, reason?: string): string {
+  if (deviceState === 'needs-attention' && reason != null && reason.length > 0) {
+    return `${reason} — Retry`;
+  }
+  // dead-letter, or needs-attention with no reason → legacy copy
+  return 'Upload failed — Retry';
+}
+
 export function HistoryRow({
   row,
   ledgerEntry,
@@ -265,6 +307,7 @@ export function HistoryRow({
   onRetry,
   deviceState,
   progressPct,
+  needsAttentionReason,
 }: HistoryRowProps): React.JSX.Element {
   // Quick task 260517-p5g CAPTURE-QA-05 — `row.cancel` overrides the
   // chip/sidecar/retry decisions below. Owner-blessed deviation per
@@ -297,6 +340,13 @@ export function HistoryRow({
     !isCanceled && (variant === 'chip-progress' || variant === 'chip-verifying');
 
   const firstLetter = (row.taskName || '?').slice(0, 1).toUpperCase();
+
+  // 2026-05-18 — Fix C item 4: pick the Retry copy. needs-attention overrides
+  // dead-letter when both apply (the deviceState is the authoritative source).
+  const retryLabel = retryLabelFor(
+    deviceState === 'needs-attention' ? 'needs-attention' : 'dead-letter',
+    needsAttentionReason,
+  );
 
   return (
     <Pressable
@@ -369,7 +419,7 @@ export function HistoryRow({
               disabled={onRetry == null}
             >
               <Text variant="caption" style={styles.chipSidecarLabelAccent}>
-                Upload failed — Retry
+                {retryLabel}
               </Text>
             </Pressable>
           ) : null}

@@ -33,6 +33,11 @@ import java.util.concurrent.atomic.AtomicBoolean
  *  - [clearVerified] — the app-launch reconciliation sweep (Plan 05-08;
  *    UP-15 / VERIFY-06) calls this with the recordingIds the server reported
  *    `verified`; the local mp4/csv/json are unlinked and the rows dropped.
+ *  - [retryNeedsAttention] — debug session
+ *    `.planning/debug/upload-queue-hol-finalizing.md` (Fix C item 4) — the
+ *    History UI's per-row Retry affordance for `NEEDS_ATTENTION` rows.
+ *    Resets the row's `attemptCount` / failure markers and transitions back
+ *    into the automatic drain path.
  *
  * Emits `onUploadQueueChanged(<WritableArray of rows>)` on every queue mutation
  * and `onUploadProgress({recordingId, bytesUploaded, bytesTotal})` from the
@@ -60,8 +65,7 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
      * The process-wide shared transfer engine (Plan 05-06 + 05-07): drains the
      * queue, runs the multipart flow with bounded concurrency, persists per-part
      * state, dead-letters cleanly. The SAME instance the FGS
-     * (`HumynForegroundService`) and the UIDT `UploadJobService` call — so only
-     * one drain runs at a time and there's a single queue-store lock. The auth
+     * (`HumynForegroundService`) and the UIDT `UploadJobService` call. The auth
      * context (API base URL + bearer JWT + signed-in sub) is pushed in via
      * [setUploadContext] (the JWT lives in encrypted MMKV — the bridge injects
      * it rather than reaching MMKV from Kotlin).
@@ -418,6 +422,39 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    /**
+     * Debug session `.planning/debug/upload-queue-hol-finalizing.md` (Fix C
+     * item 4) — user-driven retry of a `NEEDS_ATTENTION` row. The History UI's
+     * per-row "Retry" affordance on the chip-failed visual fires this. Resets
+     * `attemptCount` / `lastFailureAt` / `lastFailureState` /
+     * `lastFailureReason`, transitions back to UPLOADING (if uploadId is set —
+     * the worker takes the /parts re-presign branch) or PENDING (the worker
+     * takes the /init self-heal branch), and re-kicks the drainer.
+     *
+     * No-op (resolves null) if the row doesn't exist OR is NOT in
+     * NEEDS_ATTENTION state. Distinct from [reviveDeadLetter] (DEAD_LETTER
+     * rows): NEEDS_ATTENTION is the "automatic retry budget exhausted, ask
+     * the user" terminal-but-recoverable state.
+     */
+    @ReactMethod
+    fun retryNeedsAttention(recordingId: String, promise: Promise) {
+        bgExecutor.execute {
+            try {
+                val ok = runCatching { coordinator.retryNeedsAttention(recordingId) }.getOrDefault(false)
+                if (ok) {
+                    signalUploadActiveBestEffort()
+                }
+                promise.resolve(ok)
+            } catch (t: Throwable) {
+                promise.reject(
+                    "UPLOAD_RETRY_NEEDS_ATTENTION_FAILED",
+                    t.message ?: "retryNeedsAttention failed",
+                    t,
+                )
+            }
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Battery-optimization exemption + OEM autostart (UP-09) — drives the
     // BatteryOptimizationScreen first-upload walkthrough.
@@ -588,6 +625,8 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
         putString("jsonPath", r.jsonPath)
         putString("taskId", r.taskId)
         putBoolean("isPractice", r.isPractice)
+        // NEEDS_ATTENTION serialises to "needs-attention" (lowercase + underscore→hyphen).
+        // The JS-side UploadQueueRow type carries it explicitly.
         putString("state", r.state.name.lowercase().replace('_', '-'))
         if (r.uploadId != null) putString("uploadId", r.uploadId)
         if (r.imuUploadId != null) putString("imuUploadId", r.imuUploadId)
@@ -606,6 +645,13 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
         putDouble("lastProgressAt", r.lastProgressAt.toDouble())
         if (r.deadLetterReason != null) putString("deadLetterReason", r.deadLetterReason)
         putBoolean("reupload", r.reupload)
+        // Debug session `upload-queue-hol-finalizing` Fix C item 4 — surface
+        // the failure markers to JS so the History UI's NEEDS_ATTENTION Retry
+        // copy can render a reason-specific label.
+        if (r.attemptCount > 0) putInt("attemptCount", r.attemptCount)
+        if (r.lastFailureAt > 0L) putDouble("lastFailureAt", r.lastFailureAt.toDouble())
+        if (r.lastFailureState != null) putString("lastFailureState", r.lastFailureState)
+        if (r.lastFailureReason != null) putString("lastFailureReason", r.lastFailureReason)
     }
 
     private fun rowsToWritableArray(rows: List<UploadRow>): WritableArray =
