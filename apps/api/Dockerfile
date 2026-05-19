@@ -14,8 +14,8 @@ WORKDIR /app
 # Install standard dependencies (needed by native packages if any)
 RUN apk add --no-cache python3 make g++ gcc libc-dev
 
-# Copy package lock and workspace definitions
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# Copy package lock, workspace definitions, and TS base configurations
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY apps/api/package.json ./apps/api/
 COPY shared/types/package.json ./shared/types/
 
