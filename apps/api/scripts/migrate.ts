@@ -1,7 +1,35 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { Pool } from 'pg';
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+
+async function bootstrapSecrets(): Promise<void> {
+  const secretName = process.env.APP_NAME;
+  if (!secretName) {
+    return;
+  }
+  const region = process.env.AWS_REGION || 'ap-south-1';
+  console.log(
+    `[Migrate] Fetching secrets for "${secretName}" from AWS Secrets Manager (${region})...`,
+  );
+  const client = new SecretsManagerClient({ region });
+  try {
+    const response = await client.send(new GetSecretValueCommand({ SecretId: secretName }));
+    if (response.SecretString) {
+      const secrets = JSON.parse(response.SecretString);
+      for (const [key, value] of Object.entries(secrets)) {
+        if (process.env[key] === undefined) {
+          process.env[key] = String(value);
+        }
+      }
+    }
+  } catch (error) {
+    console.error(`[Migrate] Failed to load secrets from AWS Secrets Manager:`, error);
+    throw error;
+  }
+}
 
 async function main() {
+  await bootstrapSecrets();
   const url = process.env.DATABASE_URL;
   if (!url) {
     console.error('DATABASE_URL not set');
