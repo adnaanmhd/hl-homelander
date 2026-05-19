@@ -53,6 +53,8 @@ COPY --chown=node:node --from=builder /app/node_modules ./node_modules
 COPY --chown=node:node --from=builder /app/apps/api/node_modules ./apps/api/node_modules
 COPY --chown=node:node --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --chown=node:node --from=builder /app/apps/api/dist ./apps/api/dist
+# Copy raw SQL migrations so EKS Init Containers or Jobs can apply schemas securely in production
+COPY --chown=node:node --from=builder /app/apps/api/src/db/migrations ./apps/api/src/db/migrations
 COPY --chown=node:node --from=builder /app/shared/types ./shared/types
 
 WORKDIR /app/apps/api
