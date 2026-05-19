@@ -26,8 +26,8 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 COPY apps/api ./apps/api
 COPY shared/types ./shared/types
 
-# Compile TypeScript (this compiles both shared types references and the API code)
-RUN pnpm --filter @humyn/api build
+# Compile TypeScript for both shared dependencies and the API code
+RUN pnpm build
 
 # Prune non-production dependencies to keep the image extremely small
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm prune --prod --no-optional
