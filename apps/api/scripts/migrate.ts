@@ -7,7 +7,10 @@ async function main() {
     console.error('DATABASE_URL not set');
     process.exit(1);
   }
-  const migrationsDir = new URL('../src/db/migrations/', import.meta.url);
+  const isCompiled = import.meta.url.endsWith('.js');
+  const migrationsDir = isCompiled
+    ? new URL('../../src/db/migrations/', import.meta.url)
+    : new URL('../src/db/migrations/', import.meta.url);
   const entries = await readdir(migrationsDir);
   const files = entries.filter((f) => f.endsWith('.sql')).sort((a, b) => a.localeCompare(b));
   if (files.length === 0) {
