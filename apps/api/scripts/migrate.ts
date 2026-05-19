@@ -45,7 +45,11 @@ async function main() {
     console.error('No migration files found');
     process.exit(1);
   }
-  const pool = new Pool({ connectionString: url });
+  const pool = new Pool({
+    connectionString: url,
+    ssl:
+      url.includes('sslmode=') || url.includes('ssl=') ? { rejectUnauthorized: false } : undefined,
+  });
   const client = await pool.connect();
   try {
     // Bookkeeping table — tracks which migration files have been applied.
