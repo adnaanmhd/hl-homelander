@@ -30,7 +30,7 @@ import { useAppStore } from '../state/appStore';
 import { computeInitialRoute } from '../state/initialRoute';
 import { computeCompatSignatureSync } from '../services/compatSignature';
 import OnboardingStack from './OnboardingStack';
-import MainTabs from './MainTabs';
+import ModuleNavigator from './ModuleNavigator';
 import RecordingScreen from '../screens/recording/RecordingScreen';
 import { PlayerScreen } from '../screens/history/PlayerScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
@@ -79,7 +79,7 @@ export default function RootNativeStack() {
   return (
     <Root.Navigator initialRouteName={initial} screenOptions={{ headerShown: false }}>
       <Root.Screen name="OnboardingStack" component={OnboardingStack} />
-      <Root.Screen name="MainTabs" component={MainTabs} />
+      <Root.Screen name="MainTabs" component={ModuleNavigator} />
       <Root.Screen
         name="Recording"
         component={RecordingScreen}

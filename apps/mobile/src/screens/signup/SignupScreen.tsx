@@ -34,14 +34,17 @@ import { Text } from '../../ui/primitives/Text';
 import { Button } from '../../ui/primitives/Button';
 import { Pressable } from '../../ui/primitives/Pressable';
 import { colors, spacing } from '../../ui/tokens';
-import { signInWithGoogle } from '../../services/auth';
 import { useAppStore } from '../../state/appStore';
-import { coalesceDisplayName } from '../../lib/userDisplayName';
+import { useAuthStore } from '../../state/authStore';
 import { logEvent } from '../../util/analytics';
 import { TermsOfUseModal, TERMS_OF_USE_TEXT } from './TermsOfUseModal';
+import GoogleLoginWebView from './GoogleLoginWebView';
+import { fetchGoogleRedirectUrl, type GoogleAuthResponse } from '../../api/googleAuth';
 
 interface NavigationLike {
   replace(route: string): void;
+  reset(state: { index: number; routes: { name: string }[] }): void;
+  getParent(): NavigationLike | undefined;
 }
 
 /**
@@ -65,11 +68,19 @@ export default function SignupScreen() {
   const setJwt = useAppStore((s) => s.setJwt);
   const setConsent = useAppStore((s) => s.setConsent);
   const setUser = useAppStore((s) => s.setUser);
+  const setTokens = useAuthStore((s) => s.setTokens);
 
   const [consent, setConsentChecked] = useState(true);
   const [termsOpen, setTermsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [webViewUrl, setWebViewUrl] = useState<string | null>(null);
+
+  const handleSkip = useCallback(() => {
+    const parent = navigation.getParent();
+    const target = parent && typeof parent.reset === 'function' ? parent : navigation;
+    target.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+  }, [navigation]);
 
   const handleSignIn = useCallback(async () => {
     if (!consent) {
@@ -80,28 +91,48 @@ export default function SignupScreen() {
     setError(null);
     logEvent('signup_google_started');
     try {
-      const result = await signInWithGoogle();
-      setJwt(result.jwt);
-      setUser({
-        id: result.user.id,
-        email: result.user.email,
-        name: coalesceDisplayName(result.user.name, result.user.email),
-        avatarUrl: result.user.avatarUrl,
-      });
-      setConsent({
-        acceptedAt: new Date().toISOString(),
-        consentVersion: CONSENT_VERSION,
-      });
-      logEvent('signup_google_completed');
-      navigation.replace('Permissions');
+      const redirectUrl = await fetchGoogleRedirectUrl();
+      console.log('[SignupScreen] handleSignIn — redirectUrl received:', redirectUrl);
+      setLoading(false);
+      setWebViewUrl(redirectUrl);
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'unknown_error';
+      console.error('[SignupScreen] handleSignIn — error:', err);
       setError(reason);
-      logEvent('signup_google_failed', { reason });
-    } finally {
       setLoading(false);
+      logEvent('signup_google_failed', { reason });
     }
-  }, [consent, navigation, setConsent, setJwt, setUser]);
+  }, [consent]);
+
+  const handleOAuthSuccess = useCallback(
+    async (data: GoogleAuthResponse) => {
+      setWebViewUrl(null);
+      try {
+        await setTokens(data.accessToken, data.refreshToken, data.idToken);
+        // accessToken serves as the app-level JWT for navigation gating.
+        setJwt(data.accessToken);
+        setUser({ id: '', email: '', name: null, avatarUrl: null });
+        setConsent({
+          acceptedAt: new Date().toISOString(),
+          consentVersion: CONSENT_VERSION,
+        });
+        logEvent('signup_google_completed');
+        navigation.replace('Permissions');
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : 'unknown_error';
+        setError(reason);
+        logEvent('signup_google_failed', { reason });
+      }
+    },
+    [navigation, setConsent, setJwt, setTokens, setUser],
+  );
+
+  const handleOAuthError = useCallback((err: unknown) => {
+    setWebViewUrl(null);
+    const reason = err instanceof Error ? err.message : 'unknown_error';
+    setError(reason);
+    logEvent('signup_google_failed', { reason });
+  }, []);
 
   const toggleConsent = useCallback(() => {
     setConsentChecked((prev) => {
@@ -120,6 +151,18 @@ export default function SignupScreen() {
   const closeTerms = useCallback(() => {
     setTermsOpen(false);
   }, []);
+
+  console.log('[SignupScreen] render — webViewUrl:', webViewUrl, '| loading:', loading);
+
+  if (webViewUrl) {
+    return (
+      <GoogleLoginWebView
+        webViewUrl={webViewUrl}
+        onSuccess={handleOAuthSuccess}
+        onError={handleOAuthError}
+      />
+    );
+  }
 
   return (
     <ScreenContainer accessibilityLabel="Signup screen" style={styles.container}>
@@ -224,6 +267,17 @@ export default function SignupScreen() {
           </Text>
         </View>
 
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Skip login"
+          onPress={handleSkip}
+          style={styles.skipWrap}
+        >
+          <Text variant="caption" tone="secondary">
+            Skip for now
+          </Text>
+        </Pressable>
+
         {error ? (
           <Text
             variant="caption"
@@ -304,6 +358,10 @@ const styles = StyleSheet.create({
   checkboxChecked: {
     backgroundColor: colors.accent,
     borderColor: colors.accent,
+  },
+  skipWrap: {
+    alignItems: 'center',
+    paddingVertical: spacing.s,
   },
   checkboxGlyph: {
     color: colors.surface,
