@@ -6,7 +6,11 @@
     "types": ["node"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "lucide-react": ["node_modules/lucide-react"]
+    }
   },
   "include": ["src/**/*", "__tests__/**/*", "App.tsx"]
 }
