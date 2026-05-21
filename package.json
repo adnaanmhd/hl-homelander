@@ -27,7 +27,8 @@
     "@typescript-eslint/parser": "8.18.0",
     "@typescript-eslint/eslint-plugin": "8.18.0",
     "husky": "9.1.7",
-    "lint-staged": "15.2.10"
+    "lint-staged": "15.2.10",
+    "@react-native-community/cli": "latest"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

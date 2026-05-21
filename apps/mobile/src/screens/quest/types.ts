@@ -72,3 +72,57 @@ export interface FeaturedQuest extends Quest {
   banner_img?: string;
   campaignID?: string;
 }
+
+// ─── Quest detail (kgen API) ───────────────────────────────────────────────
+
+export interface LoginDetailsStageStep {
+  step: number;
+  text: string;
+  urlOfMedia?: string;
+  mediaType?: string;
+}
+
+export interface LoginDetailsStage {
+  title: string;
+  totalSteps: number;
+  steps: LoginDetailsStageStep[];
+}
+
+export interface QuestDetail extends Quest {
+  createdAt?: number;
+  questAndLeaderboardFirstPositionReward?: number;
+  loginDetailsStage?: LoginDetailsStage;
+  loginMethods?: string[];
+  loginMethodsWithTitle?: Record<string, string>;
+  hasAccessCode?: boolean;
+  rules?: { title?: string; points?: string[] };
+  notes?: { title?: string; points?: string[] };
+  gameYoutubeVideo?: string;
+  thirdPartyClientId?: string;
+}
+
+export interface QuestStageStatus {
+  stage: number;
+  status: string;
+}
+
+export interface QuestStatusDetails {
+  quest: string;
+  stages: QuestStageStatus[];
+}
+
+export interface QuestProfile {
+  userId: string;
+  phone_number?: string;
+  name?: string;
+}
+
+export const QUEST_STAGE_STATUS = {
+  NOT_SUBMITTED: 'NOT SUBMITTED',
+  VALIDATING_PROOF: 'VALIDATING PROOF',
+  VALIDATED_PROOF: 'VALIDATED PROOF',
+  EARNING_CREDITED: 'EARNING CREDITED',
+  INVALID_PROOF: 'INVALID PROOF',
+  DUPLICATE_PROOF: 'DUPLICATE PROOF',
+  NOEARNINGS_PROOF: 'NOEARNINGS PROOF',
+} as const;

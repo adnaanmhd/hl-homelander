@@ -1,0 +1,34 @@
+{
+  "project_info": {
+    "project_number": "130483521533",
+    "project_id": "homelander-24045",
+    "storage_bucket": "homelander-24045.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:130483521533:android:REPLACE_WITH_FIREBASE_CONSOLE_APP_ID_HASH",
+        "android_client_info": {
+          "package_name": "ai.humynlabs.capture.apk"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "130483521533-rgtkna3144hod4hdvnkn32r8f6b0i414.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "REPLACE_WITH_FIREBASE_ANDROID_API_KEY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

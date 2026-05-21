@@ -31,6 +31,8 @@ import { computeInitialRoute } from '../state/initialRoute';
 import { computeCompatSignatureSync } from '../services/compatSignature';
 import OnboardingStack from './OnboardingStack';
 import ModuleNavigator from './ModuleNavigator';
+import QuestDetailsScreen from '../screens/quest/QuestDetailsScreen';
+import type { RootStackParamList } from './rootTypes';
 import RecordingScreen from '../screens/recording/RecordingScreen';
 import { PlayerScreen } from '../screens/history/PlayerScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
@@ -42,7 +44,7 @@ import { LogoutModal } from '../components/LogoutModal';
 import { DeleteAccountModal } from '../components/DeleteAccountModal';
 import { useForegroundUserRehydrate } from '../hooks/useForegroundUserRehydrate';
 
-const Root = createNativeStackNavigator();
+const Root = createNativeStackNavigator<RootStackParamList>();
 
 // Plan 05-08 — the BatteryOptimizationScreen (UP-09) is surfaced once on the
 // first auto-enqueue (RecordingScreen, gated on shouldShowBatteryOptimizationPrompt()).
@@ -53,7 +55,7 @@ function BatteryOptimizationRoute(): React.JSX.Element {
   return <BatteryOptimizationScreen onDone={() => navigation.goBack()} />;
 }
 
-function rootInitialRouteName(): string {
+function rootInitialRouteName(): keyof RootStackParamList {
   // Zustand store is hydrated by App.tsx BEFORE this renders, so getState()
   // here observes the fully-restored persistent state.
   const state = useAppStore.getState();
@@ -80,6 +82,8 @@ export default function RootNativeStack() {
     <Root.Navigator initialRouteName={initial} screenOptions={{ headerShown: false }}>
       <Root.Screen name="OnboardingStack" component={OnboardingStack} />
       <Root.Screen name="MainTabs" component={ModuleNavigator} />
+      {/* Quest detail — root sibling (no nested stack under ModuleNavigator). */}
+      <Root.Screen name="QuestDetails" component={QuestDetailsScreen} />
       <Root.Screen
         name="Recording"
         component={RecordingScreen}

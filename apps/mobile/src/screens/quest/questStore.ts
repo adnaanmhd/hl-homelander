@@ -538,7 +538,7 @@ export const useQuestStore = create<QuestStoreState>((set, _get) => ({
     } else {
       set({ isLoadingMore: true });
     }
-    await new Promise<void>((r) => setTimeout(r, 1000));
+    await new Promise<void>((r) => setTimeout(r, 400));
 
     const all = MOCK_RECOMMENDED;
     const filtered =

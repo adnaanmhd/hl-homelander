@@ -36,6 +36,7 @@ react {
 
 android {
     namespace 'ai.humynlabs.capture'
+    ndkVersion rootProject.ext.ndkVersion
     compileSdk rootProject.ext.compileSdkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
 

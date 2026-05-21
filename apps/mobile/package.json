@@ -10,6 +10,8 @@
     "verify-manifests": "bash scripts/verify-merged-manifests.sh",
     "build:help": "node scripts/build-help-content.mjs",
     "build:assets": "react-native-asset",
+    "ensure:google-services": "node scripts/ensure-google-services.mjs",
+    "setup:google-services": "bash scripts/setup-google-services.sh",
     "prebuild": "npm run build:help && npm run build:assets"
   },
   "dependencies": {
@@ -33,6 +35,7 @@
     "react-native-config": "1.6.1",
     "react-native-fs": "2.20.0",
     "react-native-haptic-feedback": "2.3.3",
+    "react-native-image-picker": "^8.2.1",
     "react-native-keychain": "10.0.0",
     "react-native-mmkv": "4.3.1",
     "react-native-nitro-modules": "^0.35.6",

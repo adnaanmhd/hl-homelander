@@ -170,7 +170,8 @@ npm ci                                  # the mobile package uses npm, not pnpm
 # Per-flavor env (react-native-config reads the matching file at compile time):
 #   apps/mobile/.env.apkRollout   →  GOOGLE_WEB_CLIENT_ID, API_BASE_URL (e.g. http://10.0.2.2:8080)
 #   apps/mobile/.env.playStore    →  same keys
-# Also drop google-services.json into android/app/ (per-developer; gitignored).
+# Firebase: download google-services.json for ai.humynlabs.capture.apk, then:
+#   bash scripts/setup-google-services.sh ~/Downloads/google-services.json
 
 npm run typecheck
 npm run test                            # Vitest

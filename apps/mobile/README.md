@@ -14,6 +14,22 @@ iOS is Phase 7 — not built here. The backend (`/auth/google`) Phase-1 gates `f
 - Node 22 + pnpm 9 (root workspace)
 - JDK 17, Android SDK with `compileSdk=35`, AGP 8.7+, Gradle 8.11+
 - Pixel 7a-class device (or higher; emulator fails Play Integrity by design)
+- **`google-services.json`** for the apkRollout Android app (`ai.humynlabs.capture.apk`) — gitignored; required for any Gradle build that applies the Firebase plugin
+
+### Firebase Android config (one-time)
+
+1. Firebase Console → project **homelander-24045** (GCP project number `130483521533`)
+2. **Project settings** → **Your apps** → Android app **`ai.humynlabs.capture.apk`**
+3. **Download `google-services.json`**
+4. Install it into the repo:
+
+```sh
+cd apps/mobile
+bash scripts/setup-google-services.sh ~/Downloads/google-services.json
+npm run ensure:google-services   # sanity check
+```
+
+If the Android app is not registered yet, add an Android app with package name `ai.humynlabs.capture.apk`, then download the config. Ask a teammate for their copy if you lack Console access.
 
 ## .env per flavor
 
