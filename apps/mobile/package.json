@@ -58,6 +58,7 @@
     "@vitejs/plugin-react": "5.0.4",
     "jest-image-snapshot": "^6.5.2",
     "jsdom": "25.0.1",
+    "lucide-react": "^1.16.0",
     "react-dom": "19.2.0",
     "react-native-asset": "2.1.1",
     "react-test-renderer": "19.2.0",
