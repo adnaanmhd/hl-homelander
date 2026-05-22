@@ -1,0 +1,95 @@
+version: 0.2
+
+env:
+  variables:
+    ANDROID_HOME: "/usr/local/android-sdk"
+    ANDROID_SDK_ROOT: "/usr/local/android-sdk"
+
+phases:
+  install:
+    runtime-versions:
+      java: corretto17
+      nodejs: 22
+    commands:
+      - echo "Installing Android SDK Command Line Tools..."
+      - mkdir -p ${ANDROID_HOME}/cmdline-tools
+      # Download command-line tools matching Gradle 8.11+ requirements
+      - if [ ! -d "${ANDROID_HOME}/cmdline-tools/latest" ]; then curl -sS https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o /tmp/cmdline-tools.zip && unzip -q /tmp/cmdline-tools.zip -d ${ANDROID_HOME}/cmdline-tools && mv ${ANDROID_HOME}/cmdline-tools/cmdline-tools ${ANDROID_HOME}/cmdline-tools/latest; fi
+      - export PATH=${PATH}:${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools
+      - echo "Accepting licenses..."
+      - yes | sdkmanager --licenses > /dev/null
+      - echo "Installing platforms and build tools (SDK 36)..."
+      - sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+      - echo "Installing npm packages and building shared types..."
+      - cd shared/types && npm install && npm run build && cd ../..
+      - cd apps/mobile && npm ci && cd ../..
+  build:
+    commands:
+      - echo "Creating dummy google-services.json..."
+      - |
+        cat << 'EOF' > apps/mobile/android/app/google-services.json
+        {
+          "project_info": {
+            "project_number": "130483521533",
+            "project_id": "humyn-prod",
+            "storage_bucket": "humyn-prod.appspot.com"
+          },
+          "client": [
+            {
+              "client_info": {
+                "mobilesdk_app_id": "1:130483521533:android:dummyclient111111",
+                "android_client_info": {
+                  "package_name": "ai.humynlabs.capture"
+                }
+              },
+              "oauth_client": [],
+              "api_key": [
+                {
+                  "current_key": "dummy_api_key_1111"
+                }
+              ],
+              "services": {
+                "appinvite_service": {
+                  "other_platform_oauth_client": []
+                }
+              }
+            },
+            {
+              "client_info": {
+                "mobilesdk_app_id": "1:130483521533:android:dummyclient222222",
+                "android_client_info": {
+                  "package_name": "ai.humynlabs.capture.apk"
+                }
+              },
+              "oauth_client": [],
+              "api_key": [
+                {
+                  "current_key": "dummy_api_key_2222"
+                }
+              ],
+              "services": {
+                "appinvite_service": {
+                  "other_platform_oauth_client": []
+                }
+              }
+            }
+          ],
+          "configuration_version": "1"
+        }
+        EOF
+      - echo "Running unit tests and assembling APK..."
+      - export PATH=${PATH}:${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools
+      - cd apps/mobile/android && ./gradlew :app:testApkRolloutDebugUnitTest assembleApkRolloutDebug
+  post_build:
+    commands:
+      - echo "Verifying merged manifests..."
+      - cd apps/mobile && bash scripts/verify-merged-manifests.sh && cd ../..
+      - echo "Uploading APK to S3..."
+      - aws s3 cp apps/mobile/android/app/build/outputs/apk/apkRollout/debug/app-apkRollout-debug.apk s3://humyn-apk-stage/apks/app-apkRollout-debug.apk
+
+cache:
+  paths:
+    - '/usr/local/android-sdk/**/*'
+    - '/root/.gradle/**/*'
+    - 'shared/types/node_modules/**/*'
+    - 'apps/mobile/node_modules/**/*'
