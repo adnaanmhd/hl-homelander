@@ -21,13 +21,13 @@ phases:
       - echo "Installing platforms and build tools (SDK 36)..."
       - sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" > /dev/null
       - echo "Installing npm packages and building shared types..."
-      - cd shared/types && npm install && npm run build && cd ../..
-      - cd apps/mobile && npm ci && cd ../..
+      - cd $CODEBUILD_SRC_DIR/shared/types && npm install && npm run build
+      - cd $CODEBUILD_SRC_DIR/apps/mobile && npm ci
   build:
     commands:
       - echo "Creating dummy google-services.json..."
       - |
-        cat << 'EOF' > apps/mobile/android/app/google-services.json
+        cat << 'EOF' > $CODEBUILD_SRC_DIR/apps/mobile/android/app/google-services.json
         {
           "project_info": {
             "project_number": "130483521533",
@@ -79,13 +79,13 @@ phases:
         EOF
       - echo "Running unit tests and assembling APK..."
       - export PATH=${PATH}:${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools
-      - cd apps/mobile/android && ./gradlew :app:testApkRolloutDebugUnitTest assembleApkRolloutDebug
+      - cd $CODEBUILD_SRC_DIR/apps/mobile/android && ./gradlew :app:testApkRolloutDebugUnitTest assembleApkRolloutDebug
   post_build:
     commands:
       - echo "Verifying merged manifests..."
-      - cd apps/mobile && bash scripts/verify-merged-manifests.sh && cd ../..
+      - cd $CODEBUILD_SRC_DIR/apps/mobile && bash scripts/verify-merged-manifests.sh
       - echo "Uploading APK to S3..."
-      - aws s3 cp apps/mobile/android/app/build/outputs/apk/apkRollout/debug/app-apkRollout-debug.apk s3://humyn-apk-stage/apks/app-apkRollout-debug.apk
+      - aws s3 cp $CODEBUILD_SRC_DIR/apps/mobile/android/app/build/outputs/apk/apkRollout/debug/app-apkRollout-debug.apk s3://humyn-apk-stage/apks/app-apkRollout-debug.apk
 
 cache:
   paths:
