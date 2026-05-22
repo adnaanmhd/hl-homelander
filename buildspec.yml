@@ -23,6 +23,24 @@ phases:
       - echo "Installing npm packages and building shared types..."
       - cd $CODEBUILD_SRC_DIR/shared/types && npm install && npm run build
       - cd $CODEBUILD_SRC_DIR/apps/mobile && npm ci
+  pre_build:
+    commands:
+      - echo "Checking Android Release signing configuration..."
+      - |
+        if [ -z "${APK_ROLLOUT_KEYSTORE_PASSWORD}" ]; then
+          echo "No signing keys detected. Generating temporary release keystore for staging build..."
+          keytool -genkey -v -keystore /tmp/temp-signing.keystore -alias temp-alias -keyalg RSA -keysize 2048 -validity 10000 -storepass "temp-password" -keypass "temp-password" -dname "CN=Humyn Labs, O=Humyn Labs, C=US" >/dev/null
+          echo "export PLAY_STORE_KEYSTORE_PATH=/tmp/temp-signing.keystore" >> $BASH_ENV
+          echo "export PLAY_STORE_KEYSTORE_PASSWORD=temp-password" >> $BASH_ENV
+          echo "export PLAY_STORE_KEY_ALIAS=temp-alias" >> $BASH_ENV
+          echo "export PLAY_STORE_KEY_PASSWORD=temp-password" >> $BASH_ENV
+          echo "export APK_ROLLOUT_KEYSTORE_PATH=/tmp/temp-signing.keystore" >> $BASH_ENV
+          echo "export APK_ROLLOUT_KEYSTORE_PASSWORD=temp-password" >> $BASH_ENV
+          echo "export APK_ROLLOUT_KEY_ALIAS=temp-alias" >> $BASH_ENV
+          echo "export APK_ROLLOUT_KEY_PASSWORD=temp-password" >> $BASH_ENV
+        else
+          echo "Using pre-configured release signing credentials..."
+        fi
   build:
     commands:
       - echo "Creating dummy google-services.json..."
@@ -77,15 +95,16 @@ phases:
           "configuration_version": "1"
         }
         EOF
-      - echo "Running unit tests and assembling APK..."
+      - echo "Running unit tests and assembling APKs..."
       - export PATH=${PATH}:${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools
-      - cd $CODEBUILD_SRC_DIR/apps/mobile/android && ./gradlew :app:testApkRolloutDebugUnitTest assembleApkRolloutDebug
+      - cd $CODEBUILD_SRC_DIR/apps/mobile/android && ./gradlew :app:testApkRolloutReleaseUnitTest :app:testPlayStoreReleaseUnitTest assembleApkRolloutRelease assemblePlayStoreRelease
   post_build:
     commands:
       - echo "Verifying merged manifests..."
-      - cd $CODEBUILD_SRC_DIR/apps/mobile && bash scripts/verify-merged-manifests.sh
-      - echo "Uploading APK to S3..."
-      - aws s3 cp $CODEBUILD_SRC_DIR/apps/mobile/android/app/build/outputs/apk/apkRollout/debug/app-apkRollout-debug.apk s3://humyn-apk-stage/apks/app-apkRollout-debug.apk
+      - cd $CODEBUILD_SRC_DIR/apps/mobile && bash scripts/verify-merged-manifests.sh Release
+      - echo "Uploading APKs to S3..."
+      - aws s3 cp $CODEBUILD_SRC_DIR/apps/mobile/android/app/build/outputs/apk/apkRollout/release/app-apkRollout-release.apk s3://humyn-apk-stage/apks/app-apkRollout-release.apk
+      - aws s3 cp $CODEBUILD_SRC_DIR/apps/mobile/android/app/build/outputs/apk/playStore/release/app-playStore-release.apk s3://humyn-apk-stage/apks/app-playStore-release.apk
 
 cache:
   paths:
