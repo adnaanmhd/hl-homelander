@@ -127,6 +127,12 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             productFlavors.playStore.signingConfig signingConfigs.playStoreRelease
             productFlavors.apkRollout.signingConfig signingConfigs.apkRolloutRelease
+
+            // Disable automatic Crashlytics mapping upload to prevent build failures
+            // in CI environments where the Firebase project is not fully configured.
+            firebaseCrashlytics {
+                mappingUploadEnabled false
+            }
         }
     }
 
