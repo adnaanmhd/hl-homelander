@@ -941,6 +941,15 @@ class UploadCoordinator(
             put("fileSizeBytes", m.optLong("file_size_bytes", File(row.mp4Path).length()))
             put("imuSizeBytes", m.optLong("imu_size_bytes", File(row.csvPath).length()))
             put("capturedAt", m.optString("start_timestamp", ""))
+            // Quick task 260522-elm CAPTURE-QA-08/09 — forward the metadata.json
+            // top-level `calibration` block (camera intrinsics + cam-IMU
+            // extrinsics) verbatim so the server persists it as the queryable
+            // mirror (recordings.calibration jsonb). The block's shape already
+            // matches the backend zod CalibrationSchema (camera + cam_imu_
+            // extrinsics); extra keys are stripped server-side and null params
+            // are tolerated. Omitted for pre-1.2.0 metadata with no
+            // `calibration` key (the server's zod field is .nullable().optional()).
+            meta.optJSONObject("calibration")?.let { put("calibration", it) }
         }
         executeTracked(authedJsonRequest("$baseUrl/recordings/init", body, row.initIdempotencyKey)).use { resp ->
             // Post-CR-02 (Plan 05-09) `/recordings/init` is idempotent: a re-/init for an existing `pending` row

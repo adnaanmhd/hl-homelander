@@ -60,6 +60,7 @@ class UploadCoordinatorTest {
     private val putCalls = ConcurrentHashMap<String, AtomicInteger>() // path → count
     private val lastFinalizeBody = java.util.concurrent.atomic.AtomicReference<JSONObject?>(null)
     private val lastPartsBody = java.util.concurrent.atomic.AtomicReference<JSONObject?>(null)
+    private val lastInitBody = java.util.concurrent.atomic.AtomicReference<JSONObject?>(null)
     /** Captured Idempotency-Key header per POST path. Set in the dispatcher. Last-write-wins per path. */
     private val idempotencyKeysByPath = java.util.concurrent.ConcurrentHashMap<String, String>()
     @Volatile private var failAllPuts = false
@@ -97,7 +98,9 @@ class UploadCoordinatorTest {
                     path == "/recordings/init" -> {
                         initCalls.incrementAndGet()
                         request.getHeader("Idempotency-Key")?.let { idempotencyKeysByPath["/recordings/init"] = it }
-                        val partsCount = JSONObject(request.body.readUtf8()).getInt("partsCount")
+                        val initBody = JSONObject(request.body.readUtf8())
+                        lastInitBody.set(initBody)
+                        val partsCount = initBody.getInt("partsCount")
                         val code = initResponseCode
                         val flakyRemaining = flakyInitCount.get()
                         when {
@@ -229,14 +232,18 @@ class UploadCoordinatorTest {
         }.toString()
     }
 
-    /** Write a recording bundle (mp4 of [mp4Bytes] size + csv + metadata json) under filesDir/recordings. */
-    private fun writeBundle(recordingId: String, mp4Bytes: Int): Triple<File, File, File> {
+    /**
+     * Write a recording bundle (mp4 of [mp4Bytes] size + csv + metadata json) under filesDir/recordings.
+     * When [calibration] is non-null it is added as the metadata.json top-level `calibration` block
+     * (schema 1.2.0) so a test can assert the uploader forwards it on /recordings/init (260522-elm).
+     */
+    private fun writeBundle(recordingId: String, mp4Bytes: Int, calibration: JSONObject? = null): Triple<File, File, File> {
         val mp4 = File(recDir, "$recordingId.mp4").apply { writeBytes(ByteArray(mp4Bytes) { (it % 251).toByte() }) }
         val csv = File(recDir, "$recordingId.csv").apply { writeText("ts,ax,ay,az\n1,0,0,9.8\n") }
         val json = File(recDir, "$recordingId.json").apply {
             writeText(
                 JSONObject().apply {
-                    put("schema_version", "1.1.0")
+                    put("schema_version", if (calibration != null) "1.2.0" else "1.1.0")
                     put("recording_id", recordingId)
                     put("metadata", JSONObject().apply {
                         put("file_sha256", "a".repeat(64))
@@ -246,14 +253,15 @@ class UploadCoordinatorTest {
                         put("duration_seconds", 12.5)
                         put("start_timestamp", "2026-05-12T10:00:00.000Z")
                     })
+                    if (calibration != null) put("calibration", calibration)
                 }.toString(),
             )
         }
         return Triple(mp4, csv, json)
     }
 
-    private fun row(recordingId: String, ownerUserId: String = "userA"): UploadRow {
-        val (mp4, csv, json) = writeBundle(recordingId, mp4Bytes = 12_000_000) // ~12 MB → 2 parts at 8 MiB
+    private fun row(recordingId: String, ownerUserId: String = "userA", calibration: JSONObject? = null): UploadRow {
+        val (mp4, csv, json) = writeBundle(recordingId, mp4Bytes = 12_000_000, calibration = calibration) // ~12 MB → 2 parts at 8 MiB
         return UploadRow(
             recordingId = recordingId,
             ownerUserId = ownerUserId,
@@ -332,6 +340,57 @@ class UploadCoordinatorTest {
         assertEquals(UploadState.AWAITING_VERIFY, back[0].state)
         assertEquals(PartStatus.DONE, back[0].metadataPut)
         assertTrue(back[0].videoParts.all { it.status == PartStatus.DONE && it.etag != null })
+    }
+
+    @Test
+    fun `init forwards the metadata calibration block verbatim (260522-elm CAPTURE-QA-08-09)`() {
+        // A schema-1.2.0 metadata.json carries a top-level `calibration` block;
+        // the uploader must forward it verbatim on /recordings/init so the
+        // server can persist the recordings.calibration jsonb mirror.
+        val calibration = JSONObject().apply {
+            put("camera", JSONObject().apply {
+                put("model", "pinhole")
+                put("resolution", org.json.JSONArray().put(4208).put(3120))
+                put("params", JSONObject().apply {
+                    put("fx", 1643.84); put("fy", 1643.84); put("cx", 2103.26); put("cy", 1552.57); put("skew", 0)
+                })
+                put("distortion_coeffs", org.json.JSONArray().put(0.02).put(-0.03).put(0.013).put(0.0005).put(0.0002))
+                put("intrinsics_source", "camera2")
+            })
+            put("cam_imu_extrinsics", JSONObject().apply {
+                put("T_cam_imu", JSONObject.NULL)
+                put("T_imu_cam", JSONObject.NULL)
+                put("T_cam_imu_translation_mm", JSONObject.NULL)
+                put("timeshift_cam_imu_sec", 0)
+                put("timeshift_meaning", "t_imu = t_cam + timeshift")
+                put("clock_sync_note", "camera + imu share the boottime (elapsedRealtimeNanos) clock")
+                put("extrinsics_source", "camera2_no_imu_reference")
+            })
+        }
+        store.enqueue(row("01JCOORDCALIBXXXXXXXXXXXXXX", calibration = calibration))
+        val coord = coordinator()
+        coord.drainNow()
+
+        assertEquals("one /init", 1, initCalls.get())
+        val init = lastInitBody.get()!!
+        assertTrue("init body carries calibration", init.has("calibration"))
+        val cam = init.getJSONObject("calibration").getJSONObject("camera")
+        assertEquals("camera2", cam.getString("intrinsics_source"))
+        assertEquals(1643.84, cam.getJSONObject("params").getDouble("fx"), 1e-6)
+        assertEquals(
+            "camera2_no_imu_reference",
+            init.getJSONObject("calibration").getJSONObject("cam_imu_extrinsics").getString("extrinsics_source"),
+        )
+    }
+
+    @Test
+    fun `init omits calibration for pre-1_2_0 metadata with no calibration block (260522-elm)`() {
+        // Backward-compat: a 1.1.0 bundle has no `calibration` key; the uploader
+        // must NOT invent one — the server's zod field is .nullable().optional().
+        store.enqueue(row("01JCOORDNOCALIBXXXXXXXXXXXX")) // writeBundle with calibration=null
+        coordinator().drainNow()
+        assertEquals("one /init", 1, initCalls.get())
+        assertTrue("init body omits calibration", !lastInitBody.get()!!.has("calibration"))
     }
 
     @Test
