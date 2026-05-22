@@ -283,16 +283,40 @@ class CaptureSession private constructor(
         val practiceDir = File(baseDir, "practice").apply { mkdirs() }
         val outDir = if (opts.isPractice) practiceDir else recordingsDir
         val now = LocalDateTime.now()
+        // FilenameGenerator.nextBase still returns the un-prefixed date base
+        // `YYYYMMDD_HHMMSS_NNN` (its ls-scan strips a leading 26-char ULID
+        // prefix before the NNN parse — CAPTURE-QA-07).
         val base = FilenameGenerator.nextBase(now, listOf(recordingsDir, practiceDir))
 
-        val mp4 = File(outDir, "$base.mp4")
-        val csv = File(outDir, "$base.csv")
-        val json = File(outDir, "$base.json")
-        val sidecarFile = File(outDir, "$base.session.json")
+        // Quick task 260522-elm CAPTURE-QA-07 — prefix the on-disk filename
+        // with the segment's 26-char ULID recordingId so every artifact is
+        // self-identifying: `{recordingId}_{YYYYMMDD_HHMMSS_NNN}.{ext}`.
+        // metadata.filename / imu_filename flow this prefixed base through
+        // FinalizeWorker's `"${seg.filenameBase}.mp4"` / `.csv` stamping. The
+        // S3 object keys are UNCHANGED — the upload path PUTs to the fixed
+        // recordingKeys() (video.mp4 / imu.csv / metadata.json under
+        // recordings/{userId}/{recordingId}/); the local filename never
+        // derives the S3 object key (T-elm-03; verified against
+        // apps/api/src/lib/s3-client.ts recordingKeys()).
+        val filenameBase = "${recordingId}_$base"
+
+        val mp4 = File(outDir, "$filenameBase.mp4")
+        val csv = File(outDir, "$filenameBase.csv")
+        val json = File(outDir, "$filenameBase.json")
+        val sidecarFile = File(outDir, "$filenameBase.session.json")
 
         // 2. Per-segment clock stamp (Pattern 1 invariant — elapsedRealtimeNanos).
         val startNs = SystemClock.elapsedRealtimeNanos()
         val wallclockStartIso = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+
+        // Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — capture
+        // live-Camera2 intrinsics (from the ultrawide physical sub-camera, the
+        // lens HumynCapture records on) + cam-IMU extrinsics at segment open.
+        // The reader is null-safe and NEVER throws (T-elm-01); most Pixels
+        // report UNCALIBRATED so the null-fallback block is the typical output.
+        // Stashed on the sidecar → threaded to MetadataComposer.compose's
+        // top-level `calibration` block. Does NOT block or fail capture.
+        val calibration = CameraCalibrationReader.read(pick.ultrawideChars, pick.openableChars)
 
         // 3. Sidecar payload — captures the JS-supplied opts + segment timing
         //    so the app-launch sweep (Plan 03-09) can re-finalize if the
@@ -302,7 +326,7 @@ class CaptureSession private constructor(
             sessionId = sessionId,
             segmentId = UlidGenerator.next(),
             recordingId = recordingId,
-            filenameBase = base,
+            filenameBase = filenameBase,
             startedAtNs = startNs,
             wallclockStartIso = wallclockStartIso,
             isPractice = opts.isPractice,
@@ -347,6 +371,9 @@ class CaptureSession private constructor(
             // "landscape_left" (defensive — should never happen post-lock) with
             // a log warning so the safe default stays non-null.
             recordedRotation = readRecordedRotation(),
+            // Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — calibration
+            // captured above from the ultrawide physical sub-camera.
+            calibration = calibration,
         )
         SidecarManager.write(sidecarFile, sidecar)
 
@@ -414,7 +441,7 @@ class CaptureSession private constructor(
         val seg = Segment(
             segmentId = sidecar.segmentId,
             recordingId = recordingId,
-            filenameBase = base,
+            filenameBase = filenameBase,
             mp4File = mp4,
             csvFile = csv,
             jsonFile = json,

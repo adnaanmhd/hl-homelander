@@ -176,6 +176,12 @@ export const recordings = pgTable(
     imuVideoDriftMeanMs: integer('imu_video_drift_mean_ms'),
     imuVideoDriftP99Ms: integer('imu_video_drift_p99_ms'),
     imuMinRateHzObservedP1: integer('imu_min_rate_hz_observed_p1'),
+    // Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — the whole
+    // metadata.json `calibration` block (camera intrinsics + cam-IMU
+    // extrinsics) mirrored as queryable jsonb. Nullable: older clients /
+    // pre-1.2.0 segments send nothing. Non-indexed telemetry — not
+    // authorization-bearing (T-elm-02).
+    calibration: jsonb('calibration'),
     // Storage references
     s3KeyVideo: text('s3_key_video').notNull(),
     s3KeyImu: text('s3_key_imu').notNull(),

@@ -153,4 +153,111 @@ describe('POST /recordings/init', () => {
       .where(eq(schema.recordings.id, recordingId));
     expect(rows).toHaveLength(1);
   });
+
+  // ----------------------------------------------------------------
+  // Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — the calibration
+  // jsonb column. The hash-verify worker is UNAFFECTED — it re-hashes the
+  // MP4 + IMU CSV only; calibration lives in metadata.json + this column,
+  // never in the worker's hashing path.
+  // ----------------------------------------------------------------
+
+  const calibratedBlock = {
+    camera: {
+      model: 'pinhole',
+      resolution: [1920, 1080],
+      params: { fx: 725.58, fy: 725.26, cx: 1006.06, cy: 506.9, skew: 0.0 },
+      distortion_coeffs: [0.027, 0.017, -0.011, 0.002],
+      intrinsics_source: 'camera2',
+    },
+    cam_imu_extrinsics: {
+      T_cam_imu: [
+        [1.0, 0.0, 0.0, 0.01],
+        [0.0, 1.0, 0.0, -0.08],
+        [0.0, 0.0, 1.0, -0.05],
+        [0.0, 0.0, 0.0, 1.0],
+      ],
+      T_imu_cam: null,
+      T_cam_imu_translation_mm: [10.0, -80.0, -50.0],
+      timeshift_cam_imu_sec: 0.0,
+      timeshift_meaning: 't_imu = t_cam + timeshift',
+      clock_sync_note: 'camera + imu share the boottime (elapsedRealtimeNanos) clock',
+      extrinsics_source: 'camera2',
+    },
+  };
+
+  const uncalibratedBlock = {
+    camera: {
+      model: 'pinhole',
+      resolution: null,
+      params: { fx: null, fy: null, cx: null, cy: null, skew: null },
+      distortion_coeffs: null,
+      intrinsics_source: 'camera2_uncalibrated',
+    },
+    cam_imu_extrinsics: {
+      T_cam_imu: null,
+      T_imu_cam: null,
+      T_cam_imu_translation_mm: null,
+      timeshift_cam_imu_sec: 0.0,
+      timeshift_meaning: 't_imu = t_cam + timeshift',
+      clock_sync_note: 'camera timestamps not on the shared boottime clock',
+      extrinsics_source: 'camera2_no_imu_reference',
+    },
+  };
+
+  it('persists a full (calibrated) calibration block on the new-row INSERT', async () => {
+    const recordingId = ulid();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/recordings/init',
+      headers: {
+        authorization: `Bearer ${tok()}`,
+        'idempotency-key': '4f7e8f5c-8d2a-4b7f-9c1d-1e3a2b1c4d61',
+      },
+      payload: { ...baseBody(recordingId), calibration: calibratedBlock },
+    });
+    expect(res.statusCode).toBe(201);
+    const rows = await db
+      .select()
+      .from(schema.recordings)
+      .where(eq(schema.recordings.id, recordingId));
+    expect(rows[0]!.calibration).toEqual(calibratedBlock);
+  });
+
+  it('persists the uncalibrated-fallback calibration (null params tolerated)', async () => {
+    const recordingId = ulid();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/recordings/init',
+      headers: {
+        authorization: `Bearer ${tok()}`,
+        'idempotency-key': '4f7e8f5c-8d2a-4b7f-9c1d-1e3a2b1c4d62',
+      },
+      payload: { ...baseBody(recordingId), calibration: uncalibratedBlock },
+    });
+    expect(res.statusCode).toBe(201);
+    const rows = await db
+      .select()
+      .from(schema.recordings)
+      .where(eq(schema.recordings.id, recordingId));
+    expect(rows[0]!.calibration).toEqual(uncalibratedBlock);
+  });
+
+  it('column is null when no calibration is sent (backward compat)', async () => {
+    const recordingId = ulid();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/recordings/init',
+      headers: {
+        authorization: `Bearer ${tok()}`,
+        'idempotency-key': '4f7e8f5c-8d2a-4b7f-9c1d-1e3a2b1c4d63',
+      },
+      payload: baseBody(recordingId),
+    });
+    expect(res.statusCode).toBe(201);
+    const rows = await db
+      .select()
+      .from(schema.recordings)
+      .where(eq(schema.recordings.id, recordingId));
+    expect(rows[0]!.calibration).toBeNull();
+  });
 });

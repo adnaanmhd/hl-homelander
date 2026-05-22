@@ -95,4 +95,48 @@ class FilenameGeneratorTest {
             )
         }
     }
+
+    // ----------------------------------------------------------------
+    // Quick task 260522-elm CAPTURE-QA-07 — ULID-prefixed filenames.
+    // On-disk artifacts are now `{recordingId}_{YYYYMMDD_HHMMSS_NNN}.{ext}`.
+    // nextBase strips a leading 26-char ULID prefix before the per-day NNN
+    // parse so the max+1 accounting stays correct (T-elm-05). A ULID is 26
+    // Crockford-base32 chars (`0-9A-HJKMNP-TV-Z`).
+    // ----------------------------------------------------------------
+
+    // A syntactically valid 26-char Crockford-base32 ULID.
+    private val ulidA = "01HZX0000000000000000000XX"
+    private val ulidB = "01HZX0000000000000000000YY"
+
+    @Test
+    fun `ULID-prefixed existing 005 returns NNN 006`() {
+        File(rec, "${ulidA}_20260505_001234_005.mp4").writeBytes(byteArrayOf(0))
+        File(rec, "${ulidB}_20260505_001234_001.mp4").writeBytes(byteArrayOf(0))
+        val now = LocalDateTime.of(2026, 5, 5, 0, 30, 20)
+        assertEquals("20260505_003020_006", FilenameGenerator.nextBase(now, listOf(rec, pra)))
+    }
+
+    @Test
+    fun `ULID-prefixed practice file contributes to todays counter`() {
+        File(pra, "${ulidA}_20260505_001234_007.mp4").writeBytes(byteArrayOf(0))
+        val now = LocalDateTime.of(2026, 5, 5, 0, 30, 20)
+        assertEquals("20260505_003020_008", FilenameGenerator.nextBase(now, listOf(rec, pra)))
+    }
+
+    @Test
+    fun `mixed dir honors max across ULID-prefixed and legacy files`() {
+        // One ULID-prefixed (003) + one legacy un-prefixed (009) for the same
+        // day — the max (009) must win regardless of prefix presence.
+        File(rec, "${ulidA}_20260505_001234_003.mp4").writeBytes(byteArrayOf(0))
+        File(rec, "20260505_001234_009.mp4").writeBytes(byteArrayOf(0))
+        val now = LocalDateTime.of(2026, 5, 5, 0, 30, 20)
+        assertEquals("20260505_003020_010", FilenameGenerator.nextBase(now, listOf(rec, pra)))
+    }
+
+    @Test
+    fun `ULID-prefixed yesterdays files dont pollute todays counter`() {
+        File(rec, "${ulidA}_20260504_120000_999.mp4").writeBytes(byteArrayOf(0))
+        val now = LocalDateTime.of(2026, 5, 5, 0, 30, 20)
+        assertEquals("20260505_003020_001", FilenameGenerator.nextBase(now, listOf(rec, pra)))
+    }
 }
