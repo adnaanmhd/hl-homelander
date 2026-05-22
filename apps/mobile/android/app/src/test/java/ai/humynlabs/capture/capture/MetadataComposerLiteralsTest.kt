@@ -333,6 +333,41 @@ class MetadataComposerLiteralsTest {
     }
 
     // ----------------------------------------------------------------
+    // Test E — quick 260522-elm calibration block (CAPTURE-QA-08/09).
+    //
+    // The calibration block is purely additive and introduces NONE of the
+    // banned spec literals — the grep gate (Test A) stays green unchanged
+    // because the block's `.put(...)` keys (model / params / fx / etc.)
+    // live in CalibrationJson, not the compose() body. These tests confirm
+    // the block is ALWAYS present with the null-fallback contract and that
+    // the drift fields are untouched.
+    // ----------------------------------------------------------------
+
+    @Test
+    fun `compose ALWAYS emits a top-level calibration block with null fallback`() {
+        // fixtureSidecar carries no calibration (null) → uncalibrated fallback.
+        val out = MetadataComposer.compose(fixtureSidecar(), fixtureMetrics())
+        val cal = out.getJSONObject("calibration")
+        val cam = cal.getJSONObject("camera")
+        assertEquals("camera2_uncalibrated", cam.getString("intrinsics_source"))
+        assertTrue(cam.getJSONObject("params").isNull("fx"))
+        assertEquals(
+            "camera2_no_imu_reference",
+            cal.getJSONObject("cam_imu_extrinsics").getString("extrinsics_source"),
+        )
+    }
+
+    @Test
+    fun `calibration is additive — drift fields are unchanged`() {
+        val md = compose(fixtureMetrics().copy(
+            drift = MetadataComposer.Drift(maxMs = 6.16, meanMs = 5.58, p99Ms = 5.63),
+        ))
+        assertEquals(6.16, md.getDouble("imu_video_drift_max_ms"), 0.0001)
+        assertEquals(5.58, md.getDouble("imu_video_drift_mean_ms"), 0.0001)
+        assertEquals(5.63, md.getDouble("imu_video_drift_p99_ms"), 0.0001)
+    }
+
+    // ----------------------------------------------------------------
     // Helpers
     // ----------------------------------------------------------------
 

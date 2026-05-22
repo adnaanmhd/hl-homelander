@@ -9,12 +9,15 @@ import org.json.JSONObject
 import java.io.File
 
 /**
- * Phase 3 Plan 03-06 — composes `video_metadata.json` schema 1.1.0 per
- * segment (CAP-16) and atomically writes it to disk.
+ * Phase 3 Plan 03-06 — composes `video_metadata.json` per segment (CAP-16)
+ * and atomically writes it to disk. Schema is at 1.2.0 (see below).
  *
- * Schema bump 1.0.0 → 1.1.0 adds exactly one field at the metadata block:
- * `imu_min_rate_hz_observed_p1` (D-IMU-02). All other fields stay
- * byte-identical to the canonical `video_metadata.json` template.
+ * Schema bump 1.0.0 → 1.1.0 added exactly one field at the metadata block:
+ * `imu_min_rate_hz_observed_p1` (D-IMU-02). Schema bump 1.1.0 → 1.2.0 (quick
+ * task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09) adds a NEW top-level
+ * `calibration` sibling block (camera intrinsics + cam-IMU extrinsics) —
+ * purely additive, the `metadata` block + its drift fields are unchanged.
+ * All other fields stay byte-identical to the canonical template.
  *
  * All locked spec values from `idea-brief.md §2.1` are hard-coded inside
  * [compose] (resolution `1920x1080`, fps `30`, video_codec `hevc`,
@@ -44,7 +47,14 @@ import java.io.File
  * finalize-worker call site.
  */
 object MetadataComposer {
-    const val CURRENT_SCHEMA_VERSION = "1.1.0"
+    // Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — schema bump
+    // 1.1.0 → 1.2.0 adds a NEW top-level `calibration` sibling block (camera
+    // intrinsics + cam-IMU extrinsics). Purely additive: every existing key
+    // (schema_version / recording_id / contributor_info / task_info /
+    // capture_device_info / metadata, incl. imu_video_drift_{max,mean,p99}_ms)
+    // is unchanged. The block is ALWAYS present with the full key structure +
+    // null fallback (see [compose] + [CalibrationJson]).
+    const val CURRENT_SCHEMA_VERSION = "1.2.0"
 
     /** Sidecar input shape (subset relevant to metadata composition). */
     data class SidecarPayload(
@@ -74,6 +84,16 @@ object MetadataComposer {
          * explicit value via `FinalizeWorker.adaptSidecar`.
          */
         val recordedRotation: String = "landscape_left",
+        /**
+         * Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — live-Camera2
+         * camera intrinsics + cam-IMU extrinsics captured at segment open
+         * (from the ultrawide physical sub-camera). Threaded from
+         * `SidecarManager.SidecarPayload.calibration` via
+         * `FinalizeWorker.adaptSidecar`. Nullable + default-null: when null
+         * (older sidecars on disk, JVM/CI), [compose] stamps the always-present
+         * uncalibrated-fallback `calibration` block.
+         */
+        val calibration: CameraCalibration? = null,
     )
 
     data class TaskInfoPartial(
@@ -194,12 +214,19 @@ object MetadataComposer {
     )
 
     /**
-     * Compose a `video_metadata.json` (schema 1.1.0) JSONObject from the
+     * Compose a `video_metadata.json` (schema 1.2.0) JSONObject from the
      * sidecar carry-over fields and finalize-time metrics. Top-level keys
      * are exactly: `schema_version`, `recording_id`, `contributor_info`,
-     * `task_info`, `capture_device_info`, `metadata`. The `metadata`
-     * block carries 33 fields including `imu_min_rate_hz_observed_p1`
+     * `task_info`, `capture_device_info`, `metadata`, `calibration`. The
+     * `metadata` block carries 33 fields including `imu_min_rate_hz_observed_p1`
      * and the verbatim `start_gate` block.
+     *
+     * Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — the new top-level
+     * `calibration` sibling (camera intrinsics + cam_imu_extrinsics) is ALWAYS
+     * present with the full key structure: when [SidecarPayload.calibration]
+     * is null, the uncalibrated-fallback block ([CalibrationJson.uncalibratedFallback])
+     * is stamped. The block is purely additive — it does NOT alter the
+     * `metadata` block or its `imu_video_drift_{max,mean,p99}_ms` fields.
      */
     fun compose(sidecar: SidecarPayload, m: FinalizeMetrics): JSONObject {
         val contributor = JSONObject()
@@ -329,6 +356,16 @@ object MetadataComposer {
             .put("image_stabilization", false)
             .put("start_gate", startGate)
 
+        // Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — top-level
+        // `calibration` sibling. ALWAYS present with the full key structure:
+        // the captured calibration when the sidecar carried one, else the
+        // uncalibrated fallback (full keys, null params,
+        // intrinsics_source="camera2_uncalibrated"). Shape is owned by
+        // CalibrationJson so the sidecar + this file never drift.
+        val calibration = sidecar.calibration
+            ?.let { CalibrationJson.toJson(it) }
+            ?: CalibrationJson.uncalibratedFallback()
+
         return JSONObject()
             .put("schema_version", CURRENT_SCHEMA_VERSION)
             .put("recording_id", sidecar.recordingId)
@@ -336,6 +373,7 @@ object MetadataComposer {
             .put("task_info", taskInfo)
             .put("capture_device_info", captureDevice)
             .put("metadata", metadata)
+            .put("calibration", calibration)
     }
 
     /**

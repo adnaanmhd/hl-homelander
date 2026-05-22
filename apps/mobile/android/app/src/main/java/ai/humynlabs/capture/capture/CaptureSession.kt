@@ -309,6 +309,15 @@ class CaptureSession private constructor(
         val startNs = SystemClock.elapsedRealtimeNanos()
         val wallclockStartIso = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
 
+        // Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — capture
+        // live-Camera2 intrinsics (from the ultrawide physical sub-camera, the
+        // lens HumynCapture records on) + cam-IMU extrinsics at segment open.
+        // The reader is null-safe and NEVER throws (T-elm-01); most Pixels
+        // report UNCALIBRATED so the null-fallback block is the typical output.
+        // Stashed on the sidecar → threaded to MetadataComposer.compose's
+        // top-level `calibration` block. Does NOT block or fail capture.
+        val calibration = CameraCalibrationReader.read(pick.ultrawideChars, pick.openableChars)
+
         // 3. Sidecar payload — captures the JS-supplied opts + segment timing
         //    so the app-launch sweep (Plan 03-09) can re-finalize if the
         //    process crashes between segment-stop and metadata write.
@@ -362,6 +371,9 @@ class CaptureSession private constructor(
             // "landscape_left" (defensive — should never happen post-lock) with
             // a log warning so the safe default stays non-null.
             recordedRotation = readRecordedRotation(),
+            // Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — calibration
+            // captured above from the ultrawide physical sub-camera.
+            calibration = calibration,
         )
         SidecarManager.write(sidecarFile, sidecar)
 
