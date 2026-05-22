@@ -131,7 +131,7 @@ android {
             // Disable automatic Crashlytics mapping upload to prevent build failures
             // in CI environments where the Firebase project is not fully configured.
             firebaseCrashlytics {
-                mappingUploadEnabled false
+                mappingFileUploadEnabled = false
             }
         }
     }
