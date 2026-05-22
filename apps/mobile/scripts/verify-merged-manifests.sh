@@ -38,9 +38,11 @@ echo "[verify-manifests] Building merged manifests for both flavors ..."
 # Try each in turn; pick whichever exists.
 find_merged() {
   local flavor_build="$1"
+  local capitalized_flavor=$(echo "${flavor_build}" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
   local candidates=(
     "app/build/intermediates/merged_manifest/${flavor_build}/AndroidManifest.xml"
     "app/build/intermediates/merged_manifests/${flavor_build}/processManifest/AndroidManifest.xml"
+    "app/build/intermediates/merged_manifests/${flavor_build}/process${capitalized_flavor}Manifest/AndroidManifest.xml"
     "app/build/intermediates/merged_manifests/${flavor_build}/AndroidManifest.xml"
   )
   for path_template in "${candidates[@]}"; do
