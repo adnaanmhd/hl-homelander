@@ -352,6 +352,14 @@ export default async function recordingsInitRoute(app: FastifyInstance): Promise
           flavor,
           s3UploadId: videoMu.UploadId,
           partsCount: body.partsCount,
+          // Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — persist the
+          // metadata.json `calibration` block (camera intrinsics + cam-IMU
+          // extrinsics) as the queryable jsonb mirror. Set only on the first
+          // insert (the idempotent re-presign path does not mutate the row);
+          // the metadata.json carrying calibration is PUT to S3 separately.
+          // Null for pre-1.2.0 / older clients (zod-validated; null params
+          // tolerated — T-elm-02).
+          calibration: body.calibration ?? null,
           // /init mints the multipart upload; mirror /reupload's behavior of
           // stamping uploadStartedAt here so the column reflects when the
           // server first handed the client signed URLs to push bytes.

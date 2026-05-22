@@ -22,6 +22,13 @@
       "when": 1778739000000,
       "tag": "0008_tasks_name_search_includes_category",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779753600000,
+      "tag": "0009_recordings_calibration",
+      "breakpoints": true
     }
   ]
 }
