@@ -54,7 +54,7 @@ object MetadataComposer {
     // capture_device_info / metadata, incl. imu_video_drift_{max,mean,p99}_ms)
     // is unchanged. The block is ALWAYS present with the full key structure +
     // null fallback (see [compose] + [CalibrationJson]).
-    const val CURRENT_SCHEMA_VERSION = "1.2.0"
+    const val CURRENT_SCHEMA_VERSION = "1.3.0"
 
     /** Sidecar input shape (subset relevant to metadata composition). */
     data class SidecarPayload(
@@ -132,11 +132,19 @@ object MetadataComposer {
         val platformCadenceMs: Int,
     )
 
-    /** Drift figures `{max, mean, p99}` per `idea-brief.md §6.5`. */
+    /**
+     * Drift figures `{max, mean, p99}` per `idea-brief.md §6.5` + the
+     * `IMU-DRIFT-METHODOLOGY.md` Step 0 trim count (`warmupFramesSkipped`).
+     * The skip count is surfaced in `metadata.json` so anyone recomputing
+     * drift offline from the raw `video.mp4` + `imu.csv` can reproduce the
+     * metric exactly — `0` means no trim was applied (segment too short
+     * for the configured skip; fallback path).
+     */
     data class Drift(
         val maxMs: Double,
         val meanMs: Double,
         val p99Ms: Double,
+        val warmupFramesSkipped: Int,
     )
 
     /**
@@ -294,6 +302,15 @@ object MetadataComposer {
             .put("imu_video_drift_max_ms", m.drift?.maxMs ?: JSONObject.NULL)
             .put("imu_video_drift_mean_ms", m.drift?.meanMs ?: JSONObject.NULL)
             .put("imu_video_drift_p99_ms", m.drift?.p99Ms ?: JSONObject.NULL)
+            // Step 0 warm-up trim applied before the least-squares fit
+            // (`IMU-DRIFT-METHODOLOGY.md` §Step 0). Recomputers who want
+            // to reproduce the {max, mean, p99} figures from the raw
+            // video.mp4 + imu.csv must drop this many leading video
+            // frames + every IMU sample preceding the new first video
+            // frame's timestamp before fitting. `0` = no trim was applied
+            // (the segment was shorter than `DriftCalculator
+            // .DEFAULT_WARMUP_FRAMES_SKIP` so the safety fallback engaged).
+            .put("imu_video_drift_warmup_frames_skipped", m.drift?.warmupFramesSkipped ?: JSONObject.NULL)
             // D-IMU-02 — the only new field at the schema 1.1.0 emit boundary.
             .put("imu_min_rate_hz_observed_p1", m.imuFloorHz ?: JSONObject.NULL)
             // Audio capture disabled per GAP-3 disposition 2026-05-11

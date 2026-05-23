@@ -1,0 +1,12 @@
+# Drift analyzer — .planning/debug/early-session-imu-video-drift/walk-260523/8a-s3
+# skip variants: [0, 15, 30, 60, 90]
+# 1 segments
+
+seg 1 (seg-1-01KSAD6WY5013HBJQ8HCFBNXVH):
+  duration ≈ 599.9s   video_frames=17842   imu_samples=560760
+  metadata.json reported:  max= 37.095  mean=  6.299  p99=  6.730
+  analyzer skip=  0 :  max= 37.355  mean=  2.271  p99=  6.653   ← match to reported (0.7% off max)
+  analyzer skip= 15 :  max= 15.222  mean=  2.260  p99=  6.521
+  analyzer skip= 30 :  max= 15.268  mean=  2.253  p99=  6.435
+  analyzer skip= 60 :  max= 15.340  mean=  2.243  p99=  6.281
+  analyzer skip= 90 :  max= 14.500  mean=  2.237  p99=  6.177

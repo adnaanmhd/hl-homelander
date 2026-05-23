@@ -88,7 +88,7 @@ class MetadataSchemaConformanceTest {
         csvSha = "3c7e1f8b6a5d4c2e90b7a3c1d5e4f8a692bc34d56e78f90a1b2c3d4e5f6a792ab",
         mp4SizeBytes = 4_402_341_478L,
         csvSizeBytes = 218_914L,
-        drift = MetadataComposer.Drift(maxMs = 0.7, meanMs = 0.18, p99Ms = 0.5),
+        drift = MetadataComposer.Drift(maxMs = 0.7, meanMs = 0.18, p99Ms = 0.5, warmupFramesSkipped = 150),
         imuFloorHz = 95.5,
         gyroRateHz = 416,
         accelRateHz = 416,
@@ -125,8 +125,8 @@ class MetadataSchemaConformanceTest {
 
     private fun loadTemplate(): JSONObject {
         val stream = javaClass.classLoader!!
-            .getResourceAsStream("video_metadata_v1_2_0_template.json")
-            ?: error("video_metadata_v1_2_0_template.json fixture not on classpath")
+            .getResourceAsStream("video_metadata_v1_3_0_template.json")
+            ?: error("video_metadata_v1_3_0_template.json fixture not on classpath")
         return JSONObject(stream.bufferedReader().use { it.readText() })
     }
 
@@ -143,9 +143,9 @@ class MetadataSchemaConformanceTest {
     }
 
     @Test
-    fun `composer output schema_version is 1_2_0`() {
+    fun `composer output schema_version is 1_3_0`() {
         val out = MetadataComposer.compose(fixtureSidecar(), fixtureMetrics())
-        assertEquals("1.2.0", out.getString("schema_version"))
+        assertEquals("1.3.0", out.getString("schema_version"))
     }
 
     @Test
@@ -153,7 +153,7 @@ class MetadataSchemaConformanceTest {
         val out = MetadataComposer.compose(fixtureSidecar(), fixtureMetrics())
         val template = loadTemplate()
         assertEquals(
-            "Composer key set must equal the schema-1.2.0 template key set " +
+            "Composer key set must equal the schema-1.3.0 template key set " +
                 "(T-3.5-01: schema-creep guard). Includes the additive top-level " +
                 "`calibration` block (camera + cam_imu_extrinsics) — quick 260522-elm.",
             keySet(template),
@@ -367,7 +367,7 @@ class MetadataSchemaConformanceTest {
         assertFalse(".partial residue must NOT exist after a clean write", partial.exists())
         // Round-trip parse — file is valid JSON with the bumped schema_version.
         val reloaded = JSONObject(target.readText())
-        assertEquals("1.2.0", reloaded.getString("schema_version"))
+        assertEquals("1.3.0", reloaded.getString("schema_version"))
         assertNotNull(reloaded.getJSONObject("metadata"))
         assertNotNull(reloaded.getJSONObject("calibration"))
     }
@@ -380,6 +380,7 @@ class MetadataSchemaConformanceTest {
         assertTrue(md.isNull("imu_video_drift_max_ms"))
         assertTrue(md.isNull("imu_video_drift_mean_ms"))
         assertTrue(md.isNull("imu_video_drift_p99_ms"))
+        assertTrue(md.isNull("imu_video_drift_warmup_frames_skipped"))
         assertTrue(md.isNull("imu_min_rate_hz_observed_p1"))
     }
 }

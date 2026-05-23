@@ -1,0 +1,104 @@
+{
+  "schema_version": "1.2.0",
+  "recording_id": "01KSAG2KWW33G4M28JTR7YA10M",
+  "contributor_info": {
+    "name": "Adnaan Mohammed",
+    "email": "m.adnaan161@gmail.com",
+    "age": null,
+    "gender": null,
+    "consent": true
+  },
+  "task_info": {
+    "task_id": "01KS72XRG9CF1GT8A8KAGT36NY",
+    "task_name": "Mowing the lawn",
+    "task_category": "Gardening",
+    "environment": "residential",
+    "setting": "outdoor",
+    "time_of_day": "night"
+  },
+  "capture_device_info": {
+    "type": "phone",
+    "model": "Pixel 8a",
+    "os": "android",
+    "os_version": "16",
+    "app_version": "0.1.0-apk",
+    "dfov_degrees": 115.94619750976562,
+    "ip_address": null,
+    "location": null
+  },
+  "metadata": {
+    "footage_type": "egocentric_head",
+    "filename": "01KSAG2KWW33G4M28JTR7YA10M_20260523_185329_006.mp4",
+    "file_size_bytes": 588493378,
+    "file_sha256": "feadb4176bf287cab57e5a3b758f7ac60678dab506bf8cce5428ffac18cb87d5",
+    "imu_filename": "01KSAG2KWW33G4M28JTR7YA10M_20260523_185329_006.csv",
+    "imu_size_bytes": 32040545,
+    "imu_sha256": "1f42b8e05332345dd73d8c678bfb8924fead2a3a4860110371f8e9c95334a067",
+    "imu_gyro_rate_hz": 416,
+    "imu_accel_rate_hz": 416,
+    "imu_video_drift_max_ms": 3.44627971875,
+    "imu_video_drift_mean_ms": 2.8743201246514363,
+    "imu_video_drift_p99_ms": 3.00222865625,
+    "imu_min_rate_hz_observed_p1": 932,
+    "audio_sample_rate_hz": null,
+    "audio_codec": null,
+    "audio_bitrate_bps": null,
+    "audio_channels": null,
+    "start_timestamp": "2026-05-23T18:53:29.823632+05:30",
+    "end_timestamp": "2026-05-23T19:03:31.487853+05:30",
+    "imu_start_timestamp": "2026-05-23T18:53:29.823632+05:30",
+    "imu_end_timestamp": "2026-05-23T19:03:31.487853+05:30",
+    "container_format": "mp4",
+    "duration_seconds": 600.559925587,
+    "orientation": "landscape_left",
+    "resolution": "1920x1080",
+    "fps": 29.737061964409513,
+    "video_codec": "hevc",
+    "video_profile": "main",
+    "bitrate_bps": 8000000,
+    "bitrate_source": "configured",
+    "bitrate_mode": "cbr",
+    "gop": 30,
+    "color_depth_bits": 8,
+    "color_space": "bt709",
+    "hdr": false,
+    "b_frames": false,
+    "image_stabilization": false,
+    "start_gate": {
+      "type": "hand_detection",
+      "passed": false,
+      "skipped": true,
+      "bypassed": false,
+      "duration_ms": 2903,
+      "consecutive_hits_required": 2,
+      "platform_cadence_ms": 250
+    }
+  },
+  "calibration": {
+    "camera": {
+      "model": "pinhole",
+      "resolution": [4208, 3120],
+      "params": {
+        "fx": 1638.4384765625,
+        "fy": 1638.4384765625,
+        "cx": 2097.5029296875,
+        "cy": 1563.6712646484375,
+        "skew": 0
+      },
+      "distortion_coeffs": [
+        0.017964931204915047, -0.015705503523349762, 1.8082254973705858e-4, -1.3600000238511711e-4,
+        1.1673803237499669e-4
+      ],
+      "intrinsics_source": "camera2"
+    },
+    "cam_imu_extrinsics": {
+      "T_cam_imu": null,
+      "T_imu_cam": null,
+      "T_cam_imu_translation_mm": null,
+      "timeshift_cam_imu_sec": 0,
+      "timeshift_meaning": "t_imu = t_cam + timeshift",
+      "clock_sync_note": "camera + imu share the boottime (elapsedRealtimeNanos) clock",
+      "extrinsics_source": "camera2_no_imu_reference"
+    }
+  }
+}

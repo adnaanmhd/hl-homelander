@@ -360,11 +360,12 @@ class MetadataComposerLiteralsTest {
     @Test
     fun `calibration is additive — drift fields are unchanged`() {
         val md = compose(fixtureMetrics().copy(
-            drift = MetadataComposer.Drift(maxMs = 6.16, meanMs = 5.58, p99Ms = 5.63),
+            drift = MetadataComposer.Drift(maxMs = 6.16, meanMs = 5.58, p99Ms = 5.63, warmupFramesSkipped = 150),
         ))
         assertEquals(6.16, md.getDouble("imu_video_drift_max_ms"), 0.0001)
         assertEquals(5.58, md.getDouble("imu_video_drift_mean_ms"), 0.0001)
         assertEquals(5.63, md.getDouble("imu_video_drift_p99_ms"), 0.0001)
+        assertEquals(150, md.getInt("imu_video_drift_warmup_frames_skipped"))
     }
 
     // ----------------------------------------------------------------

@@ -1,0 +1,3723 @@
+
+> @humyn/api@0.1.0 dev /Users/adnaan/Documents/hl-homelander/apps/api
+> tsx watch src/index.ts
+
+[08:23:18.755] INFO: Server listening at http://127.0.0.1:8080
+[08:23:18.755] INFO: Server listening at http://192.168.1.183:8080
+[08:23:18.810] INFO: dsr_hard_delete_candidates
+    candidate_count: 0
+    candidates: []
+[08:23:27.645] INFO: incoming request
+    reqId: "req-1"
+    req: {
+      "id": "req-1",
+      "method": "GET",
+      "url": "/healthz",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:23:27.655] INFO: request completed
+    reqId: "req-1"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 7.920042037963867
+[08:31:19.455] INFO: incoming request
+    reqId: "req-2"
+    req: {
+      "id": "req-2",
+      "method": "GET",
+      "url": "/healthz",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:31:19.457] INFO: request completed
+    reqId: "req-2"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 1.2607078552246094
+[08:39:52.189] INFO: incoming request
+    reqId: "req-3"
+    req: {
+      "id": "req-3",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:39:52.196] INFO: request completed
+    reqId: "req-3"
+    res: {
+      "statusCode": 401
+    }
+    responseTime: 6.141166687011719
+[08:39:52.396] INFO: incoming request
+    reqId: "req-4"
+    req: {
+      "id": "req-4",
+      "method": "GET",
+      "url": "/app/version?flavor=apkRollout",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:39:52.438] INFO: request completed
+    reqId: "req-4"
+    res: {
+      "statusCode": 404
+    }
+    responseTime: 42.496707916259766
+[08:40:08.100] INFO: incoming request
+    reqId: "req-5"
+    req: {
+      "id": "req-5",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:40:08.102] INFO: request completed
+    reqId: "req-5"
+    res: {
+      "statusCode": 401
+    }
+    responseTime: 2.3616247177124023
+[08:40:08.415] INFO: incoming request
+    reqId: "req-6"
+    req: {
+      "id": "req-6",
+      "method": "GET",
+      "url": "/app/version?flavor=apkRollout",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:40:08.422] INFO: request completed
+    reqId: "req-6"
+    res: {
+      "statusCode": 404
+    }
+    responseTime: 7.628874778747559
+[08:40:24.257] INFO: incoming request
+    reqId: "req-7"
+    req: {
+      "id": "req-7",
+      "method": "POST",
+      "url": "/auth/nonce",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:40:24.271] INFO: request completed
+    reqId: "req-7"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 13.611959457397461
+[08:40:24.273] INFO: incoming request
+    reqId: "req-8"
+    req: {
+      "id": "req-8",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:40:24.274] INFO: request completed
+    reqId: "req-8"
+    res: {
+      "statusCode": 401
+    }
+    responseTime: 0.9104175567626953
+[08:40:27.398] INFO: incoming request
+    reqId: "req-9"
+    req: {
+      "id": "req-9",
+      "method": "POST",
+      "url": "/auth/nonce",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:40:27.401] INFO: incoming request
+    reqId: "req-a"
+    req: {
+      "id": "req-a",
+      "method": "POST",
+      "url": "/auth/google",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:40:27.472] INFO: request completed
+    reqId: "req-9"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 74.48733329772949
+[08:40:27.473] INFO: incoming request
+    reqId: "req-b"
+    req: {
+      "id": "req-b",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:40:27.473] INFO: request completed
+    reqId: "req-b"
+    res: {
+      "statusCode": 401
+    }
+    responseTime: 0.27250003814697266
+[08:40:28.496] INFO: request completed
+    reqId: "req-a"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 1095.0124578475952
+[08:40:29.601] INFO: incoming request
+    reqId: "req-c"
+    req: {
+      "id": "req-c",
+      "method": "POST",
+      "url": "/auth/google",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:40:29.929] INFO: request completed
+    reqId: "req-c"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 327.8329162597656
+[08:40:30.926] INFO: incoming request
+    reqId: "req-d"
+    req: {
+      "id": "req-d",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:40:30.941] INFO: request completed
+    reqId: "req-d"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 14.685041427612305
+[08:40:31.827] INFO: incoming request
+    reqId: "req-e"
+    req: {
+      "id": "req-e",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:40:31.835] INFO: request completed
+    reqId: "req-e"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 8.175082206726074
+[08:40:34.257] INFO: incoming request
+    reqId: "req-f"
+    req: {
+      "id": "req-f",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:40:34.263] INFO: request completed
+    reqId: "req-f"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 6.569375038146973
+[08:40:35.113] INFO: incoming request
+    reqId: "req-g"
+    req: {
+      "id": "req-g",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:40:35.120] INFO: request completed
+    reqId: "req-g"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 6.82741641998291
+[08:41:30.120] INFO: incoming request
+    reqId: "req-h"
+    req: {
+      "id": "req-h",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:41:30.127] INFO: incoming request
+    reqId: "req-i"
+    req: {
+      "id": "req-i",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:41:30.171] INFO: incoming request
+    reqId: "req-j"
+    req: {
+      "id": "req-j",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:41:30.192] INFO: request completed
+    reqId: "req-h"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 71.01395797729492
+[08:41:30.197] INFO: request completed
+    reqId: "req-j"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 25.84929084777832
+[08:41:30.197] INFO: request completed
+    reqId: "req-i"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 70.48062515258789
+[08:41:40.566] INFO: incoming request
+    reqId: "req-k"
+    req: {
+      "id": "req-k",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:41:40.576] INFO: incoming request
+    reqId: "req-l"
+    req: {
+      "id": "req-l",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:41:40.578] INFO: incoming request
+    reqId: "req-m"
+    req: {
+      "id": "req-m",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:41:40.580] INFO: request completed
+    reqId: "req-k"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 14.165374755859375
+[08:41:40.583] INFO: request completed
+    reqId: "req-l"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 6.268917083740234
+[08:41:40.584] INFO: request completed
+    reqId: "req-m"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 5.614999771118164
+[08:41:42.277] INFO: incoming request
+    reqId: "req-n"
+    req: {
+      "id": "req-n",
+      "method": "GET",
+      "url": "/tasks",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:41:42.291] INFO: request completed
+    reqId: "req-n"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 13.0407075881958
+[08:42:00.180] INFO: incoming request
+    reqId: "req-o"
+    req: {
+      "id": "req-o",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:42:00.188] INFO: request completed
+    reqId: "req-o"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 7.707666397094727
+[08:42:15.704] INFO: incoming request
+    reqId: "req-p"
+    req: {
+      "id": "req-p",
+      "method": "GET",
+      "url": "/tasks",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:42:15.712] INFO: request completed
+    reqId: "req-p"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 7.639667510986328
+[08:47:28.832] INFO: incoming request
+    reqId: "req-q"
+    req: {
+      "id": "req-q",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:47:28.836] INFO: request completed
+    reqId: "req-q"
+    res: {
+      "statusCode": 401
+    }
+    responseTime: 3.543208122253418
+[08:47:29.088] INFO: incoming request
+    reqId: "req-r"
+    req: {
+      "id": "req-r",
+      "method": "GET",
+      "url": "/app/version?flavor=apkRollout",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:47:29.096] INFO: request completed
+    reqId: "req-r"
+    res: {
+      "statusCode": 404
+    }
+    responseTime: 7.9157915115356445
+[08:47:38.162] INFO: incoming request
+    reqId: "req-s"
+    req: {
+      "id": "req-s",
+      "method": "POST",
+      "url": "/auth/nonce",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:47:38.171] INFO: incoming request
+    reqId: "req-t"
+    req: {
+      "id": "req-t",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:47:38.172] INFO: request completed
+    reqId: "req-t"
+    res: {
+      "statusCode": 401
+    }
+    responseTime: 1.286874771118164
+[08:47:38.176] INFO: request completed
+    reqId: "req-s"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 13.718417167663574
+[08:47:40.116] INFO: incoming request
+    reqId: "req-u"
+    req: {
+      "id": "req-u",
+      "method": "POST",
+      "url": "/auth/google",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:47:40.625] INFO: request completed
+    reqId: "req-u"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 508.49441623687744
+[08:47:42.322] INFO: incoming request
+    reqId: "req-v"
+    req: {
+      "id": "req-v",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:47:42.327] INFO: request completed
+    reqId: "req-v"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 4.950958251953125
+[08:47:43.168] INFO: incoming request
+    reqId: "req-w"
+    req: {
+      "id": "req-w",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:47:43.176] INFO: request completed
+    reqId: "req-w"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 7.99537467956543
+[08:49:10.209] INFO: incoming request
+    reqId: "req-x"
+    req: {
+      "id": "req-x",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:49:10.215] INFO: incoming request
+    reqId: "req-y"
+    req: {
+      "id": "req-y",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:49:10.223] INFO: incoming request
+    reqId: "req-z"
+    req: {
+      "id": "req-z",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:49:10.252] INFO: request completed
+    reqId: "req-z"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 29.777542114257812
+[08:49:10.254] INFO: request completed
+    reqId: "req-y"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 38.62391662597656
+[08:49:10.256] INFO: request completed
+    reqId: "req-x"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 46.034000396728516
+[08:49:12.745] INFO: incoming request
+    reqId: "req-10"
+    req: {
+      "id": "req-10",
+      "method": "GET",
+      "url": "/tasks",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:49:12.754] INFO: request completed
+    reqId: "req-10"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 9.127083778381348
+[08:49:15.732] INFO: incoming request
+    reqId: "req-11"
+    req: {
+      "id": "req-11",
+      "method": "GET",
+      "url": "/tasks?category=Cleaning",
+      "remoteAddress": "127.0.0.1"
+    }
+[08:49:15.737] INFO: request completed
+    reqId: "req-11"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 5.1996660232543945
+[10:27:26.437] INFO: incoming request
+    reqId: "req-12"
+    req: {
+      "id": "req-12",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:27:26.463] INFO: incoming request
+    reqId: "req-13"
+    req: {
+      "id": "req-13",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:27:26.630] INFO: incoming request
+    reqId: "req-14"
+    req: {
+      "id": "req-14",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:27:26.650] INFO: request completed
+    reqId: "req-14"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 19.339750289916992
+[10:27:26.655] INFO: request completed
+    reqId: "req-12"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 214.89837551116943
+[10:27:26.660] INFO: request completed
+    reqId: "req-13"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 196.58650016784668
+[10:27:30.277] INFO: incoming request
+    reqId: "req-15"
+    req: {
+      "id": "req-15",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:27:30.280] INFO: request completed
+    reqId: "req-15"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 2.8613338470458984
+[10:27:31.250] INFO: incoming request
+    reqId: "req-16"
+    req: {
+      "id": "req-16",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:27:31.254] INFO: request completed
+    reqId: "req-16"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 3.7370004653930664
+[10:27:31.380] INFO: incoming request
+    reqId: "req-17"
+    req: {
+      "id": "req-17",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:27:31.384] INFO: request completed
+    reqId: "req-17"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 3.2477073669433594
+[10:27:50.474] INFO: incoming request
+    reqId: "req-18"
+    req: {
+      "id": "req-18",
+      "method": "GET",
+      "url": "/tasks?limit=100",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:27:50.478] INFO: incoming request
+    reqId: "req-19"
+    req: {
+      "id": "req-19",
+      "method": "GET",
+      "url": "/recordings?range=all&limit=30",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:27:50.487] INFO: request completed
+    reqId: "req-18"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 12.546833038330078
+[10:27:50.491] INFO: request completed
+    reqId: "req-19"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 12.082332611083984
+[10:27:50.547] INFO: incoming request
+    reqId: "req-1a"
+    req: {
+      "id": "req-1a",
+      "method": "GET",
+      "url": "/recordings?range=all&limit=30",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:27:50.550] INFO: request completed
+    reqId: "req-1a"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 3.1317081451416016
+[10:28:18.209] INFO: incoming request
+    reqId: "req-1b"
+    req: {
+      "id": "req-1b",
+      "method": "POST",
+      "url": "/recordings/01KRX40SFZ2943HJ9RMHH157N7/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:28:18.889] INFO: incoming request
+    reqId: "req-1c"
+    req: {
+      "id": "req-1c",
+      "method": "POST",
+      "url": "/recordings/01KRX4K4GX6383D7CEZ9DJ6WP8/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:28:18.948] INFO: request completed
+    reqId: "req-1b"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 738.0540409088135
+[10:28:18.982] INFO: incoming request
+    reqId: "req-1d"
+    req: {
+      "id": "req-1d",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:28:19.114] INFO: request completed
+    reqId: "req-1d"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 132.6041669845581
+[10:28:19.867] INFO: request completed
+    reqId: "req-1c"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 977.200249671936
+[10:28:20.024] INFO: incoming request
+    reqId: "req-1e"
+    req: {
+      "id": "req-1e",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:28:20.365] INFO: request completed
+    reqId: "req-1e"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 340.85974979400635
+[10:28:49.620] INFO: incoming request
+    reqId: "req-1f"
+    req: {
+      "id": "req-1f",
+      "method": "POST",
+      "url": "/recordings/01KRX5QTJPVGHFYZD6P4D6T1RV/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:28:54.132] INFO: request completed
+    reqId: "req-1f"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 4511.462166786194
+[10:28:54.186] INFO: incoming request
+    reqId: "req-1g"
+    req: {
+      "id": "req-1g",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:28:54.315] INFO: incoming request
+    reqId: "req-1h"
+    req: {
+      "id": "req-1h",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:28:54.318] INFO: incoming request
+    reqId: "req-1i"
+    req: {
+      "id": "req-1i",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:28:54.330] INFO: request completed
+    reqId: "req-1g"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 142.9908332824707
+[10:28:54.374] INFO: request completed
+    reqId: "req-1i"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 56.87941646575928
+[10:28:54.483] INFO: request completed
+    reqId: "req-1h"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 167.63558292388916
+[10:28:57.554] INFO: incoming request
+    reqId: "req-1j"
+    req: {
+      "id": "req-1j",
+      "method": "POST",
+      "url": "/recordings/01KRX55FJ4YQJ6585YQXZKT9BE/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:28:57.765] INFO: incoming request
+    reqId: "req-1k"
+    req: {
+      "id": "req-1k",
+      "method": "GET",
+      "url": "/recordings?range=all&limit=30",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:28:57.883] INFO: request completed
+    reqId: "req-1k"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 118.00804138183594
+[10:29:00.401] INFO: request completed
+    reqId: "req-1j"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 2847.1483755111694
+[10:29:00.572] INFO: incoming request
+    reqId: "req-1l"
+    req: {
+      "id": "req-1l",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:29:00.652] INFO: request completed
+    reqId: "req-1l"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 80.5483341217041
+[10:29:01.511] INFO: incoming request
+    reqId: "req-1m"
+    req: {
+      "id": "req-1m",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:29:01.512] INFO: incoming request
+    reqId: "req-1n"
+    req: {
+      "id": "req-1n",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:29:01.528] INFO: request completed
+    reqId: "req-1n"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 15.80979061126709
+[10:29:01.531] INFO: request completed
+    reqId: "req-1m"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 19.246416091918945
+[10:29:11.408] INFO: incoming request
+    reqId: "req-1o"
+    req: {
+      "id": "req-1o",
+      "method": "POST",
+      "url": "/recordings/01KRX6A5KJ4D00JCB25NF24D8F/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:29:13.904] INFO: request completed
+    reqId: "req-1o"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 2495.997709274292
+[10:29:14.116] INFO: incoming request
+    reqId: "req-1p"
+    req: {
+      "id": "req-1p",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:29:14.219] INFO: request completed
+    reqId: "req-1p"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 103.33383464813232
+[10:29:25.642] INFO: incoming request
+    reqId: "req-1q"
+    req: {
+      "id": "req-1q",
+      "method": "POST",
+      "url": "/recordings/01KRX6WGM2AYF8NXSP9PN1QQHN/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:29:28.359] INFO: request completed
+    reqId: "req-1q"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 2716.4044580459595
+[10:29:28.569] INFO: incoming request
+    reqId: "req-1r"
+    req: {
+      "id": "req-1r",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:29:28.661] INFO: request completed
+    reqId: "req-1r"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 91.657958984375
+[10:29:31.610] INFO: incoming request
+    reqId: "req-1s"
+    req: {
+      "id": "req-1s",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:29:31.616] INFO: request completed
+    reqId: "req-1s"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 6.0262908935546875
+[10:29:34.581] INFO: incoming request
+    reqId: "req-1t"
+    req: {
+      "id": "req-1t",
+      "method": "GET",
+      "url": "/recordings?range=all&limit=30",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:29:34.585] INFO: request completed
+    reqId: "req-1t"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 4.634207725524902
+[10:29:40.206] INFO: incoming request
+    reqId: "req-1u"
+    req: {
+      "id": "req-1u",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:29:40.209] INFO: incoming request
+    reqId: "req-1v"
+    req: {
+      "id": "req-1v",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:29:40.219] INFO: request completed
+    reqId: "req-1u"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 13.275582313537598
+[10:29:40.239] INFO: incoming request
+    reqId: "req-1w"
+    req: {
+      "id": "req-1w",
+      "method": "POST",
+      "url": "/recordings/01KRX7EVN4VCBVZPM26GH6BH4T/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:29:40.241] INFO: request completed
+    reqId: "req-1v"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 31.598209381103516
+[10:29:42.298] INFO: request completed
+    reqId: "req-1w"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 2058.749333381653
+[10:29:42.475] INFO: incoming request
+    reqId: "req-1x"
+    req: {
+      "id": "req-1x",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:29:42.568] INFO: request completed
+    reqId: "req-1x"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 92.9228744506836
+[10:29:54.667] INFO: incoming request
+    reqId: "req-1y"
+    req: {
+      "id": "req-1y",
+      "method": "POST",
+      "url": "/recordings/01KRX816P8ZRG2RGPC34EQACT2/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:29:57.365] INFO: request completed
+    reqId: "req-1y"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 2698.232292175293
+[10:29:57.525] INFO: incoming request
+    reqId: "req-1z"
+    req: {
+      "id": "req-1z",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:29:57.728] INFO: request completed
+    reqId: "req-1z"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 203.14645957946777
+[10:30:08.560] INFO: incoming request
+    reqId: "req-20"
+    req: {
+      "id": "req-20",
+      "method": "POST",
+      "url": "/recordings/01KRX8KHPY8ZPKD686N0BD18YC/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:30:10.255] INFO: incoming request
+    reqId: "req-21"
+    req: {
+      "id": "req-21",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:30:10.297] INFO: request completed
+    reqId: "req-21"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 42.45633411407471
+[10:30:10.298] INFO: request completed
+    reqId: "req-20"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 1737.7369594573975
+[10:30:10.451] INFO: incoming request
+    reqId: "req-22"
+    req: {
+      "id": "req-22",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:30:10.546] INFO: request completed
+    reqId: "req-22"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 95.03512477874756
+[10:30:22.718] INFO: incoming request
+    reqId: "req-23"
+    req: {
+      "id": "req-23",
+      "method": "POST",
+      "url": "/recordings/01KRX95WQ2J13EVWY7ZATWDMN7/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:30:24.855] INFO: request completed
+    reqId: "req-23"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 2136.1675424575806
+[10:30:26.508] INFO: incoming request
+    reqId: "req-24"
+    req: {
+      "id": "req-24",
+      "method": "GET",
+      "url": "/recordings?range=all&limit=30",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:30:26.519] INFO: request completed
+    reqId: "req-24"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 11.567708015441895
+[10:30:26.815] INFO: incoming request
+    reqId: "req-25"
+    req: {
+      "id": "req-25",
+      "method": "POST",
+      "url": "/recordings/01KRX9R7S4R05RR4838AAM2MGZ/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:30:27.161] INFO: request completed
+    reqId: "req-25"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 345.11920738220215
+[10:30:31.695] INFO: incoming request
+    reqId: "req-26"
+    req: {
+      "id": "req-26",
+      "method": "GET",
+      "url": "/recordings?range=all&limit=30",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:30:31.711] INFO: request completed
+    reqId: "req-26"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 15.393665313720703
+[10:30:37.757] INFO: incoming request
+    reqId: "req-27"
+    req: {
+      "id": "req-27",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:30:37.760] INFO: incoming request
+    reqId: "req-28"
+    req: {
+      "id": "req-28",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:30:37.767] INFO: request completed
+    reqId: "req-27"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 10.162542343139648
+[10:30:37.770] INFO: request completed
+    reqId: "req-28"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 10.652124404907227
+[10:30:42.037] INFO: incoming request
+    reqId: "req-29"
+    req: {
+      "id": "req-29",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:30:42.040] INFO: incoming request
+    reqId: "req-2a"
+    req: {
+      "id": "req-2a",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:30:42.057] INFO: request completed
+    reqId: "req-2a"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 16.701499938964844
+[10:30:42.094] INFO: request completed
+    reqId: "req-29"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 56.787166595458984
+[10:30:45.509] INFO: incoming request
+    reqId: "req-2b"
+    req: {
+      "id": "req-2b",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:30:45.512] INFO: incoming request
+    reqId: "req-2c"
+    req: {
+      "id": "req-2c",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:30:45.518] INFO: request completed
+    reqId: "req-2c"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 6.233207702636719
+[10:30:45.519] INFO: request completed
+    reqId: "req-2b"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 9.411707878112793
+[10:31:04.612] INFO: incoming request
+    reqId: "req-2d"
+    req: {
+      "id": "req-2d",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:31:04.626] INFO: incoming request
+    reqId: "req-2e"
+    req: {
+      "id": "req-2e",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:31:04.647] INFO: request completed
+    reqId: "req-2e"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 20.578083038330078
+[10:31:04.647] INFO: request completed
+    reqId: "req-2d"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 27.904417037963867
+[10:31:05.791] INFO: incoming request
+    reqId: "req-2f"
+    req: {
+      "id": "req-2f",
+      "method": "GET",
+      "url": "/recordings?range=all&limit=30",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:31:05.800] INFO: request completed
+    reqId: "req-2f"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 9.64224910736084
+[10:31:10.289] INFO: incoming request
+    reqId: "req-2g"
+    req: {
+      "id": "req-2g",
+      "method": "GET",
+      "url": "/recordings?range=all&limit=30",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:31:10.300] INFO: request completed
+    reqId: "req-2g"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 10.703166007995605
+[10:31:11.777] INFO: incoming request
+    reqId: "req-2h"
+    req: {
+      "id": "req-2h",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:31:11.781] INFO: incoming request
+    reqId: "req-2i"
+    req: {
+      "id": "req-2i",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:31:11.787] INFO: request completed
+    reqId: "req-2i"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 6.866957664489746
+[10:31:11.788] INFO: request completed
+    reqId: "req-2h"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 11.128458023071289
+[10:31:19.309] INFO: incoming request
+    reqId: "req-2j"
+    req: {
+      "id": "req-2j",
+      "method": "GET",
+      "url": "/tasks",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:31:19.316] INFO: request completed
+    reqId: "req-2j"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 6.6649580001831055
+[10:31:21.717] INFO: incoming request
+    reqId: "req-2k"
+    req: {
+      "id": "req-2k",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:31:21.725] INFO: incoming request
+    reqId: "req-2l"
+    req: {
+      "id": "req-2l",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:31:21.728] INFO: request completed
+    reqId: "req-2k"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 10.674541473388672
+[10:31:21.731] INFO: request completed
+    reqId: "req-2l"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 5.6859588623046875
+[10:31:25.242] INFO: incoming request
+    reqId: "req-2m"
+    req: {
+      "id": "req-2m",
+      "method": "GET",
+      "url": "/recordings?range=all&limit=30",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:31:25.248] INFO: request completed
+    reqId: "req-2m"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 5.998291969299316
+[10:31:33.403] INFO: incoming request
+    reqId: "req-2n"
+    req: {
+      "id": "req-2n",
+      "method": "GET",
+      "url": "/recordings?range=all&limit=30",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:31:33.412] INFO: request completed
+    reqId: "req-2n"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 8.608041763305664
+[10:31:34.657] INFO: incoming request
+    reqId: "req-2o"
+    req: {
+      "id": "req-2o",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:31:34.662] INFO: incoming request
+    reqId: "req-2p"
+    req: {
+      "id": "req-2p",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:31:34.668] INFO: request completed
+    reqId: "req-2o"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 10.75825023651123
+[10:31:34.669] INFO: request completed
+    reqId: "req-2p"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 6.121458053588867
+[10:31:46.243] INFO: incoming request
+    reqId: "req-2q"
+    req: {
+      "id": "req-2q",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:31:46.251] INFO: request completed
+    reqId: "req-2q"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 8.42379093170166
+[10:31:47.382] INFO: incoming request
+    reqId: "req-2r"
+    req: {
+      "id": "req-2r",
+      "method": "GET",
+      "url": "/recordings?range=all&limit=30",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:31:47.389] INFO: request completed
+    reqId: "req-2r"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 7.837499618530273
+[10:31:50.225] INFO: incoming request
+    reqId: "req-2s"
+    req: {
+      "id": "req-2s",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:31:50.232] INFO: incoming request
+    reqId: "req-2t"
+    req: {
+      "id": "req-2t",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:31:50.234] INFO: request completed
+    reqId: "req-2s"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 9.133625030517578
+[10:31:50.238] INFO: request completed
+    reqId: "req-2t"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 5.851666450500488
+[10:32:20.253] INFO: incoming request
+    reqId: "req-2u"
+    req: {
+      "id": "req-2u",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:32:20.275] INFO: request completed
+    reqId: "req-2u"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 21.419541358947754
+[10:32:50.263] INFO: incoming request
+    reqId: "req-2v"
+    req: {
+      "id": "req-2v",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:32:50.273] INFO: request completed
+    reqId: "req-2v"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 10.205374717712402
+[10:33:20.273] INFO: incoming request
+    reqId: "req-2w"
+    req: {
+      "id": "req-2w",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:33:20.280] INFO: request completed
+    reqId: "req-2w"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 6.268749237060547
+[10:33:50.280] INFO: incoming request
+    reqId: "req-2x"
+    req: {
+      "id": "req-2x",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:33:50.294] INFO: request completed
+    reqId: "req-2x"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 13.429375648498535
+[10:34:20.276] INFO: incoming request
+    reqId: "req-2y"
+    req: {
+      "id": "req-2y",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:34:20.284] INFO: request completed
+    reqId: "req-2y"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 7.884957313537598
+[10:34:50.292] INFO: incoming request
+    reqId: "req-2z"
+    req: {
+      "id": "req-2z",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:34:50.341] INFO: request completed
+    reqId: "req-2z"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 35.54883289337158
+[10:35:06.568] INFO: incoming request
+    reqId: "req-30"
+    req: {
+      "id": "req-30",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:35:06.573] INFO: incoming request
+    reqId: "req-31"
+    req: {
+      "id": "req-31",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:35:06.717] INFO: incoming request
+    reqId: "req-32"
+    req: {
+      "id": "req-32",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:35:06.719] INFO: request completed
+    reqId: "req-30"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 151.22258377075195
+[10:35:06.722] INFO: request completed
+    reqId: "req-31"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 148.72316646575928
+[10:35:06.724] INFO: request completed
+    reqId: "req-32"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 7.413957595825195
+[10:35:11.483] INFO: incoming request
+    reqId: "req-33"
+    req: {
+      "id": "req-33",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:35:11.488] INFO: request completed
+    reqId: "req-33"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 4.931875228881836
+[10:35:12.663] INFO: incoming request
+    reqId: "req-34"
+    req: {
+      "id": "req-34",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:35:12.671] INFO: request completed
+    reqId: "req-34"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 7.874750137329102
+[10:35:12.786] INFO: incoming request
+    reqId: "req-35"
+    req: {
+      "id": "req-35",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:35:12.791] INFO: request completed
+    reqId: "req-35"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 5.173250198364258
+[10:35:20.294] INFO: incoming request
+    reqId: "req-36"
+    req: {
+      "id": "req-36",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:35:20.298] INFO: request completed
+    reqId: "req-36"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 3.3302907943725586
+[10:35:50.314] INFO: incoming request
+    reqId: "req-37"
+    req: {
+      "id": "req-37",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:35:50.337] INFO: request completed
+    reqId: "req-37"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 22.073667526245117
+[10:36:20.321] INFO: incoming request
+    reqId: "req-38"
+    req: {
+      "id": "req-38",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:36:20.327] INFO: request completed
+    reqId: "req-38"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 5.524041175842285
+[10:36:50.328] INFO: incoming request
+    reqId: "req-39"
+    req: {
+      "id": "req-39",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:36:50.334] INFO: request completed
+    reqId: "req-39"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 5.7556257247924805
+[10:36:52.664] INFO: incoming request
+    reqId: "req-3a"
+    req: {
+      "id": "req-3a",
+      "method": "GET",
+      "url": "/recordings?range=all&limit=30",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:36:52.680] INFO: request completed
+    reqId: "req-3a"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 14.597249984741211
+[10:36:57.998] INFO: incoming request
+    reqId: "req-3b"
+    req: {
+      "id": "req-3b",
+      "method": "GET",
+      "url": "/recordings?range=all&limit=30",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:36:58.007] INFO: request completed
+    reqId: "req-3b"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 8.851541519165039
+[10:49:28.912] INFO: incoming request
+    reqId: "req-3c"
+    req: {
+      "id": "req-3c",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:49:28.930] INFO: request completed
+    reqId: "req-3c"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 14.317167282104492
+[10:49:28.954] INFO: incoming request
+    reqId: "req-3d"
+    req: {
+      "id": "req-3d",
+      "method": "POST",
+      "url": "/recordings/01KRX4D8ZKE5NRRG7MG9N5JFJ9/parts",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:49:28.962] INFO: incoming request
+    reqId: "req-3e"
+    req: {
+      "id": "req-3e",
+      "method": "POST",
+      "url": "/recordings/01KRX4ZKZJWXKDDG7S1WSEES60/parts",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:49:29.012] INFO: request completed
+    reqId: "req-3d"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 57.464667320251465
+[10:49:29.042] INFO: request completed
+    reqId: "req-3e"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 80.2212495803833
+[10:49:47.713] INFO: incoming request
+    reqId: "req-3f"
+    req: {
+      "id": "req-3f",
+      "method": "POST",
+      "url": "/recordings/01KRX4D8ZKE5NRRG7MG9N5JFJ9/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:49:47.940] INFO: incoming request
+    reqId: "req-3g"
+    req: {
+      "id": "req-3g",
+      "method": "POST",
+      "url": "/recordings/01KRX4ZKZJWXKDDG7S1WSEES60/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:49:49.550] INFO: request completed
+    reqId: "req-3f"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 1833.0739164352417
+[10:49:49.554] INFO: request completed
+    reqId: "req-3g"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 1614.3845834732056
+[10:49:50.302] INFO: incoming request
+    reqId: "req-3h"
+    req: {
+      "id": "req-3h",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:49:50.408] INFO: incoming request
+    reqId: "req-3i"
+    req: {
+      "id": "req-3i",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:49:50.414] INFO: request completed
+    reqId: "req-3h"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 112.02862453460693
+[10:49:50.512] INFO: request completed
+    reqId: "req-3i"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 103.59341621398926
+[10:50:10.174] INFO: incoming request
+    reqId: "req-3j"
+    req: {
+      "id": "req-3j",
+      "method": "POST",
+      "url": "/recordings/01KRX5HYYMT2BVRZQ1RV1Z787H/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:50:11.272] INFO: request completed
+    reqId: "req-3j"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 1097.3455419540405
+[10:50:12.244] INFO: incoming request
+    reqId: "req-3k"
+    req: {
+      "id": "req-3k",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:50:12.350] INFO: request completed
+    reqId: "req-3k"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 104.97141647338867
+[10:50:25.925] INFO: incoming request
+    reqId: "req-3l"
+    req: {
+      "id": "req-3l",
+      "method": "POST",
+      "url": "/recordings/01KRX649XPHTG0Z75AM26XE3AG/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:50:26.968] INFO: request completed
+    reqId: "req-3l"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 1042.6018743515015
+[10:50:27.783] INFO: incoming request
+    reqId: "req-3m"
+    req: {
+      "id": "req-3m",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:50:27.875] INFO: request completed
+    reqId: "req-3m"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 92.31266689300537
+[10:50:40.945] INFO: incoming request
+    reqId: "req-3n"
+    req: {
+      "id": "req-3n",
+      "method": "POST",
+      "url": "/recordings/01KRX6PMWB9V0DTCCKA4ZDAE7Q/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:50:42.015] INFO: request completed
+    reqId: "req-3n"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 1048.7143335342407
+[10:50:42.811] INFO: incoming request
+    reqId: "req-3o"
+    req: {
+      "id": "req-3o",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:50:42.910] INFO: request completed
+    reqId: "req-3o"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 98.36070823669434
+[10:50:55.616] INFO: incoming request
+    reqId: "req-3p"
+    req: {
+      "id": "req-3p",
+      "method": "POST",
+      "url": "/recordings/01KRX78ZVNSAVSFJBAPTH7N0TF/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:50:56.689] INFO: request completed
+    reqId: "req-3p"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 1072.57200050354
+[10:50:57.468] INFO: incoming request
+    reqId: "req-3q"
+    req: {
+      "id": "req-3q",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:50:57.632] INFO: request completed
+    reqId: "req-3q"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 163.80008220672607
+[10:51:10.452] INFO: incoming request
+    reqId: "req-3r"
+    req: {
+      "id": "req-3r",
+      "method": "POST",
+      "url": "/recordings/01KRX7VATCMHPP43YDP88BT2P3/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:51:11.462] INFO: request completed
+    reqId: "req-3r"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 1009.3776655197144
+[10:51:12.354] INFO: incoming request
+    reqId: "req-3s"
+    req: {
+      "id": "req-3s",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:51:12.469] INFO: request completed
+    reqId: "req-3s"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 115.022292137146
+[10:51:25.583] INFO: incoming request
+    reqId: "req-3t"
+    req: {
+      "id": "req-3t",
+      "method": "POST",
+      "url": "/recordings/01KRX8DNSAFVGMDY417541ZETE/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:51:26.318] INFO: request completed
+    reqId: "req-3t"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 735.3779153823853
+[10:51:27.605] INFO: incoming request
+    reqId: "req-3u"
+    req: {
+      "id": "req-3u",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:51:27.753] INFO: request completed
+    reqId: "req-3u"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 147.63091659545898
+[10:51:40.748] INFO: incoming request
+    reqId: "req-3v"
+    req: {
+      "id": "req-3v",
+      "method": "POST",
+      "url": "/recordings/01KRX900RP8XCARGVX2QMF7JRG/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:51:41.429] INFO: request completed
+    reqId: "req-3v"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 680.2838325500488
+[10:51:42.480] INFO: incoming request
+    reqId: "req-3w"
+    req: {
+      "id": "req-3w",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:51:42.595] INFO: request completed
+    reqId: "req-3w"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 114.93708324432373
+[10:51:55.848] INFO: incoming request
+    reqId: "req-3x"
+    req: {
+      "id": "req-3x",
+      "method": "POST",
+      "url": "/recordings/01KRX9JBQ4QE70KC202QBN11DW/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:51:56.679] INFO: request completed
+    reqId: "req-3x"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 831.2051668167114
+[10:52:01.091] INFO: incoming request
+    reqId: "req-3y"
+    req: {
+      "id": "req-3y",
+      "method": "POST",
+      "url": "/recordings/01KRXA4PNYWWZ53SRT7DRMF0Y5/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[10:52:01.349] INFO: request completed
+    reqId: "req-3y"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 257.66337490081787
+[11:02:12.857] INFO: incoming request
+    reqId: "req-3z"
+    req: {
+      "id": "req-3z",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:02:12.866] INFO: incoming request
+    reqId: "req-40"
+    req: {
+      "id": "req-40",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:02:12.901] INFO: incoming request
+    reqId: "req-41"
+    req: {
+      "id": "req-41",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:02:12.917] INFO: incoming request
+    reqId: "req-42"
+    req: {
+      "id": "req-42",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:02:12.918] INFO: incoming request
+    reqId: "req-43"
+    req: {
+      "id": "req-43",
+      "method": "GET",
+      "url": "/me",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:02:12.922] INFO: request completed
+    reqId: "req-3z"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 63.618083000183105
+[11:02:12.923] INFO: request completed
+    reqId: "req-40"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 57.47887420654297
+[11:02:12.931] INFO: request completed
+    reqId: "req-41"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 29.279582977294922
+[11:02:12.931] INFO: request completed
+    reqId: "req-42"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 14.009041786193848
+[11:02:12.931] INFO: request completed
+    reqId: "req-43"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 12.96804141998291
+[11:02:14.580] INFO: incoming request
+    reqId: "req-44"
+    req: {
+      "id": "req-44",
+      "method": "GET",
+      "url": "/recordings?range=all&limit=30",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:02:14.583] INFO: incoming request
+    reqId: "req-45"
+    req: {
+      "id": "req-45",
+      "method": "GET",
+      "url": "/tasks?limit=100",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:02:14.585] INFO: incoming request
+    reqId: "req-46"
+    req: {
+      "id": "req-46",
+      "method": "GET",
+      "url": "/recordings?range=all&limit=30",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:02:14.590] INFO: request completed
+    reqId: "req-44"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 10.477750778198242
+[11:02:14.591] INFO: request completed
+    reqId: "req-46"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 5.77491569519043
+[11:02:14.594] INFO: request completed
+    reqId: "req-45"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 11.179832458496094
+[11:02:16.535] INFO: incoming request
+    reqId: "req-47"
+    req: {
+      "id": "req-47",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:02:16.537] INFO: incoming request
+    reqId: "req-48"
+    req: {
+      "id": "req-48",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:02:16.542] INFO: request completed
+    reqId: "req-48"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 5.534416198730469
+[11:02:16.545] INFO: request completed
+    reqId: "req-47"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 9.723542213439941
+[11:24:03.867] INFO: incoming request
+    reqId: "req-49"
+    req: {
+      "id": "req-49",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:24:03.873] INFO: incoming request
+    reqId: "req-4a"
+    req: {
+      "id": "req-4a",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:24:03.920] INFO: request completed
+    reqId: "req-4a"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 46.672499656677246
+[11:24:03.921] INFO: request completed
+    reqId: "req-49"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 53.23445796966553
+[11:24:09.480] INFO: incoming request
+    reqId: "req-4b"
+    req: {
+      "id": "req-4b",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:24:09.492] INFO: request completed
+    reqId: "req-4b"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 11.056333541870117
+[11:24:10.636] INFO: incoming request
+    reqId: "req-4c"
+    req: {
+      "id": "req-4c",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:24:10.647] INFO: incoming request
+    reqId: "req-4d"
+    req: {
+      "id": "req-4d",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:24:10.663] INFO: request completed
+    reqId: "req-4c"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 26.851207733154297
+[11:24:10.665] INFO: request completed
+    reqId: "req-4d"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 17.714750289916992
+[11:24:33.907] INFO: incoming request
+    reqId: "req-4e"
+    req: {
+      "id": "req-4e",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:24:33.924] INFO: request completed
+    reqId: "req-4e"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 16.353166580200195
+[11:24:40.659] INFO: incoming request
+    reqId: "req-4f"
+    req: {
+      "id": "req-4f",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:24:40.662] INFO: request completed
+    reqId: "req-4f"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 3.107959747314453
+[11:25:03.900] INFO: incoming request
+    reqId: "req-4g"
+    req: {
+      "id": "req-4g",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:25:03.915] INFO: request completed
+    reqId: "req-4g"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 14.227707862854004
+[11:25:10.672] INFO: incoming request
+    reqId: "req-4h"
+    req: {
+      "id": "req-4h",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:25:33.907] INFO: incoming request
+    reqId: "req-4i"
+    req: {
+      "id": "req-4i",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:25:40.698] INFO: incoming request
+    reqId: "req-4j"
+    req: {
+      "id": "req-4j",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:26:03.925] INFO: incoming request
+    reqId: "req-4k"
+    req: {
+      "id": "req-4k",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:26:10.691] INFO: incoming request
+    reqId: "req-4l"
+    req: {
+      "id": "req-4l",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:26:33.930] INFO: incoming request
+    reqId: "req-4m"
+    req: {
+      "id": "req-4m",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:26:40.688] INFO: incoming request
+    reqId: "req-4n"
+    req: {
+      "id": "req-4n",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:27:03.936] INFO: incoming request
+    reqId: "req-4o"
+    req: {
+      "id": "req-4o",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:27:10.706] INFO: incoming request
+    reqId: "req-4p"
+    req: {
+      "id": "req-4p",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:27:33.950] INFO: incoming request
+    reqId: "req-4q"
+    req: {
+      "id": "req-4q",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:27:40.713] INFO: incoming request
+    reqId: "req-4r"
+    req: {
+      "id": "req-4r",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:28:03.969] INFO: incoming request
+    reqId: "req-4s"
+    req: {
+      "id": "req-4s",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:28:10.724] INFO: incoming request
+    reqId: "req-4t"
+    req: {
+      "id": "req-4t",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:28:33.966] INFO: incoming request
+    reqId: "req-4u"
+    req: {
+      "id": "req-4u",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:28:40.735] INFO: incoming request
+    reqId: "req-4v"
+    req: {
+      "id": "req-4v",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:29:03.955] INFO: incoming request
+    reqId: "req-4w"
+    req: {
+      "id": "req-4w",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:29:10.741] INFO: incoming request
+    reqId: "req-4x"
+    req: {
+      "id": "req-4x",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:29:33.978] INFO: incoming request
+    reqId: "req-4y"
+    req: {
+      "id": "req-4y",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:29:40.751] INFO: incoming request
+    reqId: "req-4z"
+    req: {
+      "id": "req-4z",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:30:03.990] INFO: incoming request
+    reqId: "req-50"
+    req: {
+      "id": "req-50",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:30:34.000] INFO: incoming request
+    reqId: "req-51"
+    req: {
+      "id": "req-51",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:31:03.994] INFO: incoming request
+    reqId: "req-52"
+    req: {
+      "id": "req-52",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:31:34.002] INFO: incoming request
+    reqId: "req-53"
+    req: {
+      "id": "req-53",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:32:04.005] INFO: incoming request
+    reqId: "req-54"
+    req: {
+      "id": "req-54",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:32:34.008] INFO: incoming request
+    reqId: "req-55"
+    req: {
+      "id": "req-55",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:32:56.842] INFO: incoming request
+    reqId: "req-56"
+    req: {
+      "id": "req-56",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:32:56.846] INFO: incoming request
+    reqId: "req-57"
+    req: {
+      "id": "req-57",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:33:04.013] INFO: incoming request
+    reqId: "req-58"
+    req: {
+      "id": "req-58",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:33:26.872] INFO: incoming request
+    reqId: "req-59"
+    req: {
+      "id": "req-59",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:33:34.015] INFO: incoming request
+    reqId: "req-5a"
+    req: {
+      "id": "req-5a",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:33:56.877] INFO: incoming request
+    reqId: "req-5b"
+    req: {
+      "id": "req-5b",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:34:04.014] INFO: incoming request
+    reqId: "req-5c"
+    req: {
+      "id": "req-5c",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:34:18.061] INFO: incoming request
+    reqId: "req-5d"
+    req: {
+      "id": "req-5d",
+      "method": "GET",
+      "url": "/tasks",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:34:21.789] INFO: incoming request
+    reqId: "req-5e"
+    req: {
+      "id": "req-5e",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:34:21.791] INFO: incoming request
+    reqId: "req-5f"
+    req: {
+      "id": "req-5f",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:34:41.180] INFO: incoming request
+    reqId: "req-5g"
+    req: {
+      "id": "req-5g",
+      "method": "GET",
+      "url": "/tasks",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:35:38.802] INFO: incoming request
+    reqId: "req-5h"
+    req: {
+      "id": "req-5h",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:35:38.807] INFO: incoming request
+    reqId: "req-5i"
+    req: {
+      "id": "req-5i",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:35:38.878] INFO: incoming request
+    reqId: "req-5j"
+    req: {
+      "id": "req-5j",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:35:38.879] INFO: incoming request
+    reqId: "req-5k"
+    req: {
+      "id": "req-5k",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:35:38.883] INFO: incoming request
+    reqId: "req-5l"
+    req: {
+      "id": "req-5l",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:35:51.460] INFO: incoming request
+    reqId: "req-5m"
+    req: {
+      "id": "req-5m",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:35:51.742] INFO: incoming request
+    reqId: "req-5n"
+    req: {
+      "id": "req-5n",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:35:51.774] INFO: incoming request
+    reqId: "req-5o"
+    req: {
+      "id": "req-5o",
+      "method": "GET",
+      "url": "/me",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:35:51.781] INFO: incoming request
+    reqId: "req-5p"
+    req: {
+      "id": "req-5p",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:35:51.782] INFO: incoming request
+    reqId: "req-5q"
+    req: {
+      "id": "req-5q",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:36:08.848] INFO: incoming request
+    reqId: "req-5r"
+    req: {
+      "id": "req-5r",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:36:08.852] INFO: incoming request
+    reqId: "req-5s"
+    req: {
+      "id": "req-5s",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:36:08.890] INFO: incoming request
+    reqId: "req-5t"
+    req: {
+      "id": "req-5t",
+      "method": "GET",
+      "url": "/tasks",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:36:21.476] INFO: incoming request
+    reqId: "req-5u"
+    req: {
+      "id": "req-5u",
+      "method": "GET",
+      "url": "/tasks",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:36:21.761] INFO: incoming request
+    reqId: "req-5v"
+    req: {
+      "id": "req-5v",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:36:21.782] INFO: incoming request
+    reqId: "req-5w"
+    req: {
+      "id": "req-5w",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:36:24.523] INFO: incoming request
+    reqId: "req-5x"
+    req: {
+      "id": "req-5x",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:36:54.526] INFO: incoming request
+    reqId: "req-5y"
+    req: {
+      "id": "req-5y",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:37:24.524] INFO: incoming request
+    reqId: "req-5z"
+    req: {
+      "id": "req-5z",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:37:41.396] INFO: request completed
+    reqId: "req-5z"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 16870.766416549683
+[11:37:41.424] INFO: incoming request
+    reqId: "req-60"
+    req: {
+      "id": "req-60",
+      "method": "GET",
+      "url": "/healthz",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:37:41.425] INFO: request completed
+    reqId: "req-60"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 0.20975017547607422
+[11:37:54.529] INFO: incoming request
+    reqId: "req-61"
+    req: {
+      "id": "req-61",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:37:54.538] INFO: request completed
+    reqId: "req-61"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 9.137249946594238
+[11:38:10.448] INFO: incoming request
+    reqId: "req-62"
+    req: {
+      "id": "req-62",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:38:10.465] INFO: request completed
+    reqId: "req-62"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 15.380749702453613
+[11:38:10.733] INFO: incoming request
+    reqId: "req-63"
+    req: {
+      "id": "req-63",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:38:10.745] INFO: request completed
+    reqId: "req-63"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 11.548666954040527
+[11:38:10.755] INFO: incoming request
+    reqId: "req-64"
+    req: {
+      "id": "req-64",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:38:10.760] INFO: incoming request
+    reqId: "req-65"
+    req: {
+      "id": "req-65",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:38:10.766] INFO: request completed
+    reqId: "req-64"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 10.944499969482422
+[11:38:10.769] INFO: request completed
+    reqId: "req-65"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 9.697208404541016
+[11:38:10.778] INFO: incoming request
+    reqId: "req-66"
+    req: {
+      "id": "req-66",
+      "method": "GET",
+      "url": "/me",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:38:10.789] INFO: request completed
+    reqId: "req-66"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 10.533915519714355
+[11:38:13.824] INFO: incoming request
+    reqId: "req-67"
+    req: {
+      "id": "req-67",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:38:13.826] INFO: incoming request
+    reqId: "req-68"
+    req: {
+      "id": "req-68",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:38:13.832] INFO: request completed
+    reqId: "req-68"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 5.803624153137207
+[11:38:13.832] INFO: request completed
+    reqId: "req-67"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 8.187541961669922
+[11:38:13.882] INFO: incoming request
+    reqId: "req-69"
+    req: {
+      "id": "req-69",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:38:13.883] INFO: incoming request
+    reqId: "req-6a"
+    req: {
+      "id": "req-6a",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:38:13.889] INFO: incoming request
+    reqId: "req-6b"
+    req: {
+      "id": "req-6b",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:38:13.892] INFO: request completed
+    reqId: "req-6a"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 8.648332595825195
+[11:38:13.892] INFO: request completed
+    reqId: "req-69"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 10.423542022705078
+[11:38:13.917] INFO: request completed
+    reqId: "req-6b"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 28.280875205993652
+[11:38:16.022] INFO: incoming request
+    reqId: "req-6c"
+    req: {
+      "id": "req-6c",
+      "method": "GET",
+      "url": "/tasks",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:38:16.032] INFO: request completed
+    reqId: "req-6c"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 9.804499626159668
+[11:38:17.059] INFO: incoming request
+    reqId: "req-6d"
+    req: {
+      "id": "req-6d",
+      "method": "GET",
+      "url": "/tasks?category=Kitchen",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:38:17.063] INFO: request completed
+    reqId: "req-6d"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 4.272916793823242
+[11:38:20.824] INFO: incoming request
+    reqId: "req-6e"
+    req: {
+      "id": "req-6e",
+      "method": "GET",
+      "url": "/tasks",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:38:20.830] INFO: request completed
+    reqId: "req-6e"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 5.574749946594238
+[11:38:23.039] INFO: incoming request
+    reqId: "req-6f"
+    req: {
+      "id": "req-6f",
+      "method": "GET",
+      "url": "/tasks?category=Tidying",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:38:23.040] INFO: request completed
+    reqId: "req-6f"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 1.8685417175292969
+[11:40:56.166] INFO: incoming request
+    reqId: "req-6g"
+    req: {
+      "id": "req-6g",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:40:56.252] INFO: incoming request
+    reqId: "req-6h"
+    req: {
+      "id": "req-6h",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:40:56.256] INFO: incoming request
+    reqId: "req-6i"
+    req: {
+      "id": "req-6i",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:40:56.258] INFO: incoming request
+    reqId: "req-6j"
+    req: {
+      "id": "req-6j",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:40:57.351] INFO: incoming request
+    reqId: "req-6k"
+    req: {
+      "id": "req-6k",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:40:57.461] INFO: incoming request
+    reqId: "req-6l"
+    req: {
+      "id": "req-6l",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:40:57.463] INFO: incoming request
+    reqId: "req-6m"
+    req: {
+      "id": "req-6m",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:40:57.468] INFO: incoming request
+    reqId: "req-6n"
+    req: {
+      "id": "req-6n",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:41:26.288] INFO: incoming request
+    reqId: "req-6o"
+    req: {
+      "id": "req-6o",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:41:27.517] INFO: incoming request
+    reqId: "req-6p"
+    req: {
+      "id": "req-6p",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:41:56.280] INFO: incoming request
+    reqId: "req-6q"
+    req: {
+      "id": "req-6q",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:41:57.513] INFO: incoming request
+    reqId: "req-6r"
+    req: {
+      "id": "req-6r",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:42:26.298] INFO: incoming request
+    reqId: "req-6s"
+    req: {
+      "id": "req-6s",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:42:27.530] INFO: incoming request
+    reqId: "req-6t"
+    req: {
+      "id": "req-6t",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:42:51.631] INFO: incoming request
+    reqId: "req-6u"
+    req: {
+      "id": "req-6u",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:42:51.633] INFO: incoming request
+    reqId: "req-6v"
+    req: {
+      "id": "req-6v",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:42:52.827] INFO: incoming request
+    reqId: "req-6w"
+    req: {
+      "id": "req-6w",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:42:52.831] INFO: incoming request
+    reqId: "req-6x"
+    req: {
+      "id": "req-6x",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:42:52.847] INFO: incoming request
+    reqId: "req-6y"
+    req: {
+      "id": "req-6y",
+      "method": "POST",
+      "url": "/recordings/init",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:42:56.312] INFO: incoming request
+    reqId: "req-6z"
+    req: {
+      "id": "req-6z",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:42:58.095] INFO: incoming request
+    reqId: "req-70"
+    req: {
+      "id": "req-70",
+      "method": "GET",
+      "url": "/tasks?limit=100",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:42:58.102] INFO: incoming request
+    reqId: "req-71"
+    req: {
+      "id": "req-71",
+      "method": "GET",
+      "url": "/recordings?range=all&limit=30",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:42:58.104] INFO: incoming request
+    reqId: "req-72"
+    req: {
+      "id": "req-72",
+      "method": "GET",
+      "url": "/recordings?range=all&limit=30",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:42:59.115] INFO: incoming request
+    reqId: "req-73"
+    req: {
+      "id": "req-73",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:43:21.693] INFO: incoming request
+    reqId: "req-74"
+    req: {
+      "id": "req-74",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:43:26.327] INFO: incoming request
+    reqId: "req-75"
+    req: {
+      "id": "req-75",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:43:28.113] INFO: incoming request
+    reqId: "req-76"
+    req: {
+      "id": "req-76",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:43:28.115] INFO: incoming request
+    reqId: "req-77"
+    req: {
+      "id": "req-77",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:43:28.116] INFO: incoming request
+    reqId: "req-78"
+    req: {
+      "id": "req-78",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:43:29.135] INFO: incoming request
+    reqId: "req-79"
+    req: {
+      "id": "req-79",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:43:29.137] INFO: incoming request
+    reqId: "req-7a"
+    req: {
+      "id": "req-7a",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:43:33.734] INFO: incoming request
+    reqId: "req-7b"
+    req: {
+      "id": "req-7b",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:43:37.764] INFO: incoming request
+    reqId: "req-7c"
+    req: {
+      "id": "req-7c",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:43:46.218] INFO: incoming request
+    reqId: "req-7d"
+    req: {
+      "id": "req-7d",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:43:46.223] INFO: incoming request
+    reqId: "req-7e"
+    req: {
+      "id": "req-7e",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:43:46.287] INFO: incoming request
+    reqId: "req-7f"
+    req: {
+      "id": "req-7f",
+      "method": "GET",
+      "url": "/contributions",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:43:46.293] INFO: incoming request
+    reqId: "req-7g"
+    req: {
+      "id": "req-7g",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:43:51.722] INFO: incoming request
+    reqId: "req-7h"
+    req: {
+      "id": "req-7h",
+      "method": "GET",
+      "url": "/contributions/timeseries?aggregate=true&start=2026-05-18&end=2026-05-19",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:44:07.775] INFO: incoming request
+    reqId: "req-7i"
+    req: {
+      "id": "req-7i",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:44:16.389] INFO: incoming request
+    reqId: "req-7j"
+    req: {
+      "id": "req-7j",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:44:37.794] INFO: incoming request
+    reqId: "req-7k"
+    req: {
+      "id": "req-7k",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:44:46.389] INFO: incoming request
+    reqId: "req-7l"
+    req: {
+      "id": "req-7l",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:45:07.801] INFO: incoming request
+    reqId: "req-7m"
+    req: {
+      "id": "req-7m",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:45:15.789] INFO: request completed
+    reqId: "req-7l"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 29399.633375167847
+[11:45:15.790] INFO: request completed
+    reqId: "req-7m"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 7988.558167457581
+[11:45:15.861] INFO: request completed
+    reqId: "req-6y"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 143014.59112548828
+[11:45:15.862] INFO: request completed
+    reqId: "req-6g"
+    res: {
+      "statusCode": 201
+    }
+    responseTime: 259694.94925022125
+[11:45:16.578] INFO: incoming request
+    reqId: "req-7n"
+    req: {
+      "id": "req-7n",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:45:16.582] INFO: request completed
+    reqId: "req-7n"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 3.940500259399414
+[11:45:19.368] INFO: incoming request
+    reqId: "req-7o"
+    req: {
+      "id": "req-7o",
+      "method": "POST",
+      "url": "/recordings/01KRXE32GTZTMHC3AR60BYMS0Z/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:45:19.385] INFO: incoming request
+    reqId: "req-7p"
+    req: {
+      "id": "req-7p",
+      "method": "POST",
+      "url": "/recordings/01KRXE2WPNGJYEH24JMPB8YB15/finalize",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:45:19.765] INFO: request completed
+    reqId: "req-7o"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 396.3883752822876
+[11:45:19.791] INFO: request completed
+    reqId: "req-7p"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 406.05070781707764
+[11:45:37.788] INFO: incoming request
+    reqId: "req-7q"
+    req: {
+      "id": "req-7q",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:45:37.802] INFO: request completed
+    reqId: "req-7q"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 13.987541198730469
+[11:45:46.389] INFO: incoming request
+    reqId: "req-7r"
+    req: {
+      "id": "req-7r",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:45:46.404] INFO: request completed
+    reqId: "req-7r"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 14.234457969665527
+[11:46:07.782] INFO: incoming request
+    reqId: "req-7s"
+    req: {
+      "id": "req-7s",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:46:07.809] INFO: request completed
+    reqId: "req-7s"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 27.104875564575195
+[11:46:16.388] INFO: incoming request
+    reqId: "req-7t"
+    req: {
+      "id": "req-7t",
+      "method": "GET",
+      "url": "/recordings/verified-ids",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:46:16.391] INFO: request completed
+    reqId: "req-7t"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 2.467916488647461
+[11:46:17.807] INFO: incoming request
+    reqId: "req-7u"
+    req: {
+      "id": "req-7u",
+      "method": "GET",
+      "url": "/tasks?limit=100",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:46:17.816] INFO: request completed
+    reqId: "req-7u"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 8.082708358764648
+[11:46:17.820] INFO: incoming request
+    reqId: "req-7v"
+    req: {
+      "id": "req-7v",
+      "method": "GET",
+      "url": "/recordings?range=all&limit=30",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:46:17.823] INFO: incoming request
+    reqId: "req-7w"
+    req: {
+      "id": "req-7w",
+      "method": "GET",
+      "url": "/recordings?range=all&limit=30",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:46:17.829] INFO: request completed
+    reqId: "req-7v"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 8.783458709716797
+[11:46:17.844] INFO: request completed
+    reqId: "req-7w"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 20.659208297729492
+[11:46:20.500] INFO: incoming request
+    reqId: "req-7x"
+    req: {
+      "id": "req-7x",
+      "method": "GET",
+      "url": "/tasks?limit=100",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:46:20.518] INFO: request completed
+    reqId: "req-7x"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 18.0141658782959
+[11:46:20.519] INFO: incoming request
+    reqId: "req-7y"
+    req: {
+      "id": "req-7y",
+      "method": "GET",
+      "url": "/recordings?range=all&limit=30",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:46:20.522] INFO: incoming request
+    reqId: "req-7z"
+    req: {
+      "id": "req-7z",
+      "method": "GET",
+      "url": "/recordings?range=all&limit=30",
+      "remoteAddress": "127.0.0.1"
+    }
+[11:46:20.527] INFO: request completed
+    reqId: "req-7y"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 8.044791221618652
+[11:46:20.527] INFO: request completed
+    reqId: "req-7z"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 4.832917213439941
+[08:23:18.741] INFO: dsr_hard_delete_candidates
+    candidate_count: 0
+    candidates: []
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: Connection terminated unexpectedly
+    at Connection.<anonymous> (/Users/adnaan/Documents/hl-homelander/node_modules/pg/lib/client.js:180:73)
+    at Object.onceWrapper (node:events:622:28)
+    at Connection.emit (node:events:508:28)
+    at Socket.<anonymous> (/Users/adnaan/Documents/hl-homelander/node_modules/pg/lib/connection.js:61:12)
+    at Socket.emit (node:events:508:28)
+    at TCP.<anonymous> (node:net:346:12)
+Emitted 'error' event on BoundPool instance at:
+    at Client.idleListener (/Users/adnaan/Documents/hl-homelander/node_modules/pg-pool/index.js:62:10)
+    at Client.emit (node:events:508:28)
+    at Client._handleErrorEvent (/Users/adnaan/Documents/hl-homelander/node_modules/pg/lib/client.js:393:10)
+    at Connection.<anonymous> (/Users/adnaan/Documents/hl-homelander/node_modules/pg/lib/client.js:198:16)
+    at Object.onceWrapper (node:events:622:28)
+    at Connection.emit (node:events:508:28)
+    at Socket.<anonymous> (/Users/adnaan/Documents/hl-homelander/node_modules/pg/lib/connection.js:61:12)
+    at Socket.emit (node:events:508:28)
+    at TCP.<anonymous> (node:net:346:12) {
+  client: Client {
+    _events: [Object: null prototype] { error: [Function (anonymous)] },
+    _eventsCount: 1,
+    _maxListeners: undefined,
+    connectionParameters: ConnectionParameters {
+      user: 'humyn',
+      database: 'humyn_dev',
+      port: 5432,
+      host: 'localhost',
+      binary: false,
+      options: undefined,
+      ssl: false,
+      client_encoding: '',
+      replication: undefined,
+      isDomainSocket: false,
+      application_name: undefined,
+      fallback_application_name: undefined,
+      statement_timeout: false,
+      lock_timeout: false,
+      idle_in_transaction_session_timeout: false,
+      query_timeout: false,
+      connect_timeout: 0
+    },
+    user: 'humyn',
+    database: 'humyn_dev',
+    port: 5432,
+    host: 'localhost',
+    replication: undefined,
+    _Promise: [Function: Promise],
+    _types: TypeOverrides {
+      _types: {
+        getTypeParser: [Function: getTypeParser],
+        setTypeParser: [Function: setTypeParser],
+        arrayParser: { create: [Function: create] },
+        builtins: {
+          BOOL: 16,
+          BYTEA: 17,
+          CHAR: 18,
+          INT8: 20,
+          INT2: 21,
+          INT4: 23,
+          REGPROC: 24,
+          TEXT: 25,
+          OID: 26,
+          TID: 27,
+          XID: 28,
+          CID: 29,
+          JSON: 114,
+          XML: 142,
+          PG_NODE_TREE: 194,
+          SMGR: 210,
+          PATH: 602,
+          POLYGON: 604,
+          CIDR: 650,
+          FLOAT4: 700,
+          FLOAT8: 701,
+          ABSTIME: 702,
+          RELTIME: 703,
+          TINTERVAL: 704,
+          CIRCLE: 718,
+          MACADDR8: 774,
+          MONEY: 790,
+          MACADDR: 829,
+          INET: 869,
+          ACLITEM: 1033,
+          BPCHAR: 1042,
+          VARCHAR: 1043,
+          DATE: 1082,
+          TIME: 1083,
+          TIMESTAMP: 1114,
+          TIMESTAMPTZ: 1184,
+          INTERVAL: 1186,
+          TIMETZ: 1266,
+          BIT: 1560,
+          VARBIT: 1562,
+          NUMERIC: 1700,
+          REFCURSOR: 1790,
+          REGPROCEDURE: 2202,
+          REGOPER: 2203,
+          REGOPERATOR: 2204,
+          REGCLASS: 2205,
+          REGTYPE: 2206,
+          UUID: 2950,
+          TXID_SNAPSHOT: 2970,
+          PG_LSN: 3220,
+          PG_NDISTINCT: 3361,
+          PG_DEPENDENCIES: 3402,
+          TSVECTOR: 3614,
+          TSQUERY: 3615,
+          GTSVECTOR: 3642,
+          REGCONFIG: 3734,
+          REGDICTIONARY: 3769,
+          JSONB: 3802,
+          REGNAMESPACE: 4089,
+          REGROLE: 4096
+        }
+      },
+      text: {},
+      binary: {}
+    },
+    _ending: true,
+    _ended: true,
+    _connecting: false,
+    _connected: true,
+    _connectionError: false,
+    _queryable: false,
+    _activeQuery: null,
+    enableChannelBinding: false,
+    connection: Connection {
+      _events: [Object: null prototype] {
+        newListener: [Function (anonymous)],
+        connect: [Function (anonymous)],
+        sslconnect: [Function (anonymous)],
+        authenticationCleartextPassword: [Function: bound _handleAuthCleartextPassword],
+        authenticationMD5Password: [Function: bound _handleAuthMD5Password],
+        authenticationSASL: [Function: bound _handleAuthSASL],
+        authenticationSASLContinue: [Function: bound _handleAuthSASLContinue] AsyncFunction,
+        authenticationSASLFinal: [Function: bound _handleAuthSASLFinal],
+        backendKeyData: [Function: bound _handleBackendKeyData],
+        error: [Function: bound _handleErrorEvent],
+        errorMessage: [Function: bound _handleErrorMessage],
+        readyForQuery: [Function: bound _handleReadyForQuery],
+        notice: [Function: bound _handleNotice],
+        rowDescription: [Function: bound _handleRowDescription],
+        dataRow: [Function: bound _handleDataRow],
+        portalSuspended: [Function: bound _handlePortalSuspended],
+        emptyQuery: [Function: bound _handleEmptyQuery],
+        commandComplete: [Function: bound _handleCommandComplete],
+        parseComplete: [Function: bound _handleParseComplete],
+        copyInResponse: [Function: bound _handleCopyInResponse],
+        copyData: [Function: bound _handleCopyData],
+        notification: [Function: bound _handleNotification],
+        end: [Function: bound onceWrapper] {
+          listener: [Function (anonymous)]
+        }
+      },
+      _eventsCount: 23,
+      _maxListeners: undefined,
+      stream: Socket {
+        connecting: false,
+        _hadError: false,
+        _parent: null,
+        _host: 'localhost',
+        _closeAfterHandlingError: false,
+        _events: {
+          close: [Function (anonymous)],
+          error: [Function: reportStreamError],
+          prefinish: undefined,
+          finish: undefined,
+          drain: undefined,
+          data: [Function (anonymous)],
+          end: [ [Function: onReadableStreamEnd], [Function (anonymous)] ],
+          readable: undefined,
+          connect: undefined
+        },
+        _readableState: ReadableState {
+          highWaterMark: 65536,
+          buffer: [],
+          bufferIndex: 0,
+          length: 0,
+          pipes: [],
+          awaitDrainWriters: null,
+          Symbol(kState): 194512756
+        },
+        _writableState: WritableState {
+          highWaterMark: 65536,
+          length: 0,
+          corked: 0,
+          onwrite: [Function: bound onwrite],
+          writelen: 0,
+          bufferedIndex: 0,
+          pendingcb: 0,
+          Symbol(kState): 1091450228,
+          Symbol(kBufferedValue): null,
+          Symbol(kWriteCbValue): null
+        },
+        allowHalfOpen: false,
+        _maxListeners: undefined,
+        _eventsCount: 4,
+        _sockname: null,
+        _pendingData: null,
+        _pendingEncoding: '',
+        server: null,
+        _server: null,
+        autoSelectFamilyAttemptedAddresses: [ '::1:5432' ],
+        write: [Function: writeAfterFIN],
+        Symbol(async_id_symbol): 27224,
+        Symbol(kHandle): null,
+        Symbol(lastWriteQueueSize): 0,
+        Symbol(timeout): null,
+        Symbol(kBuffer): null,
+        Symbol(kBufferCb): null,
+        Symbol(kBufferGen): null,
+        Symbol(shapeMode): true,
+        Symbol(kCapture): false,
+        Symbol(kSetNoDelay): true,
+        Symbol(kSetKeepAlive): false,
+        Symbol(kSetKeepAliveInitialDelay): 0,
+        Symbol(kBytesRead): 642,
+        Symbol(kBytesWritten): 364
+      },
+      _keepAlive: false,
+      _keepAliveInitialDelayMillis: 0,
+      parsedStatements: {},
+      ssl: false,
+      _ending: true,
+      _emitMessage: false,
+      _connecting: true,
+      Symbol(shapeMode): false,
+      Symbol(kCapture): false
+    },
+    _queryQueue: [],
+    binary: false,
+    processID: 54479,
+    secretKey: -1566329385,
+    ssl: false,
+    _connectionTimeoutMillis: 0,
+    _connectionCallback: null,
+    saslSession: null,
+    release: [Function (anonymous)],
+    readyForQuery: true,
+    hasExecuted: true,
+    _poolUseCount: 1,
+    Symbol(shapeMode): false,
+    Symbol(kCapture): false
+  }
+}
+
+Node.js v24.14.1
+ ELIFECYCLE  Command failed with exit code 15.

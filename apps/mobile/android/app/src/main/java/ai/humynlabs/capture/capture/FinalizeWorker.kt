@@ -123,7 +123,12 @@ object FinalizeWorker {
             val drift: MetadataComposer.Drift? =
                 if (videoTimestamps.size >= 2 && imuTimestamps.size >= 2) {
                     val d = DriftCalculator.compute(videoTimestamps, imuTimestamps)
-                    MetadataComposer.Drift(maxMs = d.maxMs, meanMs = d.meanMs, p99Ms = d.p99Ms)
+                    MetadataComposer.Drift(
+                        maxMs = d.maxMs,
+                        meanMs = d.meanMs,
+                        p99Ms = d.p99Ms,
+                        warmupFramesSkipped = d.warmupFramesSkipped,
+                    )
                 } else {
                     null
                 }
