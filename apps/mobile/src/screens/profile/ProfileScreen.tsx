@@ -19,6 +19,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, ScrollView, StyleSheet, Image, Alert, TextInput } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { Text } from '../../ui/primitives/Text';
 import { Pressable } from '../../ui/primitives/Pressable';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
@@ -34,6 +35,13 @@ import { getFlavorContext } from '../../native/AppFlavor';
 import { useAppStore } from '../../state/appStore';
 import { coalesceDisplayName } from '../../lib/userDisplayName';
 import { InlineEditField } from './InlineEditField';
+// Phase 7 plan 07-04 — LanguageSheet (D-17) + native-name display for the
+// Language row's right-side value (D-19) + formatDate (D-37) for the Joined
+// row so digits stay Latin across all 8 MVP locales (I18N-09).
+import { LanguageSheet } from '../../components/LanguageSheet';
+import { LOCALE_NATIVE_NAMES } from '../../i18n/locale-meta';
+import type { Locale } from '../../i18n/storage';
+import { formatDate } from '../../lib/dates';
 
 // ---------------------------------------------------------------------------
 // PROF-02 — payments card body. Verbatim from idea-brief.md §5.11
@@ -60,6 +68,11 @@ interface ProfileLocal {
 export function ProfileScreen(): React.JSX.Element {
   const nav = useNavigation<{ navigate: (route: string) => void }>();
   const setUser = useAppStore((s) => s.setUser);
+  // Phase 7 plan 07-04 — useTranslation for the Language row label + sheet
+  // title; i18n.language drives both the Native-name right-side value AND
+  // the formatDate locale for the Joined row.
+  const { t, i18n } = useTranslation();
+  const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [me, setMe] = useState<ProfileLocal | null>(null);
   const [lifetime, setLifetime] = useState<{ totalSeconds: number; taskCount: number } | null>(
     null,
@@ -177,11 +190,10 @@ export function ProfileScreen(): React.JSX.Element {
     );
   }
 
-  const joined = new Date(me.createdAt).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+  // Phase 7 plan 07-04 (I18N-09 / D-37) — locale-aware date formatting via
+  // formatDate(), which forces `numberingSystem: 'latn'` so digits stay
+  // Latin (0-9) across all 8 MVP locales.
+  const joined = formatDate(new Date(me.createdAt), i18n.language);
 
   return (
     <ScrollView
@@ -296,6 +308,24 @@ export function ProfileScreen(): React.JSX.Element {
 
       {/* Actions — PROF-04 (modal bodies land in 02-19) */}
       <View style={styles.section}>
+        {/* Phase 7 plan 07-04 (I18N-04) — Language row above Help Center. Tap
+            opens the LanguageSheet (mounted below) which composes the
+            existing Sheet primitive (D-17) + the shared LanguageList. The
+            right-side value shows the current locale's NATIVE name (D-19);
+            falls back to 'English' if i18n.language is somehow outside
+            SUPPORTED_LOCALES. */}
+        <Pressable
+          style={styles.row}
+          onPress={() => setLanguageSheetVisible(true)}
+          accessibilityLabel="profile-action-language"
+        >
+          <Text variant="body" style={styles.fieldLabel}>
+            {t('profile.language.row.label')}
+          </Text>
+          <Text variant="body" tone="tertiary">
+            {LOCALE_NATIVE_NAMES[i18n.language as Locale] ?? 'English'} ›
+          </Text>
+        </Pressable>
         <Pressable
           style={styles.row}
           onPress={() => nav.navigate('HelpCenter')}
@@ -343,6 +373,15 @@ export function ProfileScreen(): React.JSX.Element {
       >
         v{versionName} ({versionCode}) · {flavor}
       </Text>
+
+      {/* Phase 7 plan 07-04 — Profile language picker (D-02 + D-17 + D-19).
+          Controlled by `languageSheetVisible` state; opens on Language-row
+          tap, commits + dismisses on row tap (tap-to-commit). Mounted at
+          ScrollView root so the scrim overlays the entire surface. */}
+      <LanguageSheet
+        visible={languageSheetVisible}
+        onDismiss={() => setLanguageSheetVisible(false)}
+      />
     </ScrollView>
   );
 }
