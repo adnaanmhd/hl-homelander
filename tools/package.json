@@ -1,0 +1,20 @@
+{
+  "name": "@humyn/tools",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "i18n:generate": "tsx i18n/generate.ts",
+    "i18n:validate": "tsx i18n/validate.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.98.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "tsx": "^4.0.0",
+    "vitest": "^4.1.5"
+  }
+}

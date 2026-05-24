@@ -68,3 +68,7 @@ models/
 
 # DSR access/portability export bundles (ops CLI output; per-user PII — never commit)
 apps/api/dsr-exports/
+
+# Phase 7: tools workspace secrets — never commit
+tools/.env
+tools/node_modules/
