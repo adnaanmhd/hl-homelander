@@ -96,16 +96,15 @@ phases:
           "configuration_version": "1"
         }
         EOF
-      - echo "Running unit tests and assembling APKs..."
+      - echo "Running unit tests and assembling playStore APK..."
       - export PATH=${PATH}:${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools
-      - cd $CODEBUILD_SRC_DIR/apps/mobile/android && . /tmp/signing-env.sh && ./gradlew :app:testApkRolloutReleaseUnitTest :app:testPlayStoreReleaseUnitTest assembleApkRolloutRelease assemblePlayStoreRelease
+      - cd $CODEBUILD_SRC_DIR/apps/mobile/android && . /tmp/signing-env.sh && ./gradlew :app:testPlayStoreReleaseUnitTest assemblePlayStoreRelease
   post_build:
     commands:
       - echo "Verifying merged manifests..."
       - cd $CODEBUILD_SRC_DIR/apps/mobile && bash scripts/verify-merged-manifests.sh Release
-      - echo "Uploading APKs to S3..."
-      - aws s3 cp $CODEBUILD_SRC_DIR/apps/mobile/android/app/build/outputs/apk/apkRollout/release/app-apkRollout-release.apk s3://humyn-apk-stage/apks/app-apkRollout-release.apk
-      - aws s3 cp $CODEBUILD_SRC_DIR/apps/mobile/android/app/build/outputs/apk/playStore/release/app-playStore-release.apk s3://humyn-apk-stage/apks/app-playStore-release.apk
+      - echo "Uploading playStore APK to S3..."
+      - aws s3 cp $CODEBUILD_SRC_DIR/apps/mobile/android/app/build/outputs/apk/playStore/release/app-playStore-release.apk s3://humyn-apk-stage/apks/app-playStore-staging.apk
 
 cache:
   paths:
