@@ -31,9 +31,14 @@ import type { AppState } from './appStore';
 import { secureMmkv } from './mmkv';
 import { practiceDoneKey } from './keys';
 import { decodeGoogleSubFromJwt } from '../lib/jwtSub';
+import { localeMmkv, LOCALE_KEYS } from '../i18n/storage';
 
 export type InitialRoute =
   | { stack: 'ForceUpgrade'; params: { hardBlock: true } }
+  // Phase 7 plan 07-04 — D-22 first-launch language picker. Slots in BEFORE
+  // the JWT gate so a fresh-install user picks a locale once, then the gate
+  // is transparent until delete-account / fresh install wipes MMKV.
+  | { stack: 'OnboardingStack'; screen: 'ChooseLanguage' }
   | { stack: 'OnboardingStack'; screen: 'Signup' }
   | { stack: 'OnboardingStack'; screen: 'Permissions' }
   | { stack: 'OnboardingStack'; screen: 'Compat' }
@@ -47,6 +52,22 @@ export function computeInitialRoute(
   // 1. Hard block first — overrides every other gate.
   if (s.forceUpgradeBlocked) {
     return { stack: 'ForceUpgrade', params: { hardBlock: true } };
+  }
+
+  // 1.5 Phase 7 plan 07-04 — first-launch language pick (D-22). Gates ALL
+  //     non-force-upgrade routing on locale being chosen. Cleared by
+  //     delete-account flow (DeleteAccountModal) and by fresh install
+  //     since localeMmkv is wiped on uninstall/reinstall.
+  //
+  //     The gate is a best-effort MMKV read; on read failure we fall through
+  //     to treating the locale as already chosen (the localeBootstrap default
+  //     is 'en', so the user lands in English without re-prompting).
+  try {
+    if (!localeMmkv.contains(LOCALE_KEYS.CHOSEN_AT)) {
+      return { stack: 'OnboardingStack', screen: 'ChooseLanguage' };
+    }
+  } catch {
+    // MMKV best-effort — treat as already chosen on read failure.
   }
 
   // 2. Sign-up gate. Splash is the launch screen but never a destination —

@@ -15,6 +15,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import SplashScreen from '../screens/splash/SplashScreen';
+import ChooseLanguageScreen from '../screens/chooseLanguage/ChooseLanguageScreen';
 import SignupScreen from '../screens/signup/SignupScreen';
 import PermissionsScreen from '../screens/permissions/PermissionsScreen';
 import CompatRunningScreen from '../screens/compat/CompatRunningScreen';
@@ -30,6 +31,13 @@ export default function OnboardingStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, gestureEnabled: false }}>
       <Stack.Screen name="Splash" component={SplashScreen} />
+      {/* Phase 7 plan 07-04 — first-launch language picker (D-22). Sits
+          between Splash and Signup; Splash's `navigation.replace(initial.screen)`
+          drives the user here when `localeMmkv.contains(LOCALE_KEYS.CHOSEN_AT)
+          === false`. After Continue commits, the locale gate is transparent
+          and Splash routes straight to Signup. `gestureEnabled: false` on the
+          stack default screenOptions enforces "no back gesture" implicitly. */}
+      <Stack.Screen name="ChooseLanguage" component={ChooseLanguageScreen} />
       <Stack.Screen name="Signup" component={SignupScreen} options={{ animation: 'fade' }} />
       <Stack.Screen name="Permissions" component={PermissionsScreen} />
       <Stack.Screen name="Compat" component={CompatRunningScreen} />

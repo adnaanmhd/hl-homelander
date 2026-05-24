@@ -63,6 +63,7 @@ import { Button } from '../ui/primitives/Button';
 import { colors, radii, spacing } from '../ui/tokens';
 import { deleteMe } from '../services/profileService';
 import { signOut } from '../services/auth';
+import { localeMmkv, LOCALE_KEYS } from '../i18n/storage';
 
 type Step = 'confirm' | 'type-delete';
 
@@ -105,6 +106,16 @@ export function DeleteAccountModal(): React.JSX.Element {
       await deleteMe();
       // Clear all auth + onboarding state, return to Signup (D-DEL-01).
       signOut();
+      // Phase 7 plan 07-04 — clear the locale gate (D-22) so re-creating an
+      // account re-runs ChooseLanguageScreen. Satisfies SPEC I18N-02's
+      // delete-account acceptance criterion. Best-effort; never block the
+      // soft-delete flow on a locale-wipe failure.
+      try {
+        localeMmkv.remove(LOCALE_KEYS.CODE);
+        localeMmkv.remove(LOCALE_KEYS.CHOSEN_AT);
+      } catch {
+        /* best-effort */
+      }
       // Pattern 61 — reset to the OnboardingStack root sibling, NOT 'Signup'.
       // Signup is nested INSIDE OnboardingStack and is not reachable as a
       // root-level route, so a reset to 'Signup' would silently no-op and
