@@ -22,6 +22,7 @@ import ai.humynlabs.capture.compat.HumynCompatPackage
 import ai.humynlabs.capture.fgs.HumynForegroundNotification
 import ai.humynlabs.capture.gatecamera.HumynGateCameraPackage
 import ai.humynlabs.capture.handdetector.HumynHandDetectorPackage
+import ai.humynlabs.capture.livepreview.HumynLivePreviewPackage
 import ai.humynlabs.capture.phonestate.HumynPhoneStatePackage
 import ai.humynlabs.capture.player.HumynPlayerPackage
 import ai.humynlabs.capture.screenbrightness.HumynScreenBrightnessPackage
@@ -46,6 +47,7 @@ class MainApplication : Application(), ReactApplication {
                 packages.add(HumynUpdaterPackage())   // Plan 02-07 — Phase 2 force-upgrade APK installer (apkRollout flavor)
                 packages.add(HumynCapturePackage())   // Plan 03-09 — Phase 3 capture pipeline entry
                 packages.add(HumynGateCameraPackage())       // debug handgate-never-passes — native Camera2 pre-record-gate camera + preview (replaces VisionCamera)
+                packages.add(HumynLivePreviewPackage())      // Phase 7 plan 07-07 — REC-LIVE-01/02 live ultrawide preview during record (D-25; no camera client of its own)
                 packages.add(HumynHandDetectorPackage())     // Plan 04-02 — HAND-01 pre-record hand gate (MediaPipe; body in 04-04)
                 packages.add(HumynPhoneStatePackage())       // Plan 04-02 — AudioManager focus-loss interruption signal (body in 04-05)
                 packages.add(HumynBatteryPackage())          // Plan 04-02 — battery level/charging signal (body in 04-05)
