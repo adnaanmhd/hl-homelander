@@ -319,7 +319,7 @@ Plans:
 
 **Wave 3** _(live-cam preview — parallel to Wave 2 given hardware availability; CONTAINS BLOCKING checkpoint)_
 
-- [ ] 07-07-live-preview-native-and-recording-screen-PLAN.md — HumynLivePreviewView quad + LivePreviewSurfaceRegistry + CaptureSession.kt Option B (two-Surface) + RecordingScreen brightness state machine + tap zone + D-05 practice gate (REC-LIVE-01..07)
+- [x] 07-07-live-preview-native-and-recording-screen-PLAN.md — HumynLivePreviewView quad + LivePreviewSurfaceRegistry + CaptureSession.kt Option B (two-Surface) + RecordingScreen brightness state machine + tap zone + D-05 practice gate (REC-LIVE-01..07)
 
 **Wave 4** _(manual smoke + sign-off — depends on Waves 2+3)_
 
