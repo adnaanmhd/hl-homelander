@@ -19,3 +19,8 @@
 
 # Ignore warnings to prevent other harmless missing-class references from breaking the build
 -ignorewarnings
+
+# Keep react-native-config and the main app's BuildConfig class from being obfuscated/stripped by R8
+-keep class com.lugg.RNCConfig.BuildConfig { *; }
+-keep class ai.humynlabs.capture.BuildConfig { *; }
+-keep class ai.humynlabs.capture.apk.BuildConfig { *; }
