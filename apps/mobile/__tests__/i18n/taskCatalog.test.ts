@@ -52,9 +52,17 @@ describe('TASK_CATALOG_I18N (I18N-10 / D-01 / D-15)', () => {
     for (const [canonical, byLocale] of Object.entries(TASK_CATALOG_I18N)) {
       const actual = Object.keys(byLocale).sort();
       expect(actual, `task=${canonical}`).toEqual(expected);
+      // Cast through `Record<string, TaskBody>` because `Object.keys` returns
+      // `string[]` (loses the `Locale` tag on `expected`), but every entry IS
+      // a TaskBody per the runtime assertion three lines down.
+      const byLocaleRec = byLocale as unknown as Record<
+        string,
+        import('../../src/i18n/taskCatalog.i18n').TaskBody
+      >;
       for (const loc of expected) {
-        const body = byLocale[loc as never];
+        const body = byLocaleRec[loc];
         expect(body, `${canonical}/${loc} body present`).toBeTruthy();
+        if (!body) continue;
         expect(typeof body.name, `${canonical}/${loc} name`).toBe('string');
         expect(typeof body.description, `${canonical}/${loc} description`).toBe('string');
         expect(Array.isArray(body.instructions), `${canonical}/${loc} instructions`).toBe(true);
