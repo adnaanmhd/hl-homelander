@@ -307,9 +307,9 @@ Plans:
 Plans:
 **Wave 1** _(i18n infrastructure foundation — parallel; disjoint file ownership)_
 
-- [ ] 07-01-i18n-runtime-bootstrap-PLAN.md — i18next/react-i18next deps + localeMmkv + I18nextProvider + bootstrap + 8 placeholder locale JSONs (I18N-01)
-- [ ] 07-02-llm-catalog-generator-tool-PLAN.md — tools/ workspace + Claude Opus 4.7 generator + shape-parity validator (I18N-05)
-- [ ] 07-03-i18n-helpers-and-error-map-PLAN.md — formatDate Intl wrapper + ERROR_TOAST_KEYS + EVENT_NAMES extension (I18N-08, I18N-09, I18N-12)
+- [x] 07-01-i18n-runtime-bootstrap-PLAN.md — i18next/react-i18next deps + localeMmkv + I18nextProvider + bootstrap + 8 placeholder locale JSONs (I18N-01)
+- [x] 07-02-llm-catalog-generator-tool-PLAN.md — tools/ workspace + Claude Opus 4.7 generator + shape-parity validator (I18N-05)
+- [x] 07-03-i18n-helpers-and-error-map-PLAN.md — formatDate Intl wrapper + ERROR_TOAST_KEYS + EVENT_NAMES extension (I18N-08, I18N-09, I18N-12)
 
 **Wave 2** _(UI rollout + reverse-search + TTS — depends on Wave 1)_
 
