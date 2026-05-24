@@ -16,6 +16,7 @@ import { render, fireEvent, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { TermsOfUseModal, TERMS_OF_USE_TEXT } from '../../src/screens/signup/TermsOfUseModal';
+import i18n from '../../src/i18n';
 
 const CANONICAL_TEXT =
   'I consent and agree to upload videos of myself and/or others who consent to be recorded; ' +
@@ -26,9 +27,12 @@ const CANONICAL_TEXT =
   "I understand that my data will be stored securely and used in accordance with Humyn's " +
   'Privacy Policy.';
 
-describe('TermsOfUseModal (plan 02-09 Task 1)', () => {
-  beforeEach(() => {
+describe('TermsOfUseModal (plan 02-09 Task 1 + plan 07-05 Task 3 bilingual)', () => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    // Reset to English between tests — the bilingual locale-switch test below
+    // would otherwise leak hi-IN into Test 2's English-only assertion.
+    await i18n.changeLanguage('en');
   });
 
   afterEach(() => {
@@ -81,5 +85,34 @@ describe('TermsOfUseModal (plan 02-09 Task 1)', () => {
     // canonical text changes (which itself requires updating idea-brief.md +
     // bumping the consent version on the backend per LEGAL-02).
     expect(TERMS_OF_USE_TEXT.length).toBe(CANONICAL_TEXT.length);
+  });
+
+  // Plan 07-05 Task 3 — bilingual rendering per D-32 / D-33. The canonical
+  // `TERMS_OF_USE_TEXT` byte sequence is unchanged (D-33 — the legal record
+  // stays English on the server). When the active locale is non-English the
+  // modal renders TWO Text blocks: translated body on top, English underlay
+  // below at ~70% opacity.
+  it('Test 5 (D-32): renders only the English body when active locale is en', () => {
+    const { queryByLabelText } = render(<TermsOfUseModal visible onClose={() => {}} />);
+    expect(queryByLabelText('Terms of Use body')).toBeTruthy();
+    expect(queryByLabelText('Terms of Use English underlay')).toBeFalsy();
+  });
+
+  it('Test 6 (D-32): renders translated body on top + English underlay below when locale != en', async () => {
+    await i18n.changeLanguage('hi-IN');
+    const { queryByLabelText } = render(<TermsOfUseModal visible onClose={() => {}} />);
+    // Both blocks present (translated on top, English underlay below at 70% opacity).
+    expect(queryByLabelText('Terms of Use body')).toBeTruthy();
+    expect(queryByLabelText('Terms of Use English underlay')).toBeTruthy();
+    // The English underlay is byte-equal to the canonical constant (D-33).
+    const underlay = queryByLabelText('Terms of Use English underlay');
+    expect(underlay?.textContent).toBe(CANONICAL_TEXT);
+  });
+
+  it('Test 7 (D-33): en.json `terms.consent.body` is byte-equal to TERMS_OF_USE_TEXT', () => {
+    // The English value in the i18n catalog must match the legal canonical
+    // constant exactly — the plan's parity assertion (no drift between the
+    // legal record and the localized catalog).
+    expect(i18n.getFixedT('en')('terms.consent.body')).toBe(TERMS_OF_USE_TEXT);
   });
 });

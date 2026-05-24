@@ -1,312 +1,318 @@
 {
   "common": {
-    "continue": "Continue",
-    "cancel": "Cancel",
-    "save": "Save",
-    "close": "Close",
-    "retry": "Retry",
-    "done": "Done",
-    "gotIt": "Got it",
-    "next": "Next",
-    "sending": "Sending…",
-    "loading": "Loading…",
-    "updating": "Updating…",
-    "signingIn": "Signing in…"
+    "continue": "आगे बढ़ें",
+    "cancel": "रद्द करें",
+    "save": "सेव करें",
+    "close": "बंद करें",
+    "retry": "फिर से कोशिश करें",
+    "done": "हो गया",
+    "gotIt": "समझ गया",
+    "next": "आगे",
+    "sending": "भेज रहे हैं…",
+    "loading": "लोड हो रहा है…",
+    "updating": "अपडेट हो रहा है…",
+    "signingIn": "साइन इन हो रहा है…"
   },
   "onboarding": {
     "chooseLanguage": {
-      "title": "Choose your language",
-      "continueButton": "Continue"
+      "title": "अपनी भाषा चुनें",
+      "continueButton": "आगे बढ़ें"
     }
   },
   "splash": {
-    "taglinePrefix": "Real Humyns.",
-    "taglineAccent": " Real Intelligence."
+    "taglinePrefix": "असली इंसान।",
+    "taglineAccent": " असली समझ।"
   },
   "signup": {
-    "tagline": "Real Humyns. Real Intelligence.",
-    "pitchLine1": "Record real moments.",
-    "pitchLine2": "Train real intelligence.",
-    "pitchLine3": "Get paid",
-    "ctaSignIn": "Continue with Google",
-    "consentLabelPrefix": "I have read and agree to the ",
-    "consentLink": "Terms of Use",
-    "consentRequiredAlert": "Please accept the Terms of Use to continue.",
+    "tagline": "असली इंसान। असली समझ।",
+    "pitchLine1": "असली पल रिकॉर्ड करें।",
+    "pitchLine2": "असली समझ को सिखाएँ।",
+    "pitchLine3": "पैसे कमाएँ",
+    "ctaSignIn": "Google से आगे बढ़ें",
+    "consentLabelPrefix": "मैंने पढ़ लिया है और मुझे मंज़ूर है ",
+    "consentLink": "शर्तें",
+    "consentRequiredAlert": "आगे बढ़ने के लिए कृपया शर्तें मानें।",
     "consent": {
-      "paragraph": "I have read and agree to the Terms of Use"
+      "paragraph": "मैंने शर्तें पढ़ ली हैं और मुझे मंज़ूर हैं"
     }
   },
   "permissions": {
-    "titleIdle": "Camera & Mic\nPermissions",
-    "titleRecovery": "Camera & Mic\nare required",
-    "bodyIdle": "Used only while you hit record",
-    "bodyDenied": "Camera & Mic are required. Open Settings to enable.",
-    "bodyPartialPrefix": "{{name}} access is required. Open Settings to enable.",
-    "buttonAllow": "Allow access",
-    "buttonOpenSettings": "Open Settings",
-    "cameraName": "Camera",
-    "microphoneName": "Microphone"
+    "titleIdle": "कैमरा और माइक की\nइजाज़त",
+    "titleRecovery": "कैमरा और माइक\nज़रूरी हैं",
+    "bodyIdle": "सिर्फ़ रिकॉर्ड करते वक़्त इस्तेमाल होगा",
+    "bodyDenied": "कैमरा और माइक ज़रूरी हैं। चालू करने के लिए सेटिंग्स खोलें।",
+    "bodyPartialPrefix": "{{name}} की इजाज़त ज़रूरी है। चालू करने के लिए सेटिंग्स खोलें।",
+    "buttonAllow": "इजाज़त दें",
+    "buttonOpenSettings": "सेटिंग्स खोलें",
+    "cameraName": "कैमरा",
+    "microphoneName": "माइक्रोफ़ोन"
   },
   "compat": {
     "running": {
-      "title": "Checking your phone",
-      "subtitle": "Takes around 30 secs"
+      "title": "आपके फ़ोन की जाँच हो रही है",
+      "subtitle": "करीब 30 सेकंड लगेंगे"
     },
     "pass": {
-      "title": "You're in.",
-      "subtitle": "All checks passed.",
-      "storageWarningPrefix": "Free up space to avoid recording loss. {{gb}} GB free."
+      "title": "हो गया, आप तैयार हैं।",
+      "subtitle": "सारी जाँच पास हो गई।",
+      "storageWarningPrefix": "रिकॉर्डिंग न खोए, इसके लिए जगह खाली करें। {{gb}} GB खाली है।"
     },
     "fail": {
-      "title": "This phone can't record yet",
-      "body": "This phone doesn't meet the recording requirements.",
-      "contactSupport": "Contact Support",
+      "title": "यह फ़ोन अभी रिकॉर्ड नहीं कर सकता",
+      "body": "यह फ़ोन रिकॉर्डिंग की शर्तें पूरी नहीं करता।",
+      "contactSupport": "सपोर्ट से बात करें",
       "lines": {
-        "ultrawideDfov": "Ultrawide camera 110°+ required (yours: {{deg}}°)",
-        "resolutionFps": "1080p @ 30 FPS required",
-        "imuSustained100Hz": "Stable motion sensors at 100 Hz+ required (yours: {{hz}} Hz)",
-        "imuP99Ms": "Sensor jitter ≤12 ms required (yours: {{ms}} ms p99)",
-        "micSampleRate": "Microphone 48 kHz capability required",
-        "realtimeTimestamp": "REALTIME timestamp source required",
-        "root": "Device must not be rooted",
-        "encoderNoBFrames": "HEVC encoder must produce I/P-only (no B-frames)",
-        "oisOff": "Optical stabilization must be disabled at capture time",
-        "hdrSdrForced": "SDR mode must be forced (no HDR)"
+        "ultrawideDfov": "अल्ट्रावाइड कैमरा 110°+ चाहिए (आपका: {{deg}}°)",
+        "resolutionFps": "1080p @ 30 FPS चाहिए",
+        "imuSustained100Hz": "मोशन सेंसर 100 Hz+ पर स्थिर चाहिए (आपका: {{hz}} Hz)",
+        "imuP99Ms": "सेंसर का जिटर ≤12 ms चाहिए (आपका: {{ms}} ms p99)",
+        "micSampleRate": "माइक्रोफ़ोन 48 kHz वाला चाहिए",
+        "realtimeTimestamp": "REALTIME टाइमस्टैम्प सोर्स चाहिए",
+        "root": "फ़ोन रूटेड नहीं होना चाहिए",
+        "encoderNoBFrames": "HEVC एनकोडर सिर्फ़ I/P फ़्रेम बनाए (B-फ़्रेम नहीं)",
+        "oisOff": "रिकॉर्डिंग के वक़्त ऑप्टिकल स्टेबलाइज़ेशन बंद होना चाहिए",
+        "hdrSdrForced": "SDR मोड ज़रूरी है (HDR नहीं)"
       }
     }
   },
   "rigTutorial": {
-    "heading": "You'll need a head rig",
-    "body": "Mount your phone on the head rig and make sure it is steady while recording.",
-    "framingTip": "Before each take, use the on-screen camera preview to check your hands are in frame — ask someone to verify if you can.",
-    "noRigLink": "Don't have a rig yet?",
-    "buttonNext": "Next",
+    "heading": "आपको एक हेड रिग चाहिए होगा",
+    "body": "अपना फ़ोन हेड रिग पर लगाएँ और रिकॉर्ड करते वक़्त ध्यान रखें कि वो हिले नहीं।",
+    "framingTip": "हर बार रिकॉर्ड शुरू करने से पहले स्क्रीन पर कैमरा प्रिव्यू देखकर पक्का करें कि आपके हाथ फ़्रेम में हैं — हो सके तो किसी से चेक करवा लें।",
+    "noRigLink": "अभी रिग नहीं है?",
+    "buttonNext": "आगे",
     "offRamp": {
-      "title": "No rig yet?",
-      "bodyPrefix": "You'll need a head rig to record. We're working on getting rigs to contributors. Email us at {{email}} and we'll let you know when one ships your way. You can keep exploring the app in the meantime.",
-      "emailSupport": "Email support",
-      "gotIt": "Got it"
+      "title": "अभी रिग नहीं है?",
+      "bodyPrefix": "रिकॉर्ड करने के लिए हेड रिग चाहिए होगा। हम योगदान देने वालों तक रिग पहुँचाने पर काम कर रहे हैं। हमें {{email}} पर ईमेल करें, जब आपके लिए एक भेजा जाएगा तो हम बता देंगे। तब तक आप ऐप देखते रहिए।",
+      "emailSupport": "सपोर्ट को ईमेल करें",
+      "gotIt": "समझ गया"
     }
   },
   "practiceIntro": {
-    "heading": "One quick try",
-    "body": "We'll walk you through one short recording — 60 secs, to get the feel",
-    "buttonStart": "Start practice"
+    "heading": "एक छोटी सी कोशिश",
+    "body": "हम आपको एक छोटी रिकॉर्डिंग करवाएँगे — 60 सेकंड, ताकि अंदाज़ा हो जाए",
+    "buttonStart": "प्रैक्टिस शुरू करें"
   },
   "practiceComplete": {
-    "heading": "You got it.",
-    "buttonContinue": "Continue"
+    "heading": "वाह, आ गया।",
+    "buttonContinue": "आगे बढ़ें"
   },
   "recording": {
-    "preview": { "live": "Live preview" },
-    "startRecording": "Start Recording",
-    "stopRecording": "Stop",
-    "skip": "Skip",
-    "gatePrompt": "Mount the phone on your head and bring your hands in frame for 2 secs",
-    "overlayTip": "Don't exit while recording.",
+    "preview": {
+      "live": "लाइव प्रिव्यू"
+    },
+    "startRecording": "रिकॉर्डिंग शुरू करें",
+    "stopRecording": "रोकें",
+    "skip": "छोड़ें",
+    "gatePrompt": "फ़ोन को सिर पर लगाएँ और 2 सेकंड के लिए अपने हाथ फ़्रेम में लाएँ",
+    "overlayTip": "रिकॉर्डिंग के दौरान बाहर मत निकलें।",
     "alerts": {
-      "batteryPrefix": "Battery 15%",
-      "thermal": "Phone too hot"
+      "batteryPrefix": "बैटरी 15%",
+      "thermal": "फ़ोन ज़्यादा गरम है"
     },
     "toasts": {
-      "deviceDistress": "Recording stopped — your phone needs attention.",
-      "tooShort": "Recording too short — discarded.",
-      "profileIncomplete": "Please complete your profile in Profile → Email.",
-      "storageFull": "Not enough storage to record.",
-      "thermalThrottling": "Phone too warm — let it cool and try again.",
-      "couldNotStart": "Could not start recording."
+      "deviceDistress": "रिकॉर्डिंग रुक गई — आपके फ़ोन को देखने की ज़रूरत है।",
+      "tooShort": "रिकॉर्डिंग बहुत छोटी थी — हटा दी गई।",
+      "profileIncomplete": "कृपया प्रोफ़ाइल → ईमेल में जाकर अपनी प्रोफ़ाइल पूरी करें।",
+      "storageFull": "रिकॉर्ड करने के लिए जगह नहीं है।",
+      "thermalThrottling": "फ़ोन गरम है — ठंडा होने दें और फिर कोशिश करें।",
+      "couldNotStart": "रिकॉर्डिंग शुरू नहीं हो सकी।"
     },
     "voiceCues": {
-      "profileIncomplete": "Please complete your profile",
-      "thermalThrottling": "Phone too warm",
-      "permissionRevoked": "Camera permission needed",
-      "couldNotStart": "Could not start recording"
+      "profileIncomplete": "कृपया अपनी प्रोफ़ाइल पूरी करें",
+      "thermalThrottling": "फ़ोन ज़्यादा गरम है",
+      "permissionRevoked": "कैमरे की इजाज़त चाहिए",
+      "couldNotStart": "रिकॉर्डिंग शुरू नहीं हो सकी"
     }
   },
   "home": {
-    "sectionContribution": "YOUR CONTRIBUTION",
-    "sectionPendingUploads": "PENDING UPLOADS",
-    "emptyTip": "Your hours and tasks will track here as you record.",
-    "viewAllMore": "+{{count}} more — tap to view all",
+    "sectionContribution": "आपका योगदान",
+    "sectionPendingUploads": "बाक़ी अपलोड",
+    "emptyTip": "जैसे-जैसे आप रिकॉर्ड करेंगे, आपके घंटे और काम यहाँ दिखेंगे।",
+    "viewAllMore": "+{{count}} और — सब देखने के लिए टैप करें",
     "filter": {
-      "today": "today ▾",
-      "yesterday": "yesterday ▾",
-      "thisWeek": "this week ▾",
-      "thisMonth": "this month ▾",
-      "all": "all time ▾",
-      "customRange": "custom range ▾"
+      "today": "आज ▾",
+      "yesterday": "कल ▾",
+      "thisWeek": "इस हफ़्ते ▾",
+      "thisMonth": "इस महीने ▾",
+      "all": "अब तक ▾",
+      "customRange": "अपनी पसंद की तारीख़ ▾"
     },
     "tile": {
-      "taskCount_one": "1 task",
-      "taskCount_other": "{{count}} tasks",
-      "recordingFallback": "Recording"
+      "taskCount_one": "1 काम",
+      "taskCount_other": "{{count}} काम",
+      "recordingFallback": "रिकॉर्डिंग"
     }
   },
   "tasks": {
-    "searchPlaceholder": "Search tasks…",
-    "emptyHeading": "No tasks match. Try clearing filters or ",
-    "emptySendLink": "send a request",
-    "footerPrefix": "Can't find a task? ",
-    "footerLink": "Send request →"
+    "searchPlaceholder": "काम ढूँढें…",
+    "emptyHeading": "कोई काम नहीं मिला। फ़िल्टर हटाकर देखें या ",
+    "emptySendLink": "रिक्वेस्ट भेजें",
+    "footerPrefix": "अपना काम नहीं मिल रहा? ",
+    "footerLink": "रिक्वेस्ट भेजें →"
   },
   "taskDetails": {
-    "outdoorChip": "Outdoor",
-    "forThisTask": "FOR THIS TASK",
-    "startRecording": "Start Recording"
+    "outdoorChip": "बाहर का",
+    "forThisTask": "इस काम के लिए",
+    "startRecording": "रिकॉर्डिंग शुरू करें"
   },
   "sendRequest": {
-    "title": "Send a task request",
-    "subtitle": "Tell us what task you'd like to record. We review every request.",
-    "labelTaskName": "Task name",
-    "placeholderTaskName": "e.g. Iron clothes",
-    "labelDescription": "What does it involve?",
-    "placeholderDescription": "A few words on what the task involves.",
-    "buttonSubmit": "Send request",
-    "buttonCancel": "Cancel",
-    "submitting": "Sending…",
-    "toastSent": "Request sent. We'll review and add it to your list.",
+    "title": "काम की रिक्वेस्ट भेजें",
+    "subtitle": "बताइए आप कौन सा काम रिकॉर्ड करना चाहेंगे। हम हर रिक्वेस्ट देखते हैं।",
+    "labelTaskName": "काम का नाम",
+    "placeholderTaskName": "जैसे, कपड़े प्रेस करना",
+    "labelDescription": "इसमें क्या होता है?",
+    "placeholderDescription": "इस काम में क्या-क्या होता है, थोड़े में बताइए।",
+    "buttonSubmit": "रिक्वेस्ट भेजें",
+    "buttonCancel": "रद्द करें",
+    "submitting": "भेज रहे हैं…",
+    "toastSent": "रिक्वेस्ट भेज दी। हम देखकर इसे आपकी लिस्ट में जोड़ देंगे।",
     "validationAlerts": {
-      "missingName": "Please enter a task name.",
-      "missingDescription": "Please tell us what the task involves."
+      "missingName": "कृपया काम का नाम डालें।",
+      "missingDescription": "कृपया बताएँ कि इस काम में क्या होता है।"
     },
     "errors": {
-      "submitFailed": "Couldn't send. Try again."
+      "submitFailed": "भेज नहीं पाए। फिर कोशिश करें।"
     }
   },
   "history": {
-    "title": "History",
-    "emptyHeading": "No recordings yet",
-    "emptyBody": "Start your first recording from the Tasks tab.",
+    "title": "हिस्ट्री",
+    "emptyHeading": "अभी कोई रिकॉर्डिंग नहीं",
+    "emptyBody": "Tasks टैब से अपनी पहली रिकॉर्डिंग शुरू करें।",
     "tabs": {
-      "all": "All",
-      "verified": "Verified",
-      "uploading": "Uploading",
-      "failed": "Failed"
+      "all": "सब",
+      "verified": "जाँची हुई",
+      "uploading": "अपलोड हो रही",
+      "failed": "नहीं हुई"
     },
     "filter": {
-      "allTime": "all time",
-      "today": "today",
-      "thisWeek": "this week",
-      "thisMonth": "this month"
+      "allTime": "अब तक",
+      "today": "आज",
+      "thisWeek": "इस हफ़्ते",
+      "thisMonth": "इस महीने"
     },
-    "loadingMore": "Loading more…",
-    "endOfList": "End of list"
+    "loadingMore": "और लोड हो रहा है…",
+    "endOfList": "लिस्ट खत्म"
   },
   "player": {
-    "viewOnlyToast": "View only — not downloadable.",
-    "loadError": "Couldn't load this recording.",
-    "playbackError": "Playback error.",
-    "close": "Close",
-    "share": "Share"
+    "viewOnlyToast": "सिर्फ़ देखने के लिए — डाउनलोड नहीं हो सकती।",
+    "loadError": "यह रिकॉर्डिंग लोड नहीं हो पाई।",
+    "playbackError": "चलाने में दिक्कत हुई।",
+    "close": "बंद करें",
+    "share": "शेयर करें"
   },
   "help": {
-    "title": "Help Center",
-    "contactSupport": "Contact Support",
-    "reportProblem": "Report a problem"
+    "title": "हेल्प सेंटर",
+    "contactSupport": "सपोर्ट से बात करें",
+    "reportProblem": "दिक्कत बताएँ"
   },
   "report": {
-    "title": "Report a problem",
-    "labelCategory": "Category",
-    "labelWhatHappened": "What happened?",
-    "placeholderMessage": "Tell us what you were doing and what went wrong.",
-    "buttonCancel": "Cancel",
-    "buttonSend": "Send report",
-    "sending": "Sending…",
+    "title": "दिक्कत बताएँ",
+    "labelCategory": "कैटेगरी",
+    "labelWhatHappened": "क्या हुआ?",
+    "placeholderMessage": "बताइए आप क्या कर रहे थे और क्या गड़बड़ हुई।",
+    "buttonCancel": "रद्द करें",
+    "buttonSend": "रिपोर्ट भेजें",
+    "sending": "भेज रहे हैं…",
     "alerts": {
-      "pickCategory": "Pick a category",
-      "pickCategoryBody": "Choose what kind of problem you hit.",
-      "addMessage": "Add a message",
-      "addMessageBody": "Tell us what happened.",
-      "sentTitle": "Sent",
-      "sentBody": "Thanks — we got your report.",
-      "failedTitle": "Failed",
-      "failedBodyFallback": "Try again later."
+      "pickCategory": "एक कैटेगरी चुनें",
+      "pickCategoryBody": "बताइए किस तरह की दिक्कत आई।",
+      "addMessage": "एक मैसेज लिखें",
+      "addMessageBody": "बताइए क्या हुआ था।",
+      "sentTitle": "भेज दी",
+      "sentBody": "शुक्रिया — आपकी रिपोर्ट मिल गई।",
+      "failedTitle": "नहीं भेज पाए",
+      "failedBodyFallback": "थोड़ी देर बाद फिर कोशिश करें।"
     }
   },
   "forceUpgrade": {
-    "title": "Update to continue.",
-    "body": "A newer version of Humyn Labs Capture is required to keep recording.",
-    "buttonUpdate": "Update",
-    "buttonUpdating": "Updating…",
+    "title": "आगे बढ़ने के लिए अपडेट करें।",
+    "body": "रिकॉर्डिंग जारी रखने के लिए Humyn Labs Capture का नया वर्शन ज़रूरी है।",
+    "buttonUpdate": "अपडेट करें",
+    "buttonUpdating": "अपडेट हो रहा है…",
     "alerts": {
-      "infoUnavailableTitle": "Update info unavailable",
-      "infoUnavailableBody": "Try again in a moment.",
-      "integrityTitle": "Update failed (integrity check)",
-      "integrityBody": "Try again or contact support.",
-      "failedTitle": "Update failed",
-      "failedBodyNetwork": "Check your connection and try again.",
-      "failedBodyFallback": "Try again later."
+      "infoUnavailableTitle": "अपडेट की जानकारी नहीं मिली",
+      "infoUnavailableBody": "थोड़ी देर बाद फिर कोशिश करें।",
+      "integrityTitle": "अपडेट नहीं हुआ (इंटीग्रिटी जाँच फेल)",
+      "integrityBody": "फिर कोशिश करें या सपोर्ट से बात करें।",
+      "failedTitle": "अपडेट नहीं हुआ",
+      "failedBodyNetwork": "अपना नेट चेक करें और फिर कोशिश करें।",
+      "failedBodyFallback": "थोड़ी देर बाद फिर कोशिश करें।"
     }
   },
   "pendingUploads": {
-    "title": "Pending uploads",
-    "empty": "No uploads pending — your recordings are safely uploaded.",
+    "title": "बाक़ी अपलोड",
+    "empty": "कोई अपलोड बाक़ी नहीं — आपकी सारी रिकॉर्डिंग सही से अपलोड हो गई हैं।",
     "fileFallback": "recording.mp4",
-    "metaFallback": "Recording",
-    "retry": "Retry"
+    "metaFallback": "रिकॉर्डिंग",
+    "retry": "फिर कोशिश करें"
   },
   "batteryOpt": {
-    "title": "Keep your uploads running",
-    "body": "Some phones aggressively close background apps. Allowing Homelander to run unrestricted keeps your recordings uploading after you leave the app.",
-    "buttonAllow": "Allow unrestricted battery",
-    "buttonOpenAutostart": "Open Autostart settings",
-    "buttonDone": "Done",
-    "buttonSkip": "Skip for now",
-    "statusAllowed": "✓ Allowed — uploads will keep running in the background.",
-    "statusStillRestricted": "Still restricted — open Settings → Apps → Homelander → Battery → Unrestricted.",
-    "sectionHow": "How to do it on your phone",
-    "fallbackCopy": "If that screen isn't on your phone: Settings → Apps → Homelander → Battery → Unrestricted, and turn on Autostart if your phone has it.",
+    "title": "आपके अपलोड चलते रहें",
+    "body": "कुछ फ़ोन बैकग्राउंड में चल रहे ऐप्स को ज़बरदस्ती बंद कर देते हैं। Homelander को बिना रोक-टोक चलने देंगे तो ऐप से बाहर जाने के बाद भी आपकी रिकॉर्डिंग अपलोड होती रहेगी।",
+    "buttonAllow": "बिना रोक बैटरी इस्तेमाल करने दें",
+    "buttonOpenAutostart": "ऑटोस्टार्ट सेटिंग खोलें",
+    "buttonDone": "हो गया",
+    "buttonSkip": "अभी छोड़ें",
+    "statusAllowed": "✓ इजाज़त मिल गई — अपलोड बैकग्राउंड में चलते रहेंगे।",
+    "statusStillRestricted": "अभी भी रोक है — सेटिंग्स → ऐप्स → Homelander → बैटरी → बिना रोक खोलें।",
+    "sectionHow": "अपने फ़ोन में कैसे करें",
+    "fallbackCopy": "अगर आपके फ़ोन में वो स्क्रीन नहीं है: सेटिंग्स → ऐप्स → Homelander → बैटरी → बिना रोक, और अगर फ़ोन में ऑटोस्टार्ट है तो उसे चालू करें।",
     "vendors": {
       "xiaomi": {
         "label": "Xiaomi (MIUI / HyperOS)",
-        "steps": "Settings → Apps → Manage apps → Humyn Labs Capture → Battery saver → No restrictions, and Autostart → on."
+        "steps": "सेटिंग्स → ऐप्स → ऐप्स मैनेज करें → Humyn Labs Capture → बैटरी सेवर → कोई रोक नहीं, और ऑटोस्टार्ट → चालू।"
       },
       "oppo": {
         "label": "Oppo (ColorOS)",
-        "steps": "Settings → Battery → App battery management → Humyn Labs Capture → Allow background activity, and Settings → App management → Auto launch → on."
+        "steps": "सेटिंग्स → बैटरी → ऐप बैटरी मैनेजमेंट → Humyn Labs Capture → बैकग्राउंड में चलने दें, और सेटिंग्स → ऐप मैनेजमेंट → ऑटो लॉन्च → चालू।"
       },
       "vivo": {
         "label": "Vivo (FunTouch)",
-        "steps": "Settings → Battery → Background power consumption management → Humyn Labs Capture → Allow, and Settings → More settings → Permission management → Autostart → on."
+        "steps": "सेटिंग्स → बैटरी → बैकग्राउंड पावर खपत मैनेजमेंट → Humyn Labs Capture → इजाज़त दें, और सेटिंग्स → और सेटिंग्स → परमिशन मैनेजमेंट → ऑटोस्टार्ट → चालू।"
       },
       "samsung": {
         "label": "Samsung (One UI)",
-        "steps": "Settings → Apps → Humyn Labs Capture → Battery → Unrestricted (turn off \"Pause app activity if unused\")."
+        "steps": "सेटिंग्स → ऐप्स → Humyn Labs Capture → बैटरी → बिना रोक (\"Pause app activity if unused\" बंद कर दें)।"
       },
       "stock": {
         "label": "Stock Android / Pixel",
-        "steps": "Settings → Apps → Humyn Labs Capture → Battery → Unrestricted."
+        "steps": "सेटिंग्स → ऐप्स → Humyn Labs Capture → बैटरी → बिना रोक।"
       }
     }
   },
   "profile": {
     "language": {
-      "row": { "label": "Language" },
-      "picker": { "title": "Select language" }
+      "row": {
+        "label": "भाषा"
+      },
+      "picker": {
+        "title": "भाषा चुनें"
+      }
     }
   },
   "terms": {
     "consent": {
-      "modalTitle": "Terms of Use",
-      "body": "I consent and agree to upload videos of myself and/or others who consent to be recorded; performing certain daily activities/tasks. This content will be used to develop / train AI models and for research purposes. I confirm that I am 18 years or older and have the necessary permissions to share this content. I confirm that no one being recorded is a minor. I consent to my approximate location and IP address being captured alongside each recording. I understand that my data will be stored securely and used in accordance with Humyn's Privacy Policy."
+      "modalTitle": "शर्तें",
+      "body": "मैं इस बात पर राज़ी हूँ और मंज़ूरी देता हूँ कि मैं अपने और/या उन लोगों के वीडियो अपलोड करूँगा जो रिकॉर्ड होने पर राज़ी हैं; जिसमें कुछ रोज़मर्रा के काम/गतिविधियाँ की जाएँगी। इस सामान का इस्तेमाल AI मॉडल बनाने / सिखाने और रिसर्च के लिए होगा। मैं पक्का करता हूँ कि मेरी उम्र 18 साल या उससे ज़्यादा है और मेरे पास इस सामान को शेयर करने की सारी ज़रूरी इजाज़त है। मैं पक्का करता हूँ कि रिकॉर्ड हो रहा कोई भी इंसान नाबालिग नहीं है। मैं इस बात पर राज़ी हूँ कि हर रिकॉर्डिंग के साथ मेरी मोटा-मोटी जगह और IP एड्रेस भी लिया जाए। मैं समझता हूँ कि मेरा डेटा सुरक्षित रखा जाएगा और Humyn की प्राइवेसी पॉलिसी के मुताबिक़ इस्तेमाल होगा।"
     }
   },
   "errors": {
-    "generic": "Something went wrong",
+    "generic": "कुछ गड़बड़ हो गई",
     "auth": {
-      "invalidToken": "Please sign in again",
-      "expiredToken": "Your session expired — please sign in again",
-      "googleFailed": "Google sign-in failed"
+      "invalidToken": "कृपया फिर से साइन इन करें",
+      "expiredToken": "आपका सेशन खत्म हो गया — कृपया फिर से साइन इन करें",
+      "googleFailed": "Google साइन-इन नहीं हुआ"
     },
     "upload": {
-      "quotaExceeded": "Upload quota reached for today",
-      "networkLost": "Network lost — retry when back online"
+      "quotaExceeded": "आज की अपलोड लिमिट खत्म हो गई",
+      "networkLost": "नेट चला गया — वापस आने पर फिर कोशिश करें"
     },
     "recording": {
-      "tooShort": "Recording was too short"
+      "tooShort": "रिकॉर्डिंग बहुत छोटी थी"
     },
     "compat": {
-      "failed": "Your device is not compatible"
+      "failed": "आपका फ़ोन इसके लायक नहीं है"
     }
   }
 }

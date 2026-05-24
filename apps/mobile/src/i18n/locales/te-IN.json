@@ -1,312 +1,318 @@
 {
   "common": {
-    "continue": "Continue",
-    "cancel": "Cancel",
-    "save": "Save",
-    "close": "Close",
-    "retry": "Retry",
-    "done": "Done",
-    "gotIt": "Got it",
-    "next": "Next",
-    "sending": "Sending…",
-    "loading": "Loading…",
-    "updating": "Updating…",
-    "signingIn": "Signing in…"
+    "continue": "ముందుకెళ్ళండి",
+    "cancel": "రద్దు చేయండి",
+    "save": "సేవ్ చేయండి",
+    "close": "మూసేయండి",
+    "retry": "మళ్ళీ ట్రై చేయండి",
+    "done": "అయిపోయింది",
+    "gotIt": "అర్థమైంది",
+    "next": "తర్వాత",
+    "sending": "పంపిస్తున్నాం…",
+    "loading": "లోడ్ అవుతోంది…",
+    "updating": "అప్‌డేట్ అవుతోంది…",
+    "signingIn": "సైన్ ఇన్ అవుతోంది…"
   },
   "onboarding": {
     "chooseLanguage": {
-      "title": "Choose your language",
-      "continueButton": "Continue"
+      "title": "మీ భాషను ఎంచుకోండి",
+      "continueButton": "ముందుకెళ్ళండి"
     }
   },
   "splash": {
-    "taglinePrefix": "Real Humyns.",
-    "taglineAccent": " Real Intelligence."
+    "taglinePrefix": "నిజమైన మనుషులు.",
+    "taglineAccent": " నిజమైన తెలివితేటలు."
   },
   "signup": {
-    "tagline": "Real Humyns. Real Intelligence.",
-    "pitchLine1": "Record real moments.",
-    "pitchLine2": "Train real intelligence.",
-    "pitchLine3": "Get paid",
-    "ctaSignIn": "Continue with Google",
-    "consentLabelPrefix": "I have read and agree to the ",
-    "consentLink": "Terms of Use",
-    "consentRequiredAlert": "Please accept the Terms of Use to continue.",
+    "tagline": "నిజమైన మనుషులు. నిజమైన తెలివితేటలు.",
+    "pitchLine1": "నిజమైన క్షణాలను రికార్డ్ చేయండి.",
+    "pitchLine2": "నిజమైన తెలివితేటలను నేర్పించండి.",
+    "pitchLine3": "డబ్బు సంపాదించండి",
+    "ctaSignIn": "Google తో ముందుకెళ్ళండి",
+    "consentLabelPrefix": "నేను చదివాను మరియు అంగీకరిస్తున్నాను ",
+    "consentLink": "వాడుక నిబంధనలు",
+    "consentRequiredAlert": "ముందుకెళ్ళడానికి వాడుక నిబంధనలను అంగీకరించండి.",
     "consent": {
-      "paragraph": "I have read and agree to the Terms of Use"
+      "paragraph": "నేను వాడుక నిబంధనలు చదివాను మరియు అంగీకరిస్తున్నాను"
     }
   },
   "permissions": {
-    "titleIdle": "Camera & Mic\nPermissions",
-    "titleRecovery": "Camera & Mic\nare required",
-    "bodyIdle": "Used only while you hit record",
-    "bodyDenied": "Camera & Mic are required. Open Settings to enable.",
-    "bodyPartialPrefix": "{{name}} access is required. Open Settings to enable.",
-    "buttonAllow": "Allow access",
-    "buttonOpenSettings": "Open Settings",
-    "cameraName": "Camera",
-    "microphoneName": "Microphone"
+    "titleIdle": "కెమెరా & మైక్\nఅనుమతులు",
+    "titleRecovery": "కెమెరా & మైక్\nతప్పనిసరి",
+    "bodyIdle": "మీరు రికార్డ్ నొక్కినప్పుడు మాత్రమే వాడతాం",
+    "bodyDenied": "కెమెరా & మైక్ తప్పనిసరి. ఆన్ చేయడానికి సెట్టింగ్స్ తెరవండి.",
+    "bodyPartialPrefix": "{{name}} యాక్సెస్ తప్పనిసరి. ఆన్ చేయడానికి సెట్టింగ్స్ తెరవండి.",
+    "buttonAllow": "అనుమతించండి",
+    "buttonOpenSettings": "సెట్టింగ్స్ తెరవండి",
+    "cameraName": "కెమెరా",
+    "microphoneName": "మైక్రోఫోన్"
   },
   "compat": {
     "running": {
-      "title": "Checking your phone",
-      "subtitle": "Takes around 30 secs"
+      "title": "మీ ఫోన్‌ను చెక్ చేస్తున్నాం",
+      "subtitle": "ఓ 30 సెకన్లు పడుతుంది"
     },
     "pass": {
-      "title": "You're in.",
-      "subtitle": "All checks passed.",
-      "storageWarningPrefix": "Free up space to avoid recording loss. {{gb}} GB free."
+      "title": "మీరు లోపలికి వచ్చేశారు.",
+      "subtitle": "అన్ని చెక్‌లు పాస్ అయ్యాయి.",
+      "storageWarningPrefix": "రికార్డింగ్ పోకుండా ఉండాలంటే ఖాళీ చేయండి. {{gb}} GB ఖాళీ ఉంది."
     },
     "fail": {
-      "title": "This phone can't record yet",
-      "body": "This phone doesn't meet the recording requirements.",
-      "contactSupport": "Contact Support",
+      "title": "ఈ ఫోన్‌తో ఇప్పుడే రికార్డ్ చేయలేరు",
+      "body": "ఈ ఫోన్ రికార్డింగ్ అవసరాలకు సరిపోవట్లేదు.",
+      "contactSupport": "సపోర్ట్‌ను సంప్రదించండి",
       "lines": {
-        "ultrawideDfov": "Ultrawide camera 110°+ required (yours: {{deg}}°)",
-        "resolutionFps": "1080p @ 30 FPS required",
-        "imuSustained100Hz": "Stable motion sensors at 100 Hz+ required (yours: {{hz}} Hz)",
-        "imuP99Ms": "Sensor jitter ≤12 ms required (yours: {{ms}} ms p99)",
-        "micSampleRate": "Microphone 48 kHz capability required",
-        "realtimeTimestamp": "REALTIME timestamp source required",
-        "root": "Device must not be rooted",
-        "encoderNoBFrames": "HEVC encoder must produce I/P-only (no B-frames)",
-        "oisOff": "Optical stabilization must be disabled at capture time",
-        "hdrSdrForced": "SDR mode must be forced (no HDR)"
+        "ultrawideDfov": "అల్ట్రావైడ్ కెమెరా 110°+ కావాలి (మీది: {{deg}}°)",
+        "resolutionFps": "1080p @ 30 FPS కావాలి",
+        "imuSustained100Hz": "100 Hz+ వద్ద స్థిరమైన మోషన్ సెన్సర్లు కావాలి (మీది: {{hz}} Hz)",
+        "imuP99Ms": "సెన్సర్ జిట్టర్ ≤12 ms ఉండాలి (మీది: {{ms}} ms p99)",
+        "micSampleRate": "మైక్రోఫోన్ 48 kHz సామర్థ్యం కావాలి",
+        "realtimeTimestamp": "REALTIME టైమ్‌స్టాంప్ సోర్స్ కావాలి",
+        "root": "ఫోన్ రూట్ చేసి ఉండకూడదు",
+        "encoderNoBFrames": "HEVC ఎన్‌కోడర్ I/P-only ఇవ్వాలి (B-frames వద్దు)",
+        "oisOff": "రికార్డ్ చేసేటప్పుడు ఆప్టికల్ స్టెబిలైజేషన్ ఆఫ్‌లో ఉండాలి",
+        "hdrSdrForced": "SDR మోడ్ తప్పనిసరి (HDR వద్దు)"
       }
     }
   },
   "rigTutorial": {
-    "heading": "You'll need a head rig",
-    "body": "Mount your phone on the head rig and make sure it is steady while recording.",
-    "framingTip": "Before each take, use the on-screen camera preview to check your hands are in frame — ask someone to verify if you can.",
-    "noRigLink": "Don't have a rig yet?",
-    "buttonNext": "Next",
+    "heading": "మీకు ఒక హెడ్ రిగ్ కావాలి",
+    "body": "మీ ఫోన్‌ను హెడ్ రిగ్‌కు తగిలించండి, రికార్డ్ చేసేటప్పుడు అది కదలకుండా చూసుకోండి.",
+    "framingTip": "ప్రతి రికార్డింగ్‌కి ముందు, స్క్రీన్ మీద కెమెరా ప్రివ్యూ చూసి మీ చేతులు ఫ్రేమ్‌లో ఉన్నాయో లేదో చెక్ చేసుకోండి — వీలైతే ఎవరితోనైనా చూపించుకోండి.",
+    "noRigLink": "రిగ్ ఇంకా లేదా?",
+    "buttonNext": "తర్వాత",
     "offRamp": {
-      "title": "No rig yet?",
-      "bodyPrefix": "You'll need a head rig to record. We're working on getting rigs to contributors. Email us at {{email}} and we'll let you know when one ships your way. You can keep exploring the app in the meantime.",
-      "emailSupport": "Email support",
-      "gotIt": "Got it"
+      "title": "రిగ్ ఇంకా లేదా?",
+      "bodyPrefix": "రికార్డ్ చేయడానికి హెడ్ రిగ్ అవసరం. మేము కంట్రిబ్యూటర్లకు రిగ్‌లు పంపడానికి ప్రయత్నిస్తున్నాం. {{email}} కి మెయిల్ చేయండి, మీకు ఒకటి పంపేటప్పుడు చెప్తాం. ఈలోగా యాప్‌ను చూస్తూ ఉండొచ్చు.",
+      "emailSupport": "సపోర్ట్‌కి మెయిల్ చేయండి",
+      "gotIt": "అర్థమైంది"
     }
   },
   "practiceIntro": {
-    "heading": "One quick try",
-    "body": "We'll walk you through one short recording — 60 secs, to get the feel",
-    "buttonStart": "Start practice"
+    "heading": "ఒక చిన్న ట్రై",
+    "body": "మేము ఒక చిన్న రికార్డింగ్ చేయడం నేర్పిస్తాం — 60 సెకన్లు, ఎలా ఉంటుందో తెలుసుకోవడానికి",
+    "buttonStart": "ప్రాక్టీస్ మొదలెట్టండి"
   },
   "practiceComplete": {
-    "heading": "You got it.",
-    "buttonContinue": "Continue"
+    "heading": "మీరు చేసేశారు.",
+    "buttonContinue": "ముందుకెళ్ళండి"
   },
   "recording": {
-    "preview": { "live": "Live preview" },
-    "startRecording": "Start Recording",
-    "stopRecording": "Stop",
-    "skip": "Skip",
-    "gatePrompt": "Mount the phone on your head and bring your hands in frame for 2 secs",
-    "overlayTip": "Don't exit while recording.",
+    "preview": {
+      "live": "లైవ్ ప్రివ్యూ"
+    },
+    "startRecording": "రికార్డింగ్ మొదలెట్టండి",
+    "stopRecording": "ఆపండి",
+    "skip": "వదిలేయండి",
+    "gatePrompt": "ఫోన్‌ను తలకు తగిలించి, మీ చేతులు 2 సెకన్లు ఫ్రేమ్‌లోకి తీసుకురండి",
+    "overlayTip": "రికార్డ్ అవుతున్నప్పుడు బయటకు వెళ్ళకండి.",
     "alerts": {
-      "batteryPrefix": "Battery 15%",
-      "thermal": "Phone too hot"
+      "batteryPrefix": "బ్యాటరీ 15%",
+      "thermal": "ఫోన్ చాలా వేడిగా ఉంది"
     },
     "toasts": {
-      "deviceDistress": "Recording stopped — your phone needs attention.",
-      "tooShort": "Recording too short — discarded.",
-      "profileIncomplete": "Please complete your profile in Profile → Email.",
-      "storageFull": "Not enough storage to record.",
-      "thermalThrottling": "Phone too warm — let it cool and try again.",
-      "couldNotStart": "Could not start recording."
+      "deviceDistress": "రికార్డింగ్ ఆగిపోయింది — మీ ఫోన్‌ను చూడాలి.",
+      "tooShort": "రికార్డింగ్ చాలా చిన్నది — తీసేశాం.",
+      "profileIncomplete": "ప్రొఫైల్ → ఈమెయిల్ లో మీ ప్రొఫైల్‌ను పూర్తి చేయండి.",
+      "storageFull": "రికార్డ్ చేయడానికి తగినంత స్టోరేజ్ లేదు.",
+      "thermalThrottling": "ఫోన్ చాలా వేడిగా ఉంది — చల్లారనివ్వండి, మళ్ళీ ట్రై చేయండి.",
+      "couldNotStart": "రికార్డింగ్ మొదలవలేదు."
     },
     "voiceCues": {
-      "profileIncomplete": "Please complete your profile",
-      "thermalThrottling": "Phone too warm",
-      "permissionRevoked": "Camera permission needed",
-      "couldNotStart": "Could not start recording"
+      "profileIncomplete": "మీ ప్రొఫైల్‌ను పూర్తి చేయండి",
+      "thermalThrottling": "ఫోన్ చాలా వేడిగా ఉంది",
+      "permissionRevoked": "కెమెరా అనుమతి కావాలి",
+      "couldNotStart": "రికార్డింగ్ మొదలవలేదు"
     }
   },
   "home": {
-    "sectionContribution": "YOUR CONTRIBUTION",
-    "sectionPendingUploads": "PENDING UPLOADS",
-    "emptyTip": "Your hours and tasks will track here as you record.",
-    "viewAllMore": "+{{count}} more — tap to view all",
+    "sectionContribution": "మీ కంట్రిబ్యూషన్",
+    "sectionPendingUploads": "పెండింగ్ అప్‌లోడ్‌లు",
+    "emptyTip": "మీరు రికార్డ్ చేస్తుంటే మీ గంటలు, పనులు ఇక్కడ కనిపిస్తాయి.",
+    "viewAllMore": "+ఇంకో {{count}} — అన్నీ చూడడానికి తట్టండి",
     "filter": {
-      "today": "today ▾",
-      "yesterday": "yesterday ▾",
-      "thisWeek": "this week ▾",
-      "thisMonth": "this month ▾",
-      "all": "all time ▾",
-      "customRange": "custom range ▾"
+      "today": "ఈరోజు ▾",
+      "yesterday": "నిన్న ▾",
+      "thisWeek": "ఈ వారం ▾",
+      "thisMonth": "ఈ నెల ▾",
+      "all": "మొత్తం ▾",
+      "customRange": "మీకు నచ్చిన రేంజ్ ▾"
     },
     "tile": {
-      "taskCount_one": "1 task",
-      "taskCount_other": "{{count}} tasks",
-      "recordingFallback": "Recording"
+      "taskCount_one": "1 పని",
+      "taskCount_other": "{{count}} పనులు",
+      "recordingFallback": "రికార్డింగ్"
     }
   },
   "tasks": {
-    "searchPlaceholder": "Search tasks…",
-    "emptyHeading": "No tasks match. Try clearing filters or ",
-    "emptySendLink": "send a request",
-    "footerPrefix": "Can't find a task? ",
-    "footerLink": "Send request →"
+    "searchPlaceholder": "పనులు వెతకండి…",
+    "emptyHeading": "ఏ పనీ దొరకలేదు. ఫిల్టర్‌లు తీసేయండి లేదా ",
+    "emptySendLink": "ఒక రిక్వెస్ట్ పంపండి",
+    "footerPrefix": "పని దొరకట్లేదా? ",
+    "footerLink": "రిక్వెస్ట్ పంపండి →"
   },
   "taskDetails": {
-    "outdoorChip": "Outdoor",
-    "forThisTask": "FOR THIS TASK",
-    "startRecording": "Start Recording"
+    "outdoorChip": "బయట",
+    "forThisTask": "ఈ పనికి",
+    "startRecording": "రికార్డింగ్ మొదలెట్టండి"
   },
   "sendRequest": {
-    "title": "Send a task request",
-    "subtitle": "Tell us what task you'd like to record. We review every request.",
-    "labelTaskName": "Task name",
-    "placeholderTaskName": "e.g. Iron clothes",
-    "labelDescription": "What does it involve?",
-    "placeholderDescription": "A few words on what the task involves.",
-    "buttonSubmit": "Send request",
-    "buttonCancel": "Cancel",
-    "submitting": "Sending…",
-    "toastSent": "Request sent. We'll review and add it to your list.",
+    "title": "ఒక పని కోసం రిక్వెస్ట్ పంపండి",
+    "subtitle": "మీరు ఏ పని రికార్డ్ చేయాలనుకుంటున్నారో చెప్పండి. ప్రతి రిక్వెస్ట్‌ను మేము చూస్తాం.",
+    "labelTaskName": "పని పేరు",
+    "placeholderTaskName": "ఉదా. బట్టలు ఇస్త్రీ చేయడం",
+    "labelDescription": "ఇందులో ఏం ఉంటుంది?",
+    "placeholderDescription": "ఈ పనిలో ఏం ఉంటుందో రెండు మాటల్లో చెప్పండి.",
+    "buttonSubmit": "రిక్వెస్ట్ పంపండి",
+    "buttonCancel": "రద్దు చేయండి",
+    "submitting": "పంపిస్తున్నాం…",
+    "toastSent": "రిక్వెస్ట్ పంపేశాం. చూసి మీ లిస్ట్‌లో చేరుస్తాం.",
     "validationAlerts": {
-      "missingName": "Please enter a task name.",
-      "missingDescription": "Please tell us what the task involves."
+      "missingName": "పని పేరు రాయండి.",
+      "missingDescription": "ఈ పనిలో ఏం ఉంటుందో చెప్పండి."
     },
     "errors": {
-      "submitFailed": "Couldn't send. Try again."
+      "submitFailed": "పంపలేకపోయాం. మళ్ళీ ట్రై చేయండి."
     }
   },
   "history": {
-    "title": "History",
-    "emptyHeading": "No recordings yet",
-    "emptyBody": "Start your first recording from the Tasks tab.",
+    "title": "హిస్టరీ",
+    "emptyHeading": "ఇంకా రికార్డింగ్‌లు లేవు",
+    "emptyBody": "టాస్క్స్ ట్యాబ్ నుండి మీ మొదటి రికార్డింగ్ మొదలెట్టండి.",
     "tabs": {
-      "all": "All",
-      "verified": "Verified",
-      "uploading": "Uploading",
-      "failed": "Failed"
+      "all": "అన్నీ",
+      "verified": "వెరిఫై అయ్యాయి",
+      "uploading": "అప్‌లోడ్ అవుతున్నాయి",
+      "failed": "ఫెయిల్ అయ్యాయి"
     },
     "filter": {
-      "allTime": "all time",
-      "today": "today",
-      "thisWeek": "this week",
-      "thisMonth": "this month"
+      "allTime": "మొత్తం",
+      "today": "ఈరోజు",
+      "thisWeek": "ఈ వారం",
+      "thisMonth": "ఈ నెల"
     },
-    "loadingMore": "Loading more…",
-    "endOfList": "End of list"
+    "loadingMore": "ఇంకా లోడ్ అవుతోంది…",
+    "endOfList": "లిస్ట్ అయిపోయింది"
   },
   "player": {
-    "viewOnlyToast": "View only — not downloadable.",
-    "loadError": "Couldn't load this recording.",
-    "playbackError": "Playback error.",
-    "close": "Close",
-    "share": "Share"
+    "viewOnlyToast": "చూడడానికి మాత్రమే — డౌన్‌లోడ్ చేయలేరు.",
+    "loadError": "ఈ రికార్డింగ్ లోడ్ అవలేదు.",
+    "playbackError": "ప్లేబ్యాక్ సమస్య.",
+    "close": "మూసేయండి",
+    "share": "షేర్ చేయండి"
   },
   "help": {
-    "title": "Help Center",
-    "contactSupport": "Contact Support",
-    "reportProblem": "Report a problem"
+    "title": "హెల్ప్ సెంటర్",
+    "contactSupport": "సపోర్ట్‌ను సంప్రదించండి",
+    "reportProblem": "సమస్యను చెప్పండి"
   },
   "report": {
-    "title": "Report a problem",
-    "labelCategory": "Category",
-    "labelWhatHappened": "What happened?",
-    "placeholderMessage": "Tell us what you were doing and what went wrong.",
-    "buttonCancel": "Cancel",
-    "buttonSend": "Send report",
-    "sending": "Sending…",
+    "title": "సమస్యను చెప్పండి",
+    "labelCategory": "విభాగం",
+    "labelWhatHappened": "ఏం జరిగింది?",
+    "placeholderMessage": "మీరు ఏం చేస్తున్నారు, ఏం తప్పు జరిగిందో చెప్పండి.",
+    "buttonCancel": "రద్దు చేయండి",
+    "buttonSend": "రిపోర్ట్ పంపండి",
+    "sending": "పంపిస్తున్నాం…",
     "alerts": {
-      "pickCategory": "Pick a category",
-      "pickCategoryBody": "Choose what kind of problem you hit.",
-      "addMessage": "Add a message",
-      "addMessageBody": "Tell us what happened.",
-      "sentTitle": "Sent",
-      "sentBody": "Thanks — we got your report.",
-      "failedTitle": "Failed",
-      "failedBodyFallback": "Try again later."
+      "pickCategory": "ఒక విభాగం ఎంచుకోండి",
+      "pickCategoryBody": "ఎలాంటి సమస్య వచ్చిందో ఎంచుకోండి.",
+      "addMessage": "ఒక మెసేజ్ రాయండి",
+      "addMessageBody": "ఏం జరిగిందో చెప్పండి.",
+      "sentTitle": "పంపేశాం",
+      "sentBody": "థాంక్స్ — మీ రిపోర్ట్ అందింది.",
+      "failedTitle": "ఫెయిల్ అయింది",
+      "failedBodyFallback": "కాసేపటి తర్వాత మళ్ళీ ట్రై చేయండి."
     }
   },
   "forceUpgrade": {
-    "title": "Update to continue.",
-    "body": "A newer version of Humyn Labs Capture is required to keep recording.",
-    "buttonUpdate": "Update",
-    "buttonUpdating": "Updating…",
+    "title": "ముందుకెళ్ళడానికి అప్‌డేట్ చేయండి.",
+    "body": "రికార్డ్ చేస్తూ ఉండాలంటే Humyn Labs Capture యొక్క కొత్త వెర్షన్ కావాలి.",
+    "buttonUpdate": "అప్‌డేట్ చేయండి",
+    "buttonUpdating": "అప్‌డేట్ అవుతోంది…",
     "alerts": {
-      "infoUnavailableTitle": "Update info unavailable",
-      "infoUnavailableBody": "Try again in a moment.",
-      "integrityTitle": "Update failed (integrity check)",
-      "integrityBody": "Try again or contact support.",
-      "failedTitle": "Update failed",
-      "failedBodyNetwork": "Check your connection and try again.",
-      "failedBodyFallback": "Try again later."
+      "infoUnavailableTitle": "అప్‌డేట్ సమాచారం దొరకలేదు",
+      "infoUnavailableBody": "కాసేపట్లో మళ్ళీ ట్రై చేయండి.",
+      "integrityTitle": "అప్‌డేట్ ఫెయిల్ అయింది (ఇంటెగ్రిటీ చెక్)",
+      "integrityBody": "మళ్ళీ ట్రై చేయండి లేదా సపోర్ట్‌ను సంప్రదించండి.",
+      "failedTitle": "అప్‌డేట్ ఫెయిల్ అయింది",
+      "failedBodyNetwork": "మీ కనెక్షన్ చెక్ చేసి మళ్ళీ ట్రై చేయండి.",
+      "failedBodyFallback": "కాసేపటి తర్వాత మళ్ళీ ట్రై చేయండి."
     }
   },
   "pendingUploads": {
-    "title": "Pending uploads",
-    "empty": "No uploads pending — your recordings are safely uploaded.",
+    "title": "పెండింగ్ అప్‌లోడ్‌లు",
+    "empty": "పెండింగ్ అప్‌లోడ్‌లు ఏవీ లేవు — మీ రికార్డింగ్‌లు భద్రంగా అప్‌లోడ్ అయ్యాయి.",
     "fileFallback": "recording.mp4",
-    "metaFallback": "Recording",
-    "retry": "Retry"
+    "metaFallback": "రికార్డింగ్",
+    "retry": "మళ్ళీ ట్రై చేయండి"
   },
   "batteryOpt": {
-    "title": "Keep your uploads running",
-    "body": "Some phones aggressively close background apps. Allowing Homelander to run unrestricted keeps your recordings uploading after you leave the app.",
-    "buttonAllow": "Allow unrestricted battery",
-    "buttonOpenAutostart": "Open Autostart settings",
-    "buttonDone": "Done",
-    "buttonSkip": "Skip for now",
-    "statusAllowed": "✓ Allowed — uploads will keep running in the background.",
-    "statusStillRestricted": "Still restricted — open Settings → Apps → Homelander → Battery → Unrestricted.",
-    "sectionHow": "How to do it on your phone",
-    "fallbackCopy": "If that screen isn't on your phone: Settings → Apps → Homelander → Battery → Unrestricted, and turn on Autostart if your phone has it.",
+    "title": "మీ అప్‌లోడ్‌లు ఆగకుండా ఉండాలంటే",
+    "body": "కొన్ని ఫోన్‌లు బ్యాక్‌గ్రౌండ్ యాప్‌లను గట్టిగా మూసేస్తాయి. Homelander కు ఎలాంటి ఆంక్షలు లేకుండా అనుమతిస్తే, మీరు యాప్‌ నుండి బయటకి వెళ్ళినా రికార్డింగ్‌లు అప్‌లోడ్ అవుతూ ఉంటాయి.",
+    "buttonAllow": "ఆంక్షలు లేని బ్యాటరీని అనుమతించండి",
+    "buttonOpenAutostart": "ఆటోస్టార్ట్ సెట్టింగ్స్ తెరవండి",
+    "buttonDone": "అయిపోయింది",
+    "buttonSkip": "ఇప్పటికి వదిలేయండి",
+    "statusAllowed": "✓ అనుమతించబడింది — బ్యాక్‌గ్రౌండ్‌లో అప్‌లోడ్‌లు జరుగుతూ ఉంటాయి.",
+    "statusStillRestricted": "ఇంకా ఆంక్షలు ఉన్నాయి — సెట్టింగ్స్ → యాప్స్ → Homelander → బ్యాటరీ → ఆంక్షలు లేకుండా తెరవండి.",
+    "sectionHow": "మీ ఫోన్‌లో ఎలా చేయాలి",
+    "fallbackCopy": "ఆ స్క్రీన్ మీ ఫోన్‌లో లేకపోతే: సెట్టింగ్స్ → యాప్స్ → Homelander → బ్యాటరీ → ఆంక్షలు లేకుండా, ఆపై మీ ఫోన్‌లో ఉంటే ఆటోస్టార్ట్ ఆన్ చేయండి.",
     "vendors": {
       "xiaomi": {
         "label": "Xiaomi (MIUI / HyperOS)",
-        "steps": "Settings → Apps → Manage apps → Humyn Labs Capture → Battery saver → No restrictions, and Autostart → on."
+        "steps": "సెట్టింగ్స్ → యాప్స్ → మేనేజ్ యాప్స్ → Humyn Labs Capture → బ్యాటరీ సేవర్ → ఆంక్షలు లేవు, ఆపై ఆటోస్టార్ట్ → ఆన్."
       },
       "oppo": {
         "label": "Oppo (ColorOS)",
-        "steps": "Settings → Battery → App battery management → Humyn Labs Capture → Allow background activity, and Settings → App management → Auto launch → on."
+        "steps": "సెట్టింగ్స్ → బ్యాటరీ → యాప్ బ్యాటరీ మేనేజ్‌మెంట్ → Humyn Labs Capture → బ్యాక్‌గ్రౌండ్ యాక్టివిటీని అనుమతించండి, ఆపై సెట్టింగ్స్ → యాప్ మేనేజ్‌మెంట్ → ఆటో లాంచ్ → ఆన్."
       },
       "vivo": {
         "label": "Vivo (FunTouch)",
-        "steps": "Settings → Battery → Background power consumption management → Humyn Labs Capture → Allow, and Settings → More settings → Permission management → Autostart → on."
+        "steps": "సెట్టింగ్స్ → బ్యాటరీ → బ్యాక్‌గ్రౌండ్ పవర్ కన్సంప్షన్ మేనేజ్‌మెంట్ → Humyn Labs Capture → అనుమతించండి, ఆపై సెట్టింగ్స్ → మరిన్ని సెట్టింగ్స్ → పర్మిషన్ మేనేజ్‌మెంట్ → ఆటోస్టార్ట్ → ఆన్."
       },
       "samsung": {
         "label": "Samsung (One UI)",
-        "steps": "Settings → Apps → Humyn Labs Capture → Battery → Unrestricted (turn off \"Pause app activity if unused\")."
+        "steps": "సెట్టింగ్స్ → యాప్స్ → Humyn Labs Capture → బ్యాటరీ → ఆంక్షలు లేకుండా (\"వాడకపోతే యాప్ యాక్టివిటీని ఆపండి\" ఆఫ్ చేయండి)."
       },
       "stock": {
         "label": "Stock Android / Pixel",
-        "steps": "Settings → Apps → Humyn Labs Capture → Battery → Unrestricted."
+        "steps": "సెట్టింగ్స్ → యాప్స్ → Humyn Labs Capture → బ్యాటరీ → ఆంక్షలు లేకుండా."
       }
     }
   },
   "profile": {
     "language": {
-      "row": { "label": "Language" },
-      "picker": { "title": "Select language" }
+      "row": {
+        "label": "భాష"
+      },
+      "picker": {
+        "title": "భాషను ఎంచుకోండి"
+      }
     }
   },
   "terms": {
     "consent": {
-      "modalTitle": "Terms of Use",
-      "body": "I consent and agree to upload videos of myself and/or others who consent to be recorded; performing certain daily activities/tasks. This content will be used to develop / train AI models and for research purposes. I confirm that I am 18 years or older and have the necessary permissions to share this content. I confirm that no one being recorded is a minor. I consent to my approximate location and IP address being captured alongside each recording. I understand that my data will be stored securely and used in accordance with Humyn's Privacy Policy."
+      "modalTitle": "వాడుక నిబంధనలు",
+      "body": "నేను రోజువారీ పనులు చేస్తున్న నా వీడియోలు మరియు/లేదా రికార్డ్ చేయడానికి సమ్మతించిన ఇతరుల వీడియోలను అప్‌లోడ్ చేయడానికి సమ్మతిస్తున్నాను. ఈ కంటెంట్‌ను AI మోడల్స్‌ను తయారు చేయడానికి / నేర్పించడానికి, పరిశోధన కోసం వాడతారు. నాకు 18 ఏళ్ళు లేదా అంతకంటే ఎక్కువ వయసు ఉందని, ఈ కంటెంట్‌ను షేర్ చేయడానికి అవసరమైన అనుమతులు ఉన్నాయని ధృవీకరిస్తున్నాను. రికార్డ్ చేయబడుతున్న వారిలో ఎవరూ మైనర్ కాదని ధృవీకరిస్తున్నాను. ప్రతి రికార్డింగ్‌తో పాటు నా దాదాపు లొకేషన్ మరియు IP అడ్రస్ తీసుకోవడానికి సమ్మతిస్తున్నాను. నా డేటా భద్రంగా ఉంచబడుతుందని, Humyn యొక్క ప్రైవసీ పాలసీ ప్రకారం వాడబడుతుందని అర్థమైంది."
     }
   },
   "errors": {
-    "generic": "Something went wrong",
+    "generic": "ఏదో తప్పు జరిగింది",
     "auth": {
-      "invalidToken": "Please sign in again",
-      "expiredToken": "Your session expired — please sign in again",
-      "googleFailed": "Google sign-in failed"
+      "invalidToken": "మళ్ళీ సైన్ ఇన్ చేయండి",
+      "expiredToken": "మీ సెషన్ అయిపోయింది — మళ్ళీ సైన్ ఇన్ చేయండి",
+      "googleFailed": "Google సైన్-ఇన్ ఫెయిల్ అయింది"
     },
     "upload": {
-      "quotaExceeded": "Upload quota reached for today",
-      "networkLost": "Network lost — retry when back online"
+      "quotaExceeded": "ఈరోజు అప్‌లోడ్ లిమిట్ అయిపోయింది",
+      "networkLost": "నెట్‌వర్క్ పోయింది — మళ్ళీ వచ్చాక ట్రై చేయండి"
     },
     "recording": {
-      "tooShort": "Recording was too short"
+      "tooShort": "రికార్డింగ్ చాలా చిన్నది"
     },
     "compat": {
-      "failed": "Your device is not compatible"
+      "failed": "మీ ఫోన్ సరిపోవట్లేదు"
     }
   }
 }
