@@ -234,7 +234,11 @@ export default async function finalizeRoute(app: FastifyInstance): Promise<void>
       // backstop either way. Fire-and-forget: a Redis hiccup must not block (or
       // fail) the /finalize response — the verify-sweep cron re-enqueues from
       // the recordings_to_verify row.
-      if (process.env.AWS_ENDPOINT_URL) {
+      if (
+        process.env.AWS_ENDPOINT_URL ||
+        process.env.NODE_ENV === 'staging' ||
+        process.env.DIRECT_VERIFY_ENQUEUE === 'true'
+      ) {
         void enqueueVerify(rec.id).catch((err) => {
           app.log.warn(
             { err, recordingId: rec.id },
