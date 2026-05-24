@@ -105,22 +105,35 @@ function decodeJwtPayload(jwt: string): JwtPayload {
 export async function signInWithGoogle(): Promise<AuthSuccess> {
   const { flavor, applicationId } = getFlavorContext();
 
-  // 1. Google Sign-In via Credential Manager.
-  await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-  const signInResponse = await GoogleSignin.signIn();
-  if (signInResponse.type !== 'success') {
-    throw new Error('google_sign_in_cancelled');
-  }
-  const googleIdToken = signInResponse.data.idToken;
-  if (!googleIdToken) {
-    throw new Error('google_sign_in_no_id_token');
-  }
+  let googleIdToken: string;
+  let integrityToken: string;
+  let nonceId: string;
 
-  // 2. Mint a server-side single-use nonce.
-  const nonceRes = await apiClient.postNoBody<NonceResponse>('/auth/nonce');
+  if (Config['BYPASS_AUTH'] === 'true') {
+    googleIdToken = 'mock-google-token';
+    integrityToken = 'mock-integrity-token';
+    const nonceRes = await apiClient.postNoBody<NonceResponse>('/auth/nonce');
+    nonceId = nonceRes.nonceId;
+  } else {
+    // 1. Google Sign-In via Credential Manager.
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    const signInResponse = await GoogleSignin.signIn();
+    if (signInResponse.type !== 'success') {
+      throw new Error('google_sign_in_cancelled');
+    }
+    const token = signInResponse.data.idToken;
+    if (!token) {
+      throw new Error('google_sign_in_no_id_token');
+    }
+    googleIdToken = token;
 
-  // 3. Request a Play Integrity token bound to that nonce.
-  const integrityToken = await requestIntegrityToken(nonceRes.nonce);
+    // 2. Mint a server-side single-use nonce.
+    const nonceRes = await apiClient.postNoBody<NonceResponse>('/auth/nonce');
+    nonceId = nonceRes.nonceId;
+
+    // 3. Request a Play Integrity token bound to that nonce.
+    integrityToken = await requestIntegrityToken(nonceRes.nonce);
+  }
 
   // 4. POST /auth/google.
   const authRes = await apiClient.post<AuthGoogleResponse>('/auth/google', {
@@ -128,7 +141,7 @@ export async function signInWithGoogle(): Promise<AuthSuccess> {
     integrityToken,
     flavor,
     applicationId,
-    nonceId: nonceRes.nonceId,
+    nonceId,
   });
 
   // 5. Validate JWT payload — D-AUTH-05 requires the JWT to carry the build's

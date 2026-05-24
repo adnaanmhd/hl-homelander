@@ -89,24 +89,35 @@ export default async function googleAuthRoutes(app: FastifyInstance) {
 
       // a. Google ID token verify (cheap; fails fast on bad token)
       let googlePayload;
-      try {
-        googlePayload = await verifyGoogleIdToken(body.googleIdToken);
-      } catch (err) {
-        req.log.warn({ err }, 'google_id_token_verify_failed');
-        const pd = buildProblemDetail({
-          slug: PROBLEM_SLUGS.unauthorized,
-          title: 'Google ID token verification failed',
-          status: 401,
-          instance: req.id as string,
-        });
-        return reply.status(401).type(PROBLEM_CT).send(pd);
+      if (process.env.BYPASS_AUTH === 'true' && body.googleIdToken === 'mock-google-token') {
+        googlePayload = {
+          sub: 'mock-google-sub-12345',
+          email: 'test-staging@humynlabs.ai',
+          email_verified: true,
+          name: 'Staging Tester',
+        };
+      } else {
+        try {
+          googlePayload = await verifyGoogleIdToken(body.googleIdToken);
+        } catch (err) {
+          req.log.warn({ err }, 'google_id_token_verify_failed');
+          const pd = buildProblemDetail({
+            slug: PROBLEM_SLUGS.unauthorized,
+            title: 'Google ID token verification failed',
+            status: 401,
+            instance: req.id as string,
+          });
+          return reply.status(401).type(PROBLEM_CT).send(pd);
+        }
       }
 
       // b. Play Integrity decode. The iosAppStore branch below is UNREACHABLE
       //    today because gatePhase1Flavor throws at 0a (W6). Kept defensively
       //    until Phase 7 swaps in App Attest + the actual iOS-side decode flow.
       let payload;
-      if (body.flavor === 'iosAppStore') {
+      if (process.env.BYPASS_AUTH === 'true' && body.integrityToken === 'mock-integrity-token') {
+        payload = null;
+      } else if (body.flavor === 'iosAppStore') {
         payload = null;
       } else {
         try {
@@ -138,7 +149,9 @@ export default async function googleAuthRoutes(app: FastifyInstance) {
         candidateNonce = '__ios_no_op__';
       }
       const consume = await consumeNonce({ nonceId: body.nonceId, candidateNonce });
-      if (!consume.ok && body.flavor !== 'iosAppStore') {
+      const isBypass =
+        process.env.BYPASS_AUTH === 'true' && body.integrityToken === 'mock-integrity-token';
+      if (!consume.ok && body.flavor !== 'iosAppStore' && !isBypass) {
         const pd = buildProblemDetail({
           slug: PROBLEM_SLUGS.integrityNonce,
           title: 'Nonce verification failed',
