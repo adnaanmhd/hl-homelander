@@ -108,6 +108,13 @@ export const EVENT_NAMES = [
   'history_filter_changed',
   'history_row_opened',
   'history_row_retry',
+  // Phase 7 — locale telemetry (I18N-12 / D-30). Emission sites land in
+  // plan 07-04: 'locale_chosen' fires on ChooseLanguageScreen Continue
+  // (first-launch); 'locale_changed' fires on LanguageSheet row tap in
+  // Profile (subsequent switches). Both ride on the existing telemetryRing
+  // append path — no schema change to telemetryRing.ts (D-30).
+  'locale_chosen',
+  'locale_changed',
 ] as const;
 
 export type EventName = (typeof EVENT_NAMES)[number];
