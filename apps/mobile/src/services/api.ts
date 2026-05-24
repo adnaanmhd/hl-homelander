@@ -160,8 +160,15 @@ export const apiClient: ApiClient = {
     return interceptEvents((await res.json()) as T);
   },
   async postNoBody<T>(path: string): Promise<T> {
-    const headers: Record<string, string> = { ...bearerHeader() };
-    const res = await fetch(`${BASE_URL()}${path}`, { method: 'POST', headers });
+    const headers: Record<string, string> = {
+      'content-type': 'application/json',
+      ...bearerHeader(),
+    };
+    const res = await fetch(`${BASE_URL()}${path}`, {
+      method: 'POST',
+      headers,
+      body: '{}',
+    });
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`POST ${path} failed: ${res.status} ${text}`);
