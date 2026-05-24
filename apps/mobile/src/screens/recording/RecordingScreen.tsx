@@ -66,7 +66,7 @@ import {
   HumynGateCameraView,
 } from '../../native/HumynGateCamera';
 import * as HumynScreenBrightness from '../../native/HumynScreenBrightness';
-import { pickAndSetEnInVoice, speakCue } from '../../lib/ttsVoice';
+import { pickAndSetLocaleVoice, speakCue } from '../../lib/ttsVoice';
 import { formatContributionDuration } from '../../lib/durationFormat';
 import { buildCaptureOpts } from '../../lib/buildCaptureOpts';
 import { readGateConfig, GATE_DEFAULTS, type GateConfig } from '../../lib/remoteConfigGate';
@@ -177,7 +177,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
   const taskCategory = params.taskCategory ?? 'practice';
   const taskSetting: 'indoor' | 'outdoor' = params.taskSetting ?? 'indoor';
   const isPractice = params.isPractice ?? false;
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const [state, dispatch] = useReducer(
     recReducer,
@@ -253,11 +253,18 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
   // --- compat dfov + app version (read once at mount) -----------------------
   const dfovMeasuredDeg = useRef<number | null>(null);
   const appVersionRef = useRef<string>('1.0.0');
-  // pickAndSetEnInVoice + Orientation lock + cacheDir sweep — once on mount.
+  // pickAndSetLocaleVoice + Orientation lock + cacheDir sweep — once on mount.
+  // Plan 07-06 (I18N-06 / D-31): the recording-cue voice now resolves against
+  // the user's active locale (read here from i18n.language at mount). For the
+  // 'en' locale the owner-deviation behavior is preserved (en-US-female).
+  // Intentionally `[]` deps — we want the locale read ONCE at mount, not on
+  // every re-render. A mid-session locale change would not propagate here,
+  // but that's an extreme corner case (the user would have to background the
+  // app, change locale in Profile, then return mid-recording).
   useEffect(() => {
     dfovMeasuredDeg.current = readCompatUltrawideDfovDeg();
     appVersionRef.current = readAppVersion();
-    pickAndSetEnInVoice().catch(() => undefined);
+    pickAndSetLocaleVoice(i18n.language).catch(() => undefined);
     Orientation.lockToLandscape();
     // Sweep stragglers from a crashed previous gate session (Security V8/V12 —
     // in addition to the Phase-3 app-launch sweep).

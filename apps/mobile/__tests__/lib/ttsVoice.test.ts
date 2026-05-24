@@ -190,7 +190,9 @@ describe('pickAndSetLocaleVoice (I18N-06 / D-31 — 5-step per-locale chain)', (
     expect(tts.setDefaultLanguage).toHaveBeenCalledWith('ta-IN');
     expect(tts.setDefaultVoice).toHaveBeenCalledWith('en-us-x-tpf-local');
     expect(crashLog).toHaveBeenCalledTimes(1);
-    const arg = JSON.parse(crashLog.mock.calls[0][0] as string);
+    const firstCall = crashLog.mock.calls[0];
+    expect(firstCall).toBeDefined();
+    const arg = JSON.parse(firstCall![0] as string);
     expect(arg.event).toBe('tts_locale_fallback');
     expect(arg.locale).toBe('ta-IN');
     expect(arg.fallback).toBe(true);
