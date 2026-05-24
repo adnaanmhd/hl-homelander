@@ -18,6 +18,7 @@ import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.WritableMap
 import ai.humynlabs.capture.capture.common.BackUltrawidePicker
 import ai.humynlabs.capture.capture.common.UltrawidePick
+import ai.humynlabs.capture.livepreview.LivePreviewSurfaceRegistry
 import java.io.File
 import java.nio.ByteBuffer
 import java.time.LocalDateTime
@@ -595,79 +596,97 @@ class CaptureSession private constructor(
         var session: CameraCaptureSession? = null
         var sessionError: Throwable? = null
 
+        // === Phase 7 plan 07-07 — Option B two-Surface CaptureSession ===
+        // Snapshot the live-preview Surface AT SESSION-CONFIG TIME (per
+        // 07-RESEARCH §"Surface-Source A/B"). If non-null, the
+        // CaptureSession is configured with two output targets (encoder +
+        // preview); the encoder Surface is ALWAYS a target across the whole
+        // session (drift telemetry + the REC-LIVE-07 capture-quality cancel
+        // gates depend on the encoder receiving a continuous frame stream).
+        // The preview target is toggled IN-SESSION via setRepeatingRequest
+        // rebuilds (onAddTarget / onRemoveTarget below) — NEVER via a mid-
+        // record createCaptureSession reconfigure (that's Option C, which
+        // would drop frames during the ~100-400ms HAL stall and trip
+        // FinalizeWorker's mean_fps < 29 cancel gate per CLAUDE.md
+        // "Capture-quality cancel gate added 2026-05-17" banner).
+        //
+        // When the registry slot is null (no <HumynLivePreviewView> mounted
+        // — e.g. recording starts immediately after gate-pass before the
+        // first JSX-side mount has fired its TextureView available
+        // callback, or future iOS build with no live-preview module), the
+        // behaviour collapses to the pre-Phase-7 single-target path. The
+        // session callbacks below are also conditional on this — no wiring
+        // when the registry is empty.
+        val previewSurfaceAtConfig: Surface? = LivePreviewSurfaceRegistry.currentSurface()
+        val outputs: List<Surface> = if (previewSurfaceAtConfig != null) {
+            listOf(surface, previewSurfaceAtConfig)
+        } else {
+            listOf(surface)
+        }
+
         @Suppress("DEPRECATION")
         cam.createCaptureSession(
-            listOf(surface),
+            outputs,
             object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(s: CameraCaptureSession) {
                     try {
                         val builder = cam.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
                         builder.addTarget(surface)
-                        builder.set(
-                            CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
-                            CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_OFF,
-                        )
-                        if (Build.VERSION.SDK_INT >= 33) {
-                            try {
-                                builder.set(
-                                    CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
-                                    CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF,
-                                )
-                            } catch (_: Throwable) { /* best-effort */ }
+                        // REC-LIVE-01 — preview target initially attached if
+                        // the registry was populated when this session opened
+                        // (i.e. RecordingScreen mounted <HumynLivePreviewView>
+                        // before HumynCapture.start). The 15-s
+                        // initial-preview window of the brightness state
+                        // machine drives the first detach (registry slot
+                        // cleared at view unmount).
+                        if (previewSurfaceAtConfig != null) {
+                            builder.addTarget(previewSurfaceAtConfig)
                         }
-                        // Route the logical back camera through its ULTRAWIDE
-                        // physical sub-camera by driving the zoom ratio to the
-                        // lower bound of CONTROL_ZOOM_RATIO_RANGE (debug session
-                        // handgate-never-passes — Stage 2). On a logical
-                        // multi-camera whose default physical is the main wide
-                        // (~83° dFOV), a plain createCaptureSession streams that
-                        // main wide — violating the LOCKED ≥110° dFOV spec
-                        // (idea-brief.md §2.1) even though the compat probe and
-                        // the sidecar's dfovDegrees read the ultrawide's
-                        // intrinsics. A sub-1.0 zoom ratio switches the active
-                        // physical to the ultrawide (Pixel 10a logical-back
-                        // range lower bound = 0.556 = the ultrawide), the same
-                        // approach the native gate camera proved on-device.
-                        // API 30+ only (CONTROL_ZOOM_RATIO_RANGE). When the
-                        // device has no sub-1.0 zoom (range lower ≥ 1.0, or the
-                        // openable IS the ultrawide), this is a harmless no-op.
-                        // Additive hardening — the encoder/muxer/IMU core is
-                        // untouched (LOCKED per CLAUDE.md), but re-verify the
-                        // §5b ±1 ms drift afterward since the capture-request
-                        // shape changed.
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                            try {
-                                val zoomLower = mgr.getCameraCharacteristics(cam.id)
-                                    .get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE)
-                                    ?.lower
-                                if (zoomLower != null && zoomLower < 1.0f) {
-                                    builder.set(CaptureRequest.CONTROL_ZOOM_RATIO, zoomLower)
-                                }
-                            } catch (_: Throwable) { /* best-effort — never block the session on zoom */ }
-                        }
-                        // Lock focus for the whole take — no AF hunting on a
-                        // head-mounted rig (debug session handgate-never-passes).
-                        try {
-                            builder.set(
-                                CaptureRequest.CONTROL_AF_MODE,
-                                CaptureRequest.CONTROL_AF_MODE_OFF,
-                            )
-                            val characteristics = mgr.getCameraCharacteristics(cam.id)
-                            val minFocusDistance = characteristics.get(
-                                CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE,
-                            )
-                            // LENS_FOCUS_DISTANCE is in diopters (1/metres);
-                            // 0.0f = focus at infinity (hyperfocal "far"),
-                            // which keeps arm's-length-to-infinity acceptably
-                            // sharp on the ultrawide. Only meaningful on a lens
-                            // that actually supports manual focus (minFocus > 0);
-                            // a fixed-focus lens reports 0 and ignores it.
-                            if (minFocusDistance != null && minFocusDistance > 0f) {
-                                builder.set(CaptureRequest.LENS_FOCUS_DISTANCE, 0.0f)
-                            }
-                        } catch (_: Throwable) { /* best-effort — never block the session on focus-lock */ }
+                        applyRecordingRequestSettings(builder, cam, mgr)
                         s.setRepeatingRequest(builder.build(), null, sessionHandler)
                         session = s
+
+                        // Wire the in-session re-attach / detach callbacks
+                        // (Option B). NOTE: even though the JSX-driven
+                        // mount/unmount of <HumynLivePreviewView> changes the
+                        // REGISTRY SLOT, the Camera2 SESSION outputs are
+                        // fixed at createCaptureSession — we never add a NEW
+                        // Surface here. These callbacks rebuild the running
+                        // CaptureRequest to include/exclude the
+                        // previewSurfaceAtConfig already-known target. If
+                        // the registry slot was null at session-config time,
+                        // these stay null — there is no preview Surface
+                        // configured in the session and these callbacks
+                        // would have nothing to toggle.
+                        if (previewSurfaceAtConfig != null) {
+                            LivePreviewSurfaceRegistry.onAddTarget = {
+                                try {
+                                    val nb = cam.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
+                                    nb.addTarget(surface)
+                                    nb.addTarget(previewSurfaceAtConfig)
+                                    applyRecordingRequestSettings(nb, cam, mgr)
+                                    s.setRepeatingRequest(nb.build(), null, sessionHandler)
+                                } catch (_: Throwable) {
+                                    // Best-effort — encoder Surface stays a
+                                    // target via the prior setRepeatingRequest;
+                                    // a failed rebuild here just means the
+                                    // preview misses a re-attach (the visual
+                                    // affordance is a tap-revealed preview
+                                    // that doesn't light up; recording is
+                                    // unaffected).
+                                }
+                            }
+                            LivePreviewSurfaceRegistry.onRemoveTarget = {
+                                try {
+                                    val nb = cam.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
+                                    nb.addTarget(surface)
+                                    applyRecordingRequestSettings(nb, cam, mgr)
+                                    s.setRepeatingRequest(nb.build(), null, sessionHandler)
+                                } catch (_: Throwable) {
+                                    // Best-effort — see onAddTarget rationale.
+                                }
+                            }
+                        }
                     } catch (t: Throwable) {
                         sessionError = t
                     } finally {
@@ -687,6 +706,91 @@ class CaptureSession private constructor(
         }
         sessionError?.let { throw it }
         return session ?: throw IllegalStateException("capture_session_configure_failed")
+    }
+
+    /**
+     * Apply OIS-off / video-stab-off / ultrawide zoom-route / AF-off + fixed
+     * focus to a [CaptureRequest.Builder]. Extracted from `openCaptureSession`
+     * for Phase 7 plan 07-07 (Option B) so the in-session
+     * `setRepeatingRequest` rebuild path can construct a request with the
+     * SAME zoom + AF + OIS settings — these settings are LOCKED per the
+     * Phase 4 debug session handgate-never-passes and CLAUDE.md ultrawide
+     * banner; the rebuilds MUST NOT drift from the original setup or the
+     * recorded stream would briefly hunt focus / lose ultrawide routing.
+     *
+     * Verbatim semantics preserved (see the prior inline block comments):
+     *  - LENS_OPTICAL_STABILIZATION_MODE_OFF
+     *  - CONTROL_VIDEO_STABILIZATION_MODE_OFF (API 33+)
+     *  - CONTROL_ZOOM_RATIO = lower bound when < 1.0 (ultrawide route, API 30+)
+     *  - CONTROL_AF_MODE_OFF
+     *  - LENS_FOCUS_DISTANCE = 0.0f when LENS_INFO_MINIMUM_FOCUS_DISTANCE > 0
+     *
+     * Every setter is wrapped best-effort — never block the session on a
+     * single setter throwing (Pixel-firmware quirks during HAL transitions).
+     */
+    private fun applyRecordingRequestSettings(
+        builder: CaptureRequest.Builder,
+        cam: CameraDevice,
+        mgr: CameraManager,
+    ) {
+        builder.set(
+            CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
+            CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_OFF,
+        )
+        if (Build.VERSION.SDK_INT >= 33) {
+            try {
+                builder.set(
+                    CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
+                    CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF,
+                )
+            } catch (_: Throwable) { /* best-effort */ }
+        }
+        // Route the logical back camera through its ULTRAWIDE physical
+        // sub-camera by driving the zoom ratio to the lower bound of
+        // CONTROL_ZOOM_RATIO_RANGE (debug session handgate-never-passes —
+        // Stage 2). On a logical multi-camera whose default physical is the
+        // main wide (~83° dFOV), a plain createCaptureSession streams that
+        // main wide — violating the LOCKED ≥110° dFOV spec (idea-brief.md
+        // §2.1) even though the compat probe and the sidecar's dfovDegrees
+        // read the ultrawide's intrinsics. A sub-1.0 zoom ratio switches
+        // the active physical to the ultrawide (Pixel 10a logical-back
+        // range lower bound = 0.556 = the ultrawide), the same approach
+        // the native gate camera proved on-device. API 30+ only
+        // (CONTROL_ZOOM_RATIO_RANGE). When the device has no sub-1.0 zoom
+        // (range lower ≥ 1.0, or the openable IS the ultrawide), this is
+        // a harmless no-op. Additive hardening — the encoder/muxer/IMU
+        // core is untouched (LOCKED per CLAUDE.md), but re-verify the
+        // §5b drift afterward since the capture-request shape changed.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val zoomLower = mgr.getCameraCharacteristics(cam.id)
+                    .get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE)
+                    ?.lower
+                if (zoomLower != null && zoomLower < 1.0f) {
+                    builder.set(CaptureRequest.CONTROL_ZOOM_RATIO, zoomLower)
+                }
+            } catch (_: Throwable) { /* best-effort — never block the session on zoom */ }
+        }
+        // Lock focus for the whole take — no AF hunting on a head-mounted
+        // rig (debug session handgate-never-passes).
+        try {
+            builder.set(
+                CaptureRequest.CONTROL_AF_MODE,
+                CaptureRequest.CONTROL_AF_MODE_OFF,
+            )
+            val characteristics = mgr.getCameraCharacteristics(cam.id)
+            val minFocusDistance = characteristics.get(
+                CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE,
+            )
+            // LENS_FOCUS_DISTANCE is in diopters (1/metres); 0.0f = focus
+            // at infinity (hyperfocal "far"), which keeps arm's-length-to-
+            // infinity acceptably sharp on the ultrawide. Only meaningful
+            // on a lens that actually supports manual focus (minFocus > 0);
+            // a fixed-focus lens reports 0 and ignores it.
+            if (minFocusDistance != null && minFocusDistance > 0f) {
+                builder.set(CaptureRequest.LENS_FOCUS_DISTANCE, 0.0f)
+            }
+        } catch (_: Throwable) { /* best-effort — never block the session on focus-lock */ }
     }
 
     /**
@@ -930,6 +1034,15 @@ class CaptureSession private constructor(
         //      calls when the latch fires.
         //   4. quit the pump HandlerThread so it doesn't leak.
         //   5. NOW it's safe to release the encoder / surface / muxer.
+        // Phase 7 plan 07-07 — clear the live-preview re-attach callbacks
+        // BEFORE stopping the capture session. The callbacks closed over the
+        // session reference; once `captureSession.close()` runs, any in-
+        // flight `setRepeatingRequest` from a racy JS-driven add/remove
+        // would throw IllegalStateException. Nulling them first eliminates
+        // the race entirely. Idempotent — nulling already-null fields is a
+        // no-op.
+        LivePreviewSurfaceRegistry.onAddTarget = null
+        LivePreviewSurfaceRegistry.onRemoveTarget = null
         try { seg.captureSession.stopRepeating() } catch (_: Throwable) {}
         try { seg.captureSession.close() } catch (_: Throwable) {}
         try { seg.hevc.signalEndOfInputStream() } catch (_: Throwable) {}

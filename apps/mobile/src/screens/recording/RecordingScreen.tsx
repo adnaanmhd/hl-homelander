@@ -65,7 +65,9 @@ import {
   stopGate as stopGateCamera,
   HumynGateCameraView,
 } from '../../native/HumynGateCamera';
+import { HumynLivePreviewView, isLivePreviewAvailable } from '../../native/HumynLivePreviewView';
 import * as HumynScreenBrightness from '../../native/HumynScreenBrightness';
+import { useLivePreviewStateMachine } from '../../lib/livePreviewState';
 import { pickAndSetLocaleVoice, speakCue } from '../../lib/ttsVoice';
 import { formatContributionDuration } from '../../lib/durationFormat';
 import { buildCaptureOpts } from '../../lib/buildCaptureOpts';
@@ -886,6 +888,20 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
   const minuteBarFraction =
     state.substate === 'active' ? Math.min(1, state.durationMs / 60_000) : 0;
 
+  // Phase 7 plan 07-07 — live-cam preview brightness state machine.
+  // Driven by `state.startedAt` going non-null when the 'active' substate
+  // is entered (post-gate-pass / Skip → CAPTURE_STARTED). The machine
+  // immediately calls `HumynScreenBrightness.set(-1)` to restore system
+  // brightness for the 15-s initial preview window, then transitions to
+  // 'dimmed' (set(0.05)) — re-shown for rolling 10-s windows on tap.
+  // REC-LIVE-01..04 / D-05 / D-28 / D-29. On stop / unmount the existing
+  // set(-1) restorers below (line 743 / 876 / cleanup return) own the
+  // terminal brightness restore — REC-LIVE-15.
+  const captureStartedAt =
+    state.substate === 'active' && state.startedAt != null ? state.startedAt : null;
+  const { state: brightnessState, tap: handleTapReveal } =
+    useLivePreviewStateMachine(captureStartedAt);
+
   return (
     <ScreenContainer
       accessibilityLabel="Recording screen"
@@ -912,6 +928,67 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
       state.substate === 'pre-flight' ||
       state.substate === 'gate' ? (
         <HumynGateCameraView style={StyleSheet.absoluteFill} />
+      ) : null}
+
+      {/* Phase 7 plan 07-07 — live-cam preview during the 'active' substate
+          (REC-LIVE-01..04 / D-05 / D-26 / D-27 / D-28 / D-29). The
+          <HumynLivePreviewView> publishes its Surface to the native
+          LivePreviewSurfaceRegistry; CaptureSession.kt picks it up at
+          session-config time and attaches it as a second target of the
+          recording CameraCaptureSession (Option B, two-Surface). The
+          encoder Surface is ALWAYS a target across the whole session —
+          drift telemetry (CLAUDE.md "±1 ms drift gate relaxed" banner)
+          and FinalizeWorker capture-quality cancel gates
+          (`mean_fps < 29` / `width < 1920 OR height < 1080` /
+          `videoFrameTimestamps.size < 2` — CLAUDE.md "Capture-quality
+          cancel gate added" / REC-LIVE-07 invariant) are NOT regressed
+          by this Surface routing.
+
+          The Pressable + Eye icon glyph render only in 'dimmed'
+          (D-28 z-stack — RecordingScreen lines later in the JSX render
+          ON TOP of these layers, so the Stop button below stays
+          hit-testable in all three brightness substates per
+          T-07-07-06). Practice instructional copy is gated on
+          `brightnessState === 'dimmed'` (D-05). */}
+      {state.substate === 'active' &&
+      (brightnessState === 'initial-preview' || brightnessState === 'tap-revealed') &&
+      isLivePreviewAvailable() ? (
+        <HumynLivePreviewView style={StyleSheet.absoluteFill} />
+      ) : null}
+
+      {/* Full-surface Pressable for tap-to-reveal — dimmed state only
+          (D-28). pointerEvents on the Stop button area is unaffected:
+          the body View / Stop button render LATER in the JSX so they
+          win hit-test over this Pressable (T-07-07-06). */}
+      {state.substate === 'active' && brightnessState === 'dimmed' ? (
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={handleTapReveal}
+          accessibilityLabel="recording-tap-reveal"
+        />
+      ) : null}
+
+      {/* Eye-icon glyph at low contrast in the bottom-right of the dimmed
+          surface — visual affordance that a tap will reveal the preview
+          (D-27 — `lucide-react-native` `Eye`). `pointerEvents="none"` so
+          the touch passes through to the Pressable above. */}
+      {state.substate === 'active' && brightnessState === 'dimmed' ? (
+        <View style={styles.liveEyeCorner} pointerEvents="none">
+          <Icon name="Eye" size={24} color={colors.text3} />
+        </View>
+      ) : null}
+
+      {/* Static "Live preview" label (D-26 — no per-second numeral
+          countdown). Translated via i18n catalog as `recording.preview.live`.
+          Visible during initial-preview AND tap-revealed; hidden in
+          dimmed. */}
+      {state.substate === 'active' &&
+      (brightnessState === 'initial-preview' || brightnessState === 'tap-revealed') ? (
+        <View style={styles.liveLabelCorner} pointerEvents="none">
+          <Text variant="caption" style={styles.liveLabelText}>
+            {t('recording.preview.live')}
+          </Text>
+        </View>
       ) : null}
 
       {/* Top 3px full-width minute-bar (only fills during active recording). */}
@@ -1158,4 +1235,21 @@ const styles = StyleSheet.create({
     maxWidth: '90%',
   },
   toastText: { color: colors.recTextCaption, textAlign: 'center' },
+  // Phase 7 plan 07-07 — live-cam preview overlay styling (D-26 / D-27).
+  liveEyeCorner: {
+    position: 'absolute',
+    bottom: spacing.l,
+    right: spacing.l,
+    opacity: 0.6,
+  },
+  liveLabelCorner: {
+    position: 'absolute',
+    top: spacing.m + 4, // sits below the 3px minute-bar
+    right: spacing.l,
+    paddingHorizontal: spacing.s,
+    paddingVertical: 2,
+    backgroundColor: colors.recOverlayTip,
+    borderRadius: radii.pill,
+  },
+  liveLabelText: { color: colors.recTextCaption },
 });
