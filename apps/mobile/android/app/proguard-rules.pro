@@ -24,3 +24,17 @@
 -keep class com.lugg.RNCConfig.BuildConfig { *; }
 -keep class ai.humynlabs.capture.BuildConfig { *; }
 -keep class ai.humynlabs.capture.apk.BuildConfig { *; }
+
+# MediaPipe specific rules
+-keep class com.google.mediapipe.proto.** { *; }
+-keep class com.google.mediapipe.** { *; }
+-keep class com.google.mediapipe.framework.Graph { *; }
+
+# Protobuf rules
+-keepclassmembers class * extends com.google.protobuf.GeneratedMessageLite { *; }
+
+# Guava/Flogger rules (often required to prevent crashes in logging/framework)
+-keep class com.google.common.flogger.** { *; }
+-keep public class com.google.common.** { *; }
+-keep public interface com.google.common.** { *; }
+
