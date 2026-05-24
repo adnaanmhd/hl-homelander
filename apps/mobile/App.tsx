@@ -23,6 +23,13 @@ import { StatusBar } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { enableScreens } from 'react-native-screens';
+import { I18nextProvider } from 'react-i18next';
+// Phase 7 Plan 07-01 (D-23) — side-effect import runs `localeBootstrap()`
+// (sync MMKV read) + `i18n.init({ lng, resources })` at module load, BEFORE
+// the navigator renders. Import MUST stay above the navigator imports so
+// `<I18nextProvider>` mounts with an already-initialized instance.
+import './src/i18n';
+import i18n from './src/i18n';
 import { hydrate } from './src/state/hydrate';
 import { installBootRecoveryListener } from './src/boot/bootRecoveryListener';
 import { installUploadReconcile } from './src/services/uploadReconcile';
@@ -68,14 +75,23 @@ export default function App() {
   }, []);
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle="dark-content" />
-      <NavigationContainer linking={linking as unknown as LinkingOptions<Record<string, never>>}>
-        <RootNativeStack />
-      </NavigationContainer>
-      {/* D-LIFE-04 — transient toast host floats over the whole app (sibling of
-          the navigator) so any screen / the crash-recovery boot listener can
-          showToast(...). */}
-      <ToastHost />
+      {/* Phase 7 Plan 07-01 (D-23, RESEARCH §"Provider Placement") —
+          <I18nextProvider> sits IMMEDIATELY inside <SafeAreaProvider> so
+          `useTranslation()` reaches every screen in <RootNativeStack> AND
+          the sibling <ToastHost /> (translated error toasts in plan 07-03).
+          The `i18n` instance has already finished init() at module load
+          (side-effect import above), so the first render is in the
+          correct locale. */}
+      <I18nextProvider i18n={i18n}>
+        <StatusBar barStyle="dark-content" />
+        <NavigationContainer linking={linking as unknown as LinkingOptions<Record<string, never>>}>
+          <RootNativeStack />
+        </NavigationContainer>
+        {/* D-LIFE-04 — transient toast host floats over the whole app (sibling of
+            the navigator) so any screen / the crash-recovery boot listener can
+            showToast(...). */}
+        <ToastHost />
+      </I18nextProvider>
     </SafeAreaProvider>
   );
 }

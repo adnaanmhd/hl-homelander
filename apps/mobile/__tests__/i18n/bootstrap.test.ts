@@ -35,7 +35,10 @@ import { localeMmkv, LOCALE_KEYS, SUPPORTED_LOCALES } from '../../src/i18n/stora
 describe('localeBootstrap', () => {
   beforeEach(() => {
     try {
-      localeMmkv.delete(LOCALE_KEYS.CODE);
+      // MMKV v4 (Nitro) public method is `.remove(key)` — `.delete` exists
+      // on the vitest in-memory shim for back-compat but not on the runtime
+      // type. Always use `.remove(...)` so tests typecheck.
+      localeMmkv.remove(LOCALE_KEYS.CODE);
     } catch {
       /* best-effort — vitest in-memory mock never throws */
     }
