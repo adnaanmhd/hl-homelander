@@ -313,7 +313,7 @@ Plans:
 
 **Wave 2** _(UI rollout + reverse-search + TTS — depends on Wave 1)_
 
-- [ ] 07-04-choose-language-screen-and-profile-picker-PLAN.md — design carve-out #2 ChooseLanguageScreen + LanguageSheet + initialRoute gate + Profile row (I18N-02/03/04/12)
+- [x] 07-04-choose-language-screen-and-profile-picker-PLAN.md — design carve-out #2 ChooseLanguageScreen + LanguageSheet + initialRoute gate + Profile row (I18N-02/03/04/12)
 - [ ] 07-05-screen-string-sweep-and-bilingual-consent-PLAN.md — 22-screen t() sweep + bilingual TermsOfUseModal + API-error→translated toast + LLM regen of 7 non-English JSONs (I18N-07/08/09/11/12)
 - [ ] 07-06-tts-fallback-and-reverse-search-PLAN.md — 5-step TTS fallback chain + taskCatalog.i18n.ts + 3-stage reverseSearch + tasksApi.ts shim (I18N-06, I18N-10)
 
