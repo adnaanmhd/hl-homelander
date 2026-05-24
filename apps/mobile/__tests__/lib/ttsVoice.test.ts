@@ -6,10 +6,15 @@
 // `src/lib/ttsVoice.ts` header.
 //
 // Each case `vi.doMock`s `react-native-tts` with a different `voices()` array
-// then dynamic-imports `pickAndSetEnInVoice` to assert which `setDefaultVoice`
-// id it picks (and that `setDefaultLanguage('en-US')` + `setDefaultRate(1.0,
-// true)` + `setDefaultPitch(0.95)` run regardless). `vi.resetModules()`
-// between cases so each import gets the freshly-doMock'd module.
+// then dynamic-imports `pickAndSetEnInVoice` / `pickAndSetLocaleVoice` to
+// assert which `setDefaultVoice` id it picks (and that `setDefaultLanguage`
+// + `setDefaultRate(1.0, true)` + `setDefaultPitch(0.95)` run regardless).
+// `vi.resetModules()` between cases so each import gets the freshly-doMock'd
+// module.
+//
+// Plan 07-06 Task 1 — extended with `pickAndSetLocaleVoice` coverage:
+// 5-step per-locale chain (locale-female → locale-any → en-US-female →
+// en-US-any → first en-*) + Crashlytics breadcrumb on locale-miss (D-31).
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -40,15 +45,31 @@ function makeTtsMock(
   };
 }
 
+// vi.hoisted: the Crashlytics spy must exist BEFORE the (hoisted) vi.mock
+// factory runs — a bare const would still be in the TDZ. Pattern lifted
+// from apps/mobile/__tests__/services/api.errorToast.test.ts.
+const { crashLog } = vi.hoisted(() => ({ crashLog: vi.fn() }));
+vi.mock('@react-native-firebase/crashlytics', () => ({
+  default: () => ({ log: crashLog }),
+}));
+
 async function loadWithTts(tts: TtsMock) {
   vi.resetModules();
   vi.doMock('react-native-tts', () => ({ default: tts, ...tts }));
+  // Re-apply the crashlytics doMock so the freshly-imported ttsVoice.ts
+  // resolves the same singleton-factory (the top-level vi.mock above is
+  // hoisted module-wide; resetModules wipes only the dynamic import cache
+  // but the factory + spy persist).
+  vi.doMock('@react-native-firebase/crashlytics', () => ({
+    default: () => ({ log: crashLog }),
+  }));
   const mod = await import('../../src/lib/ttsVoice');
   return mod;
 }
 
 beforeEach(() => {
   vi.resetModules();
+  crashLog.mockClear();
 });
 
 describe('pickAndSetEnInVoice (en-US-female fallback chain)', () => {
@@ -135,6 +156,118 @@ describe('pickAndSetEnInVoice (en-US-female fallback chain)', () => {
     expect(tts.getInitStatus).toHaveBeenCalled();
     expect(tts.setDefaultRate).toHaveBeenCalledWith(1.0, true);
     expect(tts.setDefaultPitch).toHaveBeenCalledWith(0.95);
+  });
+});
+
+describe('pickAndSetLocaleVoice (I18N-06 / D-31 — 5-step per-locale chain)', () => {
+  it('step 1 — picks the locale female voice first when both exist (hi-IN)', async () => {
+    const tts = makeTtsMock([
+      { id: 'hi-in-x-male', language: 'hi-IN', name: 'Hindi Male' },
+      { id: 'hi-in-x-female', language: 'hi-IN', name: 'Hindi Female' },
+    ]);
+    const { pickAndSetLocaleVoice } = await loadWithTts(tts);
+    await pickAndSetLocaleVoice('hi-IN');
+    expect(tts.setDefaultLanguage).toHaveBeenCalledWith('hi-IN');
+    expect(tts.setDefaultVoice).toHaveBeenCalledWith('hi-in-x-female');
+    expect(crashLog).not.toHaveBeenCalled();
+  });
+
+  it('step 2 — falls to any locale-matching voice when no female heuristic hits (pt-BR)', async () => {
+    const tts = makeTtsMock([{ id: 'pt-br-x-plain', language: 'pt-BR' }]);
+    const { pickAndSetLocaleVoice } = await loadWithTts(tts);
+    await pickAndSetLocaleVoice('pt-BR');
+    expect(tts.setDefaultLanguage).toHaveBeenCalledWith('pt-BR');
+    expect(tts.setDefaultVoice).toHaveBeenCalledWith('pt-br-x-plain');
+    expect(crashLog).not.toHaveBeenCalled();
+  });
+
+  it('step 3 — falls to an en-US female voice when no locale voice is installed, AND logs a Crashlytics breadcrumb (ta-IN → en-US)', async () => {
+    const tts = makeTtsMock([
+      { id: 'en-us-x-tpf-local', language: 'en-US', name: 'English Female' },
+    ]);
+    const { pickAndSetLocaleVoice } = await loadWithTts(tts);
+    await pickAndSetLocaleVoice('ta-IN');
+    expect(tts.setDefaultLanguage).toHaveBeenCalledWith('ta-IN');
+    expect(tts.setDefaultVoice).toHaveBeenCalledWith('en-us-x-tpf-local');
+    expect(crashLog).toHaveBeenCalledTimes(1);
+    const arg = JSON.parse(crashLog.mock.calls[0][0] as string);
+    expect(arg.event).toBe('tts_locale_fallback');
+    expect(arg.locale).toBe('ta-IN');
+    expect(arg.fallback).toBe(true);
+  });
+
+  it('step 4 — falls to any en-US voice when no locale + no en-US-female exists, logs breadcrumb', async () => {
+    const tts = makeTtsMock([{ id: 'en-us-x-plain', language: 'en-US', name: 'English Generic' }]);
+    const { pickAndSetLocaleVoice } = await loadWithTts(tts);
+    await pickAndSetLocaleVoice('bn-IN');
+    expect(tts.setDefaultLanguage).toHaveBeenCalledWith('bn-IN');
+    expect(tts.setDefaultVoice).toHaveBeenCalledWith('en-us-x-plain');
+    expect(crashLog).toHaveBeenCalledTimes(1);
+  });
+
+  it('step 5 — falls to first en-* voice when no en-US exists, logs breadcrumb', async () => {
+    const tts = makeTtsMock([
+      { id: 'en-gb-x', language: 'en-GB' },
+      { id: 'fr-x', language: 'fr-FR' },
+    ]);
+    const { pickAndSetLocaleVoice } = await loadWithTts(tts);
+    await pickAndSetLocaleVoice('mr-IN');
+    expect(tts.setDefaultVoice).toHaveBeenCalledWith('en-gb-x');
+    expect(crashLog).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves the en-US owner deviation when activeLocale is "en" (sets language to en-US, NOT en)', async () => {
+    const tts = makeTtsMock([{ id: 'en-us-x-tpf-local', language: 'en-US' }]);
+    const { pickAndSetLocaleVoice } = await loadWithTts(tts);
+    await pickAndSetLocaleVoice('en');
+    expect(tts.setDefaultLanguage).toHaveBeenCalledWith('en-US'); // NOT 'en'
+    expect(tts.setDefaultVoice).toHaveBeenCalledWith('en-us-x-tpf-local');
+    // en never logs fallback — it IS the always-true fallback target (would flood Crashlytics)
+    expect(crashLog).not.toHaveBeenCalled();
+  });
+
+  it('does NOT log Crashlytics breadcrumb when locale-matching voice IS installed (hi-IN hit)', async () => {
+    const tts = makeTtsMock([{ id: 'hi-in-x-plain', language: 'hi-IN' }]);
+    const { pickAndSetLocaleVoice } = await loadWithTts(tts);
+    await pickAndSetLocaleVoice('hi-IN');
+    expect(crashLog).not.toHaveBeenCalled();
+  });
+
+  it('keeps the owner-locked setDefaultRate(1.0, true) + setDefaultPitch(0.95) regardless of locale', async () => {
+    const tts = makeTtsMock([{ id: 'hi-in-x', language: 'hi-IN' }]);
+    const { pickAndSetLocaleVoice } = await loadWithTts(tts);
+    await pickAndSetLocaleVoice('hi-IN');
+    expect(tts.setDefaultRate).toHaveBeenCalledWith(1.0, true);
+    expect(tts.setDefaultPitch).toHaveBeenCalledWith(0.95);
+  });
+
+  it('best-effort: setDefaultLanguage rejecting does not throw / aborts the chain', async () => {
+    const tts = makeTtsMock([{ id: 'hi-in-x', language: 'hi-IN' }]);
+    tts.setDefaultLanguage.mockRejectedValueOnce(new Error('LANG_MISSING_DATA'));
+    const { pickAndSetLocaleVoice } = await loadWithTts(tts);
+    await expect(pickAndSetLocaleVoice('hi-IN')).resolves.toBeUndefined();
+    expect(tts.setDefaultVoice).toHaveBeenCalledWith('hi-in-x');
+  });
+
+  it('empty voices() — sets language but no voice + no crashlytics breadcrumb', async () => {
+    const tts = makeTtsMock([]);
+    const { pickAndSetLocaleVoice } = await loadWithTts(tts);
+    await pickAndSetLocaleVoice('hi-IN');
+    expect(tts.setDefaultLanguage).toHaveBeenCalledWith('hi-IN');
+    expect(tts.setDefaultVoice).not.toHaveBeenCalled();
+    // No voices at all = no fallback path taken = no breadcrumb (the breadcrumb is
+    // specifically "no locale voice, so we walked to en-* steps"; here we
+    // walked nowhere, which is its own degenerate engine state).
+    expect(crashLog).not.toHaveBeenCalled();
+  });
+
+  it('pickAndSetEnInVoice() delegates to pickAndSetLocaleVoice("en") — backward-compat shim (D-31)', async () => {
+    const tts = makeTtsMock([{ id: 'en-us-x-tpf-local', language: 'en-US' }]);
+    const { pickAndSetEnInVoice } = await loadWithTts(tts);
+    await pickAndSetEnInVoice();
+    expect(tts.setDefaultLanguage).toHaveBeenCalledWith('en-US');
+    expect(tts.setDefaultVoice).toHaveBeenCalledWith('en-us-x-tpf-local');
+    expect(crashLog).not.toHaveBeenCalled();
   });
 });
 
