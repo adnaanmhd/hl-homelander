@@ -173,6 +173,10 @@ import { decodeGoogleSubFromJwt } from '../../src/lib/jwtSub';
 import { secureMmkv } from '../../src/state/mmkv';
 import { practiceDoneKey } from '../../src/state/keys';
 import { computeInitialRoute } from '../../src/state/initialRoute';
+// Phase 7 plan 07-04 — D-22 locale gate now sits ABOVE every non-force-upgrade
+// gate. Seed it in step (d) so computeInitialRoute exercises the practice gate
+// (the thing under test) rather than the brand-new locale gate.
+import { localeMmkv, LOCALE_KEYS } from '../../src/i18n/storage';
 
 const PRACTICE_PARAMS = {
   taskId: '__practice__',
@@ -226,6 +230,11 @@ describe('practice-tutorial chain (plan 04-06 — ONB-03 / ONB-07 / ONB-08)', ()
       tutorialDone: true,
     } as unknown as Parameters<typeof computeInitialRoute>[0];
 
+    // Phase 7 plan 07-04 — seed the D-22 locale gate so this test exercises
+    // the practice gate, not the new locale gate.
+    localeMmkv.set(LOCALE_KEYS.CODE, 'en');
+    localeMmkv.set(LOCALE_KEYS.CHOSEN_AT, '2026-05-24T00:00:00.000Z');
+
     secureMmkv.remove(practiceDoneKey(sub));
     expect(computeInitialRoute(greenState, null)).toEqual({
       stack: 'OnboardingStack',
@@ -237,5 +246,7 @@ describe('practice-tutorial chain (plan 04-06 — ONB-03 / ONB-07 / ONB-08)', ()
     expect(computeInitialRoute(greenState, null)).toEqual({ stack: 'MainTabs' });
 
     secureMmkv.remove(practiceDoneKey(sub));
+    localeMmkv.remove(LOCALE_KEYS.CODE);
+    localeMmkv.remove(LOCALE_KEYS.CHOSEN_AT);
   });
 });
