@@ -31,6 +31,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, FlatList, RefreshControl, StyleSheet, type ListRenderItem } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SearchX } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 
 import ScreenContainer from '../../ui/primitives/ScreenContainer';
 import { Text } from '../../ui/primitives/Text';
@@ -70,6 +71,7 @@ type RecordingNav = {
 export function TasksScreen(): React.JSX.Element {
   const topBarProps = useTabTopBarProps();
   const navigation = useNavigation() as unknown as RecordingNav;
+  const { t } = useTranslation();
 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [debouncedQuery, setDebouncedQuery] = useState<string>('');
@@ -243,7 +245,7 @@ export function TasksScreen(): React.JSX.Element {
         <SearchInput
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder="Search tasks…"
+          placeholder={t('tasks.searchPlaceholder')}
           debounceMs={200}
           onChangeDebounced={handleSearchDebounced}
           analyticsDebounceMs={400}
@@ -263,14 +265,14 @@ export function TasksScreen(): React.JSX.Element {
         <View accessibilityLabel="tasks-empty-state" style={styles.emptyWrap}>
           <SearchX size={48} strokeWidth={1.75} color={colors.text3} />
           <Text variant="body" tone="secondary" style={styles.emptyBody}>
-            No tasks match. Try clearing filters or{' '}
+            {t('tasks.emptyHeading')}
             <Text
               variant="body"
               style={styles.emptyLink}
               accessibilityLabel="tasks-empty-send-request"
               onPress={openSendRequest}
             >
-              send a request
+              {t('tasks.emptySendLink')}
             </Text>
             .
           </Text>
@@ -294,14 +296,14 @@ export function TasksScreen(): React.JSX.Element {
           ListFooterComponent={
             <View accessibilityLabel="tasks-footer" style={styles.footerWrap}>
               <Text variant="caption" tone="secondary" style={styles.footerLine}>
-                Can&apos;t find a task?{' '}
+                {t('tasks.footerPrefix')}
                 <Text
                   variant="caption"
                   style={styles.footerLink}
                   accessibilityLabel="tasks-footer-send-request"
                   onPress={openSendRequest}
                 >
-                  Send request →
+                  {t('tasks.footerLink')}
                 </Text>
               </Text>
             </View>

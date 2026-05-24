@@ -50,6 +50,15 @@ void i18n.use(initReactI18next).init({
   interpolation: { escapeValue: false },
   compatibilityJSON: 'v4',
   returnNull: false,
+  // initImmediate:false forces i18next to load resources synchronously at
+  // module init (per D-23, plan 07-05) — without this, useTranslation() in a
+  // freshly-mounted screen tree returns the raw key string until the next
+  // microtask, which trips screen-level vitest renders that assert against
+  // the resolved English copy. Resources are bundled (no http backend) so
+  // the "sync" load is in-memory. The `initImmediate` option is a valid
+  // i18next runtime option but the bundled @types/i18next stripped it from
+  // InitOptions a few minor versions back — cast to keep TS clean.
+  initImmediate: false,
   resources: {
     en: { translation: en },
     'pt-BR': { translation: ptBR },
@@ -60,6 +69,6 @@ void i18n.use(initReactI18next).init({
     'te-IN': { translation: teIN },
     'mr-IN': { translation: mrIN },
   },
-});
+} as Parameters<typeof i18n.init>[0]);
 
 export default i18n;

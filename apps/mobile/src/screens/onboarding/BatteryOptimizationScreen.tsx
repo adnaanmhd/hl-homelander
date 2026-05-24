@@ -30,8 +30,9 @@
  * build without the module / a JSDOM test doesn't crash (mirrors HumynBattery.ts).
  * No new design tokens/curves — reuses ScreenContainer / Text / Button / spacing.
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import ScreenContainer from '../../ui/primitives/ScreenContainer';
 import Text from '../../ui/primitives/Text';
 import Button from '../../ui/primitives/Button';
@@ -84,36 +85,7 @@ interface VendorStep {
   steps: string;
 }
 
-const VENDOR_STEPS: VendorStep[] = [
-  {
-    vendor: 'Xiaomi (MIUI / HyperOS)',
-    steps:
-      'Settings → Apps → Manage apps → Humyn Labs Capture → Battery saver → No restrictions, and Autostart → on.',
-  },
-  {
-    vendor: 'Oppo (ColorOS)',
-    steps:
-      'Settings → Battery → App battery management → Humyn Labs Capture → Allow background activity, and Settings → App management → Auto launch → on.',
-  },
-  {
-    vendor: 'Vivo (FunTouch)',
-    steps:
-      'Settings → Battery → Background power consumption management → Humyn Labs Capture → Allow, and Settings → More settings → Permission management → Autostart → on.',
-  },
-  {
-    vendor: 'Samsung (One UI)',
-    steps:
-      'Settings → Apps → Humyn Labs Capture → Battery → Unrestricted (turn off "Pause app activity if unused").',
-  },
-  {
-    vendor: 'Stock Android / Pixel',
-    steps: 'Settings → Apps → Humyn Labs Capture → Battery → Unrestricted.',
-  },
-];
-
-/** The standalone fallback line — always shown (Pitfall 1: the copy stands alone). */
-const FALLBACK_COPY =
-  "If that screen isn't on your phone: Settings → Apps → Homelander → Battery → Unrestricted, and turn on Autostart if your phone has it.";
+const VENDOR_KEYS = ['xiaomi', 'oppo', 'vivo', 'samsung', 'stock'] as const;
 
 export interface BatteryOptimizationScreenProps {
   /** Called when the user taps "Done" / "Skip for now" (Plan 05-08 navigates away). */
@@ -125,6 +97,16 @@ export default function BatteryOptimizationScreen({
 }: BatteryOptimizationScreenProps): React.JSX.Element {
   const [exempt, setExempt] = useState<boolean | null>(null);
   const [oemAvailable, setOemAvailable] = useState(false);
+  const { t } = useTranslation();
+
+  const vendorSteps: VendorStep[] = useMemo(
+    () =>
+      VENDOR_KEYS.map((k) => ({
+        vendor: t(`batteryOpt.vendors.${k}.label`),
+        steps: t(`batteryOpt.vendors.${k}.steps`),
+      })),
+    [t],
+  );
 
   // Boot-time-ish probes — try/caught via the *Safe HumynUpload variants.
   useEffect(() => {
@@ -163,24 +145,23 @@ export default function BatteryOptimizationScreen({
     exempt == null
       ? null
       : exempt
-        ? '✓ Allowed — uploads will keep running in the background.'
-        : 'Still restricted — open Settings → Apps → Homelander → Battery → Unrestricted.';
+        ? t('batteryOpt.statusAllowed')
+        : t('batteryOpt.statusStillRestricted');
 
   return (
     <ScreenContainer accessibilityLabel="battery-optimization-screen" padding={spacing.h}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Text variant="sheetTitle" style={styles.title}>
-          Keep your uploads running
+          {t('batteryOpt.title')}
         </Text>
         <Text variant="body" tone="secondary" style={styles.body}>
-          Some phones aggressively close background apps. Allowing Homelander to run unrestricted
-          keeps your recordings uploading after you leave the app.
+          {t('batteryOpt.body')}
         </Text>
 
         <Button
           variant="primary"
           accessibilityLabel="battery-opt-allow-unrestricted"
-          label="Allow unrestricted battery"
+          label={t('batteryOpt.buttonAllow')}
           onPress={onAllowUnrestricted}
           style={styles.cta}
         />
@@ -191,9 +172,9 @@ export default function BatteryOptimizationScreen({
         )}
 
         <Text variant="body" style={styles.sectionHeading}>
-          How to do it on your phone
+          {t('batteryOpt.sectionHow')}
         </Text>
-        {VENDOR_STEPS.map((v) => (
+        {vendorSteps.map((v) => (
           <View key={v.vendor} style={styles.vendorBlock}>
             <Text variant="body" style={styles.vendorName}>
               {v.vendor}
@@ -208,25 +189,25 @@ export default function BatteryOptimizationScreen({
           <Button
             variant="outline"
             accessibilityLabel="battery-opt-open-oem-autostart"
-            label="Open Autostart settings"
+            label={t('batteryOpt.buttonOpenAutostart')}
             onPress={onOpenOemAutostart}
             style={styles.cta}
           />
         )}
         <Text variant="caption" tone="secondary" style={styles.fallback}>
-          {FALLBACK_COPY}
+          {t('batteryOpt.fallbackCopy')}
         </Text>
 
         <Button
           variant="primary"
           accessibilityLabel="battery-opt-done"
-          label="Done"
+          label={t('batteryOpt.buttonDone')}
           onPress={onDismiss}
           style={styles.cta}
         />
         <Pressable accessibilityLabel="battery-opt-skip" onPress={onDismiss} style={styles.skip}>
           <Text variant="caption" tone="secondary">
-            Skip for now
+            {t('batteryOpt.buttonSkip')}
           </Text>
         </Pressable>
       </ScrollView>

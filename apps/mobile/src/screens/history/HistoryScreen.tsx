@@ -43,6 +43,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshControl, SectionList, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Inbox } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import type { RecordingsListItem, Task } from '@humyn/shared-types';
 
 import ScreenContainer from '../../ui/primitives/ScreenContainer';
@@ -156,9 +157,15 @@ function toRowItem(r: RecordingsListItem, taskNameById: Record<string, string>):
 
 export function HistoryScreen(): React.JSX.Element {
   const topBarProps = useTabTopBarProps();
+  const { t } = useTranslation();
   const navigation = useNavigation<{
     navigate: (route: string, params?: Record<string, unknown>) => void;
   }>();
+  // Subscribe to translations even if visible literals stay as design-spec
+  // copy — when ChooseLanguage / Profile fires `i18n.changeLanguage`, this
+  // hook causes a re-render so the screen picks up the new locale at the
+  // FilterChip / FilterSheet / day-header strings as they are translated.
+  void t;
   const historyRange = useAppStore((s) => s.historyRange);
   const historyRangeCustom = useAppStore((s) => s.historyRangeCustom);
   const setHistoryRange = useAppStore((s) => s.setHistoryRange);

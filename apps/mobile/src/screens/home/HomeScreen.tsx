@@ -43,6 +43,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import ScreenContainer from '../../ui/primitives/ScreenContainer';
 import Text from '../../ui/primitives/Text';
 import { TopBar } from '../../components/TopBar';
@@ -184,6 +185,7 @@ function deviceTz(): string {
 
 export default function HomeScreen(): React.JSX.Element {
   const topBarProps = useTabTopBarProps();
+  const { t } = useTranslation();
   const navigation = useNavigation<{
     navigate: (route: string, params?: Record<string, unknown>) => void;
   }>();
@@ -397,8 +399,8 @@ export default function HomeScreen(): React.JSX.Element {
   // ("0s" / "47m" / "1h 12m" from formatDuration); the task-count tile
   // used to render as a bare integer with no unit, leaving "0 what?"
   // ambiguous. Suffix it with a pluralized "task"/"tasks" so the unit
-  // is visible inside the tile itself.
-  const tileTaskCountText = aggregate.taskCount === 1 ? '1 task' : `${aggregate.taskCount} tasks`;
+  // is visible inside the tile itself. Pluralization via i18next CLDR (D-08).
+  const tileTaskCountText = t('home.tile.taskCount', { count: aggregate.taskCount });
 
   return (
     <ScreenContainer accessibilityLabel="Home screen" padding={0}>
@@ -437,7 +439,7 @@ export default function HomeScreen(): React.JSX.Element {
           accessibilityLabel="your-contribution-section-header"
           style={styles.sectionHeader}
         >
-          YOUR CONTRIBUTION
+          {t('home.sectionContribution')}
         </Text>
         <View style={styles.tilePair}>
           <ContributionTile
@@ -460,7 +462,7 @@ export default function HomeScreen(): React.JSX.Element {
             accessibilityLabel="home-empty-tip"
             style={styles.emptyTip}
           >
-            Your hours and tasks will track here as you record.
+            {t('home.emptyTip')}
           </Text>
         ) : null}
 
@@ -472,7 +474,7 @@ export default function HomeScreen(): React.JSX.Element {
               accessibilityLabel="pending-uploads-section-header"
               style={styles.sectionHeader}
             >
-              PENDING UPLOADS
+              {t('home.sectionPendingUploads')}
             </Text>
             {offline ? <OfflineBanner /> : null}
             <Pressable
@@ -546,7 +548,7 @@ export default function HomeScreen(): React.JSX.Element {
               })}
               {pendingRows.length > 3 ? (
                 <Text variant="caption" tone="secondary" style={styles.viewAll}>
-                  +{pendingRows.length - 3} more — tap to view all
+                  {t('home.viewAllMore', { count: pendingRows.length - 3 })}
                 </Text>
               ) : null}
             </Pressable>

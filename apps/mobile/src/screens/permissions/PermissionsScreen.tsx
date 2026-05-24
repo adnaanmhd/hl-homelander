@@ -37,6 +37,7 @@ import {
   type Permission,
 } from 'react-native-permissions';
 import { Camera, Ban } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
 import { Text } from '../../ui/primitives/Text';
@@ -61,6 +62,7 @@ interface NavigationLike {
 export default function PermissionsScreen() {
   const navigation = useNavigation<NavigationLike>();
   const setPermsGranted = useAppStore((s) => s.setPermsGranted);
+  const { t } = useTranslation();
 
   const [state, setState] = useState<ScreenState>('idle');
   const [missing, setMissing] = useState<{ camera: boolean; mic: boolean }>({
@@ -191,7 +193,7 @@ export default function PermissionsScreen() {
   // ---------------------------------------------------------------------
   const isRecovery = state === 'denied' || state === 'partial';
 
-  const title = isRecovery ? 'Camera & Mic\nare required' : 'Camera & Mic\nPermissions';
+  const title = isRecovery ? t('permissions.titleRecovery') : t('permissions.titleIdle');
 
   // Body copy:
   //   - idle      : §3a verbatim
@@ -200,18 +202,20 @@ export default function PermissionsScreen() {
   //                 which Settings toggle to flip
   let body: string;
   if (state === 'partial') {
-    const missingName = missing.camera ? 'Camera' : 'Microphone';
-    body = `${missingName} access is required. Open Settings to enable.`;
+    const missingName = missing.camera
+      ? t('permissions.cameraName')
+      : t('permissions.microphoneName');
+    body = t('permissions.bodyPartialPrefix', { name: missingName });
   } else if (state === 'denied') {
-    body = 'Camera & Mic are required. Open Settings to enable.';
+    body = t('permissions.bodyDenied');
   } else {
     // Plan 03-11 (A1) — body copy tightened to a one-line runtime tooltip
     // (no manifesto). The longer privacy clause was filler at runtime; the
     // canonical privacy text lives in the consent block on Sign-up.
-    body = 'Used only while you hit record';
+    body = t('permissions.bodyIdle');
   }
 
-  const buttonLabel = isRecovery ? 'Open Settings' : 'Allow access';
+  const buttonLabel = isRecovery ? t('permissions.buttonOpenSettings') : t('permissions.buttonAllow');
   const isRequesting = state === 'requesting';
   const IconComp = isRecovery ? Ban : Camera;
 

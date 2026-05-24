@@ -27,6 +27,7 @@
  */
 import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet, Linking } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Text } from '../../ui/primitives/Text';
 import { Button } from '../../ui/primitives/Button';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
@@ -56,6 +57,7 @@ const ACCORDIONS: AccordionContent[] = (content as { accordions: AccordionConten
 
 export function HelpCenterScreen(): React.JSX.Element {
   const [reportOpen, setReportOpen] = useState(false);
+  const { t } = useTranslation();
 
   return (
     <ScreenContainer accessibilityLabel="help-center-screen" padding={0}>
@@ -74,7 +76,7 @@ export function HelpCenterScreen(): React.JSX.Element {
           <Button
             variant="primary"
             accessibilityLabel="help-contact-support-mailto"
-            label="Contact Support"
+            label={t('help.contactSupport')}
             onPress={() =>
               Linking.openURL(
                 `mailto:${SUPPORT_EMAIL_PLACEHOLDER}?subject=${encodeURIComponent(
@@ -89,7 +91,7 @@ export function HelpCenterScreen(): React.JSX.Element {
           <Button
             variant="outline"
             accessibilityLabel="help-report-problem"
-            label="Report a problem"
+            label={t('help.reportProblem')}
             onPress={() => setReportOpen(true)}
           />
         </View>

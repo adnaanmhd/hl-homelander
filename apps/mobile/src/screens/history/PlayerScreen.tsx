@@ -64,6 +64,7 @@ import type { ArchiveState } from '@humyn/shared-types';
 import { getRecordingStreamUrl } from '../../services/recordingsApi';
 import { readEntry } from '../../services/thumbnailLedger';
 import { showToast } from '../../components/Toast';
+import { useTranslation } from 'react-i18next';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -258,6 +259,7 @@ function ScrubBar({
 export function PlayerScreen(): React.JSX.Element {
   const navigation = useNavigation() as unknown as NavigationLike;
   const route = useRoute();
+  const { t } = useTranslation();
   const params = (route.params ?? {}) as Partial<PlayerRouteParams>;
   const recordingId = params.recordingId ?? '';
   const taskName = params.taskName ?? '';
@@ -286,8 +288,8 @@ export function PlayerScreen(): React.JSX.Element {
   // transient toast that fades out after 5s. Fires once on Player mount.
   // -------------------------------------------------------------------------
   useEffect(() => {
-    showToast('View only — not downloadable.', 5000);
-  }, []);
+    showToast(t('player.viewOnlyToast'), 5000);
+  }, [t]);
 
   // -------------------------------------------------------------------------
   // Orientation lock — portrait + letterboxed (UI-SPEC §14 / RESEARCH Open

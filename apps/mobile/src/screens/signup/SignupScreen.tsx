@@ -27,6 +27,8 @@
 import React, { useCallback, useState } from 'react';
 import { Alert, Image, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
+import i18nDefault from '../../i18n';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const ORANGE_LOGO = require('../../assets/logos/orange_logo.png');
@@ -65,6 +67,8 @@ export default function SignupScreen() {
   const setJwt = useAppStore((s) => s.setJwt);
   const setConsent = useAppStore((s) => s.setConsent);
   const setUser = useAppStore((s) => s.setUser);
+  const { t } = useTranslation();
+  const isEnglish = i18nDefault.language === 'en';
 
   const [consent, setConsentChecked] = useState(true);
   const [termsOpen, setTermsOpen] = useState(false);
@@ -73,7 +77,7 @@ export default function SignupScreen() {
 
   const handleSignIn = useCallback(async () => {
     if (!consent) {
-      Alert.alert('Please accept the Terms of Use to continue.');
+      Alert.alert(t('signup.consentRequiredAlert'));
       return;
     }
     setLoading(true);
@@ -101,7 +105,7 @@ export default function SignupScreen() {
     } finally {
       setLoading(false);
     }
-  }, [consent, navigation, setConsent, setJwt, setUser]);
+  }, [consent, navigation, setConsent, setJwt, setUser, t]);
 
   const toggleConsent = useCallback(() => {
     setConsentChecked((prev) => {
@@ -142,7 +146,7 @@ export default function SignupScreen() {
           style={styles.tagline}
           accessibilityLabel="signup tagline"
         >
-          Real Humyns. Real Intelligence.
+          {t('signup.tagline')}
         </Text>
         <View style={{ height: spacing.hh }} />
         {/* Plan 03-02 — three value-prop lines render as ONE cohesive block,
@@ -155,13 +159,13 @@ export default function SignupScreen() {
             "Reduce vertical spacing between the three value-prop lines"). */}
         <View style={styles.valueProps}>
           <Text variant="pitch" tone="primary" style={styles.pitchLine}>
-            Record real moments.
+            {t('signup.pitchLine1')}
           </Text>
           <Text variant="pitch" tone="primary" style={styles.pitchLine}>
-            Train real intelligence.
+            {t('signup.pitchLine2')}
           </Text>
           <Text variant="pitch" style={[styles.pitchLine, { color: colors.accent }]}>
-            Get paid
+            {t('signup.pitchLine3')}
           </Text>
         </View>
       </View>
@@ -176,7 +180,7 @@ export default function SignupScreen() {
         <View style={styles.ctaWrap}>
           <Button
             variant="primary"
-            label={loading ? 'Signing in…' : 'Continue with Google'}
+            label={loading ? t('common.signingIn') : t('signup.ctaSignIn')}
             accessibilityLabel="Continue with Google"
             onPress={handleSignIn}
             disabled={loading}
@@ -205,23 +209,37 @@ export default function SignupScreen() {
               </Text>
             ) : null}
           </Pressable>
-          <Text
-            variant="caption"
-            tone="primary"
-            style={{ marginLeft: spacing.m }}
-            accessibilityLabel="Consent label"
-          >
-            I have read and agree to the{' '}
-            <Text
-              variant="caption"
-              accessibilityRole="link"
-              accessibilityLabel="Terms of Use link"
-              onPress={openTerms}
-              style={{ color: colors.accent, textDecorationLine: 'underline' }}
-            >
-              Terms of Use
+          <View style={{ marginLeft: spacing.m, flex: 1 }}>
+            <Text variant="caption" tone="primary" accessibilityLabel="Consent label">
+              {t('signup.consentLabelPrefix')}
+              <Text
+                variant="caption"
+                accessibilityRole="link"
+                accessibilityLabel="Terms of Use link"
+                onPress={openTerms}
+                style={{ color: colors.accent, textDecorationLine: 'underline' }}
+              >
+                {t('signup.consentLink')}
+              </Text>
             </Text>
-          </Text>
+            {!isEnglish ? (
+              <Text
+                variant="caption"
+                tone="secondary"
+                accessibilityLabel="Consent label English underlay"
+                style={{ opacity: 0.7, marginTop: spacing.xs }}
+              >
+                {i18nDefault.getFixedT('en')('signup.consentLabelPrefix')}
+                <Text
+                  variant="caption"
+                  style={{ opacity: 0.7 }}
+                  accessibilityLabel="Terms of Use link English underlay"
+                >
+                  {i18nDefault.getFixedT('en')('signup.consentLink')}
+                </Text>
+              </Text>
+            ) : null}
+          </View>
         </View>
 
         {error ? (
