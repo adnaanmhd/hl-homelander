@@ -323,7 +323,7 @@ Plans:
 
 **Wave 4** _(manual smoke + sign-off — depends on Waves 2+3)_
 
-- [ ] 07-08-renumber-sweep-and-manual-smoke-PLAN.md — 07-MANUAL-SMOKE.md 11-section runbook + A/B drift smoke walk (D-04 BLOCKING) + grep gates + ROADMAP/STATE refresh (I18N-11, I18N-20, I18N-21, REC-LIVE-05, REC-LIVE-07)
+- [x] 07-08-renumber-sweep-and-manual-smoke-PLAN.md — 07-MANUAL-SMOKE.md 11-section runbook + A/B drift smoke walk (D-04 BLOCKING) + grep gates + ROADMAP/STATE refresh (I18N-11, I18N-20, I18N-21, REC-LIVE-05, REC-LIVE-07)
 
 **UI hint**: yes — new Choose Language screen + Profile row + recording-surface preview overlay + tap-affordance indicator
 
