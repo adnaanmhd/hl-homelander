@@ -112,6 +112,11 @@ vi.mock('../../../src/util/analytics', () => ({ logEvent: mockLogEvent }));
 
 vi.mock('../../../src/lib/ttsVoice', () => ({
   speakCue: mockSpeakCue,
+  // Plan 07-06: RecordingScreen now imports pickAndSetLocaleVoice (the new
+  // public entry point). pickAndSetEnInVoice is preserved as a backward-
+  // compat shim — both surfaces are stubbed inert here so the mount-time
+  // useEffect doesn't hit the real Tts engine under JSDOM.
+  pickAndSetLocaleVoice: mockPickVoice,
   pickAndSetEnInVoice: mockPickVoice,
 }));
 
