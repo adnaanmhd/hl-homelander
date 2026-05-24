@@ -1,0 +1,47 @@
+{
+  "common": {
+    "continue": "Continue",
+    "cancel": "Cancel",
+    "save": "Save",
+    "close": "Close"
+  },
+  "onboarding": {
+    "chooseLanguage": {
+      "title": "Choose your language",
+      "continueButton": "Continue"
+    }
+  },
+  "profile": {
+    "language": {
+      "row": { "label": "Language" },
+      "picker": { "title": "Select language" }
+    }
+  },
+  "recording": {
+    "preview": { "live": "Live preview" }
+  },
+  "terms": {
+    "consent": {
+      "modalTitle": "Terms of Use",
+      "body": "I consent and agree to upload videos."
+    }
+  },
+  "errors": {
+    "generic": "Something went wrong",
+    "auth": {
+      "invalidToken": "Please sign in again",
+      "expiredToken": "Your session expired — please sign in again",
+      "googleFailed": "Google sign-in failed"
+    },
+    "upload": {
+      "quotaExceeded": "Upload quota reached for today",
+      "networkLost": "Network lost — retry when back online"
+    },
+    "recording": {
+      "tooShort": "Recording was too short"
+    },
+    "compat": {
+      "failed": "Your device is not compatible"
+    }
+  }
+}
