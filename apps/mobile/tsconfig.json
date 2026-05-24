@@ -6,7 +6,27 @@
     "types": ["node"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "allowSyntheticDefaultImports": true
+    "moduleSuffixes": [".native", ""],
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    // `paths` here exists for one reason: `design-system/task-icons/` lives
+    // outside any workspace (no nearby `node_modules`), so when tsc walks the
+    // import graph from `apps/mobile/src/**` into a design-system file, it
+    // can't resolve `react` / `react-native` / `lucide-react-native` / `zod`
+    // by node-resolution from the file's real location. Pinning the import
+    // names to `apps/mobile/node_modules/...` (with the `@types/react`
+    // sidecar first since React itself ships no `.d.ts`) makes those imports
+    // resolve regardless of the importer's directory.
+    "paths": {
+      "react": ["./node_modules/@types/react", "./node_modules/react"],
+      "react/jsx-runtime": [
+        "./node_modules/@types/react/jsx-runtime",
+        "./node_modules/react/jsx-runtime"
+      ],
+      "react-native": ["./node_modules/react-native"],
+      "lucide-react-native": ["./node_modules/lucide-react-native"],
+      "zod": ["./node_modules/zod"]
+    }
   },
   "include": ["src/**/*", "__tests__/**/*", "App.tsx"]
 }

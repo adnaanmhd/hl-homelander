@@ -66,6 +66,11 @@ vi.mock('../../src/native/HumynUpload', () => ({
     drainNowSafe: vi.fn(async () => undefined),
     reupload: vi.fn(async () => undefined),
     getConnectivitySafe: vi.fn(async () => ({ online: true })),
+    // BatteryOptimizationScreen.tsx (UP-09) fires both in a focus effect;
+    // RootNativeStack renders the screen transitively, so the mock has to
+    // cover them or the test surfaces an unhandled rejection.
+    isBatteryOptimizationExemptSafe: vi.fn(async () => true),
+    oemAutostartAvailableSafe: vi.fn(async () => false),
   },
   onUploadQueueChanged: vi.fn(() => ({ remove: () => undefined })),
   onUploadProgress: vi.fn(() => ({ remove: () => undefined })),
