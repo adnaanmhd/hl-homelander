@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { generateLocale, buildAuditSidecar } from '../generate';
-import { VERNACULAR_BRIEF } from '../prompts';
+import { generateLocale, buildAuditSidecar } from '../generate.js';
+import { VERNACULAR_BRIEF } from '../prompts.js';
 
 describe('catalog generator', () => {
   it('VERNACULAR_BRIEF matches D-10 verbatim', () => {

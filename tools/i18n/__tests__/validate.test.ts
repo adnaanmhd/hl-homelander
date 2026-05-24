@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateShapeParity } from '../validate';
+import { validateShapeParity } from '../validate.js';
 
 describe('validateShapeParity', () => {
   it('returns both empty when shapes match exactly', () => {
