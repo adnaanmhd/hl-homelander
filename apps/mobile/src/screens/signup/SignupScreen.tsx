@@ -39,6 +39,7 @@ import { useAppStore } from '../../state/appStore';
 import { coalesceDisplayName } from '../../lib/userDisplayName';
 import { logEvent } from '../../util/analytics';
 import { TermsOfUseModal, TERMS_OF_USE_TEXT } from './TermsOfUseModal';
+import Config from 'react-native-config';
 
 interface NavigationLike {
   replace(route: string): void;
@@ -233,6 +234,15 @@ export default function SignupScreen() {
             {error}
           </Text>
         ) : null}
+
+        <View style={{ marginTop: spacing.m, alignItems: 'center' }}>
+          <Text variant="caption" tone="secondary">
+            BYPASS_AUTH: {String(Config.BYPASS_AUTH)}
+          </Text>
+          <Text variant="caption" tone="secondary">
+            API_BASE: {String(Config.API_BASE_URL)}
+          </Text>
+        </View>
       </View>
 
       <TermsOfUseModal visible={termsOpen} onClose={closeTerms} />
