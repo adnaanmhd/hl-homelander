@@ -1,47 +1,318 @@
 {
   "common": {
-    "continue": "Continue",
-    "cancel": "Cancel",
-    "save": "Save",
-    "close": "Close"
+    "continue": "এগিয়ে যান",
+    "cancel": "বাতিল",
+    "save": "সেভ করুন",
+    "close": "বন্ধ করুন",
+    "retry": "আবার চেষ্টা করুন",
+    "done": "হয়ে গেছে",
+    "gotIt": "বুঝেছি",
+    "next": "পরবর্তী",
+    "sending": "পাঠানো হচ্ছে…",
+    "loading": "লোড হচ্ছে…",
+    "updating": "আপডেট হচ্ছে…",
+    "signingIn": "সাইন ইন করা হচ্ছে…"
   },
   "onboarding": {
     "chooseLanguage": {
-      "title": "Choose your language",
-      "continueButton": "Continue"
+      "title": "আপনার ভাষা বেছে নিন",
+      "continueButton": "এগিয়ে যান"
+    }
+  },
+  "splash": {
+    "taglinePrefix": "সত্যিকারের মানুষ।",
+    "taglineAccent": " সত্যিকারের বুদ্ধিমত্তা।"
+  },
+  "signup": {
+    "tagline": "সত্যিকারের মানুষ। সত্যিকারের বুদ্ধিমত্তা।",
+    "pitchLine1": "আসল মুহূর্ত রেকর্ড করুন।",
+    "pitchLine2": "সত্যিকারের বুদ্ধিমত্তা গড়ে তুলুন।",
+    "pitchLine3": "টাকা কামান",
+    "ctaSignIn": "Google দিয়ে এগিয়ে যান",
+    "consentLabelPrefix": "আমি পড়েছি এবং রাজি আছি ",
+    "consentLink": "ব্যবহারের শর্তাবলী",
+    "consentRequiredAlert": "এগিয়ে যেতে দয়া করে ব্যবহারের শর্তাবলীতে রাজি হন।",
+    "consent": {
+      "paragraph": "আমি ব্যবহারের শর্তাবলী পড়েছি এবং রাজি আছি"
+    }
+  },
+  "permissions": {
+    "titleIdle": "ক্যামেরা ও মাইকের\nঅনুমতি",
+    "titleRecovery": "ক্যামেরা ও মাইক\nদরকার",
+    "bodyIdle": "শুধু রেকর্ড করার সময়ই কাজে লাগবে",
+    "bodyDenied": "ক্যামেরা ও মাইক দরকার। চালু করতে সেটিংসে যান।",
+    "bodyPartialPrefix": "{{name}}-এর অনুমতি দরকার। চালু করতে সেটিংসে যান।",
+    "buttonAllow": "অনুমতি দিন",
+    "buttonOpenSettings": "সেটিংস খুলুন",
+    "cameraName": "ক্যামেরা",
+    "microphoneName": "মাইক্রোফোন"
+  },
+  "compat": {
+    "running": {
+      "title": "আপনার ফোন দেখা হচ্ছে",
+      "subtitle": "প্রায় ৩০ সেকেন্ড লাগবে"
+    },
+    "pass": {
+      "title": "হয়ে গেছে।",
+      "subtitle": "সব ঠিকঠাক আছে।",
+      "storageWarningPrefix": "রেকর্ডিং যাতে না হারায় তাই কিছু জায়গা খালি করুন। {{gb}} GB খালি আছে।"
+    },
+    "fail": {
+      "title": "এই ফোনে এখন রেকর্ড করা যাবে না",
+      "body": "এই ফোন রেকর্ডিংয়ের জন্য যা দরকার তা মেটাচ্ছে না।",
+      "contactSupport": "সাপোর্টে যোগাযোগ করুন",
+      "lines": {
+        "ultrawideDfov": "১১০°+ আল্ট্রাওয়াইড ক্যামেরা দরকার (আপনার: {{deg}}°)",
+        "resolutionFps": "১০৮০p @ ৩০ FPS দরকার",
+        "imuSustained100Hz": "১০০ Hz+ এ স্থির মোশন সেন্সর দরকার (আপনার: {{hz}} Hz)",
+        "imuP99Ms": "সেন্সরের কাঁপুনি ≤১২ ms হতে হবে (আপনার: {{ms}} ms p99)",
+        "micSampleRate": "৪৮ kHz মাইক্রোফোন ক্ষমতা দরকার",
+        "realtimeTimestamp": "REALTIME টাইমস্ট্যাম্প সোর্স দরকার",
+        "root": "ফোন রুট করা থাকলে চলবে না",
+        "encoderNoBFrames": "HEVC এনকোডার I/P-only হতে হবে (B-ফ্রেম নয়)",
+        "oisOff": "রেকর্ডিংয়ের সময় অপটিক্যাল স্ট্যাবিলাইজেশন বন্ধ থাকতে হবে",
+        "hdrSdrForced": "SDR মোড জোর করে চালু থাকতে হবে (HDR নয়)"
+      }
+    }
+  },
+  "rigTutorial": {
+    "heading": "একটা হেড রিগ লাগবে",
+    "body": "ফোনটা হেড রিগে লাগান এবং রেকর্ড করার সময় যাতে নড়াচড়া না করে সেটা দেখুন।",
+    "framingTip": "প্রতিবার রেকর্ড শুরুর আগে স্ক্রিনের প্রিভিউ দেখে নিশ্চিত হন আপনার হাত ফ্রেমে আছে — পারলে কাউকে দিয়ে দেখিয়ে নিন।",
+    "noRigLink": "এখনো রিগ নেই?",
+    "buttonNext": "পরবর্তী",
+    "offRamp": {
+      "title": "এখনো রিগ নেই?",
+      "bodyPrefix": "রেকর্ড করতে আপনার একটা হেড রিগ লাগবে। আমরা কন্ট্রিবিউটরদের রিগ পাঠানোর কাজ করছি। আমাদের {{email}}-এ ইমেল করুন, আপনার রিগ পাঠানো হলে জানিয়ে দেব। এর মধ্যে আপনি অ্যাপটা ঘুরে দেখতে পারেন।",
+      "emailSupport": "সাপোর্টে ইমেল করুন",
+      "gotIt": "বুঝেছি"
+    }
+  },
+  "practiceIntro": {
+    "heading": "একবার চেষ্টা করে দেখুন",
+    "body": "আমরা একটা ছোট রেকর্ডিং দেখিয়ে দেব — ৬০ সেকেন্ডের, যাতে আপনি বুঝতে পারেন",
+    "buttonStart": "প্র্যাকটিস শুরু করুন"
+  },
+  "practiceComplete": {
+    "heading": "দারুণ হয়েছে।",
+    "buttonContinue": "এগিয়ে যান"
+  },
+  "recording": {
+    "preview": {
+      "live": "লাইভ প্রিভিউ"
+    },
+    "startRecording": "রেকর্ডিং শুরু করুন",
+    "stopRecording": "থামান",
+    "skip": "বাদ দিন",
+    "gatePrompt": "ফোনটা মাথায় লাগিয়ে ২ সেকেন্ডের জন্য হাত ফ্রেমে আনুন",
+    "overlayTip": "রেকর্ড করার সময় বাইরে বেরোবেন না।",
+    "alerts": {
+      "batteryPrefix": "ব্যাটারি ১৫%",
+      "thermal": "ফোন অনেক গরম"
+    },
+    "toasts": {
+      "deviceDistress": "রেকর্ডিং বন্ধ হয়েছে — আপনার ফোনের দিকে নজর দিন।",
+      "tooShort": "রেকর্ডিং বড্ড ছোট — বাদ দেওয়া হয়েছে।",
+      "profileIncomplete": "দয়া করে প্রোফাইল → ইমেল-এ গিয়ে প্রোফাইল পূরণ করুন।",
+      "storageFull": "রেকর্ড করার মতো জায়গা নেই।",
+      "thermalThrottling": "ফোন বেশ গরম — একটু ঠান্ডা হতে দিয়ে আবার চেষ্টা করুন।",
+      "couldNotStart": "রেকর্ডিং শুরু করা গেল না।"
+    },
+    "voiceCues": {
+      "profileIncomplete": "দয়া করে প্রোফাইল পূরণ করুন",
+      "thermalThrottling": "ফোন বেশ গরম",
+      "permissionRevoked": "ক্যামেরার অনুমতি দরকার",
+      "couldNotStart": "রেকর্ডিং শুরু করা গেল না"
+    }
+  },
+  "home": {
+    "sectionContribution": "আপনার অবদান",
+    "sectionPendingUploads": "বাকি থাকা আপলোড",
+    "emptyTip": "আপনি রেকর্ড করতে থাকলে এখানে ঘণ্টা আর কাজ দেখা যাবে।",
+    "viewAllMore": "+আরও {{count}}টা — সব দেখতে ট্যাপ করুন",
+    "filter": {
+      "today": "আজ ▾",
+      "yesterday": "কাল ▾",
+      "thisWeek": "এই সপ্তাহ ▾",
+      "thisMonth": "এই মাস ▾",
+      "all": "সব সময় ▾",
+      "customRange": "নিজের মতো ▾"
+    },
+    "tile": {
+      "taskCount_one": "১টা কাজ",
+      "taskCount_other": "{{count}}টা কাজ",
+      "recordingFallback": "রেকর্ডিং"
+    }
+  },
+  "tasks": {
+    "searchPlaceholder": "কাজ খুঁজুন…",
+    "emptyHeading": "কোনো কাজ মিলল না। ফিল্টার সরিয়ে দেখুন বা ",
+    "emptySendLink": "একটা অনুরোধ পাঠান",
+    "footerPrefix": "কাজ খুঁজে পাচ্ছেন না? ",
+    "footerLink": "অনুরোধ পাঠান →"
+  },
+  "taskDetails": {
+    "outdoorChip": "বাইরে",
+    "forThisTask": "এই কাজের জন্য",
+    "startRecording": "রেকর্ডিং শুরু করুন"
+  },
+  "sendRequest": {
+    "title": "একটা কাজের অনুরোধ পাঠান",
+    "subtitle": "কোন কাজটা রেকর্ড করতে চান বলুন। আমরা প্রতিটা অনুরোধ দেখি।",
+    "labelTaskName": "কাজের নাম",
+    "placeholderTaskName": "যেমন, কাপড় ইস্ত্রি করা",
+    "labelDescription": "এতে কী কী করতে হয়?",
+    "placeholderDescription": "কাজটায় কী করতে হয় দু-এক কথায় বলুন।",
+    "buttonSubmit": "অনুরোধ পাঠান",
+    "buttonCancel": "বাতিল",
+    "submitting": "পাঠানো হচ্ছে…",
+    "toastSent": "অনুরোধ পাঠানো হয়েছে। আমরা দেখে আপনার লিস্টে যোগ করে দেব।",
+    "validationAlerts": {
+      "missingName": "দয়া করে কাজের নাম লিখুন।",
+      "missingDescription": "দয়া করে কাজে কী করতে হয় বলুন।"
+    },
+    "errors": {
+      "submitFailed": "পাঠানো গেল না। আবার চেষ্টা করুন।"
+    }
+  },
+  "history": {
+    "title": "হিস্ট্রি",
+    "emptyHeading": "এখনো কোনো রেকর্ডিং নেই",
+    "emptyBody": "কাজের ট্যাব থেকে প্রথম রেকর্ডিং শুরু করুন।",
+    "tabs": {
+      "all": "সব",
+      "verified": "যাচাই হয়েছে",
+      "uploading": "আপলোড হচ্ছে",
+      "failed": "ব্যর্থ"
+    },
+    "filter": {
+      "allTime": "সব সময়",
+      "today": "আজ",
+      "thisWeek": "এই সপ্তাহ",
+      "thisMonth": "এই মাস"
+    },
+    "loadingMore": "আরও লোড হচ্ছে…",
+    "endOfList": "লিস্টের শেষ"
+  },
+  "player": {
+    "viewOnlyToast": "শুধু দেখার জন্য — ডাউনলোড করা যাবে না।",
+    "loadError": "এই রেকর্ডিং লোড করা গেল না।",
+    "playbackError": "চালাতে গিয়ে গণ্ডগোল হল।",
+    "close": "বন্ধ করুন",
+    "share": "শেয়ার করুন"
+  },
+  "help": {
+    "title": "হেল্প সেন্টার",
+    "contactSupport": "সাপোর্টে যোগাযোগ করুন",
+    "reportProblem": "সমস্যা জানান"
+  },
+  "report": {
+    "title": "সমস্যা জানান",
+    "labelCategory": "বিষয়",
+    "labelWhatHappened": "কী হয়েছিল?",
+    "placeholderMessage": "আপনি কী করছিলেন আর কী গণ্ডগোল হল বলুন।",
+    "buttonCancel": "বাতিল",
+    "buttonSend": "রিপোর্ট পাঠান",
+    "sending": "পাঠানো হচ্ছে…",
+    "alerts": {
+      "pickCategory": "একটা বিষয় বাছুন",
+      "pickCategoryBody": "কী রকম সমস্যা হয়েছে সেটা বাছুন।",
+      "addMessage": "কিছু লিখুন",
+      "addMessageBody": "কী হয়েছিল আমাদের জানান।",
+      "sentTitle": "পাঠানো হয়েছে",
+      "sentBody": "ধন্যবাদ — আপনার রিপোর্ট পেয়েছি।",
+      "failedTitle": "ব্যর্থ",
+      "failedBodyFallback": "একটু পরে আবার চেষ্টা করুন।"
+    }
+  },
+  "forceUpgrade": {
+    "title": "এগিয়ে যেতে আপডেট করুন।",
+    "body": "রেকর্ড চালিয়ে যেতে Humyn Labs Capture-এর নতুন ভার্সন দরকার।",
+    "buttonUpdate": "আপডেট করুন",
+    "buttonUpdating": "আপডেট হচ্ছে…",
+    "alerts": {
+      "infoUnavailableTitle": "আপডেটের তথ্য পাওয়া যাচ্ছে না",
+      "infoUnavailableBody": "একটু পরে আবার চেষ্টা করুন।",
+      "integrityTitle": "আপডেট ব্যর্থ (যাচাই করতে গিয়ে সমস্যা)",
+      "integrityBody": "আবার চেষ্টা করুন বা সাপোর্টে যোগাযোগ করুন।",
+      "failedTitle": "আপডেট ব্যর্থ",
+      "failedBodyNetwork": "নেট কানেকশন দেখে আবার চেষ্টা করুন।",
+      "failedBodyFallback": "একটু পরে আবার চেষ্টা করুন।"
+    }
+  },
+  "pendingUploads": {
+    "title": "বাকি থাকা আপলোড",
+    "empty": "কোনো আপলোড বাকি নেই — সব রেকর্ডিং ঠিকঠাক আপলোড হয়েছে।",
+    "fileFallback": "recording.mp4",
+    "metaFallback": "রেকর্ডিং",
+    "retry": "আবার চেষ্টা করুন"
+  },
+  "batteryOpt": {
+    "title": "আপনার আপলোড চালু রাখুন",
+    "body": "কিছু ফোন ব্যাকগ্রাউন্ডের অ্যাপ জোর করে বন্ধ করে দেয়। Homelander-কে ছাড় দিলে আপনি অ্যাপ থেকে বেরিয়ে গেলেও রেকর্ডিং আপলোড হতে থাকবে।",
+    "buttonAllow": "ছাড় দিয়ে ব্যাটারি চালু রাখুন",
+    "buttonOpenAutostart": "Autostart সেটিংস খুলুন",
+    "buttonDone": "হয়ে গেছে",
+    "buttonSkip": "এখন থাক",
+    "statusAllowed": "✓ ছাড় দেওয়া হয়েছে — ব্যাকগ্রাউন্ডে আপলোড চলতে থাকবে।",
+    "statusStillRestricted": "এখনো আটকানো আছে — সেটিংস → অ্যাপস → Homelander → ব্যাটারি → Unrestricted করুন।",
+    "sectionHow": "আপনার ফোনে কীভাবে করবেন",
+    "fallbackCopy": "যদি ওই স্ক্রিন আপনার ফোনে না থাকে: সেটিংস → অ্যাপস → Homelander → ব্যাটারি → Unrestricted, আর আপনার ফোনে Autostart থাকলে সেটা চালু করুন।",
+    "vendors": {
+      "xiaomi": {
+        "label": "Xiaomi (MIUI / HyperOS)",
+        "steps": "সেটিংস → অ্যাপস → অ্যাপ ম্যানেজ করুন → Humyn Labs Capture → ব্যাটারি সেভার → No restrictions, আর Autostart → চালু।"
+      },
+      "oppo": {
+        "label": "Oppo (ColorOS)",
+        "steps": "সেটিংস → ব্যাটারি → App battery management → Humyn Labs Capture → Allow background activity, আর সেটিংস → App management → Auto launch → চালু।"
+      },
+      "vivo": {
+        "label": "Vivo (FunTouch)",
+        "steps": "সেটিংস → ব্যাটারি → Background power consumption management → Humyn Labs Capture → Allow, আর সেটিংস → More settings → Permission management → Autostart → চালু।"
+      },
+      "samsung": {
+        "label": "Samsung (One UI)",
+        "steps": "সেটিংস → অ্যাপস → Humyn Labs Capture → ব্যাটারি → Unrestricted (\"Pause app activity if unused\" বন্ধ করে দিন)।"
+      },
+      "stock": {
+        "label": "Stock Android / Pixel",
+        "steps": "সেটিংস → অ্যাপস → Humyn Labs Capture → ব্যাটারি → Unrestricted।"
+      }
     }
   },
   "profile": {
     "language": {
-      "row": { "label": "Language" },
-      "picker": { "title": "Select language" }
+      "row": {
+        "label": "ভাষা"
+      },
+      "picker": {
+        "title": "ভাষা বাছুন"
+      }
     }
-  },
-  "recording": {
-    "preview": { "live": "Live preview" }
   },
   "terms": {
     "consent": {
-      "modalTitle": "Terms of Use",
-      "body": "I consent and agree to upload videos."
+      "modalTitle": "ব্যবহারের শর্তাবলী",
+      "body": "আমি নিজের এবং/অথবা যাঁরা রেকর্ড হতে রাজি, তাঁদের কিছু রোজকার কাজকর্মের ভিডিও আপলোড করতে রাজি আছি। এই কনটেন্ট AI মডেল তৈরি/ট্রেনিং এবং গবেষণার কাজে ব্যবহার হবে। আমি নিশ্চিত করছি যে আমার বয়স ১৮ বা তার বেশি এবং এই কনটেন্ট শেয়ার করার দরকারি অনুমতি আমার আছে। যাঁদের রেকর্ড করা হচ্ছে তাঁদের মধ্যে কেউ নাবালক নয়, সেটাও আমি নিশ্চিত করছি। প্রতিটা রেকর্ডিংয়ের সঙ্গে আমার মোটামুটি জায়গা ও IP ঠিকানা নেওয়া হবে — তাতে আমি রাজি। আমি বুঝছি যে আমার ডেটা নিরাপদে রাখা হবে এবং Humyn-এর প্রাইভেসি পলিসি অনুযায়ী ব্যবহার হবে।"
     }
   },
   "errors": {
-    "generic": "Something went wrong",
+    "generic": "কিছু একটা গণ্ডগোল হয়েছে",
     "auth": {
-      "invalidToken": "Please sign in again",
-      "expiredToken": "Your session expired — please sign in again",
-      "googleFailed": "Google sign-in failed"
+      "invalidToken": "দয়া করে আবার সাইন ইন করুন",
+      "expiredToken": "আপনার সেশন শেষ হয়ে গেছে — আবার সাইন ইন করুন",
+      "googleFailed": "Google সাইন-ইন হল না"
     },
     "upload": {
-      "quotaExceeded": "Upload quota reached for today",
-      "networkLost": "Network lost — retry when back online"
+      "quotaExceeded": "আজকের আপলোডের সীমা শেষ",
+      "networkLost": "নেট চলে গেছে — ফিরে এলে আবার চেষ্টা করুন"
     },
     "recording": {
-      "tooShort": "Recording was too short"
+      "tooShort": "রেকর্ডিং বড্ড ছোট ছিল"
     },
     "compat": {
-      "failed": "Your device is not compatible"
+      "failed": "আপনার ফোনে এটা চলবে না"
     }
   }
 }

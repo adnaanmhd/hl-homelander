@@ -3,12 +3,280 @@
     "continue": "Continue",
     "cancel": "Cancel",
     "save": "Save",
-    "close": "Close"
+    "close": "Close",
+    "retry": "Retry",
+    "done": "Done",
+    "gotIt": "Got it",
+    "next": "Next",
+    "sending": "Sending…",
+    "loading": "Loading…",
+    "updating": "Updating…",
+    "signingIn": "Signing in…"
   },
   "onboarding": {
     "chooseLanguage": {
       "title": "Choose your language",
       "continueButton": "Continue"
+    }
+  },
+  "splash": {
+    "taglinePrefix": "Real Humyns.",
+    "taglineAccent": " Real Intelligence."
+  },
+  "signup": {
+    "tagline": "Real Humyns. Real Intelligence.",
+    "pitchLine1": "Record real moments.",
+    "pitchLine2": "Train real intelligence.",
+    "pitchLine3": "Get paid",
+    "ctaSignIn": "Continue with Google",
+    "consentLabelPrefix": "I have read and agree to the ",
+    "consentLink": "Terms of Use",
+    "consentRequiredAlert": "Please accept the Terms of Use to continue.",
+    "consent": {
+      "paragraph": "I have read and agree to the Terms of Use"
+    }
+  },
+  "permissions": {
+    "titleIdle": "Camera & Mic\nPermissions",
+    "titleRecovery": "Camera & Mic\nare required",
+    "bodyIdle": "Used only while you hit record",
+    "bodyDenied": "Camera & Mic are required. Open Settings to enable.",
+    "bodyPartialPrefix": "{{name}} access is required. Open Settings to enable.",
+    "buttonAllow": "Allow access",
+    "buttonOpenSettings": "Open Settings",
+    "cameraName": "Camera",
+    "microphoneName": "Microphone"
+  },
+  "compat": {
+    "running": {
+      "title": "Checking your phone",
+      "subtitle": "Takes around 30 secs"
+    },
+    "pass": {
+      "title": "You're in.",
+      "subtitle": "All checks passed.",
+      "storageWarningPrefix": "Free up space to avoid recording loss. {{gb}} GB free."
+    },
+    "fail": {
+      "title": "This phone can't record yet",
+      "body": "This phone doesn't meet the recording requirements.",
+      "contactSupport": "Contact Support",
+      "lines": {
+        "ultrawideDfov": "Ultrawide camera 110°+ required (yours: {{deg}}°)",
+        "resolutionFps": "1080p @ 30 FPS required",
+        "imuSustained100Hz": "Stable motion sensors at 100 Hz+ required (yours: {{hz}} Hz)",
+        "imuP99Ms": "Sensor jitter ≤12 ms required (yours: {{ms}} ms p99)",
+        "micSampleRate": "Microphone 48 kHz capability required",
+        "realtimeTimestamp": "REALTIME timestamp source required",
+        "root": "Device must not be rooted",
+        "encoderNoBFrames": "HEVC encoder must produce I/P-only (no B-frames)",
+        "oisOff": "Optical stabilization must be disabled at capture time",
+        "hdrSdrForced": "SDR mode must be forced (no HDR)"
+      }
+    }
+  },
+  "rigTutorial": {
+    "heading": "You'll need a head rig",
+    "body": "Mount your phone on the head rig and make sure it is steady while recording.",
+    "framingTip": "Before each take, use the on-screen camera preview to check your hands are in frame — ask someone to verify if you can.",
+    "noRigLink": "Don't have a rig yet?",
+    "buttonNext": "Next",
+    "offRamp": {
+      "title": "No rig yet?",
+      "bodyPrefix": "You'll need a head rig to record. We're working on getting rigs to contributors. Email us at {{email}} and we'll let you know when one ships your way. You can keep exploring the app in the meantime.",
+      "emailSupport": "Email support",
+      "gotIt": "Got it"
+    }
+  },
+  "practiceIntro": {
+    "heading": "One quick try",
+    "body": "We'll walk you through one short recording — 60 secs, to get the feel",
+    "buttonStart": "Start practice"
+  },
+  "practiceComplete": {
+    "heading": "You got it.",
+    "buttonContinue": "Continue"
+  },
+  "recording": {
+    "preview": { "live": "Live preview" },
+    "startRecording": "Start Recording",
+    "stopRecording": "Stop",
+    "skip": "Skip",
+    "gatePrompt": "Mount the phone on your head and bring your hands in frame for 2 secs",
+    "overlayTip": "Don't exit while recording.",
+    "alerts": {
+      "batteryPrefix": "Battery 15%",
+      "thermal": "Phone too hot"
+    },
+    "toasts": {
+      "deviceDistress": "Recording stopped — your phone needs attention.",
+      "tooShort": "Recording too short — discarded.",
+      "profileIncomplete": "Please complete your profile in Profile → Email.",
+      "storageFull": "Not enough storage to record.",
+      "thermalThrottling": "Phone too warm — let it cool and try again.",
+      "couldNotStart": "Could not start recording."
+    },
+    "voiceCues": {
+      "profileIncomplete": "Please complete your profile",
+      "thermalThrottling": "Phone too warm",
+      "permissionRevoked": "Camera permission needed",
+      "couldNotStart": "Could not start recording"
+    }
+  },
+  "home": {
+    "sectionContribution": "YOUR CONTRIBUTION",
+    "sectionPendingUploads": "PENDING UPLOADS",
+    "emptyTip": "Your hours and tasks will track here as you record.",
+    "viewAllMore": "+{{count}} more — tap to view all",
+    "filter": {
+      "today": "today ▾",
+      "yesterday": "yesterday ▾",
+      "thisWeek": "this week ▾",
+      "thisMonth": "this month ▾",
+      "all": "all time ▾",
+      "customRange": "custom range ▾"
+    },
+    "tile": {
+      "taskCount_one": "1 task",
+      "taskCount_other": "{{count}} tasks",
+      "recordingFallback": "Recording"
+    }
+  },
+  "tasks": {
+    "searchPlaceholder": "Search tasks…",
+    "emptyHeading": "No tasks match. Try clearing filters or ",
+    "emptySendLink": "send a request",
+    "footerPrefix": "Can't find a task? ",
+    "footerLink": "Send request →"
+  },
+  "taskDetails": {
+    "outdoorChip": "Outdoor",
+    "forThisTask": "FOR THIS TASK",
+    "startRecording": "Start Recording"
+  },
+  "sendRequest": {
+    "title": "Send a task request",
+    "subtitle": "Tell us what task you'd like to record. We review every request.",
+    "labelTaskName": "Task name",
+    "placeholderTaskName": "e.g. Iron clothes",
+    "labelDescription": "What does it involve?",
+    "placeholderDescription": "A few words on what the task involves.",
+    "buttonSubmit": "Send request",
+    "buttonCancel": "Cancel",
+    "submitting": "Sending…",
+    "toastSent": "Request sent. We'll review and add it to your list.",
+    "validationAlerts": {
+      "missingName": "Please enter a task name.",
+      "missingDescription": "Please tell us what the task involves."
+    },
+    "errors": {
+      "submitFailed": "Couldn't send. Try again."
+    }
+  },
+  "history": {
+    "title": "History",
+    "emptyHeading": "No recordings yet",
+    "emptyBody": "Start your first recording from the Tasks tab.",
+    "tabs": {
+      "all": "All",
+      "verified": "Verified",
+      "uploading": "Uploading",
+      "failed": "Failed"
+    },
+    "filter": {
+      "allTime": "all time",
+      "today": "today",
+      "thisWeek": "this week",
+      "thisMonth": "this month"
+    },
+    "loadingMore": "Loading more…",
+    "endOfList": "End of list"
+  },
+  "player": {
+    "viewOnlyToast": "View only — not downloadable.",
+    "loadError": "Couldn't load this recording.",
+    "playbackError": "Playback error.",
+    "close": "Close",
+    "share": "Share"
+  },
+  "help": {
+    "title": "Help Center",
+    "contactSupport": "Contact Support",
+    "reportProblem": "Report a problem"
+  },
+  "report": {
+    "title": "Report a problem",
+    "labelCategory": "Category",
+    "labelWhatHappened": "What happened?",
+    "placeholderMessage": "Tell us what you were doing and what went wrong.",
+    "buttonCancel": "Cancel",
+    "buttonSend": "Send report",
+    "sending": "Sending…",
+    "alerts": {
+      "pickCategory": "Pick a category",
+      "pickCategoryBody": "Choose what kind of problem you hit.",
+      "addMessage": "Add a message",
+      "addMessageBody": "Tell us what happened.",
+      "sentTitle": "Sent",
+      "sentBody": "Thanks — we got your report.",
+      "failedTitle": "Failed",
+      "failedBodyFallback": "Try again later."
+    }
+  },
+  "forceUpgrade": {
+    "title": "Update to continue.",
+    "body": "A newer version of Humyn Labs Capture is required to keep recording.",
+    "buttonUpdate": "Update",
+    "buttonUpdating": "Updating…",
+    "alerts": {
+      "infoUnavailableTitle": "Update info unavailable",
+      "infoUnavailableBody": "Try again in a moment.",
+      "integrityTitle": "Update failed (integrity check)",
+      "integrityBody": "Try again or contact support.",
+      "failedTitle": "Update failed",
+      "failedBodyNetwork": "Check your connection and try again.",
+      "failedBodyFallback": "Try again later."
+    }
+  },
+  "pendingUploads": {
+    "title": "Pending uploads",
+    "empty": "No uploads pending — your recordings are safely uploaded.",
+    "fileFallback": "recording.mp4",
+    "metaFallback": "Recording",
+    "retry": "Retry"
+  },
+  "batteryOpt": {
+    "title": "Keep your uploads running",
+    "body": "Some phones aggressively close background apps. Allowing Homelander to run unrestricted keeps your recordings uploading after you leave the app.",
+    "buttonAllow": "Allow unrestricted battery",
+    "buttonOpenAutostart": "Open Autostart settings",
+    "buttonDone": "Done",
+    "buttonSkip": "Skip for now",
+    "statusAllowed": "✓ Allowed — uploads will keep running in the background.",
+    "statusStillRestricted": "Still restricted — open Settings → Apps → Homelander → Battery → Unrestricted.",
+    "sectionHow": "How to do it on your phone",
+    "fallbackCopy": "If that screen isn't on your phone: Settings → Apps → Homelander → Battery → Unrestricted, and turn on Autostart if your phone has it.",
+    "vendors": {
+      "xiaomi": {
+        "label": "Xiaomi (MIUI / HyperOS)",
+        "steps": "Settings → Apps → Manage apps → Humyn Labs Capture → Battery saver → No restrictions, and Autostart → on."
+      },
+      "oppo": {
+        "label": "Oppo (ColorOS)",
+        "steps": "Settings → Battery → App battery management → Humyn Labs Capture → Allow background activity, and Settings → App management → Auto launch → on."
+      },
+      "vivo": {
+        "label": "Vivo (FunTouch)",
+        "steps": "Settings → Battery → Background power consumption management → Humyn Labs Capture → Allow, and Settings → More settings → Permission management → Autostart → on."
+      },
+      "samsung": {
+        "label": "Samsung (One UI)",
+        "steps": "Settings → Apps → Humyn Labs Capture → Battery → Unrestricted (turn off \"Pause app activity if unused\")."
+      },
+      "stock": {
+        "label": "Stock Android / Pixel",
+        "steps": "Settings → Apps → Humyn Labs Capture → Battery → Unrestricted."
+      }
     }
   },
   "profile": {
@@ -17,13 +285,10 @@
       "picker": { "title": "Select language" }
     }
   },
-  "recording": {
-    "preview": { "live": "Live preview" }
-  },
   "terms": {
     "consent": {
       "modalTitle": "Terms of Use",
-      "body": "I consent and agree to upload videos."
+      "body": "I consent and agree to upload videos of myself and/or others who consent to be recorded; performing certain daily activities/tasks. This content will be used to develop / train AI models and for research purposes. I confirm that I am 18 years or older and have the necessary permissions to share this content. I confirm that no one being recorded is a minor. I consent to my approximate location and IP address being captured alongside each recording. I understand that my data will be stored securely and used in accordance with Humyn's Privacy Policy."
     }
   },
   "errors": {

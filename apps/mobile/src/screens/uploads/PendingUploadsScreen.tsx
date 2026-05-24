@@ -41,6 +41,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
 import { Text } from '../../ui/primitives/Text';
 import { TopBar } from '../../components/TopBar';
@@ -115,6 +116,7 @@ export default function PendingUploadsScreen({
   const jwt = useAppStore((s) => s.jwt);
   const currentSub = useMemo(() => decodeGoogleSubFromJwt(jwt), [jwt]);
   const offline = __test_offlineOverride === true;
+  const { t } = useTranslation();
 
   // Quick task 260517-p5g CAPTURE-QA-05 — defensive filter: skip any row
   // whose `cancelReason` is set. This should never happen at runtime
@@ -208,7 +210,7 @@ export default function PendingUploadsScreen({
                   onPress={() => onRetry(item.recordingId, item.state)}
                   style={styles.retry}
                 >
-                  <Text style={styles.retryLabel}>Retry</Text>
+                  <Text style={styles.retryLabel}>{t('pendingUploads.retry')}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -253,7 +255,7 @@ export default function PendingUploadsScreen({
 
   return (
     <ScreenContainer accessibilityLabel="Pending uploads screen" padding={0}>
-      <TopBar {...topBarProps} title="Pending uploads" />
+      <TopBar {...topBarProps} title={t('pendingUploads.title')} />
       {rows.length === 0 ? (
         <Text
           variant="body"
@@ -261,7 +263,7 @@ export default function PendingUploadsScreen({
           accessibilityLabel="pending-uploads-empty"
           style={styles.empty}
         >
-          No uploads pending — your recordings are safely uploaded.
+          {t('pendingUploads.empty')}
         </Text>
       ) : (
         <ScrollView accessibilityLabel="pending-uploads-list" contentContainerStyle={styles.list}>

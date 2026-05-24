@@ -32,6 +32,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { Text } from '../../ui/primitives/Text';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
 import { colors, spacing } from '../../ui/tokens';
@@ -146,6 +147,7 @@ function deriveRowStates(
 export default function CompatRunningScreen() {
   const navigation = useNavigation<NavigationLike>();
   const setCompatResult = useAppStore((s) => s.setCompatResult);
+  const { t } = useTranslation();
 
   const [percent, setPercent] = useState(PERCENT_INITIAL);
   const [rowStates, setRowStates] = useState<Record<DisplayRowKey, RowState>>(initialRowStates);
@@ -267,10 +269,10 @@ export default function CompatRunningScreen() {
         <CompatRing percent={percent} />
       </View>
       <Text variant="compatTitle" style={styles.title}>
-        Checking your phone
+        {t('compat.running.title')}
       </Text>
       <Text variant="caption" tone="secondary" style={styles.sub}>
-        Takes around 30 secs
+        {t('compat.running.subtitle')}
       </Text>
       <View style={styles.checks}>
         {DISPLAY_ROWS.map((row) => (

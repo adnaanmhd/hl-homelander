@@ -44,6 +44,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Check } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
 import { Text } from '../../ui/primitives/Text';
 import { Button } from '../../ui/primitives/Button';
@@ -71,6 +72,7 @@ interface ResetNav {
 export default function PracticeCompleteScreen() {
   const navigation = useNavigation() as unknown as ResetNav;
   const scale = useSharedValue(0);
+  const { t } = useTranslation();
 
   useEffect(() => {
     logEvent('practice_complete_shown');
@@ -125,13 +127,13 @@ export default function PracticeCompleteScreen() {
           style={styles.heading}
           accessibilityLabel="practice complete heading"
         >
-          You got it.
+          {t('practiceComplete.heading')}
         </Text>
       </View>
 
       <Button
         variant="primary"
-        label="Continue"
+        label={t('practiceComplete.buttonContinue')}
         accessibilityLabel="Continue"
         onPress={handleContinue}
       />

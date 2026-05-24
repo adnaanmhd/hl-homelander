@@ -1,47 +1,318 @@
 {
   "common": {
-    "continue": "Continue",
-    "cancel": "Cancel",
-    "save": "Save",
-    "close": "Close"
+    "continue": "தொடரு",
+    "cancel": "ரத்து செய்",
+    "save": "சேமி",
+    "close": "மூடு",
+    "retry": "மறுபடி முயற்சி செய்",
+    "done": "முடிஞ்சது",
+    "gotIt": "புரிஞ்சுது",
+    "next": "அடுத்து",
+    "sending": "அனுப்புறேன்…",
+    "loading": "ஏற்றுறேன்…",
+    "updating": "புதுப்பிக்குறேன்…",
+    "signingIn": "உள்ளே நுழையுறேன்…"
   },
   "onboarding": {
     "chooseLanguage": {
-      "title": "Choose your language",
-      "continueButton": "Continue"
+      "title": "உங்க மொழியைத் தேர்ந்தெடுங்க",
+      "continueButton": "தொடரு"
+    }
+  },
+  "splash": {
+    "taglinePrefix": "உண்மையான ஆளுங்க.",
+    "taglineAccent": " உண்மையான அறிவு."
+  },
+  "signup": {
+    "tagline": "உண்மையான ஆளுங்க. உண்மையான அறிவு.",
+    "pitchLine1": "உண்மையான தருணங்களைப் பதிவு பண்ணுங்க.",
+    "pitchLine2": "உண்மையான அறிவை பயிற்றுவிங்க.",
+    "pitchLine3": "காசு வாங்குங்க",
+    "ctaSignIn": "Google-ல தொடரு",
+    "consentLabelPrefix": "நான் படிச்சிட்டேன், ஒத்துக்குறேன் ",
+    "consentLink": "பயன்பாட்டு விதிமுறைகள்",
+    "consentRequiredAlert": "தொடர பயன்பாட்டு விதிமுறைகளை ஏத்துக்கங்க.",
+    "consent": {
+      "paragraph": "பயன்பாட்டு விதிமுறைகளை நான் படிச்சிட்டேன், ஒத்துக்குறேன்"
+    }
+  },
+  "permissions": {
+    "titleIdle": "கேமரா & மைக்\nஅனுமதிகள்",
+    "titleRecovery": "கேமரா & மைக்\nகண்டிப்பா வேணும்",
+    "bodyIdle": "நீங்க ரெக்கார்டு பண்ணும் போது மட்டும்தான் பயன்படுத்துறோம்",
+    "bodyDenied": "கேமரா & மைக் கண்டிப்பா வேணும். அமைப்புகளை திறந்து ஆன் பண்ணுங்க.",
+    "bodyPartialPrefix": "{{name}} அணுகல் வேணும். அமைப்புகளை திறந்து ஆன் பண்ணுங்க.",
+    "buttonAllow": "அனுமதி கொடு",
+    "buttonOpenSettings": "அமைப்புகளைத் திற",
+    "cameraName": "கேமரா",
+    "microphoneName": "மைக்ரோபோன்"
+  },
+  "compat": {
+    "running": {
+      "title": "உங்க போனை சரிபார்க்குறோம்",
+      "subtitle": "சுமார் 30 விநாடிகள் ஆகும்"
+    },
+    "pass": {
+      "title": "நீங்க தயார்.",
+      "subtitle": "எல்லா சோதனையும் பாஸ்.",
+      "storageWarningPrefix": "ரெக்கார்டிங் போயிடாம இருக்க இடம் காலி பண்ணுங்க. {{gb}} GB காலி."
+    },
+    "fail": {
+      "title": "இந்த போனால இப்போ ரெக்கார்டு பண்ண முடியாது",
+      "body": "ரெக்கார்டிங்குக்கு தேவையான தேவைகளை இந்த போன் பூர்த்தி பண்ணல.",
+      "contactSupport": "ஆதரவை தொடர்பு கொள்ளுங்க",
+      "lines": {
+        "ultrawideDfov": "அல்ட்ராவைடு கேமரா 110°+ வேணும் (உங்களோடது: {{deg}}°)",
+        "resolutionFps": "1080p @ 30 FPS வேணும்",
+        "imuSustained100Hz": "100 Hz+ ஸ்திரமான மோஷன் சென்சார் வேணும் (உங்களோடது: {{hz}} Hz)",
+        "imuP99Ms": "சென்சார் ஜிட்டர் ≤12 ms வேணும் (உங்களோடது: {{ms}} ms p99)",
+        "micSampleRate": "மைக்ரோபோன் 48 kHz திறன் வேணும்",
+        "realtimeTimestamp": "REALTIME டைம்ஸ்டாம்ப் ஆதாரம் வேணும்",
+        "root": "போன் ரூட் பண்ணப்பட்டிருக்கக் கூடாது",
+        "encoderNoBFrames": "HEVC என்கோடர் I/P-only மட்டுமே கொடுக்கணும் (B-frames கூடாது)",
+        "oisOff": "பதிவு செய்யும் போது ஆப்டிகல் ஸ்திரமாக்கம் ஆஃப் பண்ணியிருக்கணும்",
+        "hdrSdrForced": "SDR முறை கட்டாயம் இருக்கணும் (HDR கூடாது)"
+      }
+    }
+  },
+  "rigTutorial": {
+    "heading": "உங்களுக்கு தலை ரிக் வேணும்",
+    "body": "உங்க போனை தலை ரிக்-ல பொருத்தி, ரெக்கார்டு பண்ணும் போது அசையாம இருக்குறதை உறுதி பண்ணுங்க.",
+    "framingTip": "ஒவ்வொரு டேக்கிற்கு முன்னாடியும், திரையில உள்ள கேமரா முன்னோட்டத்தை பாத்து உங்க கைகள் ஃபிரேம்-ல இருக்கா-ன்னு சரிபாருங்க — முடிஞ்சா யாரையாவது சரிபார்க்க சொல்லுங்க.",
+    "noRigLink": "இன்னும் ரிக் இல்லையா?",
+    "buttonNext": "அடுத்து",
+    "offRamp": {
+      "title": "இன்னும் ரிக் இல்லையா?",
+      "bodyPrefix": "ரெக்கார்டு பண்ண தலை ரிக் வேணும். பங்களிப்பாளர்களுக்கு ரிக் கொடுக்குறதுக்கான வேலையில இருக்கோம். {{email}}-ல எங்களுக்கு மெயில் பண்ணுங்க, உங்களுக்கு ஒண்ணு வரும் போது சொல்றோம். அதுவரைக்கும் ஆப்-ஐ பாத்துகிட்டே இருக்கலாம்.",
+      "emailSupport": "ஆதரவுக்கு மெயில் பண்ணுங்க",
+      "gotIt": "புரிஞ்சுது"
+    }
+  },
+  "practiceIntro": {
+    "heading": "ஒரு சின்ன முயற்சி",
+    "body": "உங்களுக்கு புரிய ஒரு சின்ன ரெக்கார்டிங் வழியா அழைச்சுட்டு போறோம் — 60 விநாடி",
+    "buttonStart": "பயிற்சியை ஆரம்பி"
+  },
+  "practiceComplete": {
+    "heading": "செஞ்சுட்டீங்க.",
+    "buttonContinue": "தொடரு"
+  },
+  "recording": {
+    "preview": {
+      "live": "நேரடி முன்னோட்டம்"
+    },
+    "startRecording": "ரெக்கார்டிங் ஆரம்பி",
+    "stopRecording": "நிறுத்து",
+    "skip": "தவிர்",
+    "gatePrompt": "போனை தலையில பொருத்தி, 2 விநாடிக்கு கைகளை ஃபிரேம்-ல கொண்டு வாங்க",
+    "overlayTip": "ரெக்கார்டு பண்ணும் போது வெளியே போகாதீங்க.",
+    "alerts": {
+      "batteryPrefix": "பேட்டரி 15%",
+      "thermal": "போன் ரொம்ப சூடா இருக்கு"
+    },
+    "toasts": {
+      "deviceDistress": "ரெக்கார்டிங் நின்னுடுச்சு — உங்க போனுக்கு கவனம் வேணும்.",
+      "tooShort": "ரெக்கார்டிங் ரொம்ப சின்னது — நீக்கிட்டோம்.",
+      "profileIncomplete": "Profile → Email-ல உங்க தகவலை நிறைவு பண்ணுங்க.",
+      "storageFull": "ரெக்கார்டு பண்ண போதுமான இடம் இல்ல.",
+      "thermalThrottling": "போன் ரொம்ப சூடா இருக்கு — ஆறவிட்டு மறுபடி முயற்சி பண்ணுங்க.",
+      "couldNotStart": "ரெக்கார்டிங் ஆரம்பிக்க முடியல."
+    },
+    "voiceCues": {
+      "profileIncomplete": "உங்க தகவலை நிறைவு பண்ணுங்க",
+      "thermalThrottling": "போன் ரொம்ப சூடா இருக்கு",
+      "permissionRevoked": "கேமரா அனுமதி வேணும்",
+      "couldNotStart": "ரெக்கார்டிங் ஆரம்பிக்க முடியல"
+    }
+  },
+  "home": {
+    "sectionContribution": "உங்க பங்களிப்பு",
+    "sectionPendingUploads": "பெண்டிங் அப்லோடுகள்",
+    "emptyTip": "நீங்க ரெக்கார்டு பண்ண பண்ண, உங்க மணி நேரமும் பணிகளும் இங்க தெரியும்.",
+    "viewAllMore": "+{{count}} இன்னும் — எல்லாத்தையும் பாக்க தொடுங்க",
+    "filter": {
+      "today": "இன்னைக்கு ▾",
+      "yesterday": "நேத்து ▾",
+      "thisWeek": "இந்த வாரம் ▾",
+      "thisMonth": "இந்த மாசம் ▾",
+      "all": "எல்லா நேரமும் ▾",
+      "customRange": "தனிப்பட்ட வரம்பு ▾"
+    },
+    "tile": {
+      "taskCount_one": "1 பணி",
+      "taskCount_other": "{{count}} பணிகள்",
+      "recordingFallback": "ரெக்கார்டிங்"
+    }
+  },
+  "tasks": {
+    "searchPlaceholder": "பணிகளை தேடுங்க…",
+    "emptyHeading": "எந்த பணியும் பொருந்தல. ஃபில்டர்-ஐ அழிச்சு பாருங்க அல்லது ",
+    "emptySendLink": "ஒரு கோரிக்கை அனுப்புங்க",
+    "footerPrefix": "பணி கண்டுபிடிக்க முடியலையா? ",
+    "footerLink": "கோரிக்கை அனுப்புங்க →"
+  },
+  "taskDetails": {
+    "outdoorChip": "வெளியில",
+    "forThisTask": "இந்த பணிக்கு",
+    "startRecording": "ரெக்கார்டிங் ஆரம்பி"
+  },
+  "sendRequest": {
+    "title": "ஒரு பணி கோரிக்கை அனுப்புங்க",
+    "subtitle": "எந்த பணியை ரெக்கார்டு பண்ண விரும்புறீங்க-ன்னு சொல்லுங்க. ஒவ்வொரு கோரிக்கையையும் நாங்க பாக்குறோம்.",
+    "labelTaskName": "பணி பெயர்",
+    "placeholderTaskName": "எ.கா. துணி இஸ்திரி போடுறது",
+    "labelDescription": "என்ன பண்ணணும்?",
+    "placeholderDescription": "பணியில என்ன இருக்கு-ன்னு சில வார்த்தைகள்ள சொல்லுங்க.",
+    "buttonSubmit": "கோரிக்கை அனுப்பு",
+    "buttonCancel": "ரத்து செய்",
+    "submitting": "அனுப்புறேன்…",
+    "toastSent": "கோரிக்கை அனுப்பப்பட்டது. நாங்க பாத்து உங்க பட்டியல்ல சேக்குறோம்.",
+    "validationAlerts": {
+      "missingName": "பணி பெயரை குடுங்க.",
+      "missingDescription": "பணியில என்ன இருக்கு-ன்னு சொல்லுங்க."
+    },
+    "errors": {
+      "submitFailed": "அனுப்ப முடியல. மறுபடி முயற்சி பண்ணுங்க."
+    }
+  },
+  "history": {
+    "title": "வரலாறு",
+    "emptyHeading": "இன்னும் ரெக்கார்டிங் ஏதும் இல்ல",
+    "emptyBody": "Tasks டேப்-ல இருந்து உங்க முதல் ரெக்கார்டிங்-ஐ ஆரம்பிங்க.",
+    "tabs": {
+      "all": "எல்லாம்",
+      "verified": "சரிபார்க்கப்பட்டது",
+      "uploading": "அப்லோடு ஆகுது",
+      "failed": "தோல்வி"
+    },
+    "filter": {
+      "allTime": "எல்லா நேரமும்",
+      "today": "இன்னைக்கு",
+      "thisWeek": "இந்த வாரம்",
+      "thisMonth": "இந்த மாசம்"
+    },
+    "loadingMore": "இன்னும் ஏற்றுறேன்…",
+    "endOfList": "பட்டியல் முடிஞ்சுது"
+  },
+  "player": {
+    "viewOnlyToast": "பாக்க மட்டும்தான் — டவுன்லோடு பண்ண முடியாது.",
+    "loadError": "இந்த ரெக்கார்டிங்-ஐ ஏத்த முடியல.",
+    "playbackError": "பிளேபேக் பிழை.",
+    "close": "மூடு",
+    "share": "பகிர்"
+  },
+  "help": {
+    "title": "உதவி மையம்",
+    "contactSupport": "ஆதரவை தொடர்பு கொள்ளுங்க",
+    "reportProblem": "ஒரு பிரச்சினையை தெரிவிங்க"
+  },
+  "report": {
+    "title": "ஒரு பிரச்சினையை தெரிவிங்க",
+    "labelCategory": "வகை",
+    "labelWhatHappened": "என்ன ஆச்சு?",
+    "placeholderMessage": "நீங்க என்ன பண்ணிட்டிருந்தீங்க, என்ன தப்பா போச்சு-ன்னு சொல்லுங்க.",
+    "buttonCancel": "ரத்து செய்",
+    "buttonSend": "அறிக்கை அனுப்பு",
+    "sending": "அனுப்புறேன்…",
+    "alerts": {
+      "pickCategory": "ஒரு வகையை தேர்ந்தெடுங்க",
+      "pickCategoryBody": "என்ன மாதிரி பிரச்சினை-ன்னு தேர்ந்தெடுங்க.",
+      "addMessage": "ஒரு செய்தி சேருங்க",
+      "addMessageBody": "என்ன ஆச்சு-ன்னு சொல்லுங்க.",
+      "sentTitle": "அனுப்பப்பட்டது",
+      "sentBody": "நன்றி — உங்க அறிக்கை எங்களுக்கு கிடைச்சுது.",
+      "failedTitle": "தோல்வி",
+      "failedBodyFallback": "கொஞ்ச நேரம் கழிச்சு மறுபடி முயற்சி பண்ணுங்க."
+    }
+  },
+  "forceUpgrade": {
+    "title": "தொடர புதுப்பிங்க.",
+    "body": "தொடர்ந்து ரெக்கார்டு பண்ண Humyn Labs Capture-ன் புது பதிப்பு வேணும்.",
+    "buttonUpdate": "புதுப்பி",
+    "buttonUpdating": "புதுப்பிக்குறேன்…",
+    "alerts": {
+      "infoUnavailableTitle": "புதுப்பிப்பு தகவல் கிடைக்கல",
+      "infoUnavailableBody": "கொஞ்ச நேரம் கழிச்சு மறுபடி முயற்சி பண்ணுங்க.",
+      "integrityTitle": "புதுப்பிப்பு தோல்வி (integrity சோதனை)",
+      "integrityBody": "மறுபடி முயற்சி பண்ணுங்க அல்லது ஆதரவை தொடர்பு கொள்ளுங்க.",
+      "failedTitle": "புதுப்பிப்பு தோல்வி",
+      "failedBodyNetwork": "உங்க இணைப்பை சரிபார்த்து மறுபடி முயற்சி பண்ணுங்க.",
+      "failedBodyFallback": "கொஞ்ச நேரம் கழிச்சு மறுபடி முயற்சி பண்ணுங்க."
+    }
+  },
+  "pendingUploads": {
+    "title": "பெண்டிங் அப்லோடுகள்",
+    "empty": "எந்த அப்லோடும் பெண்டிங்-ல இல்ல — உங்க ரெக்கார்டிங்க பத்திரமா அப்லோடு ஆகியிருக்கு.",
+    "fileFallback": "recording.mp4",
+    "metaFallback": "ரெக்கார்டிங்",
+    "retry": "மறுபடி முயற்சி செய்"
+  },
+  "batteryOpt": {
+    "title": "உங்க அப்லோடுகளை ஓடவையுங்க",
+    "body": "சில போனுங்க பின்னணியில ஓடுற ஆப்-களை சட்டுன்னு மூடிடும். Homelander-ஐ கட்டுப்பாடு இல்லாம ஓட விட்டா, நீங்க ஆப்-ஐ விட்டு வெளியே போனாலும் உங்க ரெக்கார்டிங்க அப்லோடு ஆகிட்டே இருக்கும்.",
+    "buttonAllow": "கட்டுப்பாடில்லாத பேட்டரியை அனுமதி",
+    "buttonOpenAutostart": "Autostart அமைப்புகளைத் திற",
+    "buttonDone": "முடிஞ்சது",
+    "buttonSkip": "இப்போதைக்கு தவிர்",
+    "statusAllowed": "✓ அனுமதி கொடுக்கப்பட்டது — பின்னணியில அப்லோடுகள் ஓடிக்கிட்டே இருக்கும்.",
+    "statusStillRestricted": "இன்னும் கட்டுப்பாட்டுல இருக்கு — Settings → Apps → Homelander → Battery → Unrestricted-ஐ திறங்க.",
+    "sectionHow": "உங்க போன்ல எப்படி பண்றதுன்னு",
+    "fallbackCopy": "அந்த ஸ்கிரீன் உங்க போன்ல இல்லைன்னா: Settings → Apps → Homelander → Battery → Unrestricted, அப்புறம் உங்க போன்ல Autostart இருந்தா அதையும் ஆன் பண்ணுங்க.",
+    "vendors": {
+      "xiaomi": {
+        "label": "Xiaomi (MIUI / HyperOS)",
+        "steps": "Settings → Apps → Manage apps → Humyn Labs Capture → Battery saver → No restrictions, அப்புறம் Autostart → ஆன்."
+      },
+      "oppo": {
+        "label": "Oppo (ColorOS)",
+        "steps": "Settings → Battery → App battery management → Humyn Labs Capture → Allow background activity, அப்புறம் Settings → App management → Auto launch → ஆன்."
+      },
+      "vivo": {
+        "label": "Vivo (FunTouch)",
+        "steps": "Settings → Battery → Background power consumption management → Humyn Labs Capture → Allow, அப்புறம் Settings → More settings → Permission management → Autostart → ஆன்."
+      },
+      "samsung": {
+        "label": "Samsung (One UI)",
+        "steps": "Settings → Apps → Humyn Labs Capture → Battery → Unrestricted (\"Pause app activity if unused\"-ஐ ஆஃப் பண்ணுங்க)."
+      },
+      "stock": {
+        "label": "Stock Android / Pixel",
+        "steps": "Settings → Apps → Humyn Labs Capture → Battery → Unrestricted."
+      }
     }
   },
   "profile": {
     "language": {
-      "row": { "label": "Language" },
-      "picker": { "title": "Select language" }
+      "row": {
+        "label": "மொழி"
+      },
+      "picker": {
+        "title": "மொழியை தேர்ந்தெடுங்க"
+      }
     }
-  },
-  "recording": {
-    "preview": { "live": "Live preview" }
   },
   "terms": {
     "consent": {
-      "modalTitle": "Terms of Use",
-      "body": "I consent and agree to upload videos."
+      "modalTitle": "பயன்பாட்டு விதிமுறைகள்",
+      "body": "என்னோடயோ அல்லது ரெக்கார்டு பண்ண சம்மதம் தெரிவிக்குற மத்தவங்களோடயோ; சில அன்றாட நடவடிக்கைகள்/பணிகளை செய்யும் வீடியோக்களை அப்லோடு பண்ண நான் சம்மதிக்குறேன், ஒத்துக்குறேன். இந்த உள்ளடக்கம் AI மாதிரிகளை உருவாக்க / பயிற்றுவிக்க மற்றும் ஆராய்ச்சி நோக்கங்களுக்காக பயன்படுத்தப்படும். நான் 18 வயசு அல்லது அதுக்கு மேல உள்ளவன்/உள்ளவள், இந்த உள்ளடக்கத்தை பகிர தேவையான அனுமதிகள் என்கிட்ட இருக்குன்னு உறுதி பண்ணுறேன். ரெக்கார்டு பண்ணப்படுற யாரும் சிறுவர் இல்லைன்னு உறுதி பண்ணுறேன். ஒவ்வொரு ரெக்கார்டிங்கோடயும் என்னோட தோராயமான இடம் மற்றும் IP முகவரி பதிவு பண்ணப்படுறதுக்கு நான் சம்மதிக்குறேன். என்னோட தரவு பாதுகாப்பா சேமிக்கப்பட்டு, Humyn-ன் தனியுரிமை கொள்கைப்படி பயன்படுத்தப்படும்-ன்னு நான் புரிஞ்சுக்கிட்டேன்."
     }
   },
   "errors": {
-    "generic": "Something went wrong",
+    "generic": "ஏதோ தப்பா போச்சு",
     "auth": {
-      "invalidToken": "Please sign in again",
-      "expiredToken": "Your session expired — please sign in again",
-      "googleFailed": "Google sign-in failed"
+      "invalidToken": "மறுபடி உள்ளே நுழையுங்க",
+      "expiredToken": "உங்க அமர்வு முடிஞ்சுடுச்சு — மறுபடி உள்ளே நுழையுங்க",
+      "googleFailed": "Google உள்நுழைவு தோல்வி"
     },
     "upload": {
-      "quotaExceeded": "Upload quota reached for today",
-      "networkLost": "Network lost — retry when back online"
+      "quotaExceeded": "இன்னைக்கான அப்லோடு வரம்பு முடிஞ்சுடுச்சு",
+      "networkLost": "நெட்வொர்க் போயிடுச்சு — திரும்ப ஆன்லைன் வந்தப்புறம் மறுபடி முயற்சி பண்ணுங்க"
     },
     "recording": {
-      "tooShort": "Recording was too short"
+      "tooShort": "ரெக்கார்டிங் ரொம்ப சின்னதா இருந்துச்சு"
     },
     "compat": {
-      "failed": "Your device is not compatible"
+      "failed": "உங்க கருவி பொருந்தல"
     }
   }
 }

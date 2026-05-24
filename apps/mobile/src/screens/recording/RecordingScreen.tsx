@@ -41,6 +41,7 @@ import { Animated, Pressable, StyleSheet, Vibration, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Orientation, { type OrientationType } from 'react-native-orientation-locker';
 import RNFS from 'react-native-fs';
+import { useTranslation } from 'react-i18next';
 import { Text } from '../../ui/primitives/Text';
 import { Icon } from '../../ui/primitives/Icon';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
@@ -176,6 +177,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
   const taskCategory = params.taskCategory ?? 'practice';
   const taskSetting: 'indoor' | 'outdoor' = params.taskSetting ?? 'indoor';
   const isPractice = params.isPractice ?? false;
+  const { t } = useTranslation();
 
   const [state, dispatch] = useReducer(
     recReducer,
@@ -446,18 +448,18 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         // and we route to Home.
         Orientation.unlockAllOrientations();
         logEvent('recording_stopped', { reason: _reason });
-        showToast('Recording stopped — your phone needs attention.');
+        showToast(t('recording.toasts.deviceDistress'));
         navigateToHome(navigation);
         return;
       }
       // Normal sub-60s manual discard — the screen shows the toast then returns to
       // the landscape gate for a fresh attempt (REC-05); it STAYS landscape-locked.
       logEvent('recording_too_short');
-      showToast('Recording too short — discarded.');
+      showToast(t('recording.toasts.tooShort'));
       handlingStopRef.current = false;
       dispatch({ type: 'RESET_FOR_FRESH' });
     },
-    [navigation, showToast],
+    [navigation, showToast, t],
   );
 
   // WR-06 — `loggedOut` wired to the auth-token signal: the §10 "logout while
@@ -724,22 +726,22 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         const code = (e as { code?: string } | undefined)?.code;
         speakCue(
           code === 'profile_incomplete'
-            ? 'Please complete your profile'
+            ? t('recording.voiceCues.profileIncomplete')
             : code === 'thermal_throttling'
-              ? 'Phone too warm'
+              ? t('recording.voiceCues.thermalThrottling')
               : code === 'permission_revoked'
-                ? 'Camera permission needed'
-                : 'Could not start recording',
+                ? t('recording.voiceCues.permissionRevoked')
+                : t('recording.voiceCues.couldNotStart'),
         );
         await HumynScreenBrightness.set(-1).catch(() => undefined);
         showToast(
           code === 'profile_incomplete'
-            ? 'Please complete your profile in Profile → Email.'
+            ? t('recording.toasts.profileIncomplete')
             : code === 'storage_full'
-              ? 'Not enough storage to record.'
+              ? t('recording.toasts.storageFull')
               : code === 'thermal_throttling'
-                ? 'Phone too warm — let it cool and try again.'
-                : 'Could not start recording.',
+                ? t('recording.toasts.thermalThrottling')
+                : t('recording.toasts.couldNotStart'),
         );
         dispatch({ type: 'CAPTURE_START_FAILED' });
       }
@@ -931,7 +933,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
           accessibilityLabel="recording-overlay-tip"
         >
           <Text variant="caption" style={styles.overlayTipText}>
-            Don&apos;t exit while recording.
+            {t('recording.overlayTip')}
           </Text>
         </Animated.View>
       ) : null}
@@ -950,7 +952,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
             style={styles.recordButton}
           />
           <Text variant="pillLabel" style={styles.recordLabel}>
-            Start Recording
+            {t('recording.startRecording')}
           </Text>
         </View>
       ) : null}
@@ -971,7 +973,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
               loading={state.gate.phase === 'loading'}
             />
             <Text variant="recGatePrompt" style={styles.gatePrompt}>
-              Mount the phone on your head and bring your hands in frame for 2 secs
+              {t('recording.gatePrompt')}
             </Text>
             {/* Skip link — visible from t=0 (HAND-02); hidden once confirmed. */}
             {state.gate.phase !== 'confirmed' ? (
@@ -984,7 +986,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
                 style={styles.skipLink}
               >
                 <Text variant="recSkipLink" style={styles.skipLinkText}>
-                  Skip
+                  {t('recording.skip')}
                 </Text>
               </Pressable>
             ) : null}
@@ -1006,7 +1008,11 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
             <VoiceCuePill text={voiceCue.text} visible={voiceCue.visible} />
             <AlertPill
               label={
-                state.alerts.battery ? 'Battery 15%' : state.alerts.thermal ? 'Phone too hot' : ''
+                state.alerts.battery
+                  ? t('recording.alerts.batteryPrefix')
+                  : state.alerts.thermal
+                    ? t('recording.alerts.thermal')
+                    : ''
               }
               visible={!!state.alerts.battery || !!state.alerts.thermal}
             />

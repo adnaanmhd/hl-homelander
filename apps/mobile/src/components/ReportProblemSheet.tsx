@@ -27,6 +27,7 @@
  */
 import React, { useState } from 'react';
 import { View, TextInput, StyleSheet, ScrollView, Modal, Alert } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Text } from '../ui/primitives/Text';
 import { Button } from '../ui/primitives/Button';
 import { Pressable } from '../ui/primitives/Pressable';
@@ -45,23 +46,27 @@ export function ReportProblemSheet({ onClose }: ReportProblemSheetProps): React.
   const [category, setCategory] = useState<FeedbackCategory | null>(null);
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const { t } = useTranslation();
 
   const submit = async () => {
     if (!category) {
-      Alert.alert('Pick a category', 'Choose what kind of problem you hit.');
+      Alert.alert(t('report.alerts.pickCategory'), t('report.alerts.pickCategoryBody'));
       return;
     }
     if (message.trim().length < 1) {
-      Alert.alert('Add a message', 'Tell us what happened.');
+      Alert.alert(t('report.alerts.addMessage'), t('report.alerts.addMessageBody'));
       return;
     }
     setSubmitting(true);
     try {
       await submitFeedback({ category, message: message.trim() });
-      Alert.alert('Sent', 'Thanks — we got your report.');
+      Alert.alert(t('report.alerts.sentTitle'), t('report.alerts.sentBody'));
       onClose();
     } catch (e) {
-      Alert.alert('Failed', e instanceof Error ? e.message : 'Try again later.');
+      Alert.alert(
+        t('report.alerts.failedTitle'),
+        e instanceof Error ? e.message : t('report.alerts.failedBodyFallback'),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -72,11 +77,11 @@ export function ReportProblemSheet({ onClose }: ReportProblemSheetProps): React.
       <View style={styles.scrim}>
         <View style={styles.sheet} accessibilityLabel="report-problem-sheet">
           <Text variant="bodyLg" style={styles.title}>
-            Report a problem
+            {t('report.title')}
           </Text>
           <ScrollView contentContainerStyle={styles.body}>
             <Text variant="formLabel" style={styles.label}>
-              Category
+              {t('report.labelCategory')}
             </Text>
             <View style={styles.categoryWrap}>
               {FEEDBACK_CATEGORIES.map((c) => {
@@ -100,14 +105,14 @@ export function ReportProblemSheet({ onClose }: ReportProblemSheetProps): React.
             </View>
 
             <Text variant="formLabel" style={[styles.label, styles.labelGap]}>
-              What happened?
+              {t('report.labelWhatHappened')}
             </Text>
             <TextInput
               multiline
               numberOfLines={6}
               value={message}
               onChangeText={setMessage}
-              placeholder="Tell us what you were doing and what went wrong."
+              placeholder={t('report.placeholderMessage')}
               style={styles.textarea}
               accessibilityLabel="report-problem-message"
               placeholderTextColor={colors.text3}
@@ -119,7 +124,7 @@ export function ReportProblemSheet({ onClose }: ReportProblemSheetProps): React.
               <Button
                 variant="outline"
                 accessibilityLabel="report-problem-cancel"
-                label="Cancel"
+                label={t('report.buttonCancel')}
                 onPress={onClose}
               />
             </View>
@@ -127,7 +132,7 @@ export function ReportProblemSheet({ onClose }: ReportProblemSheetProps): React.
               <Button
                 variant="primary"
                 accessibilityLabel="report-problem-submit"
-                label={submitting ? 'Sending…' : 'Send report'}
+                label={submitting ? t('report.sending') : t('report.buttonSend')}
                 onPress={submit}
                 disabled={submitting}
               />

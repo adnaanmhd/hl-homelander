@@ -14,6 +14,8 @@
  */
 import React from 'react';
 import { ScrollView } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import i18nDefault from '../../i18n';
 import { Modal } from '../../ui/primitives/Modal';
 import { Text } from '../../ui/primitives/Text';
 import { Button } from '../../ui/primitives/Button';
@@ -39,16 +41,20 @@ export interface TermsOfUseModalProps {
 }
 
 export function TermsOfUseModal({ visible, onClose }: TermsOfUseModalProps) {
+  const { t } = useTranslation();
+  const isEnglish = i18nDefault.language === 'en';
+  const translatedBody = t('terms.consent.body');
+  const englishUnderlay = i18nDefault.getFixedT('en')('terms.consent.body');
   return (
     <Modal
       visible={visible}
-      title="Terms of Use"
+      title={t('terms.consent.modalTitle')}
       onDismiss={onClose}
       accessibilityLabel="Terms of Use modal"
       actions={
         <Button
           variant="primary"
-          label="Got it"
+          label={t('common.gotIt')}
           accessibilityLabel="Got it close terms"
           onPress={onClose}
         />
@@ -61,8 +67,18 @@ export function TermsOfUseModal({ visible, onClose }: TermsOfUseModalProps) {
           accessibilityLabel="Terms of Use body"
           style={{ marginBottom: spacing.l }}
         >
-          {TERMS_OF_USE_TEXT}
+          {translatedBody}
         </Text>
+        {!isEnglish ? (
+          <Text
+            variant="caption"
+            tone="secondary"
+            accessibilityLabel="Terms of Use English underlay"
+            style={{ opacity: 0.7, marginBottom: spacing.l }}
+          >
+            {englishUnderlay}
+          </Text>
+        ) : null}
       </ScrollView>
     </Modal>
   );

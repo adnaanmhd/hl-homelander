@@ -32,6 +32,7 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
 import { Text } from '../../ui/primitives/Text';
 import { Button } from '../../ui/primitives/Button';
@@ -58,6 +59,7 @@ interface LocalNav {
 
 export default function PracticeIntroScreen() {
   const navigation = useNavigation() as unknown as LocalNav;
+  const { t } = useTranslation();
 
   useEffect(() => {
     logEvent('practice_intro_shown');
@@ -85,7 +87,7 @@ export default function PracticeIntroScreen() {
           style={styles.heading}
           accessibilityLabel="practice intro heading"
         >
-          One quick try
+          {t('practiceIntro.heading')}
         </Text>
         <View style={{ height: spacing.md }} />
         <Text
@@ -94,13 +96,13 @@ export default function PracticeIntroScreen() {
           style={styles.body}
           accessibilityLabel="practice intro body"
         >
-          We&apos;ll walk you through one short recording — 60 secs, to get the feel
+          {t('practiceIntro.body')}
         </Text>
       </View>
 
       <Button
         variant="accent"
-        label="Start practice"
+        label={t('practiceIntro.buttonStart')}
         accessibilityLabel="Start practice"
         onPress={handleStart}
       />

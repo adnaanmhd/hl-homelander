@@ -38,6 +38,7 @@ import { Pressable } from '../../ui/primitives/Pressable';
 import { colors, spacing, radii } from '../../ui/tokens';
 import { submitTaskRequest } from '../../services/taskRequestService';
 import { showToast } from '../../components/Toast';
+import { useTranslation } from 'react-i18next';
 
 // Plan 06-12 Task 2 — hide the Upload Sample tile at MVP. Plan 06-07
 // D-sample-video left the picker unwired; owner directive 2026-05-14
@@ -78,6 +79,7 @@ export function SendRequestSheet({
   visible,
   onDismiss,
 }: SendRequestSheetProps): React.JSX.Element | null {
+  const { t } = useTranslation();
   const [name, setName] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [category, setCategory] = useState<CategoryOption | null>(null);
@@ -144,16 +146,16 @@ export function SendRequestSheet({
         // Sample-video URI is intentionally absent at MVP — the picker is
         // not wired (no document-picker dep). Optional per TASK-08.
       });
-      showToast("Request sent. We'll review and add it to your list.", 2000);
+      showToast(t('sendRequest.toastSent'), 2000);
       // emit task_request_submitted({ category, setting, has_video: false })
       handleClose();
     } catch (e) {
-      setBanner({ kind: 'error', text: "Couldn't send. Try again." });
+      setBanner({ kind: 'error', text: t('sendRequest.errors.submitFailed') });
       // emit task_request_failed({ reason: e?.message })
     } finally {
       setSubmitting(false);
     }
-  }, [canSubmit, category, name, description, setting, handleClose]);
+  }, [canSubmit, category, name, description, setting, handleClose, t]);
 
   // Bound to the inline "Retry" link inside the error banner. Same as
   // submit but available even when submit is otherwise disabled by `submitting`.
@@ -182,10 +184,10 @@ export function SendRequestSheet({
             keyboardShouldPersistTaps="handled"
           >
             <Text variant="sheetTitle" tone="primary" style={styles.title}>
-              Request a task
+              {t('sendRequest.title')}
             </Text>
             <Text variant="body" tone="secondary" style={styles.body}>
-              Tell us what you&apos;d like to record. Our team reviews requests regularly.
+              {t('sendRequest.subtitle')}
             </Text>
 
             {banner ? (
@@ -212,7 +214,7 @@ export function SendRequestSheet({
               accessibilityLabel="send-request-name"
               value={name}
               onChangeText={setName}
-              placeholder="e.g. Iron clothes"
+              placeholder={t('sendRequest.placeholderTaskName')}
               placeholderTextColor={colors.text3}
               maxLength={80}
               style={styles.input}
@@ -231,7 +233,7 @@ export function SendRequestSheet({
               accessibilityLabel="send-request-description"
               value={description}
               onChangeText={setDescription}
-              placeholder="A few words on what the task involves."
+              placeholder={t('sendRequest.placeholderDescription')}
               placeholderTextColor={colors.text3}
               maxLength={240}
               multiline
@@ -339,7 +341,7 @@ export function SendRequestSheet({
             <View style={styles.footerBtn}>
               <Button
                 variant="outline"
-                label="Cancel"
+                label={t('sendRequest.buttonCancel')}
                 accessibilityLabel="send-request-cancel"
                 onPress={handleClose}
               />
@@ -347,7 +349,7 @@ export function SendRequestSheet({
             <View style={styles.footerBtn}>
               <Button
                 variant="accent"
-                label={submitting ? 'Sending…' : 'Send request'}
+                label={submitting ? t('sendRequest.submitting') : t('sendRequest.buttonSubmit')}
                 accessibilityLabel="send-request-submit"
                 onPress={() => void submit()}
                 disabled={!canSubmit}

@@ -22,6 +22,7 @@
 import React, { useMemo } from 'react';
 import { PanResponder, View, ScrollView, StyleSheet } from 'react-native';
 import { Check } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import type { Task } from '@humyn/shared-types';
 
 import { Sheet } from '../../ui/primitives/Sheet';
@@ -52,6 +53,7 @@ export function TaskDetailsSheet({
   onDismiss,
   onStartRecording,
 }: TaskDetailsSheetProps): React.JSX.Element | null {
+  const { t } = useTranslation();
   // Plan 06-12 follow-on (Finding 2, owner directive 2026-05-14;
   // re-fixed after the first attempt didn't actually claim the touch on-
   // device) — the backdrop tap + X close already dismissed the sheet;
@@ -120,7 +122,7 @@ export function TaskDetailsSheet({
           {isOutdoor ? (
             <View accessibilityLabel="task-details-outdoor-chip" style={styles.outdoorChip}>
               <Text variant="formLabel" style={styles.outdoorChipLabel}>
-                Outdoor
+                {t('taskDetails.outdoorChip')}
               </Text>
             </View>
           ) : null}
@@ -150,7 +152,7 @@ export function TaskDetailsSheet({
         {instructions.length > 0 ? (
           <View accessibilityLabel="task-details-instructions">
             <Text variant="formLabel" tone="secondary" style={styles.instructionsHeader}>
-              FOR THIS TASK
+              {t('taskDetails.forThisTask')}
             </Text>
             <View style={styles.bulletList}>
               {instructions.map((line, i) => (
@@ -171,7 +173,7 @@ export function TaskDetailsSheet({
       <View style={styles.footer}>
         <Button
           variant="primary"
-          label="Start Recording"
+          label={t('taskDetails.startRecording')}
           accessibilityLabel="task-details-start-recording"
           onPress={() => onStartRecording(task)}
         />
