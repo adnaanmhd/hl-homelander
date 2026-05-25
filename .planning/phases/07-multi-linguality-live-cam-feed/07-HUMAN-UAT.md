@@ -1,9 +1,9 @@
 ---
-status: partial
+status: gaps_found
 phase: 07-multi-linguality-live-cam-feed
 source: [07-VERIFICATION.md]
 started: 2026-05-25T05:15:00Z
-updated: 2026-05-25T19:10:00Z
+updated: 2026-05-25T20:00:00Z
 ---
 
 ## Current Test
@@ -73,14 +73,14 @@ result: BLOCKED pending G-11 closure — Pixel 10a hi-IN, 2026-05-25 owner-direc
 ### 10. §10 Capture-quality cancel gates UNCHANGED
 
 expected: All five §10 PASS rows checked — forced `fps_dropped` (cover lens for 60s+) shows "Canceled — frame rate dropped" chip + segment NOT in upload queue + translated copy in hi-IN; `insufficient_frames` (stop within 1s) shows "Canceled — recording too short"; cancel works with preview ON and preview OFF
-result: [pending]
+result: PASS (presumed-intact, no on-hardware cancel fired) — Pixel 10a hi-IN, 2026-05-25. Owner directive 2026-05-25: "mark as pass and move on, don't force anything in the app code". RATIONALE: (a) Plan 07-07's diff is restricted to `CaptureSession.kt:620-689` two-Surface preview path + the live-preview state machine + the native HumynLivePreviewView module + RecordingScreen.tsx — `FinalizeWorker` / `MetadataComposer` / `MetadataSchemaConformance` / `HevcEncoderConfig` are UNCHANGED (verified by 07-VERIFICATION: "code-level Option B two-Surface implementation at CaptureSession.kt:620-689 UNCHANGED by 07-09 closure"). (b) The lens-cover attempt at §10 step 1 produced an on-spec recording: `resolution=1920x1080` ✓, `video_codec=hevc` ✓, `fps=29.74` (above the 29.0 cancel threshold — lens cover doesn't actually drop frame rate since Camera2 still emits frames at the requested rate, just black/dark ones), drift `p99=3.87ms / mean=3.84ms / max=4.03ms` (healthy fleet baseline). The cancel logic remained un-fired because the trigger condition was not met, not because the cancel logic was broken. (c) `insufficient_frames` / `resolution_dropped` / translated cancel copy / preview-ON-vs-OFF cancel paths NOT directly fired on hardware in this walk per owner directive. **Side-data utility for §9:** the 122-s real-recording's drift figures (p99=3.87ms) are within the historical Pixel-10a baseline (~5.5-5.6ms p99 per CLAUDE.md drift banner), suggesting Plan 07-07's changes have not regressed drift on this build — useful proxy when §9's A/B walk is re-attempted post-G-11 closure.
 
 ## Summary
 
 total: 10
-passed: 4
+passed: 5
 issues: 3
-pending: 2
+pending: 1
 skipped: 0
 blocked: 1
 
@@ -107,3 +107,11 @@ Recommended Wave-2 plan name (07-10 candidate): "Extend i18n sweep to unenumerat
 - **G-12 — Fade-to-dim brightness transition not observable.** Operator reported "screen remains as is, no transition" after the 15-s window. Likely-not-a-real-bug: with G-11 leaving the Surface black/blank, dimming a black surface to 5% brightness is visually indistinguishable from 100% brightness. The `createLivePreviewStateMachine` timer IS firing correctly (label appears/hides at the right intervals), so the brightness setter call is probably happening — just imperceptible. Re-verify post-G-11 fix; do not classify as a real-bug until G-11 is closed.
 - **COSMETIC-02 — Top-right z-stack: "Live preview" label overlaps with the X / Stop button** (Pixel 10a, hi-IN, 2026-05-25). The static "Live preview" indicator and the Stop button render on top of each other in the top-right corner. Wave-2 fix: separate the layout (move label to top-LEFT or shrink z-overlap; spec D-26 says "top-right (or corner per implementation)" — implementation chose top-right but collided with the existing Stop placement).
 - **COSMETIC-03 — Eye glyph visibility too low** (Pixel 10a, 2026-05-25, dimmed-state attempt). Operator UX feedback: "make it orange so that it's visible". Current implementation likely renders the lucide `Eye` glyph in a low-contrast neutral token; against a black/dimmed background it's hard to find. Wave-2: bump to a brighter accent token (orange / amber); ensure WCAG-AA contrast against the dimmed-state black background.
+
+## §11 Wrap-Time Grep Gates (re-run 2026-05-25 end-of-walk)
+
+- §11.1 (Renumber sweep, I18N-20): **PASS-IN-SPIRIT** (2 lines hit but both are legitimate phase-swap context — the ROADMAP paragraph that names BOTH old Phase 7 = observability AND new Phase 7 = multi-linguality, and the STATE.md historical note explicitly tagged "re-routed 2026-05-24". The strict regex doesn't catch the legitimate-context exclusion patterns these use, but the spirit of the gate — "no orphan Phase 7 = observability references" — is satisfied).
+- §11.2 (Android-only diff, I18N-21): PASS (empty diff under apps/mobile/ios/).
+- §11.3 (No DB migration, D-16): PASS (empty diff under apps/api/drizzle/migrations/).
+- §11.4 (Phase 6 cosmetic-gaps untouched, I18N-11): **PASS-IN-SPIRIT** (strict-FAIL on regex). 06-COSMETIC-GAPS.md was modified, but ALL changes are pure phase-renumber housekeeping ("Phase 7 wiring pass" → "Phase 8 wiring pass" etc.) driven by the 2026-05-24 phase swap when the old Phase 7 was renamed Phase 8. Zero new findings introduced; zero existing findings modified. The gate's intent — "Phase 7's translation work doesn't reopen Phase 6 cosmetic findings" — is satisfied. Wave-2: consider updating the §11.4 regex to ignore renumber-housekeeping edits.
+- §11.5 (apps/mobile/ios/ dir present, sanity check): **STALE-CHECK** — `git ls-files apps/mobile/ios/` returned empty; the iOS directory was never committed (consistent with the iOS-01..07 §v2 descope). The §11.2 diff gate is therefore vacuously empty rather than meaningfully checking iOS untouchedness. Wave-2: drop §11.5 or rewrite §11.2 to assert that no NEW `apps/mobile/ios/` files are added (rather than expecting an existing dir to stay untouched).
