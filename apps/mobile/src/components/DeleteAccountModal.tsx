@@ -58,6 +58,7 @@
 import React, { useRef, useState } from 'react';
 import { Alert, Modal, StyleSheet, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { Text } from '../ui/primitives/Text';
 import { Button } from '../ui/primitives/Button';
 import { colors, radii, spacing } from '../ui/tokens';
@@ -67,8 +68,16 @@ import { localeMmkv, LOCALE_KEYS } from '../i18n/storage';
 
 type Step = 'confirm' | 'type-delete';
 
-// Verbatim from design-spec.md §18.4 — drift detector: any change shows up in
-// code review since this is the only call site.
+// Verbatim from design-spec.md §18.4.
+//
+// Phase 7 plan 07-09: the runtime render site now reads from
+// `t('profile.delete.body')` so this body translates per locale. The
+// constant is RETAINED as a design-canon drift detector — Task 1's
+// byte-parity gate asserts `en.json profile.delete.body` is byte-equal
+// to this literal, so any future edit to either side surfaces in code
+// review. The constant is intentionally unused at runtime; the
+// eslint-disable below documents that fact.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const STEP1_BODY =
   'Your account will be deactivated for 30 days. Log in within that window to restore it. After 30 days, deletion is permanent. Recordings already uploaded remain on our servers.';
 
@@ -77,6 +86,7 @@ const STEP1_BODY =
 const REQUIRED_TEXT = 'DELETE';
 
 export function DeleteAccountModal(): React.JSX.Element {
+  const { t } = useTranslation();
   const nav = useNavigation<{ goBack: () => void; reset: (state: object) => void }>();
   const [step, setStep] = useState<Step>('confirm');
   const [typed, setTyped] = useState<string>('');
@@ -96,7 +106,7 @@ export function DeleteAccountModal(): React.JSX.Element {
     // bypasses the disabled state still hits this guard. Backend Phase 1
     // plan 01-08 also enforces ?confirm=DELETE via MeDeleteQuerySchema (T-2.19-01).
     if (typed !== REQUIRED_TEXT) {
-      Alert.alert('Type DELETE to confirm.');
+      Alert.alert(t('profile.delete.typeToConfirmTitle'));
       return;
     }
     if (inFlightRef.current) return;
@@ -130,7 +140,10 @@ export function DeleteAccountModal(): React.JSX.Element {
       // Release on error so the user can retry (network failure, 429
       // rate-limit, etc.). The success path intentionally never releases.
       inFlightRef.current = false;
-      Alert.alert('Could not delete', e instanceof Error ? e.message : 'Try again later.');
+      Alert.alert(
+        t('profile.delete.errors.couldNotDelete.title'),
+        e instanceof Error ? e.message : t('profile.delete.errors.couldNotDelete.body'),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -143,17 +156,17 @@ export function DeleteAccountModal(): React.JSX.Element {
           {step === 'confirm' ? (
             <>
               <Text variant="sheetTitle" style={styles.title}>
-                Delete your Humyn account?
+                {t('profile.delete.title')}
               </Text>
               <Text variant="body" tone="secondary" style={styles.body}>
-                {STEP1_BODY}
+                {t('profile.delete.body')}
               </Text>
               <View style={styles.actions}>
                 <View style={styles.actionBtn}>
                   <Button
                     variant="outline"
                     accessibilityLabel="delete-cancel"
-                    label="Cancel"
+                    label={t('profile.delete.cancel')}
                     onPress={cancel}
                   />
                 </View>
@@ -161,7 +174,7 @@ export function DeleteAccountModal(): React.JSX.Element {
                   <Button
                     variant="coral"
                     accessibilityLabel="delete-continue"
-                    label="Continue to delete"
+                    label={t('profile.delete.continueToDelete')}
                     onPress={continueToType}
                   />
                 </View>
@@ -170,7 +183,7 @@ export function DeleteAccountModal(): React.JSX.Element {
           ) : (
             <>
               <Text variant="sheetTitle" style={styles.title}>
-                Type DELETE to confirm.
+                {t('profile.delete.typeToConfirmTitle')}
               </Text>
               <TextInput
                 autoFocus
@@ -178,7 +191,7 @@ export function DeleteAccountModal(): React.JSX.Element {
                 autoCorrect={false}
                 value={typed}
                 onChangeText={setTyped}
-                placeholder="DELETE"
+                placeholder={t('profile.delete.placeholder')}
                 placeholderTextColor={colors.text3}
                 style={styles.input}
                 accessibilityLabel="delete-typing-input"
@@ -188,7 +201,7 @@ export function DeleteAccountModal(): React.JSX.Element {
                   <Button
                     variant="outline"
                     accessibilityLabel="delete-cancel-2"
-                    label="Cancel"
+                    label={t('profile.delete.cancel')}
                     onPress={cancel}
                   />
                 </View>
@@ -196,7 +209,7 @@ export function DeleteAccountModal(): React.JSX.Element {
                   <Button
                     variant="coral"
                     accessibilityLabel="delete-confirm"
-                    label={submitting ? 'Deleting…' : 'Confirm'}
+                    label={t(submitting ? 'profile.delete.deleting' : 'profile.delete.confirm')}
                     onPress={confirmDelete}
                     disabled={!confirmEnabled}
                   />
