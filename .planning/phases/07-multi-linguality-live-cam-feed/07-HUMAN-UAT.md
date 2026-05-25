@@ -45,7 +45,14 @@ result: DEGRADED-FAIL per D-15 + G-08 — reverseSearch.ts code-verified (3-stag
 ### 7. §7 Live-cam preview — initial 15-s window + practice-flow D-05
 
 expected: All six §7 PASS rows checked — real flow: 15-s full-screen ultrawide preview at system brightness with static translated "Live preview" indicator; fades to dimmed state with Eye glyph bottom-right; Stop hit-testable during preview; practice flow: practice instructional copy MUST NOT render during the 15-s preview window; translated label in non-English locale
-result: [pending]
+result: FAIL (mixed) — Pixel 10a hi-IN, 2026-05-25 real-flow walk:
+• PASS row 1 (15-s preview renders + fades): **FAIL** — G-11 surface never renders camera frames; the label timer transitions correctly (label visible 15s → hides → reappears 10s on tap) but the actual ultrawide camera Surface remains black/blank throughout. Logcat shows zero `HumynLivePreview` / `CaptureSession` activity + Camera HAL `Camera3-PreviewFrameSpacer: queueBufferToClientLocked: Failed to queue buffer to client: Broken pipe(-32)` at 12:12:30 (suspected: native HumynLivePreviewView surface attachment never completes). Fade-to-dim transition not observable (G-12 — dimming a black surface is imperceptible; brightness machine may still be firing but has no visual feed to dim).
+• PASS row 2 (Practice D-05 copy not during preview): **UNVERIFIED** — deferred to Wave-2 re-walk per owner directive 2026-05-25 (low signal value while G-11 unfixed; D-05 contract is meaningless on a blank-surface 15-s window).
+• PASS row 3 (Stop hit-testable during initial-preview state): **PASS** — operator tapped Stop during the chrome-visible state; recording stopped + returned to MainTabs.
+• PASS row 4 (Static "Live preview" indicator no per-second numeral): **PASS** — confirmed static text, no countdown.
+• PASS row 5 (Eye glyph bottom-right of dimmed state): **PARTIAL** — glyph present, but visibility too low to be useful (operator UX feedback: "make it orange so that it's visible" — COSMETIC-03).
+• PASS row 6 (Translated label in hi-IN): **FAIL** — label rendered in English on hi-IN; same root cause as G-05 i18n sweep gaps.
+**Verdict:** §7 FAIL. Central gating row (preview rendering) blocks the whole §7 acceptance. G-11 + COSMETIC-02 + COSMETIC-03 logged.
 
 ### 8. §8 Tap-reveal rolling 10-s + Stop hit-test all 3 states + brightness restore
 
@@ -66,8 +73,8 @@ result: [pending]
 
 total: 10
 passed: 3
-issues: 2
-pending: 5
+issues: 3
+pending: 4
 skipped: 0
 blocked: 0
 
@@ -89,3 +96,8 @@ blocked: 0
 The 07-09 i18n sweep covered ProfileScreen + DeleteAccountModal only — leaving many surfaces unswept. Gaps G-02 through G-10 are all material to SC#1 ("new language takes effect immediately across all 23 screens") and the runbook §2 "every screen visited" criterion. §2 picker-UX subset PASSED (sheet auto-dismiss + 1-frame re-render + cold-launch persistence + `locale_changed` telemetry); §2 full-translation criterion FAILED. §3-§6 are largely blocked by the same root cause (incomplete sweep) — to be re-walked after Wave-2 lands. §7-§10 are i18n-independent and walked fully on this pass.
 
 Recommended Wave-2 plan name (07-10 candidate): "Extend i18n sweep to unenumerated surfaces + Help Center content translation."
+
+- **G-11 — Live-cam preview Surface never renders camera frames (Pixel 10a, hi-IN, 2026-05-25, apkRolloutDebug, real recording flow).** REC-LIVE-01 hard FAIL on the central §7 gating PASS row. Symptoms: the `<HumynLivePreviewView>` chrome paints correctly (the static "Live preview" label appears for 15 s, hides, reappears 10 s on tap — timer state machine intact), but the actual ultrawide camera SurfaceTexture/SurfaceView is always black/blank — no frame data ever displayed. Logcat shows ZERO `HumynLivePreview` / `LivePreviewSurfaceRegistry` / `CaptureSession` activity AND Google Camera HAL emits `Camera3-PreviewFrameSpacer: queueBufferToClientLocked: Failed to queue buffer to client: Broken pipe(-32)` (suggesting the consumer side of the preview Surface closed unexpectedly OR was never attached). Suspect: Plan 07-07's `LivePreviewSurfaceRegistry` / `CaptureSession.kt:620-689` Option-B two-Surface implementation either fails to register the second Surface OR the JS-side native view ref doesn't propagate the SurfaceTexture handle to the registry. Wave-2: native Camera2 debug session (analog to `handgate-never-passes`) to localize whether (a) the second Surface is being added to the CaptureRequest target list at all, (b) the Surface IS added but the consumer closes immediately, or (c) the JS bridge never delivers the SurfaceTexture to the native module. **Impact on §9 A/B drift gate:** if the native side never attaches the second Surface, the "preview ON" treatment is effectively identical to the "preview OFF" baseline — the A/B gate becomes meaningless (delta ≈ 0 by construction). §9 will still be walked and metadata extracted, but the result MUST be interpreted with G-11 caveat (a passing delta gate doesn't prove Option-B is safe; it might prove Option-B never engaged).
+- **G-12 — Fade-to-dim brightness transition not observable.** Operator reported "screen remains as is, no transition" after the 15-s window. Likely-not-a-real-bug: with G-11 leaving the Surface black/blank, dimming a black surface to 5% brightness is visually indistinguishable from 100% brightness. The `createLivePreviewStateMachine` timer IS firing correctly (label appears/hides at the right intervals), so the brightness setter call is probably happening — just imperceptible. Re-verify post-G-11 fix; do not classify as a real-bug until G-11 is closed.
+- **COSMETIC-02 — Top-right z-stack: "Live preview" label overlaps with the X / Stop button** (Pixel 10a, hi-IN, 2026-05-25). The static "Live preview" indicator and the Stop button render on top of each other in the top-right corner. Wave-2 fix: separate the layout (move label to top-LEFT or shrink z-overlap; spec D-26 says "top-right (or corner per implementation)" — implementation chose top-right but collided with the existing Stop placement).
+- **COSMETIC-03 — Eye glyph visibility too low** (Pixel 10a, 2026-05-25, dimmed-state attempt). Operator UX feedback: "make it orange so that it's visible". Current implementation likely renders the lucide `Eye` glyph in a low-contrast neutral token; against a black/dimmed background it's hard to find. Wave-2: bump to a brighter accent token (orange / amber); ensure WCAG-AA contrast against the dimmed-state black background.
