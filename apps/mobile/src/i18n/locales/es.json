@@ -20,11 +20,11 @@
     }
   },
   "splash": {
-    "taglinePrefix": "Humyns reales.",
+    "taglinePrefix": "Humanos reales.",
     "taglineAccent": " Inteligencia real."
   },
   "signup": {
-    "tagline": "Humyns reales. Inteligencia real.",
+    "tagline": "Humanos reales. Inteligencia real.",
     "pitchLine1": "Graba momentos reales.",
     "pitchLine2": "Entrena inteligencia real.",
     "pitchLine3": "Gana dinero",
@@ -38,10 +38,10 @@
   },
   "permissions": {
     "titleIdle": "Permisos de\ncámara y micro",
-    "titleRecovery": "Hace falta\ncámara y micro",
+    "titleRecovery": "Se necesitan cámara\ny micro",
     "bodyIdle": "Solo se usan cuando le das a grabar",
-    "bodyDenied": "Se necesitan cámara y micro. Abre Ajustes para activarlos.",
-    "bodyPartialPrefix": "Se necesita acceso a {{name}}. Abre Ajustes para activarlo.",
+    "bodyDenied": "Hacen falta la cámara y el micro. Abre Ajustes para activarlos.",
+    "bodyPartialPrefix": "Hace falta acceso a {{name}}. Abre Ajustes para activarlo.",
     "buttonAllow": "Permitir acceso",
     "buttonOpenSettings": "Abrir Ajustes",
     "cameraName": "Cámara",
@@ -49,48 +49,48 @@
   },
   "compat": {
     "running": {
-      "title": "Revisando tu teléfono",
+      "title": "Revisando tu celular",
       "subtitle": "Tarda unos 30 segundos"
     },
     "pass": {
-      "title": "Listo, estás dentro.",
-      "subtitle": "Pasaste todas las pruebas.",
-      "storageWarningPrefix": "Libera espacio para no perder grabaciones. {{gb}} GB libres."
+      "title": "Estás dentro.",
+      "subtitle": "Pasó todas las pruebas.",
+      "storageWarningPrefix": "Libera espacio para no perder grabaciones. Libres: {{gb}} GB."
     },
     "fail": {
-      "title": "Este teléfono todavía no puede grabar",
-      "body": "Este teléfono no cumple los requisitos para grabar.",
-      "contactSupport": "Contactar a soporte",
+      "title": "Este celular todavía no puede grabar",
+      "body": "Este celular no cumple los requisitos para grabar.",
+      "contactSupport": "Contactar soporte",
       "lines": {
         "ultrawideDfov": "Se necesita cámara ultra gran angular de 110°+ (la tuya: {{deg}}°)",
-        "resolutionFps": "Se requiere 1080p a 30 FPS",
-        "imuSustained100Hz": "Se necesitan sensores de movimiento estables a 100 Hz+ (el tuyo: {{hz}} Hz)",
-        "imuP99Ms": "Se requiere variación del sensor ≤12 ms (la tuya: {{ms}} ms p99)",
-        "micSampleRate": "Se necesita que el micro grabe a 48 kHz",
-        "realtimeTimestamp": "Se requiere fuente de tiempo REALTIME",
-        "root": "El teléfono no puede estar rooteado",
-        "encoderNoBFrames": "El codificador HEVC debe generar solo I/P (sin cuadros B)",
-        "oisOff": "La estabilización óptica debe estar apagada al grabar",
-        "hdrSdrForced": "Hay que forzar modo SDR (sin HDR)"
+        "resolutionFps": "Se necesita 1080p a 30 FPS",
+        "imuSustained100Hz": "Sensores de movimiento estables a 100 Hz+ (los tuyos: {{hz}} Hz)",
+        "imuP99Ms": "Variación del sensor ≤12 ms (la tuya: {{ms}} ms p99)",
+        "micSampleRate": "El micro debe poder grabar a 48 kHz",
+        "realtimeTimestamp": "Se necesita marca de tiempo REALTIME",
+        "root": "El celular no puede estar rooteado",
+        "encoderNoBFrames": "El codificador HEVC solo debe usar I/P (sin B-frames)",
+        "oisOff": "El estabilizador óptico debe estar apagado al grabar",
+        "hdrSdrForced": "Debe forzarse el modo SDR (sin HDR)"
       }
     }
   },
   "rigTutorial": {
     "heading": "Vas a necesitar un soporte para la cabeza",
-    "body": "Monta el teléfono en el soporte y asegúrate de que quede firme mientras grabas.",
-    "framingTip": "Antes de cada toma, mira la vista previa en pantalla para revisar que tus manos salgan en cuadro — si puedes, pide a alguien que lo confirme.",
+    "body": "Monta el celular en el soporte y asegúrate de que esté firme al grabar.",
+    "framingTip": "Antes de cada toma, mira la vista previa de la cámara en pantalla para revisar que tus manos salgan — pide a alguien que te ayude si puedes.",
     "noRigLink": "¿Aún no tienes soporte?",
     "buttonNext": "Siguiente",
     "offRamp": {
-      "title": "¿Sin soporte todavía?",
-      "bodyPrefix": "Necesitas un soporte para la cabeza para grabar. Estamos trabajando para hacérselos llegar a los colaboradores. Escríbenos a {{email}} y te avisamos cuando salga uno para ti. Mientras tanto puedes seguir explorando la app.",
+      "title": "¿Aún sin soporte?",
+      "bodyPrefix": "Necesitas un soporte para la cabeza para grabar. Estamos trabajando para hacerlos llegar a los colaboradores. Escríbenos a {{email}} y te avisamos cuando te enviemos uno. Mientras tanto, puedes seguir explorando la app.",
       "emailSupport": "Escribir a soporte",
       "gotIt": "Entendido"
     }
   },
   "practiceIntro": {
-    "heading": "Una probadita rápida",
-    "body": "Te guiamos en una grabación corta — 60 segundos, para que le agarres la onda",
+    "heading": "Un intento rápido",
+    "body": "Te guiaremos en una grabación corta — 60 segundos, para que le agarres la onda",
     "buttonStart": "Empezar práctica"
   },
   "practiceComplete": {
@@ -103,32 +103,32 @@
     },
     "startRecording": "Empezar a grabar",
     "stopRecording": "Detener",
-    "skip": "Omitir",
-    "gatePrompt": "Coloca el teléfono en tu cabeza y mete las manos en cuadro por 2 segundos",
+    "skip": "Saltar",
+    "gatePrompt": "Pon el celular en tu cabeza y muestra tus manos en pantalla durante 2 segundos",
     "overlayTip": "No salgas mientras grabas.",
     "alerts": {
       "batteryPrefix": "Batería al 15%",
-      "thermal": "El teléfono está muy caliente"
+      "thermal": "Celular muy caliente"
     },
     "toasts": {
-      "deviceDistress": "Grabación detenida — tu teléfono necesita atención.",
-      "tooShort": "Grabación muy corta — se descartó.",
+      "deviceDistress": "Se detuvo la grabación — tu celular necesita atención.",
+      "tooShort": "Grabación muy corta — descartada.",
       "profileIncomplete": "Completa tu perfil en Perfil → Correo.",
       "storageFull": "No hay espacio suficiente para grabar.",
-      "thermalThrottling": "El teléfono está muy caliente — déjalo enfriar y vuelve a intentar.",
+      "thermalThrottling": "Celular muy caliente — déjalo enfriar e inténtalo de nuevo.",
       "couldNotStart": "No se pudo empezar a grabar."
     },
     "voiceCues": {
       "profileIncomplete": "Completa tu perfil",
-      "thermalThrottling": "El teléfono está muy caliente",
-      "permissionRevoked": "Hace falta permiso de cámara",
+      "thermalThrottling": "Celular muy caliente",
+      "permissionRevoked": "Hace falta permiso de la cámara",
       "couldNotStart": "No se pudo empezar a grabar"
     }
   },
   "home": {
     "sectionContribution": "TU APORTE",
     "sectionPendingUploads": "SUBIDAS PENDIENTES",
-    "emptyTip": "Tus horas y tareas se van a ir registrando aquí conforme grabes.",
+    "emptyTip": "Tus horas y tareas se irán registrando aquí conforme grabes.",
     "viewAllMore": "+{{count}} más — toca para ver todo",
     "filter": {
       "today": "hoy ▾",
@@ -146,33 +146,33 @@
   },
   "tasks": {
     "searchPlaceholder": "Buscar tareas…",
-    "emptyHeading": "No hay tareas que coincidan. Prueba quitando filtros o ",
-    "emptySendLink": "manda una solicitud",
+    "emptyHeading": "Ninguna tarea coincide. Prueba quitar filtros o ",
+    "emptySendLink": "enviar una solicitud",
     "footerPrefix": "¿No encuentras una tarea? ",
-    "footerLink": "Mandar solicitud →"
+    "footerLink": "Enviar solicitud →"
   },
   "taskDetails": {
-    "outdoorChip": "Al aire libre",
+    "outdoorChip": "Exterior",
     "forThisTask": "PARA ESTA TAREA",
     "startRecording": "Empezar a grabar"
   },
   "sendRequest": {
-    "title": "Mandar solicitud de tarea",
-    "subtitle": "Cuéntanos qué tarea te gustaría grabar. Revisamos todas las solicitudes.",
+    "title": "Enviar una solicitud de tarea",
+    "subtitle": "Cuéntanos qué tarea te gustaría grabar. Revisamos cada solicitud.",
     "labelTaskName": "Nombre de la tarea",
     "placeholderTaskName": "ej. Planchar ropa",
     "labelDescription": "¿En qué consiste?",
-    "placeholderDescription": "Unas pocas palabras sobre en qué consiste la tarea.",
-    "buttonSubmit": "Mandar solicitud",
+    "placeholderDescription": "Unas palabras sobre en qué consiste la tarea.",
+    "buttonSubmit": "Enviar solicitud",
     "buttonCancel": "Cancelar",
     "submitting": "Enviando…",
-    "toastSent": "Solicitud enviada. La revisamos y la agregamos a tu lista.",
+    "toastSent": "Solicitud enviada. La revisaremos y la añadiremos a tu lista.",
     "validationAlerts": {
       "missingName": "Escribe un nombre para la tarea.",
       "missingDescription": "Cuéntanos en qué consiste la tarea."
     },
     "errors": {
-      "submitFailed": "No se pudo enviar. Intenta de nuevo."
+      "submitFailed": "No se pudo enviar. Inténtalo de nuevo."
     }
   },
   "history": {
@@ -196,14 +196,14 @@
   },
   "player": {
     "viewOnlyToast": "Solo para ver — no se puede descargar.",
-    "loadError": "No se pudo cargar esta grabación.",
+    "loadError": "No se pudo cargar la grabación.",
     "playbackError": "Error de reproducción.",
     "close": "Cerrar",
     "share": "Compartir"
   },
   "help": {
     "title": "Centro de ayuda",
-    "contactSupport": "Contactar a soporte",
+    "contactSupport": "Contactar soporte",
     "reportProblem": "Reportar un problema"
   },
   "report": {
@@ -212,17 +212,17 @@
     "labelWhatHappened": "¿Qué pasó?",
     "placeholderMessage": "Cuéntanos qué estabas haciendo y qué salió mal.",
     "buttonCancel": "Cancelar",
-    "buttonSend": "Mandar reporte",
+    "buttonSend": "Enviar reporte",
     "sending": "Enviando…",
     "alerts": {
       "pickCategory": "Elige una categoría",
-      "pickCategoryBody": "Elige qué tipo de problema tuviste.",
-      "addMessage": "Agrega un mensaje",
+      "pickCategoryBody": "Selecciona qué tipo de problema tuviste.",
+      "addMessage": "Añade un mensaje",
       "addMessageBody": "Cuéntanos qué pasó.",
       "sentTitle": "Enviado",
       "sentBody": "Gracias — recibimos tu reporte.",
       "failedTitle": "Falló",
-      "failedBodyFallback": "Intenta más tarde."
+      "failedBodyFallback": "Inténtalo más tarde."
     }
   },
   "forceUpgrade": {
@@ -232,12 +232,12 @@
     "buttonUpdating": "Actualizando…",
     "alerts": {
       "infoUnavailableTitle": "Info de actualización no disponible",
-      "infoUnavailableBody": "Intenta de nuevo en un momento.",
+      "infoUnavailableBody": "Inténtalo en un momento.",
       "integrityTitle": "Falló la actualización (revisión de integridad)",
-      "integrityBody": "Intenta de nuevo o contacta a soporte.",
+      "integrityBody": "Inténtalo de nuevo o contacta soporte.",
       "failedTitle": "Falló la actualización",
-      "failedBodyNetwork": "Revisa tu conexión y vuelve a intentar.",
-      "failedBodyFallback": "Intenta más tarde."
+      "failedBodyNetwork": "Revisa tu conexión e inténtalo de nuevo.",
+      "failedBodyFallback": "Inténtalo más tarde."
     }
   },
   "pendingUploads": {
@@ -248,20 +248,20 @@
     "retry": "Reintentar"
   },
   "batteryOpt": {
-    "title": "Mantén tus subidas activas",
-    "body": "Algunos teléfonos cierran las apps en segundo plano sin avisar. Permitir que Homelander funcione sin restricciones hace que tus grabaciones sigan subiéndose cuando sales de la app.",
+    "title": "Que tus subidas no se corten",
+    "body": "Algunos celulares cierran las apps en segundo plano sin avisar. Si dejas que Homelander funcione sin restricciones, tus grabaciones se siguen subiendo aunque salgas de la app.",
     "buttonAllow": "Permitir batería sin restricciones",
     "buttonOpenAutostart": "Abrir ajustes de inicio automático",
     "buttonDone": "Listo",
-    "buttonSkip": "Omitir por ahora",
+    "buttonSkip": "Saltar por ahora",
     "statusAllowed": "✓ Permitido — las subidas seguirán en segundo plano.",
-    "statusStillRestricted": "Sigue restringido — abre Ajustes → Apps → Homelander → Batería → Sin restricciones.",
-    "sectionHow": "Cómo hacerlo en tu teléfono",
-    "fallbackCopy": "Si esa pantalla no está en tu teléfono: Ajustes → Apps → Homelander → Batería → Sin restricciones, y activa el inicio automático si tu teléfono lo tiene.",
+    "statusStillRestricted": "Sigue restringido — abre Ajustes → Aplicaciones → Homelander → Batería → Sin restricciones.",
+    "sectionHow": "Cómo hacerlo en tu celular",
+    "fallbackCopy": "Si esa pantalla no aparece en tu celular: Ajustes → Aplicaciones → Homelander → Batería → Sin restricciones, y activa Inicio automático si tu celular lo tiene.",
     "vendors": {
       "xiaomi": {
         "label": "Xiaomi (MIUI / HyperOS)",
-        "steps": "Ajustes → Apps → Administrar apps → Humyn Labs Capture → Ahorro de batería → Sin restricciones, e Inicio automático → activado."
+        "steps": "Ajustes → Aplicaciones → Administrar aplicaciones → Humyn Labs Capture → Ahorro de batería → Sin restricciones, e Inicio automático → activado."
       },
       "oppo": {
         "label": "Oppo (ColorOS)",
@@ -269,15 +269,15 @@
       },
       "vivo": {
         "label": "Vivo (FunTouch)",
-        "steps": "Ajustes → Batería → Gestión de consumo en segundo plano → Humyn Labs Capture → Permitir, y Ajustes → Más ajustes → Gestión de permisos → Inicio automático → activado."
+        "steps": "Ajustes → Batería → Gestión del consumo en segundo plano → Humyn Labs Capture → Permitir, y Ajustes → Más ajustes → Gestión de permisos → Inicio automático → activado."
       },
       "samsung": {
         "label": "Samsung (One UI)",
-        "steps": "Ajustes → Apps → Humyn Labs Capture → Batería → Sin restricciones (desactiva \"Pausar actividad si no se usa\")."
+        "steps": "Ajustes → Aplicaciones → Humyn Labs Capture → Batería → Sin restricciones (desactiva \"Pausar actividad si no se usa\")."
       },
       "stock": {
         "label": "Android puro / Pixel",
-        "steps": "Ajustes → Apps → Humyn Labs Capture → Batería → Sin restricciones."
+        "steps": "Ajustes → Aplicaciones → Humyn Labs Capture → Batería → Sin restricciones."
       }
     }
   },
@@ -287,32 +287,77 @@
         "label": "Idioma"
       },
       "picker": {
-        "title": "Elegir idioma"
+        "title": "Selecciona el idioma"
+      }
+    },
+    "head": {
+      "tapToEdit": "toca para editar"
+    },
+    "lifetime": {
+      "contributed": "aportado",
+      "acrossNTasks": "En {{count}} tareas"
+    },
+    "fields": {
+      "name": "Nombre",
+      "age": "Edad",
+      "gender": "Género",
+      "joined": "Se unió"
+    },
+    "actions": {
+      "help": "Centro de ayuda",
+      "logout": "Cerrar sesión",
+      "delete": "Eliminar cuenta"
+    },
+    "payments": {
+      "title": "Pagos y ganancias",
+      "comingSoon": "PRÓXIMAMENTE",
+      "body": "Los pagos se procesan fuera de la app. Tus ganancias aparecerán pronto. Sigue grabando — tus datos están a salvo y tus pagos están garantizados."
+    },
+    "errors": {
+      "couldNotUpdate": {
+        "title": "No se pudo actualizar",
+        "body": "Inténtalo de nuevo."
+      }
+    },
+    "delete": {
+      "title": "¿Eliminar tu cuenta de Humyn?",
+      "body": "Tu cuenta quedará desactivada por 30 días. Inicia sesión dentro de ese plazo para recuperarla. Pasados los 30 días, se elimina para siempre. Las grabaciones ya subidas se quedan en nuestros servidores.",
+      "cancel": "Cancelar",
+      "continueToDelete": "Continuar y eliminar",
+      "typeToConfirmTitle": "Escribe ELIMINAR para confirmar.",
+      "placeholder": "DELETE",
+      "confirm": "Confirmar",
+      "deleting": "Eliminando…",
+      "errors": {
+        "couldNotDelete": {
+          "title": "No se pudo eliminar",
+          "body": "Inténtalo más tarde."
+        }
       }
     }
   },
   "terms": {
     "consent": {
       "modalTitle": "Términos de uso",
-      "body": "Doy mi consentimiento y acepto subir videos míos y/o de otras personas que también acepten ser grabadas, realizando ciertas actividades o tareas diarias. Este contenido se usará para desarrollar y entrenar modelos de IA y con fines de investigación. Confirmo que tengo 18 años o más y que cuento con los permisos necesarios para compartir este contenido. Confirmo que ninguna de las personas grabadas es menor de edad. Acepto que se capture mi ubicación aproximada y mi dirección IP junto con cada grabación. Entiendo que mis datos se guardarán de forma segura y se usarán conforme a la Política de Privacidad de Humyn."
+      "body": "Doy mi consentimiento y acepto subir videos de mí mismo y/o de otras personas que acepten ser grabadas; haciendo ciertas actividades/tareas diarias. Este contenido se usará para desarrollar / entrenar modelos de IA y con fines de investigación. Confirmo que tengo 18 años o más y que cuento con los permisos necesarios para compartir este contenido. Confirmo que ninguna persona grabada es menor de edad. Doy mi consentimiento para que se registren mi ubicación aproximada y mi dirección IP con cada grabación. Entiendo que mis datos se guardarán de forma segura y se usarán según la Política de Privacidad de Humyn."
     }
   },
   "errors": {
     "generic": "Algo salió mal",
     "auth": {
-      "invalidToken": "Inicia sesión otra vez",
-      "expiredToken": "Tu sesión caducó — inicia sesión otra vez",
+      "invalidToken": "Inicia sesión de nuevo",
+      "expiredToken": "Tu sesión expiró — inicia sesión de nuevo",
       "googleFailed": "Falló el inicio de sesión con Google"
     },
     "upload": {
-      "quotaExceeded": "Llegaste al límite de subidas por hoy",
-      "networkLost": "Se perdió la conexión — reintenta cuando vuelvas a estar en línea"
+      "quotaExceeded": "Llegaste al límite de subidas de hoy",
+      "networkLost": "Sin conexión — vuelve a intentar cuando regrese"
     },
     "recording": {
       "tooShort": "La grabación fue muy corta"
     },
     "compat": {
-      "failed": "Tu teléfono no es compatible"
+      "failed": "Tu dispositivo no es compatible"
     }
   }
 }
