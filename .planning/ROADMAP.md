@@ -302,7 +302,7 @@ Plans:
 4. Task search works end-to-end in a non-English locale: a user typing a task name in Hindi (e.g. "चाय बनाओ") is mapped back to the canonical English ("Make tea") before hitting `/tasks/search`, and the search returns the expected result. The `ts_vector` GIN index + `tasks` table schema are unchanged; no database migration ships in this phase
 5. The renumber sweep is clean: `.planning/ROADMAP.md`, `.planning/STATE.md`, `.planning/REQUIREMENTS.md`, `CLAUDE.md`, and every Phase-7-referencing planning artifact correctly shows the observability work as Phase 8, with a single ROADMAP banner line noting the swap. The historical commit messages and quick-task directories that mention "Phase 7" in older contexts are left as-is (those are frozen history)
 
-**Plans:** 8 plans
+**Plans:** 15 plans (8 original + 1 Profile-sweep gap-closure (07-09) + 6 cluster gap-closure (07-10..07-15) added 2026-05-25 after 07-HUMAN-UAT.md re-walk surfaced G-02..G-12 + COSMETIC-01..03)
 
 Plans:
 **Wave 1** _(i18n infrastructure foundation — parallel; disjoint file ownership)_
@@ -324,6 +324,27 @@ Plans:
 **Wave 4** _(manual smoke + sign-off — depends on Waves 2+3)_
 
 - [x] 07-08-renumber-sweep-and-manual-smoke-PLAN.md — 07-MANUAL-SMOKE.md 11-section runbook + A/B drift smoke walk (D-04 BLOCKING) + grep gates + ROADMAP/STATE refresh (I18N-11, I18N-20, I18N-21, REC-LIVE-05, REC-LIVE-07)
+
+**Wave 4.5 — gap-closure prelude** _(plan 07-09 closed the 07-VERIFICATION.md `gaps_found` finding WR-01 — ProfileScreen + DeleteAccountModal i18n sweep incomplete; landed before the operator's hardware walk)_
+
+- [x] 07-09-profile-i18n-sweep-closure-PLAN.md — ProfileScreen + DeleteAccountModal i18n sweep extension + LLM regen of 7 non-English catalogs for the new profile.\* keys (I18N-01, I18N-11)
+
+**Wave 5 — gap-closure cluster** _(operator hardware re-walk 2026-05-25 surfaced 9 functional gaps G-02..G-12 + 3 cosmetic findings; cluster closes them in 3 internal waves with disjoint file ownership)_
+
+Internal Wave A (parallel-safe, disjoint file ownership):
+
+- [ ] 07-10-live-preview-surface-debug-and-fix-PLAN.md — debug `Camera3-PreviewFrameSpacer: Broken pipe(-32)` G-11 + G-12 + surgical fix in livepreview/ Kotlin quad + CaptureSession.kt; §9 A/B drift `delta < 0.50` is the terminal acceptance gate with contingent Option-A revert (REC-LIVE-01..07)
+- [ ] 07-11-i18n-sweep-extension-PLAN.md — CompatCheck labels + RotatePrompt + RecordingScreen TTS cue text + HomeHero greeting + tab labels + History time-filter chips + UploadStatusChip (G-02/03/04/05/06/07/09); en.json + 7 non-en regen (I18N-01, I18N-11)
+- [ ] 07-13-help-center-body-translation-PLAN.md — new sibling content.{locale}.json files for the Help Center body via the LLM tool; contentLoader.ts wires the locale select (G-10; D-03) (I18N-01)
+- [ ] 07-14-COSMETIC-PLAN.md — Signup consent center-align (COSMETIC-01) + Live-preview label top-left (COSMETIC-02) + Eye glyph accent color (COSMETIC-03); 07-COSMETIC-GAPS.md ledger flipped to closed (I18N-01, REC-LIVE-01, REC-LIVE-03)
+
+Internal Wave B (depends on Wave A 07-11 catalog stability):
+
+- [ ] 07-12-task-catalog-body-translation-PLAN.md — new tools/i18n/task-catalog-generate.ts LLM regen for all 77 tasks × 7 non-en locales body translation (G-08; D-01); reverseSearch Stage 1+2 become functionally meaningful (I18N-01, I18N-10)
+
+Internal Wave C (depends on Wave A + Wave B closures):
+
+- [ ] 07-15-rewalk-and-verification-refresh-PLAN.md — Pixel-10a operator re-walks §2 + §3 + §4 + §6 + §7 + §8 + §10 + §11; 07-VERIFICATION.md flipped to `verified` or `gaps_found`; conditional ROADMAP / STATE advance (all I18N + REC-LIVE requirements re-affirmed)
 
 **UI hint**: yes — new Choose Language screen + Profile row + recording-surface preview overlay + tap-affordance indicator
 
