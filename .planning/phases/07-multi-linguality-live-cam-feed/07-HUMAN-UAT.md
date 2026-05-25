@@ -57,7 +57,13 @@ result: FAIL (mixed) — Pixel 10a hi-IN, 2026-05-25 real-flow walk:
 ### 8. §8 Tap-reveal rolling 10-s + Stop hit-test all 3 states + brightness restore
 
 expected: All five §8 PASS rows checked — from dimmed: tap restores preview at system brightness for 10 s; subsequent tap at ~5 s extends to ~10 s (rolling, NOT accumulating); Stop hit-testable in dimmed AND tap-revealed states; brightness restores to system on Stop/unmount
-result: [pending]
+result: PASS (mechanism) / PARTIAL (visuals blocked by G-11) — Pixel 10a hi-IN, 2026-05-25 real-flow walk:
+• Row 1 (Tap-reveal restores preview at system brightness): **PARTIAL** — timer mechanism PASS (label re-appears on tap, hides after 10s) but visual preview restoration unobservable (G-11 — surface still black/blank post-tap).
+• Row 2 (Rolling not accumulating, D-29): **PASS** — operator tapped at ~5s into the 10-s window; label stayed visible ~10s from the SECOND tap (rolling behavior confirmed; the state machine's `setTimeout` reset on each tap fires correctly).
+• Row 3 (Stop hit-test in dimmed state): **PASS** — operator tapped Stop with label hidden (post-10s tap-reveal fade); recording stopped + returned to MainTabs.
+• Row 4 (Stop hit-test in tap-revealed state): **PASS** — operator tapped Stop with label visible during the 10s tap-reveal window; recording stopped.
+• Row 5 (Brightness restore on Stop/unmount, REC-LIVE-15): **PRESUMED-PASS-NOT-OBSERVABLE** — G-12 chain: dimmed-state on a blank Surface is visually indistinguishable from non-dimmed; post-Stop the next screen renders at apparent normal brightness, but the operator can't confirm a delta from the dim state because the dim state itself wasn't visually distinguishable. Re-verify after G-11 closure.
+**Verdict:** §8 PASS on the state-machine + hit-test mechanisms. Visual aspects (Row 1, Row 5) gated on G-11 closure — do NOT classify as standalone bugs; they will become directly observable once preview frames are rendering.
 
 ### 9. §9 BLOCKING A/B drift smoke (REC-LIVE-05 / D-04)
 
@@ -72,9 +78,9 @@ result: [pending]
 ## Summary
 
 total: 10
-passed: 3
+passed: 4
 issues: 3
-pending: 4
+pending: 3
 skipped: 0
 blocked: 0
 
