@@ -68,7 +68,7 @@ result: PASS (mechanism) / PARTIAL (visuals blocked by G-11) — Pixel 10a hi-IN
 ### 9. §9 BLOCKING A/B drift smoke (REC-LIVE-05 / D-04)
 
 expected: delta < 0.50 → phase sign-off unblocked; delta >= 0.50 → BLOCKER, plan 07-07 CaptureSession.kt must be reverted to Option A (Surface splitter via GL). Pixel 10a, room temperature, same-device + same-day + same-scene: 10-min recording with preview OFF + 10-min recording with preview ON; extract `imu_video_drift_p99_ms` from metadata.json; compute delta = (p99_ON − p99_OFF) / p99_OFF.
-result: [pending]
+result: BLOCKED pending G-11 closure — Pixel 10a hi-IN, 2026-05-25 owner-directed deferral. RATIONALE: §9's strict A/B contract requires the "preview ON" treatment to actually engage Plan 07-07's Option-B two-Surface CaptureSession path. G-11 (HumynLivePreviewView surface never renders camera frames) strongly suggests Option-B is NOT engaging — either the second Surface is never registered with CaptureRequest's target list, or the consumer side closes immediately ("Camera3-PreviewFrameSpacer ... Broken pipe(-32)" in logcat). Under that root cause, both "ON" and "OFF" treatments would be baseline-equivalent (delta ≈ 0), which does NOT prove Option-B is drift-safe — it proves Option-B never engaged. Re-walk §9 as authored AFTER the Wave-2 debug session (analog to `handgate-never-passes`) closes G-11 and the operator can visually confirm the live-preview frames are actually rendering. Until then the BLOCKING D-04 gate cannot be meaningfully evaluated; Phase 7 sign-off is BLOCKED on §9 in addition to the gap inventory above. **Do NOT revert Plan 07-07 CaptureSession.kt diff yet** — the revert path (Option A Surface splitter via GL) is conditional on the A/B test producing delta >= 0.50; with §9 BLOCKED that conditional is not met. Hold the diff; debug G-11 first.
 
 ### 10. §10 Capture-quality cancel gates UNCHANGED
 
@@ -80,9 +80,9 @@ result: [pending]
 total: 10
 passed: 4
 issues: 3
-pending: 3
+pending: 2
 skipped: 0
-blocked: 0
+blocked: 1
 
 ## Gaps
 
