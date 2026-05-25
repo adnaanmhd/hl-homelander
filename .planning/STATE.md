@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 7 context gathered
-last_updated: '2026-05-24T13:56:37.495Z'
-last_activity: 2026-05-24 -- Phase 07 execution started
+last_updated: '2026-05-25T03:45:01.623Z'
+last_activity: 2026-05-25 -- Phase 7 execution started
 progress:
   total_phases: 8
   completed_phases: 5
-  total_plans: 93
-  completed_plans: 84
-  percent: 90
+  total_plans: 94
+  completed_plans: 92
+  percent: 98
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-07)
 
 **Core value:** On-device capture quality is non-negotiable — every uploaded segment must hit the locked spec (1080p / 30 FPS / ≥110° dFOV / IMU sustained ≥100 Hz / ±1 ms timestamp alignment) or the bytes are worthless for training. (The ±1 ms drift gate was relaxed 2026-05-12 to measure-and-record per CLAUDE.md banner; ultrawide ≥110° dFOV is the load-bearing constraint.)
-**Current focus:** Phase 07 — multi-linguality-live-cam-feed
+**Current focus:** Phase 7 — multi-linguality-live-cam-feed
 
 ## Current Position
 
-Phase: 07 (multi-linguality-live-cam-feed) — EXECUTING
-Plan: 1 of 8
-Status: Executing Phase 07
+Phase: 7 (multi-linguality-live-cam-feed) — EXECUTING
+Plan: 1 of 9
+Status: Executing Phase 7
 
 Phase 2 operator smoke-walk history (carried forward):
 
@@ -47,7 +47,7 @@ Phase 3 hardware UAT pending (7 items, all on real Pixel 7a/8a) — these RETIRE
 - #6 CAP-18 byte-for-byte SHA round-trip — §3 on-disk SHA ↔ metadata assertion (Phase 5 owns the device→S3 leg)
 - #7 CAP-13 onSessionStart/Stop upload-pause seam — §3 session start/stop event log assertion (log-only at Phase 4; Phase 5 wires the pause)
 
-Last activity: 2026-05-24 -- Phase 07 execution started
+Last activity: 2026-05-25 -- Phase 7 execution started
 
 Last activity: 2026-05-22 — Completed quick task 260522-elm: metadata schema bumped 1.1.0 → 1.2.0 with a new always-present top-level `calibration` block — live-Camera2 camera intrinsics read off the **ultrawide physical sub-camera** (`calibration.camera`: model/resolution/params{fx,fy,cx,cy,skew}/distortion*coeffs/intrinsics_source) + cam-IMU offset (`calibration.cam_imu_extrinsics`: T_cam_imu/T_imu_cam/T_cam_imu_translation_mm from `LENS_POSE*\*`, timeshift default 0.0 + clock-sync note from `SENSOR*INFO_TIMESTAMP_SOURCE`). Null-fallback contract: UNCALIBRATED (common on Pixels) → null params + `intrinsics_source="camera2_uncalibrated"`, never throws/blocks capture. On-device artifacts now ULID-prefixed `{recordingId}*{YYYYMMDD_HHMMSS_NNN}.{ext}`(FilenameGenerator NNN-scan strips a leading 26-char ULID; **S3 object keys unchanged**). Backend: nullable`recordings.calibration jsonb`column (migration 0009) + zod-validated persistence on`/recordings/init`. Drift gates / capture spec / ultrawide lens code / hash-verify worker all untouched. Android only (iOS deferred). Android capture unit suite green (58 tests across 4 touched classes); backend vitest 209 passed / 2 skipped; code review 0 CRITICAL/0 HIGH. Genuine non-null intrinsics/extrinsics values are a **manual on-device smoke item** (Pixel ultrawide) — not CI-verifiable.
 
