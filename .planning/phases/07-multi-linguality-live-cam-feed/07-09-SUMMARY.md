@@ -65,7 +65,7 @@ completed: 2026-05-25
 
 # Phase 07 Plan 09: Profile i18n Sweep Closure Summary
 
-**i18n closure for WR-01: ProfileScreen.tsx + DeleteAccountModal.tsx now render every user-visible label through t(...) across all 8 MVP locales — 21 new profile._ / profile.delete._ leaves added to en.json, 7 non-English catalogs LLM-regenerated with shape parity, case-sensitive DELETE validator preserved per locale.**
+**i18n closure for WR-01: ProfileScreen.tsx + DeleteAccountModal.tsx now render every user-visible label through `t(...)` across all 8 MVP locales — 21 new `profile.*` / `profile.delete.*` leaves added to en.json, 7 non-English catalogs LLM-regenerated with shape parity, case-sensitive `DELETE` validator preserved per locale.**
 
 ## Performance
 
