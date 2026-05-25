@@ -1,17 +1,20 @@
 package ai.humynlabs.capture.capture
 
 import android.content.Context
+import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.params.OutputConfiguration
 import android.media.MediaCodec
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
 import android.util.Log
+import android.util.Size
 import android.view.Surface
 import androidx.annotation.VisibleForTesting
 import com.facebook.react.bridge.Arguments
@@ -607,113 +610,245 @@ class CaptureSession private constructor(
         var session: CameraCaptureSession? = null
         var sessionError: Throwable? = null
 
-        // === Phase 7 plan 07-07 — Option B two-Surface CaptureSession ===
-        // Snapshot the live-preview Surface AT SESSION-CONFIG TIME (per
-        // 07-RESEARCH §"Surface-Source A/B"). If non-null, the
-        // CaptureSession is configured with two output targets (encoder +
-        // preview); the encoder Surface is ALWAYS a target across the whole
-        // session (drift telemetry + the REC-LIVE-07 capture-quality cancel
-        // gates depend on the encoder receiving a continuous frame stream).
-        // The preview target is toggled IN-SESSION via setRepeatingRequest
-        // rebuilds (onAddTarget / onRemoveTarget below) — NEVER via a mid-
-        // record createCaptureSession reconfigure (that's Option C, which
-        // would drop frames during the ~100-400ms HAL stall and trip
-        // FinalizeWorker's mean_fps < 29 cancel gate per CLAUDE.md
-        // "Capture-quality cancel gate added 2026-05-17" banner).
+        // === Phase 7 plan 07-10 — Always-two-Surface CaptureSession (H1 close) ===
         //
-        // When the registry slot is null (no <HumynLivePreviewView> mounted
-        // — e.g. recording starts immediately after gate-pass before the
-        // first JSX-side mount has fired its TextureView available
-        // callback, or future iOS build with no live-preview module), the
-        // behaviour collapses to the pre-Phase-7 single-target path. The
-        // session callbacks below are also conditional on this — no wiring
-        // when the registry is empty.
-        val previewSurfaceAtConfig: Surface? = LivePreviewSurfaceRegistry.currentSurface()
-        val outputs: List<Surface> = if (previewSurfaceAtConfig != null) {
-            listOf(surface, previewSurfaceAtConfig)
-        } else {
-            listOf(surface)
+        // The original plan 07-07 read `LivePreviewSurfaceRegistry.currentSurface()`
+        // AT session-config time and conditionally added it as a second output.
+        // The Pixel-10a §7 walk (2026-05-25, debug journal
+        // .planning/debug/07-live-preview-broken-pipe.md) showed the registry
+        // slot was always null at session-config time (`previewSurfaceAtConfig=false
+        // outputs.size=1`) — `HumynLivePreviewView.onSurfaceTextureAvailable`
+        // fires ~109 ms AFTER `openCaptureSession` because the RN view tree
+        // mounts after `HumynCapture.start()` returns. So Option-B's "second
+        // surface if available" branch never engaged. (H1: race-on-config.)
+        //
+        // The fix: ALWAYS open the session with TWO output slots — the encoder
+        // Surface (always target #1, REC-LIVE-07 invariant) AND a deferred
+        // OutputConfiguration for the preview. The deferred config uses
+        // `enableSurfaceSharing()` so we can dynamically add/remove the real
+        // preview Surface via `finalizeOutputConfigurations` (first attach) and
+        // `updateOutputConfiguration` (subsequent swap, API 28+) WITHOUT
+        // reconfiguring the entire session — which would drop frames during the
+        // 100-400 ms HAL stall and trip FinalizeWorker's `mean_fps < 29` cancel
+        // gate (CLAUDE.md "Capture-quality cancel gate added 2026-05-17"
+        // banner).
+        //
+        // The `LivePreviewSurfaceRegistry.onAddTarget` / `onRemoveTarget` slots
+        // are wired UNCONDITIONALLY in onConfigured. Plan 07-10 to the registry
+        // makes `onSurfaceAvailable` / `onSurfaceDestroyed` invoke these
+        // callbacks directly, so the lifecycle becomes:
+        //   1. CaptureSession opens with [encoder, deferredPreview]. No preview
+        //      Surface attached yet.
+        //   2. JS-side `<HumynLivePreviewView>` mounts (~109 ms later).
+        //   3. TextureView's `onSurfaceTextureAvailable` calls
+        //      `LivePreviewSurfaceRegistry.onSurfaceAvailable(realPreview)`.
+        //   4. Registry stores the Surface AND invokes `onAddTarget`.
+        //   5. `onAddTarget` attaches realPreview to deferredPreview's
+        //      OutputConfiguration via `addSurface` + `finalizeOutputConfigurations`
+        //      (first time) or `updateOutputConfiguration` (subsequent swap),
+        //      then rebuilds the CaptureRequest with realPreview as target #2,
+        //      and re-issues `setRepeatingRequest`.
+        //   6. JS-side view unmounts (fade-to-dim, 15s later). TextureView's
+        //      `onSurfaceTextureDestroyed` calls `onSurfaceDestroyed(realPreview)`.
+        //   7. Registry invokes `onRemoveTarget` BEFORE clearing the slot —
+        //      `onRemoveTarget` rebuilds the CaptureRequest WITHOUT the preview
+        //      target and re-issues `setRepeatingRequest`. (This eliminates the
+        //      `Camera3-PreviewFrameSpacer ... Broken pipe(-32)` HAL warning by
+        //      stopping camera writes BEFORE the consumer-side Surface goes
+        //      away.) Then registry removes realPreview from deferredPreview's
+        //      OutputConfiguration via `removeSurface` + `updateOutputConfiguration`.
+        //   8. JS-side view re-mounts (tap-reveal). Steps 3-5 repeat with a
+        //      NEW Surface from a brand-new TextureView. The session never
+        //      reconfigures — only the deferred OutputConfiguration's surface
+        //      set changes via `updateOutputConfiguration`.
+        //
+        // API requirements:
+        //   - `OutputConfiguration(Size, Class<SurfaceTexture>)` deferred ctor: API 26+ (minSdk = 26, OK).
+        //   - `enableSurfaceSharing()`: API 26+.
+        //   - `addSurface` / `removeSurface`: API 26+ / API 26+.
+        //   - `finalizeOutputConfigurations`: API 26+.
+        //   - `createCaptureSessionByOutputConfigurations`: API 26+ (deprecated
+        //     in API 30+ in favor of `SessionConfiguration`).
+        //   - `updateOutputConfiguration`: API 28+. On API 26-27, the first
+        //     mount attaches via `finalizeOutputConfigurations` and subsequent
+        //     remounts are no-ops (first preview wins, silent degradation).
+        //     Pixel 10a smoke target is API 36 — dynamic path always exercised.
+        //
+        // The encoder Surface (target #1) and ultrawide CONTROL_ZOOM_RATIO
+        // routing (in applyRecordingRequestSettings) are UNCHANGED — drift
+        // banner + cancel-gate banner invariants preserved (REC-LIVE-07).
+        val previewSize = Size(1280, 720)
+        val previewOutputConfig = OutputConfiguration(previewSize, SurfaceTexture::class.java).apply {
+            // enableSurfaceSharing() is a no-arg setter that flips a flag. It
+            // MUST be called BEFORE the OutputConfiguration is registered with
+            // a CaptureSession (i.e. before createCaptureSessionByOutputConfigurations);
+            // calling it after throws IllegalStateException per the docs.
+            enableSurfaceSharing()
         }
-        // Phase 7 plan 07-10 (G-11 debug) — log the registry-read outcome
-        // BEFORE createCaptureSession. The TWO disambiguations this line gives
-        // us: (1) `previewSurfaceAtConfig=false` here PLUS the JS-side log
-        // showing the view DID mount = H1 race (mount fired AFTER session
-        // open). (2) `previewSurfaceAtConfig=true outputs.size=2` PLUS the
-        // operator NOT seeing live frames = H3 (session attached the Surface
-        // but the consumer-side closed mid-session — combined with the HAL's
-        // `Broken pipe(-32)` log, that's smoking-gun H3).
+        val encoderOutputConfig = OutputConfiguration(surface)
+
+        // If the registry already has a Surface available at session-config
+        // time (rare on Android — the RN view hierarchy mounts after the
+        // native-module `start` Promise resolves — but possible on a hot
+        // re-record where the previous view didn't fully unmount), attach it
+        // pre-creation. Otherwise the session opens with the deferred slot
+        // empty and `onAddTarget` attaches it when the surface arrives.
+        val initialPreviewSurface: Surface? = LivePreviewSurfaceRegistry.currentSurface()
+        var previewAttached: Boolean = false
+        if (initialPreviewSurface != null) {
+            previewOutputConfig.addSurface(initialPreviewSurface)
+            previewAttached = true
+        }
         Log.i(
             TAG,
-            "openCaptureSession previewSurfaceAtConfig=${previewSurfaceAtConfig != null} outputs.size=${outputs.size}",
+            "openCaptureSession previewSurfaceAtConfig=${initialPreviewSurface != null} outputs.size=2",
         )
 
+        // `createCaptureSessionByOutputConfigurations` is deprecated in API 30+
+        // in favor of `createCaptureSession(SessionConfiguration)`. The new API
+        // requires an Executor instead of a Handler and has the same semantics
+        // for deferred surface output configs. We keep the deprecated path to
+        // mirror the existing `createCaptureSession(List<Surface>, ...)` shape
+        // (consistent with the pre-fix code path) and to avoid pulling an
+        // Executor adapter just for this one call. `@Suppress("DEPRECATION")`
+        // is the same workaround the file uses for the legacy
+        // `createCaptureSession(List<Surface>)` overload in BackUltrawidePicker.
         @Suppress("DEPRECATION")
-        cam.createCaptureSession(
-            outputs,
+        cam.createCaptureSessionByOutputConfigurations(
+            listOf(encoderOutputConfig, previewOutputConfig),
             object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(s: CameraCaptureSession) {
                     try {
                         Log.i(
                             TAG,
-                            "onConfigured addingPreviewTarget=${previewSurfaceAtConfig != null}",
+                            "onConfigured addingPreviewTarget=$previewAttached",
                         )
+
+                        // If the deferred OutputConfiguration already has the
+                        // initial Surface attached, finalize it now so the
+                        // session "claims" the deferred slot. This is a one-shot
+                        // — subsequent swaps go through `updateOutputConfiguration`.
+                        if (previewAttached) {
+                            try {
+                                s.finalizeOutputConfigurations(listOf(previewOutputConfig))
+                            } catch (t: Throwable) {
+                                Log.w(TAG, "finalizeOutputConfigurations at config-time threw — treating as deferred", t)
+                                previewAttached = false
+                            }
+                        }
+
+                        // Build the initial CaptureRequest. Encoder is always
+                        // a target. The preview is added only if we attached
+                        // a Surface at config-time AND finalize succeeded.
                         val builder = cam.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
                         builder.addTarget(surface)
-                        // REC-LIVE-01 — preview target initially attached if
-                        // the registry was populated when this session opened
-                        // (i.e. RecordingScreen mounted <HumynLivePreviewView>
-                        // before HumynCapture.start). The 15-s
-                        // initial-preview window of the brightness state
-                        // machine drives the first detach (registry slot
-                        // cleared at view unmount).
-                        if (previewSurfaceAtConfig != null) {
-                            builder.addTarget(previewSurfaceAtConfig)
+                        if (previewAttached && initialPreviewSurface != null) {
+                            builder.addTarget(initialPreviewSurface)
                         }
                         applyRecordingRequestSettings(builder, cam, mgr)
                         s.setRepeatingRequest(builder.build(), null, sessionHandler)
                         session = s
 
                         // Wire the in-session re-attach / detach callbacks
-                        // (Option B). NOTE: even though the JSX-driven
-                        // mount/unmount of <HumynLivePreviewView> changes the
-                        // REGISTRY SLOT, the Camera2 SESSION outputs are
-                        // fixed at createCaptureSession — we never add a NEW
-                        // Surface here. These callbacks rebuild the running
-                        // CaptureRequest to include/exclude the
-                        // previewSurfaceAtConfig already-known target. If
-                        // the registry slot was null at session-config time,
-                        // these stay null — there is no preview Surface
-                        // configured in the session and these callbacks
-                        // would have nothing to toggle.
-                        if (previewSurfaceAtConfig != null) {
-                            LivePreviewSurfaceRegistry.onAddTarget = {
-                                Log.i(TAG, "onAddTarget fired")
+                        // (Option B, fixed). These run from the registry's
+                        // `onSurfaceAvailable` / `onSurfaceDestroyed` paths —
+                        // i.e. on the RN UI thread, which is the same thread
+                        // the TextureView lifecycle fires on. The CaptureSession
+                        // operations (addSurface / removeSurface /
+                        // updateOutputConfiguration / setRepeatingRequest) are
+                        // thread-safe at the Camera2 API level; the callbacks
+                        // dispatched by setRepeatingRequest still come back on
+                        // `cameraCbHandler`. Best-effort try/catch each step so
+                        // a transient driver error never propagates to the JS
+                        // bridge and the encoder Surface keeps streaming
+                        // (REC-LIVE-07 invariant: encoder never starves).
+                        //
+                        // `attachedPreviewSurface` tracks the currently-attached
+                        // preview Surface — needed because `removeSurface`
+                        // requires the SAME reference that was passed to
+                        // `addSurface` (Camera2 uses identity comparison).
+                        var attachedPreviewSurface: Surface? =
+                            if (previewAttached) initialPreviewSurface else null
+
+                        LivePreviewSurfaceRegistry.onAddTarget = {
+                            Log.i(TAG, "onAddTarget fired")
+                            val newPreview = LivePreviewSurfaceRegistry.currentSurface()
+                            if (newPreview != null && newPreview !== attachedPreviewSurface) {
                                 try {
+                                    // Detach the previously-attached Surface
+                                    // (if any). Required before adding the new
+                                    // one — an OutputConfiguration's surface
+                                    // set is finite (per
+                                    // getMaxSharedSurfaceCount) and we want
+                                    // exactly the current Surface attached, no
+                                    // stale ones.
+                                    val prev = attachedPreviewSurface
+                                    if (prev != null) {
+                                        try {
+                                            previewOutputConfig.removeSurface(prev)
+                                        } catch (_: Throwable) { /* best-effort */ }
+                                    }
+                                    previewOutputConfig.addSurface(newPreview)
+
+                                    // First-time attach uses finalize; subsequent
+                                    // swaps use update (API 28+). On API 26-27
+                                    // a subsequent swap is a no-op (first preview
+                                    // wins; acceptable silent degradation since
+                                    // Pixel 10a smoke target is API 36).
+                                    if (!previewAttached) {
+                                        s.finalizeOutputConfigurations(listOf(previewOutputConfig))
+                                        previewAttached = true
+                                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                        s.updateOutputConfiguration(previewOutputConfig)
+                                    }
+                                    attachedPreviewSurface = newPreview
+
+                                    // Rebuild + reissue the repeating request
+                                    // with the new preview as target #2.
                                     val nb = cam.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
                                     nb.addTarget(surface)
-                                    nb.addTarget(previewSurfaceAtConfig)
+                                    nb.addTarget(newPreview)
                                     applyRecordingRequestSettings(nb, cam, mgr)
                                     s.setRepeatingRequest(nb.build(), null, sessionHandler)
-                                } catch (_: Throwable) {
-                                    // Best-effort — encoder Surface stays a
-                                    // target via the prior setRepeatingRequest;
-                                    // a failed rebuild here just means the
-                                    // preview misses a re-attach (the visual
-                                    // affordance is a tap-revealed preview
-                                    // that doesn't light up; recording is
-                                    // unaffected).
+                                } catch (t: Throwable) {
+                                    Log.w(TAG, "onAddTarget attach/reissue threw — preview skipped", t)
                                 }
                             }
-                            LivePreviewSurfaceRegistry.onRemoveTarget = {
-                                Log.i(TAG, "onRemoveTarget fired")
-                                try {
-                                    val nb = cam.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
-                                    nb.addTarget(surface)
-                                    applyRecordingRequestSettings(nb, cam, mgr)
-                                    s.setRepeatingRequest(nb.build(), null, sessionHandler)
-                                } catch (_: Throwable) {
-                                    // Best-effort — see onAddTarget rationale.
+                        }
+                        LivePreviewSurfaceRegistry.onRemoveTarget = {
+                            Log.i(TAG, "onRemoveTarget fired")
+                            try {
+                                // Step 1 — reissue the repeating request WITHOUT
+                                // the preview target so the camera driver stops
+                                // writing to the doomed Surface. Do this BEFORE
+                                // detaching the Surface from the OutputConfiguration
+                                // so there's no window where the request still
+                                // addresses a Surface that's no longer in the
+                                // configured output set (would throw IAE).
+                                val nb = cam.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
+                                nb.addTarget(surface)
+                                applyRecordingRequestSettings(nb, cam, mgr)
+                                s.setRepeatingRequest(nb.build(), null, sessionHandler)
+
+                                // Step 2 — detach the Surface from the
+                                // OutputConfiguration so a subsequent
+                                // `onAddTarget` for a fresh Surface can attach
+                                // without OutputConfiguration's surface set
+                                // growing unboundedly.
+                                val prev = attachedPreviewSurface
+                                if (prev != null) {
+                                    try {
+                                        previewOutputConfig.removeSurface(prev)
+                                    } catch (_: Throwable) { /* best-effort */ }
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                        try {
+                                            s.updateOutputConfiguration(previewOutputConfig)
+                                        } catch (_: Throwable) { /* best-effort */ }
+                                    }
+                                    attachedPreviewSurface = null
                                 }
+                            } catch (t: Throwable) {
+                                Log.w(TAG, "onRemoveTarget reissue/detach threw — encoder unaffected", t)
                             }
                         }
                     } catch (t: Throwable) {

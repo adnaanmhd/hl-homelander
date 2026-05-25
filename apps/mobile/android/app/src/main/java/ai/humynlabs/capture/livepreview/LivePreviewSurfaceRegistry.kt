@@ -65,20 +65,40 @@ object LivePreviewSurfaceRegistry {
     @Volatile var onAddTarget: (() -> Unit)? = null
     @Volatile var onRemoveTarget: (() -> Unit)? = null
 
-    /** Publish the new preview Surface. Called from TextureView.onSurfaceTextureAvailable. */
+    /**
+     * Publish the new preview Surface. Called from TextureView.onSurfaceTextureAvailable.
+     *
+     * Phase 7 plan 07-10 (H1 close): also invoke [onAddTarget] AFTER publishing
+     * so the active CaptureSession can attach this Surface to its current
+     * deferred OutputConfiguration + reissue the repeating request. This was
+     * the missing piece — plan 07-07 wired the callback slot but no one ever
+     * fired it (operator's logcat showed `onAddTarget fired` zero times on
+     * §7 walks because nothing called the lambda; H1 race-on-config explained:
+     * the slot read at config-time was null, so the lambda was never even
+     * installed — see CaptureSession.openCaptureSession comments). The fix
+     * registers the callback unconditionally at config time and drives it
+     * from here.
+     */
     fun onSurfaceAvailable(s: Surface) {
-        // Phase 7 plan 07-10 (G-11 debug) — instrument the Surface lifecycle so
-        // the operator's logcat capture can disambiguate H1 (race-on-config —
-        // CaptureSession opened BEFORE this fired so the slot was null at
-        // session-config time) from H2 (this never fires — TextureView listener
-        // not installed or view hidden) from H3 (lifetime mismatch — fires
-        // shortly followed by onSurfaceDestroyed mid-recording). See
-        // .planning/debug/07-live-preview-broken-pipe.md.
         Log.i(
             TAG,
             "onSurfaceAvailable surface=${System.identityHashCode(s)} prevSlot=${slot?.let { System.identityHashCode(it) }}",
         )
         slot = s
+        // Phase 7 plan 07-10 — invoke the add-target callback so the
+        // CaptureSession can attach the new Surface to its always-two-Surface
+        // deferred OutputConfiguration. The callback closure on CaptureSession's
+        // side reads currentSurface() (not a snapshot) so this invocation just
+        // needs to happen AFTER the slot is set.
+        try {
+            onAddTarget?.invoke()
+        } catch (t: Throwable) {
+            // Best-effort — a failed attach here means the preview misses a
+            // frame stream, but the encoder Surface (always target 1) is
+            // unaffected. The recording continues; the visual affordance is a
+            // preview view that doesn't paint until the next mount cycle.
+            Log.w(TAG, "onAddTarget invocation threw — preview attach skipped", t)
+        }
     }
 
     /**
@@ -86,17 +106,45 @@ object LivePreviewSurfaceRegistry {
      * is null, the "force-clear" path used by `HumynLivePreviewViewManager.
      * onDropViewInstance` as a defensive belt-and-braces in case the platform
      * drops the view without firing the SurfaceTexture callback).
+     *
+     * Phase 7 plan 07-10: invoke [onRemoveTarget] BEFORE clearing the slot so
+     * the CaptureSession can detach the Surface from its repeating request
+     * before the consumer-side Surface is released by the TextureView. This
+     * eliminates the `Broken pipe(-32)` HAL warning by ensuring the camera
+     * driver stops writing to the Surface before the SurfaceTexture is gone.
      */
     fun onSurfaceDestroyed(s: Surface?) {
-        // Phase 7 plan 07-10 instrumentation (see onSurfaceAvailable). If the
-        // logcat shows onSurfaceDestroyed firing seconds after onSurfaceAvailable
-        // mid-recording, that is H3 (lifetime mismatch — `Broken pipe(-32)`
-        // explained).
         Log.i(
             TAG,
             "onSurfaceDestroyed s=${s?.let { System.identityHashCode(it) }} slot=${slot?.let { System.identityHashCode(it) }}",
         )
-        if (s == null || slot === s) {
+        // The two callers of this method fire it in close succession during a
+        // single brightness-state transition (per the §7 walk's logcat):
+        //   1. TextureView's `onSurfaceTextureDestroyed(s)` — the real teardown.
+        //   2. ViewManager's `onDropViewInstance` defensive force-clear with
+        //      s=null — fires ~1 ms after (1) and finds the slot already null.
+        // Without the `slot == null` guard, (2) would invoke `onRemoveTarget`
+        // a second time after (1) already detached the Surface and reissued
+        // the encoder-only repeating request. That second invocation would
+        // do a redundant `removeSurface` of an already-null
+        // `attachedPreviewSurface` + another encoder-only setRepeatingRequest
+        // — wasted work, but more importantly a second
+        // `updateOutputConfiguration` on a config whose surface set is
+        // already empty (and the request is already addressing it correctly)
+        // is the kind of redundant Camera2 traffic that has burned us before.
+        // Guard: only fire the callback when there's something to detach.
+        if ((s == null || slot === s) && slot != null) {
+            // Invoke onRemoveTarget BEFORE clearing the slot so the
+            // CaptureSession reissues a repeating request without this Surface
+            // as a target while the camera driver still considers it
+            // attached — that avoids the producer-vs-consumer race that
+            // generates `Camera3-PreviewFrameSpacer queueBufferToClientLocked:
+            // Failed to queue buffer to client: Broken pipe(-32)`.
+            try {
+                onRemoveTarget?.invoke()
+            } catch (t: Throwable) {
+                Log.w(TAG, "onRemoveTarget invocation threw — preview detach skipped", t)
+            }
             slot = null
         }
     }
