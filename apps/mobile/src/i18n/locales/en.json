@@ -283,6 +283,51 @@
     "language": {
       "row": { "label": "Language" },
       "picker": { "title": "Select language" }
+    },
+    "head": {
+      "tapToEdit": "tap to edit"
+    },
+    "lifetime": {
+      "contributed": "contributed",
+      "acrossNTasks": "Across {{count}} tasks"
+    },
+    "fields": {
+      "name": "Name",
+      "age": "Age",
+      "gender": "Gender",
+      "joined": "Joined"
+    },
+    "actions": {
+      "help": "Help Center",
+      "logout": "Logout",
+      "delete": "Delete account"
+    },
+    "payments": {
+      "title": "Payments & Earnings",
+      "comingSoon": "COMING SOON",
+      "body": "Payouts process offline. Your earnings will reflect in the app soon. Keep recording — your data is safe and your payouts are guaranteed."
+    },
+    "errors": {
+      "couldNotUpdate": {
+        "title": "Could not update",
+        "body": "Please try again."
+      }
+    },
+    "delete": {
+      "title": "Delete your Humyn account?",
+      "body": "Your account will be deactivated for 30 days. Log in within that window to restore it. After 30 days, deletion is permanent. Recordings already uploaded remain on our servers.",
+      "cancel": "Cancel",
+      "continueToDelete": "Continue to delete",
+      "typeToConfirmTitle": "Type DELETE to confirm.",
+      "placeholder": "DELETE",
+      "confirm": "Confirm",
+      "deleting": "Deleting…",
+      "errors": {
+        "couldNotDelete": {
+          "title": "Could not delete",
+          "body": "Try again later."
+        }
+      }
     }
   },
   "terms": {
