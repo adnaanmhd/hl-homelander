@@ -324,7 +324,7 @@
       "body": "Sua conta vai ficar desativada por 30 dias. Entre nesse prazo pra recuperar. Depois de 30 dias, a exclusão é definitiva. As gravações já enviadas continuam nos nossos servidores.",
       "cancel": "Cancelar",
       "continueToDelete": "Continuar pra excluir",
-      "typeToConfirmTitle": "Digite EXCLUIR pra confirmar.",
+      "typeToConfirmTitle": "Digite DELETE pra confirmar.",
       "placeholder": "DELETE",
       "confirm": "Confirmar",
       "deleting": "Excluindo…",

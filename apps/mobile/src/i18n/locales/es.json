@@ -324,7 +324,7 @@
       "body": "Tu cuenta quedará desactivada por 30 días. Inicia sesión dentro de ese plazo para recuperarla. Pasados los 30 días, se elimina para siempre. Las grabaciones ya subidas se quedan en nuestros servidores.",
       "cancel": "Cancelar",
       "continueToDelete": "Continuar y eliminar",
-      "typeToConfirmTitle": "Escribe ELIMINAR para confirmar.",
+      "typeToConfirmTitle": "Escribe DELETE para confirmar.",
       "placeholder": "DELETE",
       "confirm": "Confirmar",
       "deleting": "Eliminando…",
