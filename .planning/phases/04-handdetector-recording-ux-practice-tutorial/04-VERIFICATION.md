@@ -99,7 +99,7 @@ The other actionable gaps (**WR-01**/HAND-11, **WR-02**, **WR-07**, **WR-03**, *
 
 ### Deferred Items
 
-None — none of the phase-4 contract belongs to a later milestone phase (Phase 5 = upload pipeline; Phase 6 = Tasks/History/Home; Phase 7 = observability + APK distribution). The Phase 3 hardware-UAT items retire during this phase's manual smoke walk per D-WAVE-04 — they are not deferred, they're folded into 04-MANUAL-SMOKE.md.
+None — none of the phase-4 contract belongs to a later milestone phase (Phase 5 = upload pipeline; Phase 6 = Tasks/History/Home; Phase 8 = observability + APK distribution). The Phase 3 hardware-UAT items retire during this phase's manual smoke walk per D-WAVE-04 — they are not deferred, they're folded into 04-MANUAL-SMOKE.md.
 
 ### Required Artifacts (re-verification delta — gap-closure files only; the rest were ✓ VERIFIED in the prior report and unchanged)
 

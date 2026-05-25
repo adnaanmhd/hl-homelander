@@ -93,7 +93,7 @@
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- | -------- |
 | Show but disable — tap shows 'Archived' message              | Row remains in History; tap shows "Archived. Contact support for retrieval." No async thaw flow at MVP. | ✓        |
 | Narrow Glacier IR window to >180 d, push Deep Archive to §v2 | Edit Phase-1 S3 lifecycle. Bigger ops cost.                                                             |          |
-| Decide later — fold into Phase 7 distribution hardening      | Park the edge; Phase 7 or §v2 decides whether to keep Deep Archive.                                     |          |
+| Decide later — fold into Phase 8 distribution hardening      | Park the edge; Phase 8 or §v2 decides whether to keep Deep Archive.                                     |          |
 
 **User's choice:** Show but disable.
 **Notes:** No S3 lifecycle edit. Archive-state derived from `created_at` (>90 d → deep-archive) without an S3 HeadObject. The async-thaw flow is §v2.
@@ -142,10 +142,10 @@
 ## Deferred Ideas
 
 - pgvector + RRF hybrid search surfaced on the client (§v2 SEARCH-V2-01).
-- Async thaw flow for Deep-Archive (>90 d) recordings (§v2 / Phase 7).
+- Async thaw flow for Deep-Archive (>90 d) recordings (§v2 / Phase 8).
 - iOS player parity (`HumynPlayerIOS` / AVPlayer) — deferred with the rest of iOS modules (§v2 IOS-01..07).
-- OEM battery-optimization device sweep (folded into Phase 7 from Phase 5).
-- Per-OEM SoundPool / Vibrator routing nuances beyond Pixel 10a / Android 16 (Phase 7 observability work).
+- OEM battery-optimization device sweep (folded into Phase 8 from Phase 5).
+- Per-OEM SoundPool / Vibrator routing nuances beyond Pixel 10a / Android 16 (Phase 8 observability work).
 - Auto-retry for streaming a `pending` row that briefly fails (§v2 polish).
 - History row deletion / re-record / sharing (locked OUT by HIST-07/HIST-10).
 - Search results sort options (date / popularity / category-weighted) — §v2.

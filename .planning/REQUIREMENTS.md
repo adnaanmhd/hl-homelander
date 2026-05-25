@@ -117,7 +117,7 @@
 - [x] **CAPTURE-QA-06**: After the History ledger entry is persisted, the MP4 + IMU CSV + metadata JSON are deleted from cacheDir (write-then-delete order — `RNFS.unlink` runs only after `writeThumbnailLedgerEntry` resolves). On a write failure, the files are still deleted to reclaim disk; the History row is silently lost (best-effort).
 - [x] **CAPTURE-QA-07**: Recording-id filename prefix (quick 260522-elm). On-disk artifacts (video / imu / metadata / sidecar) are named `{recordingId}_{YYYYMMDD_HHMMSS_NNN}.{ext}` — the 26-char ULID `recordingId` prepended to the per-day base. `FilenameGenerator.nextBase`'s per-day NNN ls-scan strips a leading 26-char ULID prefix before parsing (backward-compatible with legacy un-prefixed files; mixed-dir max honored). `metadata.filename` / `imu_filename` carry the prefixed names. **S3 object keys are UNCHANGED** — still literally `video.mp4` / `imu.csv` / `metadata.json` under `recordings/{userId}/{recordingId}/` (the key is derived from `recordingKeys()`, never the local filename). Android only.
 - [x] **CAPTURE-QA-08**: Live-Camera2 camera intrinsics in `metadata.json` (schema bumped 1.1.0 → 1.2.0; quick 260522-elm). A new top-level `calibration.camera` block (model / resolution / params{fx,fy,cx,cy,skew} / distortion_coeffs / intrinsics_source) read from the **ultrawide physical sub-camera's** `CameraCharacteristics` (`LENS_INTRINSIC_CALIBRATION`, `LENS_DISTORTION`, `SENSOR_INFO_ACTIVE_ARRAY_SIZE`) — the lens HumynCapture actually records on. Null fallback with `intrinsics_source = "camera2_uncalibrated"` when the device reports UNCALIBRATED (common on Pixels); the block is ALWAYS present with the full key structure; the reader never throws and never blocks capture. Mirrors the SPC2 reference rig's `meta.json`. Genuine non-null values are on-device-only (manual smoke). Android only.
-- [x] **CAPTURE-QA-09**: Cam-IMU offset (temporal + spatial) in `metadata.json` `calibration.cam_imu_extrinsics` (quick 260522-elm). T_cam_imu / T_imu_cam (4×4) + T_cam_imu_translation_mm from `LENS_POSE_TRANSLATION` / `LENS_POSE_ROTATION`; `timeshift_cam_imu_sec` default `0.0` + `timeshift_meaning = "t_imu = t_cam + timeshift"` + `clock_sync_note` from `SENSOR_INFO_TIMESTAMP_SOURCE`. Null matrices + `extrinsics_source = "camera2_no_imu_reference"` when `LENS_POSE_REFERENCE != GYROSCOPE` or values are null. The existing `imu_video_drift_{max,mean,p99}_ms` fields are untouched — this ADDS offset/extrinsics telemetry. Backend: `recordings.calibration jsonb` column + `/recordings/init` validates (zod, null params tolerated) + persists. Android only.
+- [x] **CAPTURE-QA-09**: Cam-IMU offset (temporal + spatial) in `metadata.json` `calibration.cam_imu_extrinsics` (quick 260522-elm). T*cam_imu / T_imu_cam (4×4) + T_cam_imu_translation_mm from `LENS_POSE_TRANSLATION` / `LENS_POSE_ROTATION`; `timeshift_cam_imu_sec` default `0.0` + `timeshift_meaning = "t_imu = t_cam + timeshift"` + `clock_sync_note` from `SENSOR_INFO_TIMESTAMP_SOURCE`. Null matrices + `extrinsics_source = "camera2_no_imu_reference"` when `LENS_POSE_REFERENCE != GYROSCOPE` or values are null. The existing `imu_video_drift*{max,mean,p99}\_ms`fields are untouched — this ADDS offset/extrinsics telemetry. Backend:`recordings.calibration jsonb`column +`/recordings/init` validates (zod, null params tolerated) + persists. Android only.
 
 ### Recording — Hand-detection Gate
 
@@ -187,7 +187,7 @@
 - [ ] **HIST-06**: Each row shows filename, duration in minutes, task name, recorded-at timestamp (`May 4, 2026 | 15:49`), upload-state chip (Uploaded at / In progress / Paused due to network / Failed-with-retry), and a static thumbnail auto-generated from the MP4 first frame
 - [ ] **HIST-07**: Tap thumbnail opens the in-app fullscreen player (view-only — no download, no share, no export; play / pause / seek only). Plays from the local MP4 when present; otherwise streams via the server (see HIST-09). _(Reworded by Phase 6 Plan 06-03 per CONTEXT D-06 — streaming in MVP supersedes the original "while local exists" wording.)_
 - [ ] **HIST-08**: Once the `verified` event clears the local MP4, the thumbnail remains and tap streams via the server. If the recording is in Deep Archive (>90 d), tap shows **"This recording has been archived. Contact support for retrieval."** _(Reworded by Phase 6 Plan 06-03 per CONTEXT D-06 — replaces the original "Local copy cleared" disabled message.)_
-- [ ] **HIST-09**: Streaming uploaded recordings back from the server is **in MVP** for Phase 6, via a short-TTL CloudFront-signed GET (`GET /recordings/:id/stream-url`, 5-min TTL). Deep-Archive (>90 d) async-thaw flow is §v2 / Phase 7. _(Reworded by Phase 6 Plan 06-03 per CONTEXT D-06 — flips from "out of MVP" to "in MVP".)_
+- [ ] **HIST-09**: Streaming uploaded recordings back from the server is **in MVP** for Phase 6, via a short-TTL CloudFront-signed GET (`GET /recordings/:id/stream-url`, 5-min TTL). Deep-Archive (>90 d) async-thaw flow is §v2 / Phase 8. _(Reworded by Phase 6 Plan 06-03 per CONTEXT D-06 — flips from "out of MVP" to "in MVP".)_
 - [ ] **HIST-10**: User cannot delete recordings (locally or server-side)
 - [ ] **HIST-11**: Each row reserves a Feedback button slot (disabled, "coming soon")
 
@@ -272,7 +272,36 @@
 
 ### iOS Parity
 
-> **The iOS-parity workstream (IOS-01..07) was descoped from this MVP 2026-05-11** and relocated to §v2 (iOS Parity). The MVP ships Android-only via the signed APK. Phase 7 retains observability + APK-distribution hardening only.
+> **The iOS-parity workstream (IOS-01..07) was descoped from this MVP 2026-05-11** and relocated to §v2 (iOS Parity). The MVP ships Android-only via the signed APK. Phase 8 retains observability + APK-distribution hardening only.
+
+### Multi-linguality (Phase 7)
+
+> Inserted 2026-05-24 alongside the **Phase 7 — Multi-linguality & Live-Cam Feed** insertion (the original Phase 7 was renumbered to Phase 8 — content unchanged; see ROADMAP "Phase swap 2026-05-24" banner). All translations are LLM-generated only with an explicit native-speaker / casual-everyday-vernacular brief (see I18N-05).
+
+- [ ] **I18N-01**: App supports 8 languages: English (default), Portuguese (pt-BR), Spanish (es), Hindi (hi-IN), Bengali (bn-IN), Tamil (ta-IN), Telugu (te-IN), Marathi (mr-IN)
+- [ ] **I18N-02**: A new "Choose Language" screen renders between Splash and Sign-up on first launch only (detected via MMKV `locale.chosen_at` key). Default selection = English. After the user taps Continue, the choice persists in MMKV and the screen is never shown again unless the key is cleared (delete-account / fresh install resets it)
+- [ ] **I18N-03**: The Choose Language screen is designed in-plan against the existing design tokens (Inter font, orange accent, RigTutorial-style rounded cards). Header + 8 language rows (native name + English name, e.g. "हिन्दी / Hindi") + Continue button. No external design hand-off required; the locked design files (`prototype.html`, `design-spec.md`, `engineering-handoff.md`) stay untouched — this is documented as the second design carve-out (the first being the owner deviations recorded in `CLAUDE.md`)
+- [ ] **I18N-04**: Profile screen gets a new "Language" row above Help Center. Tapping opens a bottom-sheet picker with the same 8 options; selection takes effect immediately (next screen renders translated) and persists in MMKV
+- [ ] **I18N-05**: All translations are **LLM-generated only** with an explicit system-prompt brief: _"Translate as a native speaker would say it in casual everyday conversation, NOT academically. Use vernacular vocabulary. Avoid loanwords from English where a common everyday native word exists."_ The translation catalog (one JSON per locale) lives at `apps/mobile/src/i18n/locales/{en,pt-BR,es,hi-IN,bn-IN,ta-IN,te-IN,mr-IN}.json` and is committed to the repo; the LLM prompt + generation script live at `tools/i18n/generate.ts`
+- [ ] **I18N-06**: Recording audio cues use **device TTS, per locale**. `apps/mobile/src/lib/ttsVoice.ts` is extended: `Tts.setDefaultLanguage()` is called with the active locale's BCP-47 tag at session start; voice-selection prefers a female voice for that locale, then any voice for that locale, then falls back to the existing en-US female-leaning resolution. If no voice for the locale is available on the device, cues play in English (graceful degradation, logged via Crashlytics). The owner's existing en-US deviation (`CLAUDE.md` "Audio dropped 2026-05-11" + ttsVoice deviation) stays valid for the English locale
+- [ ] **I18N-07**: Consent text (`idea-brief.md §5.2`) and Terms-of-Use modal copy render **bilingual** when a non-English locale is active: the LLM-translated text on top, the canonical English text below (smaller font, ~70% opacity). The server-side consent record continues to stamp the canonical English `consent_text_version` — English remains the legal record. `idea-brief.md §5.2` is NOT edited
+- [ ] **I18N-08**: API error messages and `/feedback` server responses stay English server-side. The mobile client maps known error codes (`AUTH_INVALID_TOKEN`, `UPLOAD_QUOTA_EXCEEDED`, etc.) to translated toast strings via the same i18n catalog. The raw English `detail` field is logged to Crashlytics for triage. Unknown errors show a generic translated "Something went wrong" toast
+- [ ] **I18N-09**: Dates throughout the app render via `Intl.DateTimeFormat` with the active locale (e.g. History day headers "13 May 2026" → "13 mai. 2026" / "13 मई 2026"). Numeric values (contribution duration, segment counts, drift telemetry surfaced in any debug screen) force the `latn` numbering system across all locales so digits stay 0–9. Hermes ships ICU; verify Intl support at runtime, fall back to English formatting if Intl returns undefined
+- [ ] **I18N-10**: The 65 task names in the catalog: **UI displays translated names; backend `ts_vector` GIN search stays English-only**. A `taskCatalog.i18n.ts` mapping table on the client provides `{ canonical_en → { [locale]: localizedName } }`; any search query the user types in their language is reverse-mapped to canonical English terms via this table before hitting `/tasks/search`. The `tasks` table + `ts_vector` index are unchanged. No backend migration. (REQ rationale: minimal backend churn; the lexical search column stays the single source of truth.)
+- [ ] **I18N-11**: Cosmetic gaps that were already closed in earlier phases are NOT re-opened by the translation rollout — translation is purely additive against the final approved Phase 6 copy
+- [ ] **I18N-12**: First-launch language pick is collected anonymously (`installation_id` + chosen locale) and reported via the existing telemetry ring buffer, NOT via a new server endpoint. Locale change events in Profile also flow through the same ring. (Mirrors how compat outcomes are reported.)
+
+### Recording — Live-Cam Preview (Phase 7)
+
+> Inserted 2026-05-24 alongside the Phase 7 multi-linguality work. The live-cam feed is a UX feature; the recorded `imu_video_drift_{max,mean,p99}_ms` telemetry and the fps/resolution/insufficient_frames capture-quality cancel gates are non-negotiable and unchanged (see `CLAUDE.md` drift banner 2026-05-12 + capture-quality cancel-gate banner 2026-05-17).
+
+- [ ] **REC-LIVE-01**: When recording starts (hand gate passed OR user taps Skip), the live ultrawide camera feed renders full-screen for **15 s** with a faint corner indicator showing "Live preview · auto-hides in {N}s" in the active locale. After 15 s the screen fades to the existing recording state (5% brightness, black, task name centered, Stop button visible)
+- [ ] **REC-LIVE-02**: While in the dimmed state, a small dim eye-icon glyph in the bottom-right corner signals the tap affordance. A **single tap anywhere on the recording surface** brings the live cam feed back for **10 s**. Subsequent taps during the 10 s window **reset the timer back to 10 s** (rolling timer, not accumulating). At the 10 s mark with no further taps, fade back to dimmed state
+- [ ] **REC-LIVE-03**: During both preview windows (initial 15 s + tap 10 s), screen brightness jumps to the user's system brightness so the preview is actually viewable; on fade-back to the dimmed state, brightness returns to 5%. Brightness transitions use the existing brightness-control wrapper that already drives the 5% dim mode
+- [ ] **REC-LIVE-04**: Live-cam feed applies to BOTH the practice recording flow (Phase 4 onboarding tutorial) AND every real recording — same component, same timing, for behavioral consistency
+- [ ] **REC-LIVE-05**: The recorded `imu_video_drift_{max,mean,p99}_ms` telemetry continues to be measured + stamped into each segment's metadata JSON unchanged. The relaxed-but-recorded drift gate from `CLAUDE.md` (2026-05-12) is unchanged — live preview is NOT allowed to break the drift measurement. If on-hardware smoke shows the preview surface regresses drift beyond the current ~1.7–6.2 ms ultrawide baseline by more than 50%, the implementation must be revised (preview is a UX feature; capture quality is non-negotiable)
+- [ ] **REC-LIVE-06**: The implementation approach for the preview Surface (share encoder Surface vs. dedicated preview target vs. add/remove mid-record) is **chosen during `/gsd-plan-phase` research**, with drift impact as the gating constraint. The planner should produce a comparison in PLAN.md with on-hardware drift measurements as the decision gate. The Stop button remains hit-testable in all three states (initial 15 s preview, dimmed, tap-revealed 10 s preview)
+- [ ] **REC-LIVE-07**: Capture-quality cancel gates (`CLAUDE.md` "Capture-quality cancel gate added 2026-05-17") are unchanged. `fps_dropped` / `resolution_dropped` / `insufficient_frames` cancels still fire post-encode regardless of whether the preview was visible
 
 ### Foundation / Legal
 
@@ -303,7 +332,7 @@ Deferred to a future release. Tracked but not in current roadmap.
 - **FRAUD-03**: Backend implements a server-side IMU-liveness fraud check on the uploaded IMU CSV (stillness gate, gravity-axis check, saccade density, optional walking-segment FFT, vision–motion correlation) per `imu-liveness-check.md` §4. _Briefly promoted to MVP backend scope (Phase 5), descoped back to v2 2026-05-11 — MVP collects the IMU CSV but does not analyse it server-side._
 - **FRAUD-04**: Backend produces a `liveness_score ∈ [0, 1]` per segment with the weighted formula in `imu-liveness-check.md` §5; thresholds are tunable. _Descoped with FRAUD-03 2026-05-11._
 - **FRAUD-05**: Per-account daily upload-rate cap enforced server-side as a coarse fraud heuristic. _Descoped to §v2 2026-05-12 — see CONTEXT.md D-04 (Phase 5). MVP upload path is fully uncapped per account (D-04a)._
-- **FRAUD-06**: Pre-payout fraud monitoring dashboard tracks hash-mismatch rate, account-fingerprint clustering, and OEM/region anomalies (the liveness*score panel lands with FRAUD-03/04). \_Descoped to §v2 2026-05-12 — see CONTEXT.md D-04 (Phase 5). Bull-Board for the worker queue is a separate Phase-7 observability item (OBS-04), unaffected.*
+- **FRAUD-06**: Pre-payout fraud monitoring dashboard tracks hash-mismatch rate, account-fingerprint clustering, and OEM/region anomalies (the liveness*score panel lands with FRAUD-03/04). \_Descoped to §v2 2026-05-12 — see CONTEXT.md D-04 (Phase 5). Bull-Board for the worker queue is a separate Phase-8 observability item (OBS-04), unaffected.*
 - **FRAUD-V2-01**: Per-upload Play Integrity attestation
 - **FRAUD-V2-02**: Server-side perceptual-hash duplicate detection
 - **FRAUD-V2-03**: Device-fingerprint binding (one account ↔ one device)
@@ -577,11 +606,30 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FRAUD-04      | v2               | Deferred 2026-05-11   |
 | FRAUD-05      | §v2              | Deferred (2026-05-12) |
 | FRAUD-06      | §v2              | Deferred (2026-05-12) |
-| OBS-01        | Phase 7          | Pending               |
-| OBS-02        | Phase 7          | Pending               |
-| OBS-03        | Phase 7          | Pending               |
-| OBS-04        | Phase 7          | Pending               |
-| OBS-05        | Phase 7          | Pending               |
+| I18N-01       | Phase 7          | Pending               |
+| I18N-02       | Phase 7          | Pending               |
+| I18N-03       | Phase 7          | Pending               |
+| I18N-04       | Phase 7          | Pending               |
+| I18N-05       | Phase 7          | Pending               |
+| I18N-06       | Phase 7          | Pending               |
+| I18N-07       | Phase 7          | Pending               |
+| I18N-08       | Phase 7          | Pending               |
+| I18N-09       | Phase 7          | Pending               |
+| I18N-10       | Phase 7          | Pending               |
+| I18N-11       | Phase 7          | Pending               |
+| I18N-12       | Phase 7          | Pending               |
+| REC-LIVE-01   | Phase 7          | Pending               |
+| REC-LIVE-02   | Phase 7          | Pending               |
+| REC-LIVE-03   | Phase 7          | Pending               |
+| REC-LIVE-04   | Phase 7          | Pending               |
+| REC-LIVE-05   | Phase 7          | Pending               |
+| REC-LIVE-06   | Phase 7          | Pending               |
+| REC-LIVE-07   | Phase 7          | Pending               |
+| OBS-01        | Phase 8          | Pending               |
+| OBS-02        | Phase 8          | Pending               |
+| OBS-03        | Phase 8          | Pending               |
+| OBS-04        | Phase 8          | Pending               |
+| OBS-05        | Phase 8          | Pending               |
 | DIST-01       | Phase 1          | Complete              |
 | DIST-02       | Phase 1          | Complete              |
 | DIST-03       | Phase 1          | Complete              |
@@ -604,8 +652,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 **Coverage:**
 
-- v1 requirements: 199
-- Mapped to phases: 199
+- v1 requirements: 218
+- Mapped to phases: 218
 - Unmapped: 0
 
 **Per-phase counts:**
@@ -616,10 +664,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 - Phase 4 (HandDetector, Recording UX & Practice Tutorial): 36 requirements
 - Phase 5 (Upload Pipeline, Hash-Verify Worker & Anti-fraud): 30 requirements
 - Phase 6 (Tasks, History, Home Tiles & Hybrid Search): 29 requirements
-- Phase 7 (Observability, iOS Parity & Staged Rollout): 14 requirements
-- **Total mapped:** 199 / 199 (100% coverage)
+- Phase 7 (Multi-linguality & Live-Cam Feed): 19 requirements
+- Phase 8 (Observability & APK Distribution Hardening): 5 requirements
+- **Total mapped:** 218 / 218 (100% coverage)
 
 ---
 
 _Requirements defined: 2026-05-07_
-_Last updated: 2026-05-11 — descoped the server-side IMU-liveness fraud check (FRAUD-03, FRAUD-04) from the Phase 5 MVP backend back to §v2 (Anti-fraud); reworded FRAUD-06 so its `liveness_score` panel rides with the deferred FRAUD-03/04 (quick task 260511-kfs). Earlier 2026-05-11 — descoped DIST-05, DIST-06, IOS-01..07 (9 reqs) to §v2; reworded TASK-03 to lexical-only and added SEARCH-V2-01 for the descoped semantic/RRF layer; Phase 7 narrowed to observability + APK-distribution hardening. Original: 2026-05-07 — Traceability written by roadmapper (7 phases, 199 requirements, 100% coverage)._
+_Last updated: 2026-05-24 — inserted new Phase 7 (Multi-linguality & Live-Cam Feed) with I18N-01..12 + REC-LIVE-01..07 (19 reqs); renumbered the original Phase 7 (Observability & APK Distribution Hardening) → Phase 8 with OBS-01..05 unchanged. Earlier 2026-05-11 — descoped the server-side IMU-liveness fraud check (FRAUD-03, FRAUD-04) from the Phase 5 MVP backend back to §v2 (Anti-fraud); reworded FRAUD-06 so its `liveness_score` panel rides with the deferred FRAUD-03/04 (quick task 260511-kfs). Earlier 2026-05-11 — descoped DIST-05, DIST-06, IOS-01..07 (9 reqs) to §v2; reworded TASK-03 to lexical-only and added SEARCH-V2-01 for the descoped semantic/RRF layer; Phase 7 narrowed to observability + APK-distribution hardening (later renumbered to Phase 8 — 2026-05-24). Original: 2026-05-07 — Traceability written by roadmapper (7 phases, 199 requirements, 100% coverage)._

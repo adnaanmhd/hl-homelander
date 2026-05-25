@@ -121,22 +121,22 @@ This file is the architecture half of the project research bundle. It maps the s
 
 ### Component responsibilities
 
-| Component | Owns | Implementation |
-|-----------|------|----------------|
-| `apps/mobile` JS layer | All screens, navigation, the `recState` UI side, the upload-queue *orchestrator* (queue DB rows, retry policy, bookkeeping) | React Native 0.75+ on Hermes new architecture; React Navigation; Zustand stores; `react-native-mmkv` for persistence; XState only for `recState` (others are simple `useReducer`-shaped Zustand slices) |
-| `HumynCapture` native module | Camera2/AVCaptureSession lifecycle, MediaCodec/AVAssetWriter encoder, AudioRecord/AVAudioRecorder, SensorManager/CMMotionManager, MP4 mux, IMU CSV writer, SHA-256, drift compute, metadata JSON serialiser | Kotlin (Android) + Swift (iOS) TurboModule. Pure native — RN never touches a frame buffer. Surfaces only commands (start/stop/state) and events (segment-finalised, drift-summary) over JSI |
-| `HumynHandDetector` native module | One-shot bitmap → hand-count via MediaPipe HandLandmarker (`hand_landmarker.task`, IMAGE mode, `numHands=2`, all confidences 0.5, CPU delegate) | Kotlin (Android) + Swift (iOS). RN calls `Camera.takePhoto()`, hands the file path to `HandDetector.detectHands(path) → number`. Bundle ships the 7.8 MB task asset once for both platforms. Model is hand-rolled — explicitly no third-party RN wrapper per spec |
-| `HumynUpload` native module | Owns the actual transfer pipeline that has to survive backgrounding: chunk-PUT, progress callbacks, retry/backoff, queue persistence | Android: a `JobService` registered as a **user-initiated data transfer (UIDT)** job (Android 14+) wrapped by a foreground service of type `dataSync` for the duration the user is in-app, with a WorkManager fallback for expedited resumes after kill. iOS: `URLSession` `.background(withIdentifier:)` config with `sessionSendsLaunchEvents = true` and `isDiscretionary = false`. RN holds only the queue model; the daemon owns active transfers |
-| `HumynIntegrity` native module | Play Integrity attestation (Android) / DeviceCheck + App Attest (iOS) | Wraps each platform's official client; called once at sign-in, response posted to `/auth/google` for the backend to verify with Google's API |
-| `HumynDiagnostic` (debug-only) | The long-press-logo harness from testing-guide §A.9: live IMU rate, encoder queue, thermal graph, last-100 events, "dump queue to share-sheet" | Same module on both platforms; gated behind `BuildConfig.DEBUG` / `#if DEBUG` |
-| Fastify HTTP API | All synchronous client requests, presigned-URL minting, hybrid task search, idempotency, error shape | Fastify + TS, `@fastify/jwt` (HS256 over Postgres-stored secret) for sessions, `@fastify/multipart` for sample-video uploads, Zod for request validation, pino for logs. Single binary; multiple ECS replicas behind ALB |
-| Hash-verify worker | Re-hashes objects after S3 reports complete; flips `recordings.qa_status`; emits client-visible `verified` / `re-upload` event the app picks up on next API call | Same TS codebase as the API; `BullMQ` consumer; Redis broker; deployed as a separate ECS task scaled on queue depth. **Not** Lambda at MVP — see "Hash-verify worker placement" risk callout |
-| Postgres (RDS) | All durable backend state: users, sessions, tasks (with `tsvector` + `vector` columns), recordings (one row per uploaded segment), upload events, consent log, app versions, idempotency-key cache | Postgres 16 with pgvector ≥ 0.7 and built-in `tsvector`. Single-AZ at MVP, multi-AZ before Play 100 % |
-| Redis (ElastiCache) | BullMQ message broker; short-lived idempotency-key cache | Redis 7+. Single replica at MVP |
-| S3 | The only home of MP4 + CSV + JSON. Bytes are never re-encoded en route | Single bucket per env (`humyn-raw-{env}`). Lifecycle rule: abort incomplete multipart uploads after 24 h. Versioning on (paranoia, cheap) |
-| CloudFront | Signed playback URL distribution for in-app player only (≤ 5 min TTL) | Origin = S3, signed cookies / URLs via key-pair in Secrets Manager |
-| Terraform (infra/) | Reproducible env stand-up: VPC, subnets, ALB, ECS task defs, RDS, ElastiCache, S3, CloudFront, IAM, Secrets Manager | Modules under `infra/terraform/modules/`; envs under `infra/terraform/envs/{dev,staging,prod}/` (dev points everything at LocalStack via env vars) |
-| LocalStack (dev) | Fakes S3 + presigned URLs + EventBridge + SQS + IAM/STS for `docker-compose up` | Pinned LocalStack version; only the AWS subset the API actually uses (S3 + EventBridge + SQS for the worker hand-off, plus IAM/STS for STS-AssumeRole-style local creds). RDS and Redis run as their own real containers, not via LocalStack |
+| Component                         | Owns                                                                                                                                                                                                        | Implementation                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/mobile` JS layer            | All screens, navigation, the `recState` UI side, the upload-queue _orchestrator_ (queue DB rows, retry policy, bookkeeping)                                                                                 | React Native 0.75+ on Hermes new architecture; React Navigation; Zustand stores; `react-native-mmkv` for persistence; XState only for `recState` (others are simple `useReducer`-shaped Zustand slices)                                                                                                                                                                                                                                               |
+| `HumynCapture` native module      | Camera2/AVCaptureSession lifecycle, MediaCodec/AVAssetWriter encoder, AudioRecord/AVAudioRecorder, SensorManager/CMMotionManager, MP4 mux, IMU CSV writer, SHA-256, drift compute, metadata JSON serialiser | Kotlin (Android) + Swift (iOS) TurboModule. Pure native — RN never touches a frame buffer. Surfaces only commands (start/stop/state) and events (segment-finalised, drift-summary) over JSI                                                                                                                                                                                                                                                           |
+| `HumynHandDetector` native module | One-shot bitmap → hand-count via MediaPipe HandLandmarker (`hand_landmarker.task`, IMAGE mode, `numHands=2`, all confidences 0.5, CPU delegate)                                                             | Kotlin (Android) + Swift (iOS). RN calls `Camera.takePhoto()`, hands the file path to `HandDetector.detectHands(path) → number`. Bundle ships the 7.8 MB task asset once for both platforms. Model is hand-rolled — explicitly no third-party RN wrapper per spec                                                                                                                                                                                     |
+| `HumynUpload` native module       | Owns the actual transfer pipeline that has to survive backgrounding: chunk-PUT, progress callbacks, retry/backoff, queue persistence                                                                        | Android: a `JobService` registered as a **user-initiated data transfer (UIDT)** job (Android 14+) wrapped by a foreground service of type `dataSync` for the duration the user is in-app, with a WorkManager fallback for expedited resumes after kill. iOS: `URLSession` `.background(withIdentifier:)` config with `sessionSendsLaunchEvents = true` and `isDiscretionary = false`. RN holds only the queue model; the daemon owns active transfers |
+| `HumynIntegrity` native module    | Play Integrity attestation (Android) / DeviceCheck + App Attest (iOS)                                                                                                                                       | Wraps each platform's official client; called once at sign-in, response posted to `/auth/google` for the backend to verify with Google's API                                                                                                                                                                                                                                                                                                          |
+| `HumynDiagnostic` (debug-only)    | The long-press-logo harness from testing-guide §A.9: live IMU rate, encoder queue, thermal graph, last-100 events, "dump queue to share-sheet"                                                              | Same module on both platforms; gated behind `BuildConfig.DEBUG` / `#if DEBUG`                                                                                                                                                                                                                                                                                                                                                                         |
+| Fastify HTTP API                  | All synchronous client requests, presigned-URL minting, hybrid task search, idempotency, error shape                                                                                                        | Fastify + TS, `@fastify/jwt` (HS256 over Postgres-stored secret) for sessions, `@fastify/multipart` for sample-video uploads, Zod for request validation, pino for logs. Single binary; multiple ECS replicas behind ALB                                                                                                                                                                                                                              |
+| Hash-verify worker                | Re-hashes objects after S3 reports complete; flips `recordings.qa_status`; emits client-visible `verified` / `re-upload` event the app picks up on next API call                                            | Same TS codebase as the API; `BullMQ` consumer; Redis broker; deployed as a separate ECS task scaled on queue depth. **Not** Lambda at MVP — see "Hash-verify worker placement" risk callout                                                                                                                                                                                                                                                          |
+| Postgres (RDS)                    | All durable backend state: users, sessions, tasks (with `tsvector` + `vector` columns), recordings (one row per uploaded segment), upload events, consent log, app versions, idempotency-key cache          | Postgres 16 with pgvector ≥ 0.7 and built-in `tsvector`. Single-AZ at MVP, multi-AZ before Play 100 %                                                                                                                                                                                                                                                                                                                                                 |
+| Redis (ElastiCache)               | BullMQ message broker; short-lived idempotency-key cache                                                                                                                                                    | Redis 7+. Single replica at MVP                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| S3                                | The only home of MP4 + CSV + JSON. Bytes are never re-encoded en route                                                                                                                                      | Single bucket per env (`humyn-raw-{env}`). Lifecycle rule: abort incomplete multipart uploads after 24 h. Versioning on (paranoia, cheap)                                                                                                                                                                                                                                                                                                             |
+| CloudFront                        | Signed playback URL distribution for in-app player only (≤ 5 min TTL)                                                                                                                                       | Origin = S3, signed cookies / URLs via key-pair in Secrets Manager                                                                                                                                                                                                                                                                                                                                                                                    |
+| Terraform (infra/)                | Reproducible env stand-up: VPC, subnets, ALB, ECS task defs, RDS, ElastiCache, S3, CloudFront, IAM, Secrets Manager                                                                                         | Modules under `infra/terraform/modules/`; envs under `infra/terraform/envs/{dev,staging,prod}/` (dev points everything at LocalStack via env vars)                                                                                                                                                                                                                                                                                                    |
+| LocalStack (dev)                  | Fakes S3 + presigned URLs + EventBridge + SQS + IAM/STS for `docker-compose up`                                                                                                                             | Pinned LocalStack version; only the AWS subset the API actually uses (S3 + EventBridge + SQS for the worker hand-off, plus IAM/STS for STS-AssumeRole-style local creds). RDS and Redis run as their own real containers, not via LocalStack                                                                                                                                                                                                          |
 
 ## Recommended project structure
 
@@ -256,6 +256,7 @@ hl-homelander/
 **When to use:** Any RN app where the perf-critical work is bounded and well-typed (capture, encode, transfer). The boundary is the spec of the events, not the boundary of the language.
 
 **Trade-offs:**
+
 - Pro: native owns the only places where Hermes can't keep up (16-ms UI thread budget vs 33-ms frame deadline at 30 fps). The JS GC pause that kills a frame is impossible because no frame ever crosses JSI.
 - Pro: testing native logic doesn't need RN — JUnit + XCTest on the modules in isolation.
 - Con: every native event is a serialisation cost. Keep the event vocabulary tight (e.g. `progress(percent)` not `progress(uploaded_bytes, total_bytes, last_chunk_etag, ...)`) and emit at human-perceivable rates (≥ 100 ms between progress events) — Reanimated worklets handle smoothing on the UI thread.
@@ -268,27 +269,38 @@ hl-homelander/
 export type CaptureCommand =
   | { type: 'start'; taskId: string; isPractice: boolean; segmentMs: number }
   | { type: 'stop' }
-  | { type: 'pause' }      // (if we ever need it; spec doesn't today)
+  | { type: 'pause' } // (if we ever need it; spec doesn't today)
   | { type: 'resume' };
 
 export type CaptureEvent =
   | { type: 'preview-ready' }
   | { type: 'recording-armed'; armedAt: number }
-  | { type: 'segment-finalised'; recordingId: string; mp4Path: string; csvPath: string;
-      jsonPath: string; durationS: number; drift: { max: number; mean: number; p99: number } }
-  | { type: 'fatal'; code: 'ENCODER_INIT' | 'CAMERA_OPEN' | 'STORAGE_FULL' | 'THERMAL_KILL';
-      message: string };
+  | {
+      type: 'segment-finalised';
+      recordingId: string;
+      mp4Path: string;
+      csvPath: string;
+      jsonPath: string;
+      durationS: number;
+      drift: { max: number; mean: number; p99: number };
+    }
+  | {
+      type: 'fatal';
+      code: 'ENCODER_INIT' | 'CAMERA_OPEN' | 'STORAGE_FULL' | 'THERMAL_KILL';
+      message: string;
+    };
 ```
 
 The native side never invents a new event shape; the JS side never tries to read encoder state mid-frame.
 
 ### Pattern 2: Capture pipeline as a single native graph (no JS in the hot path)
 
-**What:** Inside `HumynCapture`, the Camera2 → MediaCodec → muxer → CSV writer graph is wired native-side and run on a dedicated thread (Android: `HandlerThread "humyn-capture"` priority `THREAD_PRIORITY_URGENT_AUDIO`; iOS: a `dispatch_queue_t` of QoS `.userInteractive` plus the `AVAssetWriter` input queues). The JS layer kicks it off and is *informed* when a segment finalises — it doesn't see a single frame.
+**What:** Inside `HumynCapture`, the Camera2 → MediaCodec → muxer → CSV writer graph is wired native-side and run on a dedicated thread (Android: `HandlerThread "humyn-capture"` priority `THREAD_PRIORITY_URGENT_AUDIO`; iOS: a `dispatch_queue_t` of QoS `.userInteractive` plus the `AVAssetWriter` input queues). The JS layer kicks it off and is _informed_ when a segment finalises — it doesn't see a single frame.
 
 **When to use:** Any workload where missing a beat costs data (here, frame drops or IMU samples). React Native's bridge — even with TurboModules and JSI — is not safe for 30-fps frame delivery.
 
 **Trade-offs:**
+
 - Pro: the spec's hard guarantees (REALTIME timestamp source, ±1 ms drift, KEY_LATENCY=1) live in code that Hermes can't perturb.
 - Pro: 10-min auto-segmentation is purely native — close encoder, 0.5 s fixed gap, open encoder, IMU flush; no JS round-trip.
 - Con: any product change to capture (e.g. add a frame-processor for live framing guides — explicitly out of scope, but a likely v2 ask) is a Kotlin/Swift change, not a JS change.
@@ -318,6 +330,7 @@ The native side never invents a new event shape; the JS side never tries to read
 **When to use:** Long-running transfers where the app is expected to be killed mid-transfer regularly (Android OEM battery optimisation, iOS user swipe-kill).
 
 **Trade-offs:**
+
 - Pro: a bug in JS upload logic doesn't lose bytes — the native daemon is the resilient half.
 - Pro: clear blame in incidents. Crashlytics native vs JS error split says "did the daemon die or did the orchestrator?"
 - Con: state-reconciliation logic on app cold-boot is non-trivial (see PITFALLS — orphan chunks, incomplete multipart UploadIds).
@@ -327,8 +340,8 @@ The native side never invents a new event shape; the JS side never tries to read
 ```typescript
 // apps/mobile/src/upload/reconcile.ts
 async function reconcileOnLaunch() {
-  const queueRows = uploadsStore.getState().rows;             // MMKV
-  const inFlight = await HumynUpload.listInFlight();          // native asks the daemon
+  const queueRows = uploadsStore.getState().rows; // MMKV
+  const inFlight = await HumynUpload.listInFlight(); // native asks the daemon
   const inFlightById = new Map(inFlight.map((r) => [r.recordingId, r]));
 
   for (const row of queueRows) {
@@ -352,6 +365,7 @@ async function reconcileOnLaunch() {
 **When to use:** Search workloads where the input is short (a query word or phrase) and the corpus is small (65 rows here, low hundreds even at v2). This is the canonical case for pgvector — no Pinecone, no Weaviate, no second store.
 
 **Trade-offs:**
+
 - Pro: one DB, one query plan, one set of migrations, one connection pool. The task corpus is small enough that the vector index fits in memory and recall is essentially perfect.
 - Pro: idempotency-key cache, sessions, recordings, and search all live in the same Postgres — single backup, single restore drill.
 - Con: embedding generation (server-side, on task seed) needs an embedding provider. OpenAI's `text-embedding-3-small` is the obvious default; a local `sentence-transformers/all-MiniLM-L6-v2` deploy is the cheaper alternative if the OpenAI dependency is undesirable. **Decision deferred to roadmap.**
@@ -385,9 +399,10 @@ LIMIT 12;
 
 **What:** `apps/api/` is one TS codebase, one Docker image, two ECS task definitions. The task that runs `node dist/server.js` is the Fastify HTTP API; the task that runs `node dist/workers/hash-verify.js` is the BullMQ consumer. They share DB models, the S3 client, types, and validation — but scale, deploy, and fail independently.
 
-**When to use:** Any Fastify backend with non-trivial async work (here: re-hashing S3 objects after multipart completion). Splitting at the *deploy* boundary (different replicas, different scaling rules) without splitting at the *code* boundary (one repo, one CI, one type system).
+**When to use:** Any Fastify backend with non-trivial async work (here: re-hashing S3 objects after multipart completion). Splitting at the _deploy_ boundary (different replicas, different scaling rules) without splitting at the _code_ boundary (one repo, one CI, one type system).
 
 **Trade-offs:**
+
 - Pro: the worker is built and tested in lockstep with the API — type changes propagate at compile time.
 - Pro: Worker can be scaled on queue depth (BullMQ provides queue-length metrics) independently of HTTP request volume.
 - Con: a bad deploy that breaks one process likely breaks both (shared image). Mitigation is the standard ECS rolling-deploy + healthcheck flow.
@@ -399,6 +414,7 @@ LIMIT 12;
 **When to use:** Any non-GET endpoint that creates server-side state and could be retried by a client (network flake, cellular hand-off mid-request — both common on the target geos and devices).
 
 **Trade-offs:**
+
 - Pro: client retry is safe; the device doesn't need to know whether the first POST landed.
 - Con: requires `body_hash` to detect the "same key, different body" abuse case (returns 422 with RFC 7807 detail).
 
@@ -531,38 +547,38 @@ CREATE TABLE app_versions (
 
 The spec's `recState` (engineering-handoff §4.3) has 7+ states with non-trivial transitions, side-effects on every state entry (TTS, brightness, haptics, native calls), and must survive the gate substate's loading/waiting/confirmed branches. Two real options:
 
-| Option | Verdict | Reason |
-|--------|---------|--------|
-| **XState (recommended)** | Use for `recState` | The state graph is a chart, not a flat enum. XState gives you typed transitions, entry/exit actions, parallel substates (e.g. `gate` parallel to `alerts`), guards (thermal, battery, gate count), and a visualizable diagram. The state shape from §4.3 is essentially an XState definition already. Pull `xstate` (no React-specific peer needed for the core machine; `@xstate/react` for the hook). |
-| **Reanimated worklets** | Don't use for state | Reanimated worklets run on the UI thread and are designed for animation values that must update at 60 fps without crossing the JS bridge. State that changes on TTS callbacks, native events, and 400-ms hand-gate polls doesn't belong on the UI thread; it belongs in JS. Use Reanimated *for the UI* — the gate's progress ring stroke-dashoffset, the press-scale on the record button, brightness fade — but read the state from Zustand/XState in the JS layer. |
-| Zustand | Use for everything else | The other stores (`auth`, `tasks`, `recordings`, `uploads`, `contrib`, `prefs`) are all flat key-value-ish — no state graphs. Zustand + `react-native-mmkv` persist middleware is the canonical 2025 RN stack for this. |
-| Redux Toolkit | Don't pull in | Spec gives no requirement (no Redux DevTools workflow stipulated, no time-travel debugging, no middleware ecosystem need). Adding it for one state machine is overkill; XState covers the state-machine half better and Zustand covers the flat-store half lighter. |
-| MMKV | Use for persistence under all stores | 30× faster than AsyncStorage; synchronous; battle-tested at WeChat scale. Use *separate MMKV instances* per concern (`app`, `recordings`, `uploads`) so a corrupt instance doesn't take down auth. |
+| Option                   | Verdict                              | Reason                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------------ | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **XState (recommended)** | Use for `recState`                   | The state graph is a chart, not a flat enum. XState gives you typed transitions, entry/exit actions, parallel substates (e.g. `gate` parallel to `alerts`), guards (thermal, battery, gate count), and a visualizable diagram. The state shape from §4.3 is essentially an XState definition already. Pull `xstate` (no React-specific peer needed for the core machine; `@xstate/react` for the hook).                                                               |
+| **Reanimated worklets**  | Don't use for state                  | Reanimated worklets run on the UI thread and are designed for animation values that must update at 60 fps without crossing the JS bridge. State that changes on TTS callbacks, native events, and 400-ms hand-gate polls doesn't belong on the UI thread; it belongs in JS. Use Reanimated _for the UI_ — the gate's progress ring stroke-dashoffset, the press-scale on the record button, brightness fade — but read the state from Zustand/XState in the JS layer. |
+| Zustand                  | Use for everything else              | The other stores (`auth`, `tasks`, `recordings`, `uploads`, `contrib`, `prefs`) are all flat key-value-ish — no state graphs. Zustand + `react-native-mmkv` persist middleware is the canonical 2025 RN stack for this.                                                                                                                                                                                                                                               |
+| Redux Toolkit            | Don't pull in                        | Spec gives no requirement (no Redux DevTools workflow stipulated, no time-travel debugging, no middleware ecosystem need). Adding it for one state machine is overkill; XState covers the state-machine half better and Zustand covers the flat-store half lighter.                                                                                                                                                                                                   |
+| MMKV                     | Use for persistence under all stores | 30× faster than AsyncStorage; synchronous; battle-tested at WeChat scale. Use _separate MMKV instances_ per concern (`app`, `recordings`, `uploads`) so a corrupt instance doesn't take down auth.                                                                                                                                                                                                                                                                    |
 
 ### Persistence map (engineering-handoff §7.2 + locked spec)
 
-| Surface | Storage | Why |
-|---------|---------|-----|
-| `auth.accessToken`, `auth.refreshToken` | iOS Keychain / Android Keystore (via `react-native-keychain`) | Tokens are sensitive; Keystore-backed encryption is the spec's locked answer |
-| `user.profile`, `tasks.cache`, `contrib.cache`, `prefs` | MMKV instance `app` | Fast, frequent reads on render |
-| `recordings.queue` (segment metadata, thumbnails refs, status) | MMKV instance `recordings` | Survives kills; small (≤ 1 KB / row) |
-| `uploads` (per-recording UploadId, parts list with ETags, byte offsets, retry counts) | MMKV instance `uploads` | Survives kills; native HumynUpload reads/writes the same instance through a thin Kotlin/Swift MMKV binding (see PITFALLS — bidirectional MMKV access) |
-| **IMU CSVs, MP4s, metadata JSONs** | App sandbox filesystem under `recordings/{ulid}/` (NOT MMKV — these can be GBs) | Locked by spec — files are byte-for-byte and never in MMKV |
-| `consent.terms` (accepted version + timestamp) | MMKV instance `app` (and mirrored to backend `consent_log`) | Compliance trail must be local + remote |
+| Surface                                                                               | Storage                                                                         | Why                                                                                                                                                   |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.accessToken`, `auth.refreshToken`                                               | iOS Keychain / Android Keystore (via `react-native-keychain`)                   | Tokens are sensitive; Keystore-backed encryption is the spec's locked answer                                                                          |
+| `user.profile`, `tasks.cache`, `contrib.cache`, `prefs`                               | MMKV instance `app`                                                             | Fast, frequent reads on render                                                                                                                        |
+| `recordings.queue` (segment metadata, thumbnails refs, status)                        | MMKV instance `recordings`                                                      | Survives kills; small (≤ 1 KB / row)                                                                                                                  |
+| `uploads` (per-recording UploadId, parts list with ETags, byte offsets, retry counts) | MMKV instance `uploads`                                                         | Survives kills; native HumynUpload reads/writes the same instance through a thin Kotlin/Swift MMKV binding (see PITFALLS — bidirectional MMKV access) |
+| **IMU CSVs, MP4s, metadata JSONs**                                                    | App sandbox filesystem under `recordings/{ulid}/` (NOT MMKV — these can be GBs) | Locked by spec — files are byte-for-byte and never in MMKV                                                                                            |
+| `consent.terms` (accepted version + timestamp)                                        | MMKV instance `app` (and mirrored to backend `consent_log`)                     | Compliance trail must be local + remote                                                                                                               |
 
-**EncryptedSharedPreferences was floated in the question** — Android has it but it's slower than MMKV-with-encryption-key and the spec explicitly *rejects* extra client-side file encryption beyond Android FBE (PROJECT.md key decisions). Tokens go through Keystore via `react-native-keychain`; everything else uses plain MMKV. Android FBE (file-based encryption) handles disk-at-rest for the sandbox files transparently.
+**EncryptedSharedPreferences was floated in the question** — Android has it but it's slower than MMKV-with-encryption-key and the spec explicitly _rejects_ extra client-side file encryption beyond Android FBE (PROJECT.md key decisions). Tokens go through Keystore via `react-native-keychain`; everything else uses plain MMKV. Android FBE (file-based encryption) handles disk-at-rest for the sandbox files transparently.
 
 ## Foreground service architecture (the most under-spec'd risk in the brief)
 
 ### Android 14+ — required types
 
-The spec says `camera | microphone | dataSync`. That's the right combination *during recording*. **But the spec uses the same type for upload** — and that's where Android 14/15 changes break it.
+The spec says `camera | microphone | dataSync`. That's the right combination _during recording_. **But the spec uses the same type for upload** — and that's where Android 14/15 changes break it.
 
-| Phase | Service type | Constraints |
-|-------|--------------|-------------|
-| **During recording (foreground)** | `camera | microphone | dataSync` | Must be started while app is in foreground (or via UIDT-equivalent). Camera and microphone types have **while-in-use** restrictions — the service must be started while the app has CAMERA/RECORD_AUDIO foreground access |
-| **Upload while app is active** | Same `dataSync` foreground service can carry the upload queue too | Allowed |
-| **Upload after app is backgrounded** | **`dataSync` is capped at 6 h / 24 h on Android 15+** | Hits the cap and the OS calls `Service.onTimeout()` and stops the service |
+| Phase                                             | Service type                                                                                           | Constraints                                                                                                                      |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **During recording (foreground)**                 | `camera                                                                                                | microphone                                                                                                                       | dataSync` | Must be started while app is in foreground (or via UIDT-equivalent). Camera and microphone types have **while-in-use** restrictions — the service must be started while the app has CAMERA/RECORD_AUDIO foreground access |
+| **Upload while app is active**                    | Same `dataSync` foreground service can carry the upload queue too                                      | Allowed                                                                                                                          |
+| **Upload after app is backgrounded**              | **`dataSync` is capped at 6 h / 24 h on Android 15+**                                                  | Hits the cap and the OS calls `Service.onTimeout()` and stops the service                                                        |
 | **Upload after app is killed** (the hardest case) | Must use a **user-initiated data transfer (UIDT) JobService** registered with `setUserInitiated(true)` | UIDT is the modern Android answer (introduced in Android 14, API 34). Survives process death. Requires user-visible notification |
 
 **Implication:** `HumynUpload` is **two services in a trench coat**:
@@ -589,29 +605,30 @@ let session = URLSession(configuration: config, delegate: HumynUploadDelegate(),
 ```
 
 Behavior summary:
+
 - **App backgrounded:** `nsurlsessiond` daemon continues transfers; app is woken via `application(_:handleEventsForBackgroundURLSession:completionHandler:)` when transfers finish.
 - **App killed by OS (memory pressure):** transfers continue; app re-launched with the same identifier can reattach.
 - **App killed by user swipe-up:** **all background transfers are terminated.** This is the iOS equivalent of the Android force-quit case; the spec already calls it out ("On user swipe-kill on iOS: limited; uploads paused, resumed on next launch. Communicate this in onboarding.").
 - **Uploads must reference a file**, not in-memory data. URLSession background tasks require a `URL` to a file, which fits perfectly with the spec (chunks are slices of the on-disk MP4; iOS implementation streams chunk subranges to temp files or uses byte-range subresources via custom delegate).
 
-**Multipart caveat (per AWS Amplify iOS issue #3173):** `URLSession.uploadTask(with:fromFile:)` for an S3 multipart *complete-multipart-upload* call (the final XML POST) can fail to wake the app if the call is the last thing pending. Mitigation: ensure the `completionUrl` POST is a regular `dataTask` (not a background uploadTask), made from inside `urlSessionDidFinishEvents(forBackgroundURLSession:)`.
+**Multipart caveat (per AWS Amplify iOS issue #3173):** `URLSession.uploadTask(with:fromFile:)` for an S3 multipart _complete-multipart-upload_ call (the final XML POST) can fail to wake the app if the call is the last thing pending. Mitigation: ensure the `completionUrl` POST is a regular `dataTask` (not a background uploadTask), made from inside `urlSessionDidFinishEvents(forBackgroundURLSession:)`.
 
 ### iOS background equivalents per platform-line
 
-| Android | iOS |
-|---------|-----|
-| `FOREGROUND_SERVICE_TYPE_CAMERA` | `AVAudioSession.setCategory(.record, mode: .videoRecording)` + UIBackgroundTaskIdentifier for short tail-end work |
-| `FOREGROUND_SERVICE_TYPE_MICROPHONE` | (same — bundled into the AVAudioSession config) |
-| `FOREGROUND_SERVICE_TYPE_DATA_SYNC` | `URLSession.background(...)` |
-| UIDT JobService | (no direct equivalent; URLSession bg + iOS's automatic relaunch covers most cases) |
+| Android                              | iOS                                                                                                               |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `FOREGROUND_SERVICE_TYPE_CAMERA`     | `AVAudioSession.setCategory(.record, mode: .videoRecording)` + UIBackgroundTaskIdentifier for short tail-end work |
+| `FOREGROUND_SERVICE_TYPE_MICROPHONE` | (same — bundled into the AVAudioSession config)                                                                   |
+| `FOREGROUND_SERVICE_TYPE_DATA_SYNC`  | `URLSession.background(...)`                                                                                      |
+| UIDT JobService                      | (no direct equivalent; URLSession bg + iOS's automatic relaunch covers most cases)                                |
 
 ## Scaling considerations
 
-| Scale | Architecture adjustments |
-|-------|--------------------------|
-| **0 → APK rollout (early users, ≤ 1000 / day)** | Single ECS task each for API and worker; single-AZ RDS; single-replica Redis. LocalStack-equivalent dev still works. CloudFront on day 1 because signed-URL playback needs it anyway |
-| **Play Store launch — day 0 (≥ 500–1000 hr/day, 200–300 simultaneous uploads)** | API: 3+ ECS replicas behind ALB (ALB sticky sessions OFF — JWT means stateless). Worker: 2+ replicas. RDS Postgres `db.r7g.large` with read replica for `/tasks` search; primary serves writes. ElastiCache Redis multi-AZ. S3 Transfer Acceleration on the bucket (worth measuring on India/Brazil cellular) |
-| **Scaling toward 1M hours** | API horizontally scales fine (stateless). Worker scales on queue depth — BullMQ exposes queue length as a metric, set ECS service auto-scaling on that. **First bottleneck is hash-verify throughput** (re-hashing GBs of video from S3 is I/O-bound, not CPU-bound, but you need bandwidth into Fargate). Mitigations: (a) move worker into the same AZ as the bucket; (b) at sufficient scale, switch hash-verify to a Lambda triggered by S3 EventBridge directly (Lambda has 15-min wall, fine for ≤ 6 GB videos at 1.5 sec/GB read). **Second bottleneck is RDS** — the recordings insert rate at 1M hr/day across ~10-min segments is ~110/sec, comfortable for `r7g.large` but worth a partition strategy (monthly partitioning on `recordings.captured_at`) before peak |
+| Scale                                                                           | Architecture adjustments                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **0 → APK rollout (early users, ≤ 1000 / day)**                                 | Single ECS task each for API and worker; single-AZ RDS; single-replica Redis. LocalStack-equivalent dev still works. CloudFront on day 1 because signed-URL playback needs it anyway                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **Play Store launch — day 0 (≥ 500–1000 hr/day, 200–300 simultaneous uploads)** | API: 3+ ECS replicas behind ALB (ALB sticky sessions OFF — JWT means stateless). Worker: 2+ replicas. RDS Postgres `db.r7g.large` with read replica for `/tasks` search; primary serves writes. ElastiCache Redis multi-AZ. S3 Transfer Acceleration on the bucket (worth measuring on India/Brazil cellular)                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| **Scaling toward 1M hours**                                                     | API horizontally scales fine (stateless). Worker scales on queue depth — BullMQ exposes queue length as a metric, set ECS service auto-scaling on that. **First bottleneck is hash-verify throughput** (re-hashing GBs of video from S3 is I/O-bound, not CPU-bound, but you need bandwidth into Fargate). Mitigations: (a) move worker into the same AZ as the bucket; (b) at sufficient scale, switch hash-verify to a Lambda triggered by S3 EventBridge directly (Lambda has 15-min wall, fine for ≤ 6 GB videos at 1.5 sec/GB read). **Second bottleneck is RDS** — the recordings insert rate at 1M hr/day across ~10-min segments is ~110/sec, comfortable for `r7g.large` but worth a partition strategy (monthly partitioning on `recordings.captured_at`) before peak |
 
 ### Scaling priorities
 
@@ -630,7 +647,7 @@ Behavior summary:
 ### Anti-pattern 2: Transcoding "for compatibility"
 
 **What people do:** "Let's just re-encode to baseline H.264 server-side so older browsers can play it back." Or: "Let's strip the metadata the encoder put there because it's noisy."
-**Why it's wrong:** training pipeline expects exact encoder bytes — every metadata box, every timestamp tag, every nuance of the bitstream. Re-encoding loses what makes egocentric data *good* training data. PROJECT.md locks "Files never re-encoded" for this reason.
+**Why it's wrong:** training pipeline expects exact encoder bytes — every metadata box, every timestamp tag, every nuance of the bitstream. Re-encoding loses what makes egocentric data _good_ training data. PROJECT.md locks "Files never re-encoded" for this reason.
 **Do this instead:** server treats the MP4 as opaque. Hash-verify reads bytes, compares hashes, never decodes. Player playback uses the original file.
 
 ### Anti-pattern 3: One MMKV instance for everything
@@ -643,7 +660,7 @@ Behavior summary:
 
 **What people do:** "The ring is a Reanimated component, so put `consecutiveHits` in a `useSharedValue` and update it from the worklet."
 **Why it's wrong:** the gate's logic is JS (calls `Camera.takePhoto()` then a native module — neither is safe in a worklet). The shared value would be set from JS, defeating the worklet's purpose. And on Skip / silent-bypass, you'd be juggling state across two threads for no perf gain.
-**Do this instead:** state lives in JS (XState slot or Zustand). Reanimated reads it via `useDerivedValue`. The ring's animation parameters are derived; the *truth* is in JS.
+**Do this instead:** state lives in JS (XState slot or Zustand). Reanimated reads it via `useDerivedValue`. The ring's animation parameters are derived; the _truth_ is in JS.
 
 ### Anti-pattern 5: Single Postgres connection pool shared between API and worker
 
@@ -661,36 +678,36 @@ Behavior summary:
 
 **What people do:** "Hash mismatch → tell the app to re-upload" — done.
 **Why it's wrong:** hash mismatches at scale signal something real (a buggy device firmware, a corruption-prone OEM file system, an MMKV race). Losing them in a generic "re-upload" event removes the signal.
-**Do this instead:** record `qa_status='hash-mismatch'` in `recordings`, log a structured event with device model + OS version + segment ID, and *then* tell the app to re-upload. After two re-uploads with persistent mismatch on the same device, route to a soft-flag bucket for triage.
+**Do this instead:** record `qa_status='hash-mismatch'` in `recordings`, log a structured event with device model + OS version + segment ID, and _then_ tell the app to re-upload. After two re-uploads with persistent mismatch on the same device, route to a soft-flag bucket for triage.
 
 ## Integration points
 
 ### External services
 
-| Service | Integration pattern | Notes |
-|---------|---------------------|-------|
-| Google Sign-In | Standard OAuth2 ID token; passed to backend, verified against Google's JWKS | iOS uses GoogleSignIn-iOS SDK; Android uses Credential Manager (modern) or Google ID Services |
-| Play Integrity API | `PlayIntegrityClient.requestIntegrityToken(...)` on Android; nonce minted by backend, returned token verified by backend with Google's API | Per-flavor verdict policy — APK rollout doesn't enforce `PLAY_RECOGNIZED` |
-| DeviceCheck + App Attest (iOS) | DCDevice for v1; App Attest if/when fraud volume justifies adding key attestation | DeviceCheck is sufficient for "is this a real device with my app installed" — App Attest is heavier and deferred |
-| Firebase Crashlytics | Native + JVM crash + ANR (Android), Mach + ObjC + Swift (iOS) | Symbolicate flow on iOS: dSYM upload during build via `pod_install` post-script + Fastlane (or manual upload) — dSYMs are produced by Xcode for Release builds and stored in `~/Library/Developer/Xcode/Archives/...`; Crashlytics-CLI uploads them. Add a CI step `firebase crashlytics:symbols:upload` |
-| Firebase Analytics | Standard SDK (Android + iOS); event names from engineering-handoff §11 | Throttling via the JS telemetry wrapper; `tasks_search` debounced 400 ms; query content stripped (only length logged) |
-| Firebase Remote Config | Hand-gate `targetHits` / `cadenceMs` / confidences; segment length; APK-flavor install-source bypass scope | Optional in v1 — could ship with hardcoded values from the spec and add Remote Config in a later phase |
-| MediaPipe Tasks Vision | Maven (`com.google.mediapipe:tasks-vision`) on Android; CocoaPod (`MediaPipeTasksVision`) on iOS | Single shared `hand_landmarker.task` (~7.8 MB) — wired into both platforms via `shared-native/` |
-| AWS S3 | Multipart upload with presigned PUT URLs per chunk + presigned multipart-complete URL | Bucket is the only storage; lifecycle rule `AbortIncompleteMultipartUpload` after 24 h prevents orphan-chunk billing |
-| AWS Secrets Manager | JWT signing secret, CloudFront signing key pair, S3 bucket-policy-credentials, RDS password (rotation enabled) | Parameter Store would also work but Secrets Manager has rotation primitives that beat rolling our own |
-| AWS CloudWatch | Default destination for ECS task logs (pino → stdout → awslogs driver) | "Observability is intentionally thin per idea-brief §12" — see PITFALLS for whether that holds at 1M-hour scale |
+| Service                        | Integration pattern                                                                                                                        | Notes                                                                                                                                                                                                                                                                                                    |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Google Sign-In                 | Standard OAuth2 ID token; passed to backend, verified against Google's JWKS                                                                | iOS uses GoogleSignIn-iOS SDK; Android uses Credential Manager (modern) or Google ID Services                                                                                                                                                                                                            |
+| Play Integrity API             | `PlayIntegrityClient.requestIntegrityToken(...)` on Android; nonce minted by backend, returned token verified by backend with Google's API | Per-flavor verdict policy — APK rollout doesn't enforce `PLAY_RECOGNIZED`                                                                                                                                                                                                                                |
+| DeviceCheck + App Attest (iOS) | DCDevice for v1; App Attest if/when fraud volume justifies adding key attestation                                                          | DeviceCheck is sufficient for "is this a real device with my app installed" — App Attest is heavier and deferred                                                                                                                                                                                         |
+| Firebase Crashlytics           | Native + JVM crash + ANR (Android), Mach + ObjC + Swift (iOS)                                                                              | Symbolicate flow on iOS: dSYM upload during build via `pod_install` post-script + Fastlane (or manual upload) — dSYMs are produced by Xcode for Release builds and stored in `~/Library/Developer/Xcode/Archives/...`; Crashlytics-CLI uploads them. Add a CI step `firebase crashlytics:symbols:upload` |
+| Firebase Analytics             | Standard SDK (Android + iOS); event names from engineering-handoff §11                                                                     | Throttling via the JS telemetry wrapper; `tasks_search` debounced 400 ms; query content stripped (only length logged)                                                                                                                                                                                    |
+| Firebase Remote Config         | Hand-gate `targetHits` / `cadenceMs` / confidences; segment length; APK-flavor install-source bypass scope                                 | Optional in v1 — could ship with hardcoded values from the spec and add Remote Config in a later phase                                                                                                                                                                                                   |
+| MediaPipe Tasks Vision         | Maven (`com.google.mediapipe:tasks-vision`) on Android; CocoaPod (`MediaPipeTasksVision`) on iOS                                           | Single shared `hand_landmarker.task` (~7.8 MB) — wired into both platforms via `shared-native/`                                                                                                                                                                                                          |
+| AWS S3                         | Multipart upload with presigned PUT URLs per chunk + presigned multipart-complete URL                                                      | Bucket is the only storage; lifecycle rule `AbortIncompleteMultipartUpload` after 24 h prevents orphan-chunk billing                                                                                                                                                                                     |
+| AWS Secrets Manager            | JWT signing secret, CloudFront signing key pair, S3 bucket-policy-credentials, RDS password (rotation enabled)                             | Parameter Store would also work but Secrets Manager has rotation primitives that beat rolling our own                                                                                                                                                                                                    |
+| AWS CloudWatch                 | Default destination for ECS task logs (pino → stdout → awslogs driver)                                                                     | "Observability is intentionally thin per idea-brief §12" — see PITFALLS for whether that holds at 1M-hour scale                                                                                                                                                                                          |
 
 ### Internal boundaries
 
-| Boundary | Communication | Notes |
-|----------|---------------|-------|
-| JS layer ↔ HumynCapture | JSI synchronous calls + JSI events | Commands: start/stop/pause/resume; Events: preview-ready, segment-finalised, fatal |
-| JS layer ↔ HumynUpload | JSI synchronous calls + JSI events | Commands: enqueue/pauseAll/resumeAll/deleteLocal/listInFlight; Events: progress, file-complete, all-complete, fatal |
-| HumynCapture ↔ HumynUpload | **No direct call**; mediated by JS | When capture finalises a segment, JS receives the event and explicitly hands the file paths to upload. Keeps native modules decoupled |
-| API ↔ Worker | BullMQ job + Postgres row | Worker reads `recordings.id` from job payload, hits S3, updates `recordings.qa_status`. API reads back on next client request |
-| API ↔ S3 | Presigned URLs (mint outbound; never proxy bytes) | API never touches MP4 bytes. Worker is the only backend code that streams from S3 |
-| Mobile JS ↔ Backend | REST + JSON (Zod-validated on both sides via shared schemas) | RFC 7807 problem+json on errors; Idempotency-Key on creates |
-| Mobile native ↔ Backend | **None directly.** All API calls go through JS | Single point of network observability and auth-header injection |
+| Boundary                    | Communication                                                | Notes                                                                                                                                 |
+| --------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| JS layer ↔ HumynCapture    | JSI synchronous calls + JSI events                           | Commands: start/stop/pause/resume; Events: preview-ready, segment-finalised, fatal                                                    |
+| JS layer ↔ HumynUpload     | JSI synchronous calls + JSI events                           | Commands: enqueue/pauseAll/resumeAll/deleteLocal/listInFlight; Events: progress, file-complete, all-complete, fatal                   |
+| HumynCapture ↔ HumynUpload | **No direct call**; mediated by JS                           | When capture finalises a segment, JS receives the event and explicitly hands the file paths to upload. Keeps native modules decoupled |
+| API ↔ Worker               | BullMQ job + Postgres row                                    | Worker reads `recordings.id` from job payload, hits S3, updates `recordings.qa_status`. API reads back on next client request         |
+| API ↔ S3                   | Presigned URLs (mint outbound; never proxy bytes)            | API never touches MP4 bytes. Worker is the only backend code that streams from S3                                                     |
+| Mobile JS ↔ Backend        | REST + JSON (Zod-validated on both sides via shared schemas) | RFC 7807 problem+json on errors; Idempotency-Key on creates                                                                           |
+| Mobile native ↔ Backend    | **None directly.** All API calls go through JS               | Single point of network observability and auth-header injection                                                                       |
 
 ## Build-order implications (for the roadmap)
 
@@ -720,7 +737,7 @@ The dependencies between components dictate a critical path. The roadmap should 
        │
        ├─► [Phase 6: Hash-verify wired end-to-end] — depends on Phase 1b + Phase 5 + S3 EventBridge
        │
-       ├─► [Phase 7: Polish + iOS analogues for everything Android — AVCaptureSession,
+       ├─► [Phase 8: Polish + iOS analogues for everything Android — AVCaptureSession,
        │         CMMotionManager, MediaPipe iOS, URLSession bg]
        │
        └─► [Phase 8: Distribution — Play Internal Track + Test Flight + APK signing pipeline]
@@ -734,7 +751,7 @@ These are the points where one component genuinely blocks another, not just inco
 2. **HumynCapture's metadata JSON output blocks `POST /recordings` body shape.** The schema in `video_metadata.json` has to be locked before the backend writes the route handler. Both depend on `shared/types/Recording.ts`, so write the Zod schema first.
 3. **HumynCapture must produce a real MP4 + CSV before HumynUpload can be tested end-to-end** (synthetic files work for unit tests, but you can't validate "did the device hash match the server hash" without real bytes coming out of the encoder).
 4. **Phase 6 (hash-verify wired end-to-end) requires Phase 5 plus S3 EventBridge plus the worker plus the client `verified` event read** — this is the longest critical-path edge in the graph and the most likely place to see a 2-week slip.
-5. **iOS analogues block App Store submission, not Play Store.** iOS work can lag Android by a phase as long as the hand-off is anticipated. PROJECT.md locks ≤ 2 weeks after Play Store, so iOS phase starts during Android phase 7-equivalent.
+5. **iOS analogues block App Store submission, not Play Store.** iOS work can lag Android by a phase as long as the hand-off is anticipated. PROJECT.md locks ≤ 2 weeks after Play Store, so iOS phase starts during Android phase 8-equivalent.
 6. **APK build flavor + Play-Store install-source-bypass-via-Remote-Config has to exist before APK rollout.** This is a tiny piece of work but easy to forget — it's a build-system concern, not a feature concern.
 
 ### What can be parallelized
@@ -761,6 +778,7 @@ These are the points where one component genuinely blocks another, not just inco
 **Recommendation:** **BullMQ + ECS at MVP**, switch to Lambda at scale.
 
 **Why:**
+
 - ECS keeps the worker in the same TS codebase — type sharing, single deploy story, easy local dev (just `node dist/workers/hash-verify.js`).
 - BullMQ gives retry, DLQ, job inspection (Bull-Board) for free.
 - Lambda has cold-start latency and a 15-min wall (fine for ≤ 6 GB videos but you have to think about it).
@@ -773,6 +791,7 @@ These are the points where one component genuinely blocks another, not just inco
 **What:** Spec defers Sentry / Datadog / structured logging beyond CloudWatch defaults to v2.
 
 **Assessment:** Appropriate at MVP through Play Store launch. **Will not hold past first 50k DAU** because:
+
 - Hash-mismatch incidents will need cohorting by device model / OS version — Crashlytics doesn't show structured logs alongside crashes.
 - Upload failure clustering by network type / time-of-day needs a warehouse (CloudWatch Insights queries are too slow for ad hoc clustering at scale).
 - The worker's queue depth + per-job latency need a dashboard the team can act on; Bull-Board is fine for ops triage but not for SLO tracking.
@@ -785,7 +804,7 @@ These are the points where one component genuinely blocks another, not just inco
 
 **What:** The native upload daemon needs to read the queue (paths, hashes) and write progress (chunk ETags, retry counts). JS also reads/writes the same data. Two readers/writers across language boundaries on the same MMKV instance means concurrent-write races.
 
-**Mitigation:** MMKV is process-safe (it's mmap-backed with file locks under the hood). Use it for *checkpointing* — JS writes the queue rows, native reads them on `enqueue` and writes per-chunk progress. **Never have JS and native write the same key concurrently.** Specifically, JS owns `queue.row.{id}` writes (status, paths); native owns `queue.row.{id}.chunks.{partNumber}` writes (etag, status). Different key prefixes, no collision.
+**Mitigation:** MMKV is process-safe (it's mmap-backed with file locks under the hood). Use it for _checkpointing_ — JS writes the queue rows, native reads them on `enqueue` and writes per-chunk progress. **Never have JS and native write the same key concurrently.** Specifically, JS owns `queue.row.{id}` writes (status, paths); native owns `queue.row.{id}.chunks.{partNumber}` writes (etag, status). Different key prefixes, no collision.
 
 **Detection:** Add a `chunks_dump` event in the diagnostic harness that prints the entire `uploads` MMKV instance — eyeball test catches missing keys.
 
@@ -804,6 +823,7 @@ These are the points where one component genuinely blocks another, not just inco
 **What:** A 10-minute 8 Mbps CBR HEVC segment is ~600 MB. At 3 chunks × 8 MB × 1 file (most cellular only does ~1 file in parallel cleanly), plus a typical India 4G upstream of ~3 Mbps, you're at ~26 minutes of wall time per segment. Two parallel files = doubled if the user records back-to-back.
 
 **Mitigation:**
+
 1. S3 Transfer Acceleration on the bucket (requires a different presigned URL host, ~5-line code change).
 2. CloudFront PUT-through ingestion is also possible (CloudFront → S3) — measure first.
 3. Reduce parallel files to 1 on cellular; allow 2 only on Wi-Fi (network-type detection in HumynUpload).
@@ -815,6 +835,7 @@ These are the points where one component genuinely blocks another, not just inco
 **What:** Spec: "APK build flavor bypasses install-source check via Remote Config (Play Store builds cannot opt into the bypass). Bypass is scoped to that flavor's app ID."
 
 **Implication:** Three things must be true simultaneously:
+
 1. The `apkRollout` flavor has a different `applicationId` (e.g. `ai.humynlabs.capture.apk`) than the `playStore` flavor (`ai.humynlabs.capture`) — Android co-installation requires this.
 2. Remote Config has a parameter `enforce_install_source` keyed by `applicationId` — defaults to `true`, overridden to `false` only for the apk flavor's app ID.
 3. The backend's `/auth/google` flavor field must match the build flavor; the backend is the verifier. Mismatch → reject.
@@ -841,5 +862,6 @@ These are the points where one component genuinely blocks another, not just inco
 - Locked-spec inputs (Homelander project): `idea-brief.md`, `engineering-handoff.md`, `testing-guide.md`, `video_metadata.json`, `figure-app-hands.md`, `task-taxonomy.md`, `PROJECT.md`
 
 ---
-*Architecture research for: Android-first React Native + native-modules data-collection app (Homelander / Humyn Labs Capture)*
-*Researched: 2026-05-07*
+
+_Architecture research for: Android-first React Native + native-modules data-collection app (Homelander / Humyn Labs Capture)_
+_Researched: 2026-05-07_

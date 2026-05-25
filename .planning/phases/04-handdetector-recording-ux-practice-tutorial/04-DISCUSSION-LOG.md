@@ -240,9 +240,9 @@ Per CONTEXT.md `<deferred>` section:
 - Tasks list / Task details / `Start Recording` CTA — Phase 6
 - Upload pipeline (UP-01..19) — Phase 5
 - Hash-verify worker + IMU-liveness backend check — Phase 5
-- iOS analogues — Phase 7
+- iOS analogues — Phase 8
 - Continuous on-device hands-in-frame enforcement — out of MVP
-- Per-locale `recording_gate_skipped` rate dashboard cohort — Phase 7 (OBS-03)
+- Per-locale `recording_gate_skipped` rate dashboard cohort — Phase 8 (OBS-03)
 - Bystander-consent in-app secondary-subject screen — out of scope at MVP
 - Mobile dark mode for non-recording surfaces — out of scope at MVP
 - PROJECT.md / REQUIREMENTS.md / ROADMAP.md / `idea-brief.md` §3.1 stale clan-chief / KGeN narrative cleanup — needs `/gsd:cleanup` pass

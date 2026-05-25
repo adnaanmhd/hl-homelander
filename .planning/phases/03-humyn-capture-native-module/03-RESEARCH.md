@@ -60,7 +60,7 @@
 - Metadata JSON schema = `video_metadata.json` at repo root + new `imu_min_rate_hz_observed_p1` field; schema_version → `1.1.0`.
 - 10-min auto-segment (Remote Config knob), 0.5 s silent gap, per-segment ULID, no `parent_recording_id` linkage (CAP-09).
 - Hand-gate does NOT re-run at auto-segment cuts (CAP-10). Module preserves `start_gate` block from `start(opts)` across all segments in the session.
-- iOS deferred to Phase 7. Phase 4 owns recording-surface UX, hand-gate, §10 lifecycle edges, practice flow. Phase 5 owns upload + hash-verify + delete-on-`verified`.
+- iOS deferred to Phase 8. Phase 4 owns recording-surface UX, hand-gate, §10 lifecycle edges, practice flow. Phase 5 owns upload + hash-verify + delete-on-`verified`.
 - No clan-chief / KGeN narrative anywhere in Phase 3 surfaces.
 - No precise location capture — JS resolves coarse → string and passes via `start(opts)`; module never calls Location APIs.
 - English only at MVP. No notifications channel. No success metrics gating phase completion.
@@ -89,12 +89,12 @@ The planner has freedom to choose:
 - §10 lifecycle edges (rotation / call / alarm / battery / storage-full / DND / phone-call-declined-continues) → Phase 4.
 - Practice-recording UX flow (ONB-03..07) → Phase 4 (Phase 3 segregates files only).
 - Upload pipeline (UP-01..19), hash-verify worker, IMU-liveness backend → Phase 5.
-- iOS analogue (`HumynCapture` Swift) → Phase 7.
+- iOS analogue (`HumynCapture` Swift) → Phase 8.
 - TTS voice line wiring for thermal abort → Phase 4 (Phase 3 emits the event).
 - Battery alert + low-battery refuse + ≤5% segment-end → Phase 4.
 - Storage-full prevention path → Phase 4 (Phase 3 surfaces writer-side `IOException` only).
 - Tasks browsing / Home tiles / History list / Player → Phase 6.
-- Observability / iOS parity / staged rollout → Phase 7.
+- Observability / iOS parity / staged rollout → Phase 8.
 - Compat-tightening propagation (COMPAT-05) → Phase 4.
 
 </user_constraints>

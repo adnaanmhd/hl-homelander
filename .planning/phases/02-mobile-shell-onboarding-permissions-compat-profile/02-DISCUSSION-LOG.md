@@ -210,7 +210,7 @@
 - Practice recording, hand-gate UX, recording surface (Phase 4)
 - Tasks browsing, Task details sheet, Send Request form, History list, Player (Phase 6)
 - Upload pipeline + diagnostic-snapshot delivery via piggy-backing (Phase 5)
-- iOS analogues — `HumynCompat` Swift analogue, fonts wired into iOS (Phase 7)
+- iOS analogues — `HumynCompat` Swift analogue, fonts wired into iOS (Phase 8)
 - Reanimated motion tuning, fancy transitions (planner-level inside each Phase 2 plan)
 - Profile name validation specifics (length limits, profanity filtering)
 - Coarse Location permission prompt (Phase 4 — delayed to first recording)

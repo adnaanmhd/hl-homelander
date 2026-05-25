@@ -442,7 +442,7 @@ export const AuthGoogleRequest = z.object({
 });
 ```
 
-**iOS note:** App Attest is deferred to Phase 7 (IOS-04). Phase 1's `iosAppStore` flavor sends `integrityToken: ''` and Phase 1 backend treats `iosAppStore` as a degenerate path that skips Play Integrity decoding (still validates Google ID token + allowlist). This is acceptable because Phase 1 mobile deliverable per D-APK-04 is buildable scaffold + auth check; iOS parity proper lands in Phase 7.
+**iOS note:** App Attest is deferred to Phase 8 (IOS-04). Phase 1's `iosAppStore` flavor sends `integrityToken: ''` and Phase 1 backend treats `iosAppStore` as a degenerate path that skips Play Integrity decoding (still validates Google ID token + allowlist). This is acceptable because Phase 1 mobile deliverable per D-APK-04 is buildable scaffold + auth check; iOS parity proper lands in Phase 8.
 
 ### 2.2 Google ID token verification — `apps/api/src/auth/verify-id-token.ts`
 

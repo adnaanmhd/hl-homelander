@@ -24,7 +24,7 @@ must_haves:
     - 'Runbook covers: cold-start gate decision tree (4 paths) → Sign-up + Terms-of-Use modal → Permissions (Camera + Mic) → Compat (happy path on a passing device + downgraded device for COMPAT-06/08 fail UI) → Tutorial Rig → Profile (avatar tap, inline-edit name + age + gender, Joined date, Payments card copy, lifetime numeric, Help / Logout / Delete entries, footer with version+flavor) → Help Center (3 accordions, mailto, Report-a-problem) → ForceUpgrade (apkRollout: install older APK → bump backend min_supported → cold-start → SHA-256 verify → system installer; playStore: market:// hand-off) → Soft-upgrade banner (dismiss + per-version reset)'
     - "Each manual-only behavior from 02-VALIDATION.md § 'Manual-Only Verifications' has a numbered step in the runbook with explicit input commands (adb / fastboot / curl / Android Studio bumps) and assertions"
     - 'Runbook ends with a Crashlytics gate: ≥ 1 hour soak time on the smoke device, then operator confirms Firebase Crashlytics dashboard shows zero new fatal/non-fatal issues for the apkRollout build'
-    - "02-OPEN-QUESTIONS.md tracks the [EMAIL_ADDRESS] placeholder occurrences (compat recovery + help center + content.json) and the compat-fail 'what now' final wording — both flagged for resolution before Play Store launch (Phase 7), not blocking Phase 2 completion"
+    - "02-OPEN-QUESTIONS.md tracks the [EMAIL_ADDRESS] placeholder occurrences (compat recovery + help center + content.json) and the compat-fail 'what now' final wording — both flagged for resolution before Play Store launch (Phase 8), not blocking Phase 2 completion"
     - 'Runbook is committed to git BEFORE the operator walks it; failures during the smoke walk produce sub-bullets with timestamps + adb logcat snippets pasted directly into the runbook'
   artifacts:
     - path: 'apps/mobile/02-MANUAL-SMOKE.md'
@@ -44,7 +44,7 @@ must_haves:
 Author the Phase 2 manual smoke runbook. This is the single source of truth for operator-driven gating before phase completion. Pulls every "manual-only" verification listed in 02-VALIDATION.md into a numbered, checkbox-shaped walk-through with concrete adb / fastboot / curl commands and screenshot expectations. Also lands 02-OPEN-QUESTIONS.md tracking the two known unresolved-but-non-blocking items (the [EMAIL_ADDRESS] support email placeholder + the compat-fail final wording).
 
 Purpose: Phase 2 ships by-vibe per PROJECT.md. The smoke runbook is how we confirm the Android-tier surface actually works on a real device before declaring Phase 2 complete. The runbook is `autonomous: false` — execute-plan pauses for the operator to walk it step-by-step on the smoke device.
-Output: a committed, reviewable runbook + an Open Questions file capturing the known placeholders that the operator must agree to defer to phase 7 (or earlier if the user / counsel returns).
+Output: a committed, reviewable runbook + an Open Questions file capturing the known placeholders that the operator must agree to defer to phase 8 (or earlier if the user / counsel returns).
 </objective>
 
 <execution_context>
@@ -209,7 +209,7 @@ Output: a committed, reviewable runbook + an Open Questions file capturing the k
     - [ ] Cold-start app → Splash → ForceUpgradeScreen renders 'Update to continue.' + Update CTA.
     - [ ] Tap Update → APK download (progress UI is basic per CONTEXT § Deferred 'APK download progress UI polish').
     - [ ] On hash match: Settings 'Allow from this source' prompt may appear → grant → PackageInstaller dialog → tap Install → app updates and re-launches.
-    - [ ] On simulated hash mismatch (modify backend to return wrong apkSha256 on the same apkUrl): Update → 'Update failed (integrity check). Try again or contact support.' Alert → check Firebase Analytics for `force_upgrade_apk_hash_mismatch` event (Phase 7 Crashlytics dashboard surfaces this).
+    - [ ] On simulated hash mismatch (modify backend to return wrong apkSha256 on the same apkUrl): Update → 'Update failed (integrity check). Try again or contact support.' Alert → check Firebase Analytics for `force_upgrade_apk_hash_mismatch` event (Phase 8 Crashlytics dashboard surfaces this).
     - [ ] Reset backend min_supported.
 
     ## 11. ForceUpgrade Play Store hand-off (playStore, UPG-03)
@@ -238,7 +238,7 @@ Output: a committed, reviewable runbook + an Open Questions file capturing the k
 
     - [ ] All sections above passed (or documented sub-bullet failures with logcat snippets) on Pixel 7a (primary).
     - [ ] (Optional) Repeated on Pixel 8a / 10a — note any device-specific failures.
-    - [ ] Open Questions in `.planning/phases/02-mobile-shell-onboarding-permissions-compat-profile/02-OPEN-QUESTIONS.md` reviewed; the operator agrees to defer them to Phase 7 if not blocking.
+    - [ ] Open Questions in `.planning/phases/02-mobile-shell-onboarding-permissions-compat-profile/02-OPEN-QUESTIONS.md` reviewed; the operator agrees to defer them to Phase 8 if not blocking.
 
     ---
 
@@ -276,7 +276,7 @@ Output: a committed, reviewable runbook + an Open Questions file capturing the k
     ```markdown
     # Phase 2 — Open Questions
 
-    **Status:** Tracked but not blocking Phase 2 completion. Resolve before Phase 7 staged Play Store rollout.
+    **Status:** Tracked but not blocking Phase 2 completion. Resolve before Phase 8 staged Play Store rollout.
 
     ---
 
@@ -321,7 +321,7 @@ Output: a committed, reviewable runbook + an Open Questions file capturing the k
     **Why deferred:** The current copy is technically accurate and non-confusing. Wordsmithing is a writer pass, not engineering work; we don't gate Phase 2 on it.
 
     **Owner:** Product / Writing.
-    **Target:** Before staged Play Store rollout (Phase 7).
+    **Target:** Before staged Play Store rollout (Phase 8).
 
     ---
 
@@ -332,11 +332,11 @@ Output: a committed, reviewable runbook + an Open Questions file capturing the k
     **Why deferred:** Not in any Phase 2 requirement; CONTEXT § Deferred Ideas tags this as planner-pick. No security regression — the SHA is in the APK metadata + Play Console + signed cert; users don't need to verify it manually.
 
     **Owner:** Product / Security.
-    **Target:** Phase 7 if needed for transparency narrative; otherwise dropped.
+    **Target:** Phase 8 if needed for transparency narrative; otherwise dropped.
 
     ---
 
-    _Reviewed at Phase 2 verify-work; carry forward to Phase 7 entry checklist._
+    _Reviewed at Phase 2 verify-work; carry forward to Phase 8 entry checklist._
     ```
 
   </action>
@@ -349,7 +349,7 @@ Output: a committed, reviewable runbook + an Open Questions file capturing the k
   <verify>
     <automated>test -f .planning/phases/02-mobile-shell-onboarding-permissions-compat-profile/02-OPEN-QUESTIONS.md && grep -c "^## OQ-" .planning/phases/02-mobile-shell-onboarding-permissions-compat-profile/02-OPEN-QUESTIONS.md | grep -q 3</automated>
   </verify>
-  <done>Open Questions tracked + paths to resolution documented; the placeholder occurrences are enumerated for fast search-and-replace at Phase 7 entry.</done>
+  <done>Open Questions tracked + paths to resolution documented; the placeholder occurrences are enumerated for fast search-and-replace at Phase 8 entry.</done>
 </task>
 
 <task type="checkpoint:human-verify" gate="blocking">
@@ -377,7 +377,7 @@ Output: a committed, reviewable runbook + an Open Questions file capturing the k
 <success_criteria>
 
 - Manual smoke runbook exists, is comprehensive, follows the Phase 1 13-MANUAL-SMOKE.md shape.
-- Open Questions are tracked + path-to-resolution documented (no surprises at Phase 7 entry).
+- Open Questions are tracked + path-to-resolution documented (no surprises at Phase 8 entry).
 - Operator runs the smoke on a real device and signs off.
 - Phase 2 is gated on the runbook's checkboxes being checked + the Crashlytics gate.
   </success_criteria>

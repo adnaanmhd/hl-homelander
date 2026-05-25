@@ -72,7 +72,7 @@ human_verification:
 
 ### Deferred Items
 
-None — no later-phase Phase-5 work; Phase 6 = Tasks/History/Home, Phase 7 = observability/APK distribution.
+None — no later-phase Phase-5 work; Phase 6 = Tasks/History/Home, Phase 8 = observability/APK distribution.
 
 ### Required Artifacts
 

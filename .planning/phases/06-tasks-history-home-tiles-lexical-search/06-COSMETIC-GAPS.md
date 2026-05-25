@@ -16,8 +16,8 @@ that the player layer cannot fix on its own.
 
 Pickup options (per the §7 amendments protocol in `06-MANUAL-SMOKE.md`):
 
-- **Roll into Phase 7's plan-phase** as a single cleanup early plan, or
-- **Dedicated cleanup plan before Phase 7 starts** — `/gsd-plan-phase`
+- **Roll into Phase 8's plan-phase** as a single cleanup early plan, or
+- **Dedicated cleanup plan before Phase 8 starts** — `/gsd-plan-phase`
   with this file as the source-of-truth ingest, or
 - **Promote items individually** — most read as their own small plans.
 
@@ -38,7 +38,7 @@ files — those are closed.
 | 6   | HOME-10 — OfflineBanner not wired                                              | ✅ Fixed in Plan 06-12 (follow-on) |
 | 7   | Pending Uploads row tap navigates to History                                   | ✅ Fixed in Plan 06-12 (follow-on) |
 | 8   | Player "View only" footer sticks                                               | ✅ Fixed in Plan 06-12 (follow-on) |
-| 9   | Player drag-to-seek lands at byte 0                                            | Deferred (Phase 7)                 |
+| 9   | Player drag-to-seek lands at byte 0                                            | Deferred (Phase 8)                 |
 | 10  | History — filter pill shows two chevrons                                       | ✅ Fixed in Plan 06-12 / `4bec668` |
 | 11  | History — empty state "Pick a task and try one" line break                     | ✅ Fixed in Plan 06-12 / `a8664dd` |
 | 12  | Tasks — hide Upload Sample at MVP                                              | ✅ Fixed in Plan 06-12 / `a55d943` |
@@ -50,7 +50,7 @@ Findings 1, 10, 11, 12, 13 fixed in Plan 06-12's main wave (2026-05-14).
 Findings 2, 3, 5, 6, 7, 8, 14, 15 fixed in Plan 06-12's follow-on wave
 (owner directive 2026-05-14 — "fix each one of these except 4, 9"). Only
 **Findings 4 and 9** remain deferred — 4 by owner directive
-(`feedback_d09_audibility_deferred`), 9 needs the Phase-7 finalize-time
+(`feedback_d09_audibility_deferred`), 9 needs the Phase-8 finalize-time
 remux step (Player drag-to-seek requires `sidx`/`mfra` boxes the
 fragmented-MP4 path doesn't emit).
 
@@ -140,7 +140,7 @@ date inputs.
 (`@react-native-community/datetimepicker` not in deps). Free-text was
 the locked acceptable for Phase 6.
 
-**Disposition:** New plan in Phase 7 (or earlier cleanup): add
+**Disposition:** New plan in Phase 8 (or earlier cleanup): add
 `@react-native-community/datetimepicker` to the pin table + replace the
 two inputs with the platform picker. Confirm the picker honours device
 locale + dark theme.
@@ -158,9 +158,9 @@ on-device doesn't show the banner.
 
 **Spec position:** Plan 06-08 documented this as a Known Stub —
 HOME-10's visual chrome shipped; the data binding was deferred to the
-Phase 7 wiring pass.
+Phase 8 wiring pass.
 
-**Disposition:** Promote to a Phase 7 plan (already on the implied
+**Disposition:** Promote to a Phase 8 plan (already on the implied
 backlog). One-file change: subscribe to NetworkMonitor's connectivity
 event and `setOffline(...)` from the listener; remove the local
 `useState` initializer.
@@ -281,7 +281,7 @@ implementation when picked up:
 PlayerScreen wiring requires zero additional change once the remux lands.
 
 **Found:** 2026-05-14 §5 close-out (commits `819fdf5`, `94f8cfa`).
-Deferred to Phase 7 on 2026-05-14 §7 reopen.
+Deferred to Phase 8 on 2026-05-14 §7 reopen.
 
 ---
 
@@ -380,7 +380,7 @@ permanent guard:
   state every time tests run.
 - _Out of scope for 06-12:_ full TEST_DATABASE_URL isolation
   (separate postgres database + vitest config override) — defer to a
-  Phase 7 backend-hygiene plan if owner wants stronger isolation later.
+  Phase 8 backend-hygiene plan if owner wants stronger isolation later.
 
 **Found:** 2026-05-14 §7 reopen (root-caused mid-§6 when re-running the
 api test suite for the runbook check).

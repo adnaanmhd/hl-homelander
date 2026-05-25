@@ -194,7 +194,7 @@ Captured in CONTEXT.md `<deferred>` section. Highlights:
 - **Practice-recording UX flow (ONB-03..07)** — Phase 4 (Phase 3 segregates files only).
 - **Upload pipeline (UP-01..19)** — Phase 5.
 - **Hash-verify worker + IMU-liveness backend check** — Phase 5.
-- **iOS analogue** — Phase 7.
+- **iOS analogue** — Phase 8.
 - **TTS voice line wiring for thermal abort** — Phase 4 (Phase 3 emits the event).
 - **Battery alert + low-battery refuse + ≤5% segment-end** — Phase 4.
 - **Stale clan-chief / KGeN narrative cleanup** in PROJECT.md / REQUIREMENTS.md / ROADMAP.md / `idea-brief.md §3.1` — remains deferred (not phase-scoped; needs `/gsd:cleanup` or manual edit pass).

@@ -14,8 +14,8 @@
 
 - **D-04 — ALL anti-fraud is descoped to §v2.** FRAUD-05 (per-account daily upload-rate cap) and FRAUD-06 (pre-payout fraud monitoring dashboard) move to REQUIREMENTS.md §v2 alongside the already-deferred FRAUD-03/04. MVP anti-fraud stays exactly `idea-brief.md §11`: Play Integrity at sign-in + the on-device one-shot hand gate. **Nothing new.**
 - **D-04a — No per-account upload-rate cap of any kind at MVP** — not a fraud cap, not a "generous safety cap". The upload path is fully uncapped per account. No server-side rejection-on-cap logic, no client-side "retry tomorrow" path.
-- **D-04b — No fraud dashboard** — no web UI, no admin API route, no scheduled export job, no SQL-views deliverable. (Bull-Board for the worker queue is a separate Phase-7 observability item, unaffected.)
-- **D-04c** — `recordings.flavor` column stays (also build-cohort analysis for Phase 7). `recordings.liveness_score` column stays (harmless; stays NULL at MVP). No schema changes needed for the descope.
+- **D-04b — No fraud dashboard** — no web UI, no admin API route, no scheduled export job, no SQL-views deliverable. (Bull-Board for the worker queue is a separate Phase-8 observability item, unaffected.)
+- **D-04c** — `recordings.flavor` column stays (also build-cohort analysis for Phase 8). `recordings.liveness_score` column stays (harmless; stays NULL at MVP). No schema changes needed for the descope.
 - **D-04d** — Roadmap/requirements housekeeping the planner should fold in: re-title the phase to **"Upload Pipeline & Hash-Verify Worker"**; move FRAUD-05/06 to §v2 in REQUIREMENTS.md with a dated note; update the §v2 "Anti-fraud" group; trim the Phase 5 ROADMAP success criterion #5 (the fraud-surface bullet) and the requirements list (drop FRAUD-05, FRAUD-06). (Directory slug stays `05-upload-pipeline-hash-verify-worker-anti-fraud`.)
 - **D-03 — Crash-recovered segments are DISCARDED, never uploaded.** `CaptureLaunchSweep` discards ALL crash-truncated fragments, not just the sub-30 s `ftyp`+`moov` stubs. The post-30 s fragment is deleted (mp4 + csv + `.session.json` sidecar) on next launch instead of being re-finalized. No degenerate bundle ever reaches the upload queue.
 - **D-03a — The ROADMAP's "Phase 5's upload path should tolerate `duration_seconds: 0` + null drift" note is RESCINDED.** The upload-bundle validation / hash-verify worker do NOT need to special-case `duration_seconds: 0` or null drift. (A belt-and-suspenders guard against a malformed bundle is fine but not a requirement.)
@@ -786,9 +786,9 @@ fun scheduleUidt(ctx: Context) {
 
    - **RESOLVED:** Plan 05-08 (D-10 discretion) — a Pending-Uploads row is DROPPED the moment its bundle is `verified` (no completed-this-session retention); `chip-success` "✓ Uploaded" only flashes transiently before the row disappears. Completed recordings live on the History screen (Phase 6).
 
-5. **Bull-Board for the worker queue — Phase 5 or Phase 7?** CONTEXT.md D-04b says Bull-Board is "a separate Phase-7 observability item". So: **not Phase 5.** Just confirming the planner doesn't accidentally pull it in.
+5. **Bull-Board for the worker queue — Phase 5 or Phase 8?** CONTEXT.md D-04b says Bull-Board is "a separate Phase-8 observability item". So: **not Phase 5.** Just confirming the planner doesn't accidentally pull it in.
 
-   - **RESOLVED:** CONTEXT.md D-04b — Bull-Board (the worker-queue dashboard) is a Phase-7 observability item (tracked toward OBS-04), NOT Phase 5. No Bull-Board work ships this phase.
+   - **RESOLVED:** CONTEXT.md D-04b — Bull-Board (the worker-queue dashboard) is a Phase-8 observability item (tracked toward OBS-04), NOT Phase 5. No Bull-Board work ships this phase.
 
 ---
 
