@@ -3,7 +3,7 @@ status: partial
 phase: 07-multi-linguality-live-cam-feed
 source: [07-VERIFICATION.md]
 started: 2026-05-25T05:15:00Z
-updated: 2026-05-25T05:15:00Z
+updated: 2026-05-25T19:10:00Z
 ---
 
 ## Current Test
@@ -15,7 +15,7 @@ updated: 2026-05-25T05:15:00Z
 ### 1. §1 i18n bootstrap on fresh install
 
 expected: All six §1 PASS rows checked — Pixel 10a fresh APK install: 8 rows in D-18 order, native+English name presentation (D-19), English pre-selected, Continue→Signup (no back), cold relaunch does NOT re-render ChooseLanguage, tokens-only grep gate (I18N-03)
-result: [pending]
+result: PASS — Pixel 10a 5C161JEA304304 / Android 16 / apkRolloutDebug, 2026-05-25; 8 rows D-18 order confirmed, D-19 native+English presentation confirmed, English pre-selected, Continue→Signup with no back-gesture return, force-stop + cold-launch landed on Signup (ChooseLanguage suppressed by `locale.chosen_at` MMKV key), tokens-only grep gate returned 0 hex literals in ChooseLanguageScreen.tsx + LanguageList.tsx.
 
 ### 2. §2 Profile language picker per-locale walk (post-07-09 add-on)
 
@@ -65,9 +65,9 @@ result: [pending]
 ## Summary
 
 total: 10
-passed: 0
+passed: 1
 issues: 0
-pending: 10
+pending: 9
 skipped: 0
 blocked: 0
 
