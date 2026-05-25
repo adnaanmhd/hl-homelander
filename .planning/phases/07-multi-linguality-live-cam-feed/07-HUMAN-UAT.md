@@ -25,22 +25,22 @@ result: PARTIAL — Pixel 10a 5C161JEA304304, 2026-05-25, hi-IN selected on-devi
 ### 3. §3 Bilingual consent rendering
 
 expected: All four §3 PASS rows checked — pt-BR + hi-IN active locale: Signup consent paragraph + Terms-of-Use modal show translated text on top + English at ~70% opacity below; server-side `consent_text_version` stays canonical English; English locale shows single-body (no duplicate)
-result: [pending]
+result: CODE-VERIFIED PASS — grep-confirmed dual-render wiring at SignupScreen.tsx:229,236 (consent-label + Terms-link English underlays) and TermsOfUseModal.tsx:47/76/79 (`englishUnderlay = i18nDefault.getFixedT('en')('terms.consent.body')` rendered below translated body). Plan 07-05 SUMMARY confirms D-32/D-33 byte-parity verified at ship. Operator did NOT directly visually verify dual-render on hardware in pt-BR or hi-IN (was on Signup only briefly during §1→§2 transition, reported COSMETIC-01 alignment issue but not dual-render absence/presence). Compressed per owner directive 2026-05-25 — full on-hardware visual deferred to Wave-2 re-walk after gap closure. Server-side `consent_text_version` canonical-English contract = code-verified in CR-01 prior commits + unchanged by 07-09.
 
 ### 4. §4 Per-locale TTS on Pixel 10a
 
 expected: All 8 locale-voice rows PASS plus fallback case. For each of pt-BR / es / hi-IN / bn-IN / ta-IN / te-IN / mr-IN with the engine installed: "Recording started" cue plays in the active locale; uninstalled locale falls back to en-US AND emits Crashlytics `tts_locale_fallback` breadcrumb; English locale preserves owner-deviation voice
-result: [pending]
+result: PENDING — will be folded into §7/§9 recording walks (the operator records 2× 10-min in §9 for A/B drift, both recordings will fire the TTS cue and we'll observe what voice plays in hi-IN). Pre-flight observation under G-04: operator reported audio cue "still in English" — to be disambiguated as text-vs-voice during §7. Crashlytics fallback breadcrumb path (5-step chain in ttsVoice.ts) is code-verified via prior CR; on-hardware fallback observation deferred.
 
 ### 5. §5 Date formatting + Latin numerals
 
 expected: All five §5 PASS rows checked — hi-IN: Devanagari month name + Latin 0-9 digits in History day-header (NOT Devanagari numerals); pt-BR Portuguese month form; all 4 Indic locales render locale-appropriate month + Latin digits; Profile Joined date locale-formatted
-result: [pending]
+result: PASS — hi-IN on Pixel 10a, 2026-05-25. Operator visually confirmed Profile "Joined" date renders both (a) Devanagari month name AND (b) Latin digits 0-9 (NOT Devanagari numerals). dates.ts grep-confirmed `Intl.DateTimeFormat(locale, { dateStyle: 'medium', numberingSystem: 'latn' })` at line 58-62 — D-36 + D-37 properly wired. Compressed per owner directive 2026-05-25 — full per-locale loop (pt-BR / 4 Indic / en) skipped since the latn forcing is structurally locale-independent and the hi-IN case is the strictest one (Devanagari script has its own numerals, so latn-forcing actively changes the output — pass here implies pass elsewhere).
 
 ### 6. §6 Reverse-search task query + full body translation
 
 expected: All §6 PASS rows checked — hi-IN active: TasksScreen shows translated task names where present; search "चाय बनाओ" surfaces Make tea (Stage 1); "बनाओ" surfaces token-fallback matches (Stage 2); random Hindi returns zero (Stage 3 degraded-OK); TaskDetailsSheet shows full Hindi body (name + description + instructions + examples); pt-BR Stage 1 "fazer chá" → Make tea
-result: [pending]
+result: DEGRADED-FAIL per D-15 + G-08 — reverseSearch.ts code-verified (3-stage chain wired at apps/mobile/src/i18n/reverseSearch.ts:52-80), but reverseSearch.ts:23-28 documents the SKELETON-PHASE: "until the LLM regen tool populates the 7 non-English entries in taskCatalog.i18n.ts, the localized name === the English name for every task". The hi-IN `taskCatalog.i18n.ts` body therefore matches G-08 (task names + categories + descriptions + instructions in English while locale = hi-IN — operator-observed). Stage 1 "चाय बनाओ" cannot hit because the hi-IN catalog doesn't have it as a localized entry — by D-15 design. PT-BR has the same skeleton-English state (the 07-06 SUMMARY documents 7 skeleton entries; the operator's observation that ALL task data is English suggests the scope of the skeleton-state may be broader — Wave-2 plan-time verification). Compressed per owner directive 2026-05-25; full §6 walk is blocked on the LLM-regen step (I18N-05, deferred from Phase 7 per ROADMAP).
 
 ### 7. §7 Live-cam preview — initial 15-s window + practice-flow D-05
 
@@ -65,9 +65,9 @@ result: [pending]
 ## Summary
 
 total: 10
-passed: 1
-issues: 1
-pending: 8
+passed: 3
+issues: 2
+pending: 5
 skipped: 0
 blocked: 0
 
