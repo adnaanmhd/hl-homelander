@@ -772,30 +772,49 @@ class CaptureSession private constructor(
 
                         LivePreviewSurfaceRegistry.onAddTarget = {
                             Log.i(TAG, "onAddTarget fired")
-                            // Defer the Camera2 ops to sessionHandler. The
-                            // registry callback fires from
+                            // Defer + delay the Camera2 ops on sessionHandler.
+                            // Two-part rationale:
+                            //
+                            // (a) The registry callback fires from
                             // HumynLivePreviewView.onSurfaceTextureAvailable
                             // which on a tap-revealed remount runs SYNCHRONOUSLY
                             // inside `TextureView.draw() -> getTextureLayer()`.
-                            // At that instant the SurfaceTexture's underlying
-                            // GraphicBuffer pool is still being allocated and
-                            // `OutputConfiguration.updateCachedSurfaceSize` ->
-                            // `SurfaceUtils.getSurfaceSize` throws
-                            // `IllegalArgumentException: Surface was abandoned`.
                             // Posting to sessionHandler defers the attach to
-                            // after the current draw pass so the Surface is
-                            // ready by the time Camera2 inspects it. Operator
-                            // log (commit 34597a2 walk, 2026-05-25 22:04:59):
+                            // after the current draw pass so we're not in
+                            // the middle of layer creation when Camera2 ops run.
+                            //
+                            // (b) On second-and-later attaches the code path
+                            // is `previewOutputConfig.removeSurface(old) ->
+                            // addSurface(new) -> s.updateOutputConfiguration`.
+                            // `updateOutputConfiguration`'s IPC path calls
+                            // `writeToParcel -> updateCachedSurfaceSize ->
+                            // SurfaceUtils.getSurfaceSize(newSurface)` BEFORE
+                            // any frames have been produced into the new
+                            // SurfaceTexture's BufferQueue, so the producer's
+                            // size query returns "abandoned". The first attach
+                            // does NOT hit this because it calls
+                            // `finalizeOutputConfigurations`, which doesn't
+                            // introspect size. A 200ms delay before the
+                            // sessionHandler post lets the SurfaceTexture's
+                            // BufferQueue producer settle (the TextureView's
+                            // hardware layer attaches in the very next draw
+                            // frame, ~16ms; 200ms is generous safety margin
+                            // for slower devices). Observed operator log on
+                            // commit cdcada9 with 0ms post-delay (Pixel 10a
+                            // 2026-05-25 22:13:53.295):
                             //   onAddTarget attach/reissue threw —
                             //   IllegalArgumentException: Surface was abandoned
                             //   at SurfaceUtils.getSurfaceSize(:134)
                             //   at OutputConfiguration.updateCachedSurfaceSize
-                            //   at CaptureSession.kt:802
-                            //   at TextureView.draw(:431)
+                            //   at OutputConfiguration.getConfiguredSize
+                            //   at OutputConfiguration.writeToParcel
+                            //   at CameraDeviceImpl.updateOutputConfiguration
+                            //   at CaptureSession$openCaptureSession$1.onConfigured$lambda$1$lambda$0(:826)
+                            //
                             // FIFO ordering on sessionHandler also serialises
                             // attach/detach pairs (every onRemoveTarget post
                             // runs before any subsequent onAddTarget post).
-                            sessionHandler.post {
+                            sessionHandler.postDelayed({
                                 val newPreview = LivePreviewSurfaceRegistry.currentSurface()
                                 if (newPreview != null && newPreview !== attachedPreviewSurface) {
                                     try {
@@ -838,7 +857,7 @@ class CaptureSession private constructor(
                                         Log.w(TAG, "onAddTarget attach/reissue threw — preview skipped", t)
                                     }
                                 }
-                            }
+                            }, 200L)
                         }
                         LivePreviewSurfaceRegistry.onRemoveTarget = {
                             Log.i(TAG, "onRemoveTarget fired")
@@ -850,7 +869,11 @@ class CaptureSession private constructor(
                             // matching onAddTarget post when a brightness
                             // state transition fires destroy-then-available
                             // in quick succession (fade-to-dim followed by
-                            // an immediate tap-reveal).
+                            // an immediate tap-reveal). onRemoveTarget runs
+                            // immediately (no 200ms delay) — detaching a
+                            // doomed Surface should be prompt, and there's
+                            // no equivalent "Surface not ready yet" race on
+                            // the remove path.
                             sessionHandler.post {
                                 try {
                                     // Step 1 — reissue the repeating request WITHOUT
