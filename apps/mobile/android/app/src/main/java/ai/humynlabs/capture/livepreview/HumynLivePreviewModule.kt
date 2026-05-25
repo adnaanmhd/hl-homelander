@@ -1,5 +1,6 @@
 package ai.humynlabs.capture.livepreview
 
+import android.util.Log
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -25,6 +26,10 @@ class HumynLivePreviewModule(reactContext: ReactApplicationContext) :
 
     companion object {
         const val NAME = "HumynLivePreview"
+
+        // Phase 7 plan 07-10 — instrumentation tag (in case the JS bridge
+        // queries `isLivePreviewSurfacePublished()` at telemetry time).
+        private const val TAG = "HumynLivePreviewModule"
     }
 
     override fun getName(): String = NAME
@@ -39,6 +44,12 @@ class HumynLivePreviewModule(reactContext: ReactApplicationContext) :
      */
     @ReactMethod
     fun isAvailable(promise: Promise) {
-        promise.resolve(LivePreviewSurfaceRegistry.currentSurface() != null)
+        val published = LivePreviewSurfaceRegistry.currentSurface() != null
+        // Phase 7 plan 07-10 — JS-side query trail. The discriminant is
+        // already covered by LivePreviewSurfaceRegistry's currentSurface()
+        // log when non-null; this line ALWAYS fires so a sequence of
+        // `isAvailable=false` reads is visible too.
+        Log.i(TAG, "isAvailable -> $published")
+        promise.resolve(published)
     }
 }

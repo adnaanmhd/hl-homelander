@@ -1,5 +1,6 @@
 package ai.humynlabs.capture.livepreview
 
+import android.util.Log
 import android.view.Surface
 
 /**
@@ -44,6 +45,8 @@ import android.view.Surface
  * delayed `onSurfaceTextureDestroyed` TextureView callback.
  */
 object LivePreviewSurfaceRegistry {
+    private const val TAG = "LivePreviewSurfaceRegistry"
+
     @Volatile private var slot: Surface? = null
 
     /**
@@ -64,6 +67,17 @@ object LivePreviewSurfaceRegistry {
 
     /** Publish the new preview Surface. Called from TextureView.onSurfaceTextureAvailable. */
     fun onSurfaceAvailable(s: Surface) {
+        // Phase 7 plan 07-10 (G-11 debug) — instrument the Surface lifecycle so
+        // the operator's logcat capture can disambiguate H1 (race-on-config —
+        // CaptureSession opened BEFORE this fired so the slot was null at
+        // session-config time) from H2 (this never fires — TextureView listener
+        // not installed or view hidden) from H3 (lifetime mismatch — fires
+        // shortly followed by onSurfaceDestroyed mid-recording). See
+        // .planning/debug/07-live-preview-broken-pipe.md.
+        Log.i(
+            TAG,
+            "onSurfaceAvailable surface=${System.identityHashCode(s)} prevSlot=${slot?.let { System.identityHashCode(it) }}",
+        )
         slot = s
     }
 
@@ -74,6 +88,14 @@ object LivePreviewSurfaceRegistry {
      * drops the view without firing the SurfaceTexture callback).
      */
     fun onSurfaceDestroyed(s: Surface?) {
+        // Phase 7 plan 07-10 instrumentation (see onSurfaceAvailable). If the
+        // logcat shows onSurfaceDestroyed firing seconds after onSurfaceAvailable
+        // mid-recording, that is H3 (lifetime mismatch — `Broken pipe(-32)`
+        // explained).
+        Log.i(
+            TAG,
+            "onSurfaceDestroyed s=${s?.let { System.identityHashCode(it) }} slot=${slot?.let { System.identityHashCode(it) }}",
+        )
         if (s == null || slot === s) {
             slot = null
         }
@@ -85,5 +107,19 @@ object LivePreviewSurfaceRegistry {
      * uses the result to decide between the single-target (encoder-only) and
      * two-target (encoder + preview) `createCaptureSession` paths.
      */
-    fun currentSurface(): Surface? = slot
+    fun currentSurface(): Surface? {
+        // Phase 7 plan 07-10 instrumentation — only log when the slot is
+        // non-null (this is called frequently by CaptureSession's config /
+        // rebuild paths; gating on `cur != null` keeps the noise floor low
+        // while still surfacing the "slot WAS available at this read" case
+        // we care about). If the operator's logcat shows zero
+        // `currentSurface (returning non-null)` lines while a recording is
+        // running, that confirms H1 (CaptureSession.openCaptureSession read
+        // a null slot — Option-B branch never fired this session).
+        val cur = slot
+        if (cur != null) {
+            Log.i(TAG, "currentSurface (returning non-null) surface=${System.identityHashCode(cur)}")
+        }
+        return cur
+    }
 }

@@ -1,5 +1,6 @@
 package ai.humynlabs.capture.livepreview
 
+import android.util.Log
 import com.facebook.react.uimanager.SimpleViewManager
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.annotations.ReactProp
@@ -22,8 +23,18 @@ class HumynLivePreviewViewManager : SimpleViewManager<HumynLivePreviewView>() {
 
     override fun getName(): String = REACT_CLASS
 
-    override fun createViewInstance(reactContext: ThemedReactContext): HumynLivePreviewView =
-        HumynLivePreviewView(reactContext)
+    override fun createViewInstance(reactContext: ThemedReactContext): HumynLivePreviewView {
+        // Phase 7 plan 07-10 (G-11 debug) — proves the JSX mount actually
+        // reaches the ViewManager. If logcat shows ZERO
+        // `HumynLivePreviewVM: createViewInstance` lines during a recording,
+        // the JS-side `<HumynLivePreviewView>` JSX is never mounting (probable
+        // root causes: brightnessState gating + isLivePreviewAvailable() flap;
+        // RecordingScreen.tsx z-stack hide; native component name typo). If it
+        // fires followed shortly by `onDropViewInstance` mid-recording, that's
+        // H3 (lifetime mismatch).
+        Log.i(TAG, "createViewInstance")
+        return HumynLivePreviewView(reactContext)
+    }
 
     /**
      * No-op prop. The view genuinely has no settable props (its lifecycle is
@@ -44,6 +55,11 @@ class HumynLivePreviewViewManager : SimpleViewManager<HumynLivePreviewView>() {
     }
 
     override fun onDropViewInstance(view: HumynLivePreviewView) {
+        // Phase 7 plan 07-10 — if this fires mid-recording (rather than at
+        // the brightness state transition or recording stop) it is direct
+        // H3 evidence: the platform yanked the RN view while the
+        // CaptureRequest still had it as a target.
+        Log.i(TAG, "onDropViewInstance view=${System.identityHashCode(view)}")
         // The TextureView's onSurfaceTextureDestroyed already clears the
         // registry slot (with the `slot === s` guard); this is defensive
         // belt-and-braces in case the platform drops the view without
@@ -55,5 +71,10 @@ class HumynLivePreviewViewManager : SimpleViewManager<HumynLivePreviewView>() {
 
     companion object {
         const val REACT_CLASS = "HumynLivePreviewView"
+
+        // Phase 7 plan 07-10 — instrumentation tag. Filter on this in
+        // `adb logcat -s HumynLivePreviewVM:I` to isolate the ViewManager
+        // create/drop lifecycle (distinct from the TextureView callbacks).
+        private const val TAG = "HumynLivePreviewVM"
     }
 }

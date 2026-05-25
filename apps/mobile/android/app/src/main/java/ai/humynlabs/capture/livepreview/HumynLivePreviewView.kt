@@ -5,6 +5,7 @@ import android.graphics.Matrix
 import android.graphics.RectF
 import android.graphics.SurfaceTexture
 import android.os.Build
+import android.util.Log
 import android.util.Size
 import android.view.Surface
 import android.view.TextureView
@@ -63,6 +64,11 @@ class HumynLivePreviewView(context: Context) : TextureView(context), TextureView
     private val previewSize = Size(1280, 720)
 
     init {
+        // Phase 7 plan 07-10 (G-11 debug) — instrument the TextureView lifecycle.
+        // System.identityHashCode lets us disambiguate two simultaneous mounts
+        // (e.g. a stale view that hasn't fully dropped before a new one
+        // re-mounts during a brightness-state-machine transition).
+        Log.i(TAG, "<init> view=${System.identityHashCode(this)}")
         surfaceTextureListener = this
         // If the SurfaceTexture is already available (view re-attached), bind now.
         if (isAvailable) {
@@ -71,6 +77,10 @@ class HumynLivePreviewView(context: Context) : TextureView(context), TextureView
     }
 
     override fun onSurfaceTextureAvailable(st: SurfaceTexture, width: Int, height: Int) {
+        Log.i(
+            TAG,
+            "onSurfaceTextureAvailable view=${System.identityHashCode(this)} width=$width height=$height",
+        )
         st.setDefaultBufferSize(previewSize.width, previewSize.height)
         configureTransform(width, height)
         val s = Surface(st)
@@ -79,10 +89,22 @@ class HumynLivePreviewView(context: Context) : TextureView(context), TextureView
     }
 
     override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, width: Int, height: Int) {
+        Log.i(
+            TAG,
+            "onSurfaceTextureSizeChanged view=${System.identityHashCode(this)} w=$width h=$height",
+        )
         configureTransform(width, height)
     }
 
     override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
+        // Phase 7 plan 07-10 — H3 (lifetime mismatch) prime evidence. If this
+        // fires DURING an active recording (rather than at view unmount), the
+        // consumer-side closed mid-stream and the `Broken pipe(-32)` HAL log
+        // is explained.
+        Log.i(
+            TAG,
+            "onSurfaceTextureDestroyed view=${System.identityHashCode(this)} surface=${surface?.let { System.identityHashCode(it) }}",
+        )
         LivePreviewSurfaceRegistry.onSurfaceDestroyed(surface)
         surface?.release()
         surface = null
@@ -107,6 +129,10 @@ class HumynLivePreviewView(context: Context) : TextureView(context), TextureView
      * the view rect, scale it up to cover, and rotate by 90·(rotation−2).
      */
     private fun configureTransform(viewWidth: Int, viewHeight: Int) {
+        Log.i(
+            TAG,
+            "configureTransform view=${System.identityHashCode(this)} viewWidth=$viewWidth viewHeight=$viewHeight",
+        )
         if (viewWidth == 0 || viewHeight == 0) return
         val rotation = displayRotation()
         val matrix = Matrix()
@@ -140,5 +166,11 @@ class HumynLivePreviewView(context: Context) : TextureView(context), TextureView
         }
     } catch (_: Throwable) {
         Surface.ROTATION_0
+    }
+
+    companion object {
+        // Phase 7 plan 07-10 — instrumentation tag. Filter on this in `adb
+        // logcat -s HumynLivePreviewView:I` to isolate the TextureView lifecycle.
+        private const val TAG = "HumynLivePreviewView"
     }
 }

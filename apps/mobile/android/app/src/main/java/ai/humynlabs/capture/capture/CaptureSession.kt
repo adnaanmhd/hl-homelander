@@ -114,6 +114,17 @@ class CaptureSession private constructor(
     private val pumpThreads = mutableListOf<HandlerThread>()
 
     companion object {
+        // Phase 7 plan 07-10 — Option-B Surface lifecycle instrumentation
+        // (G-11 debug). Filter on this in `adb logcat -s CaptureSession:I`
+        // to trace the registry-read at config + the in-session
+        // setRepeatingRequest rebuild callbacks. New tag (no prior collisions:
+        // verified by `grep -rE 'Log\\.[idew]\\("CaptureSession"'` returning
+        // empty on the existing tree). Removed in a follow-on
+        // `DEBUG_REVERT_BEFORE_COMMIT`-style sweep iff the operator's logcat
+        // confirms G-11 closure on Option B and we no longer need the
+        // surface-lifecycle trail in production.
+        private const val TAG = "CaptureSession"
+
         /** Camera2 open timeout — matches EncoderProbe convention. */
         private const val CAMERA_OPEN_TIMEOUT_S = 2L
 
@@ -623,6 +634,18 @@ class CaptureSession private constructor(
         } else {
             listOf(surface)
         }
+        // Phase 7 plan 07-10 (G-11 debug) — log the registry-read outcome
+        // BEFORE createCaptureSession. The TWO disambiguations this line gives
+        // us: (1) `previewSurfaceAtConfig=false` here PLUS the JS-side log
+        // showing the view DID mount = H1 race (mount fired AFTER session
+        // open). (2) `previewSurfaceAtConfig=true outputs.size=2` PLUS the
+        // operator NOT seeing live frames = H3 (session attached the Surface
+        // but the consumer-side closed mid-session — combined with the HAL's
+        // `Broken pipe(-32)` log, that's smoking-gun H3).
+        Log.i(
+            TAG,
+            "openCaptureSession previewSurfaceAtConfig=${previewSurfaceAtConfig != null} outputs.size=${outputs.size}",
+        )
 
         @Suppress("DEPRECATION")
         cam.createCaptureSession(
@@ -630,6 +653,10 @@ class CaptureSession private constructor(
             object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(s: CameraCaptureSession) {
                     try {
+                        Log.i(
+                            TAG,
+                            "onConfigured addingPreviewTarget=${previewSurfaceAtConfig != null}",
+                        )
                         val builder = cam.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
                         builder.addTarget(surface)
                         // REC-LIVE-01 — preview target initially attached if
@@ -660,6 +687,7 @@ class CaptureSession private constructor(
                         // would have nothing to toggle.
                         if (previewSurfaceAtConfig != null) {
                             LivePreviewSurfaceRegistry.onAddTarget = {
+                                Log.i(TAG, "onAddTarget fired")
                                 try {
                                     val nb = cam.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
                                     nb.addTarget(surface)
@@ -677,6 +705,7 @@ class CaptureSession private constructor(
                                 }
                             }
                             LivePreviewSurfaceRegistry.onRemoveTarget = {
+                                Log.i(TAG, "onRemoveTarget fired")
                                 try {
                                     val nb = cam.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
                                     nb.addTarget(surface)
