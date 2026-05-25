@@ -772,83 +772,119 @@ class CaptureSession private constructor(
 
                         LivePreviewSurfaceRegistry.onAddTarget = {
                             Log.i(TAG, "onAddTarget fired")
-                            val newPreview = LivePreviewSurfaceRegistry.currentSurface()
-                            if (newPreview != null && newPreview !== attachedPreviewSurface) {
-                                try {
-                                    // Detach the previously-attached Surface
-                                    // (if any). Required before adding the new
-                                    // one — an OutputConfiguration's surface
-                                    // set is finite (per
-                                    // getMaxSharedSurfaceCount) and we want
-                                    // exactly the current Surface attached, no
-                                    // stale ones.
-                                    val prev = attachedPreviewSurface
-                                    if (prev != null) {
-                                        try {
-                                            previewOutputConfig.removeSurface(prev)
-                                        } catch (_: Throwable) { /* best-effort */ }
-                                    }
-                                    previewOutputConfig.addSurface(newPreview)
+                            // Defer the Camera2 ops to sessionHandler. The
+                            // registry callback fires from
+                            // HumynLivePreviewView.onSurfaceTextureAvailable
+                            // which on a tap-revealed remount runs SYNCHRONOUSLY
+                            // inside `TextureView.draw() -> getTextureLayer()`.
+                            // At that instant the SurfaceTexture's underlying
+                            // GraphicBuffer pool is still being allocated and
+                            // `OutputConfiguration.updateCachedSurfaceSize` ->
+                            // `SurfaceUtils.getSurfaceSize` throws
+                            // `IllegalArgumentException: Surface was abandoned`.
+                            // Posting to sessionHandler defers the attach to
+                            // after the current draw pass so the Surface is
+                            // ready by the time Camera2 inspects it. Operator
+                            // log (commit 34597a2 walk, 2026-05-25 22:04:59):
+                            //   onAddTarget attach/reissue threw —
+                            //   IllegalArgumentException: Surface was abandoned
+                            //   at SurfaceUtils.getSurfaceSize(:134)
+                            //   at OutputConfiguration.updateCachedSurfaceSize
+                            //   at CaptureSession.kt:802
+                            //   at TextureView.draw(:431)
+                            // FIFO ordering on sessionHandler also serialises
+                            // attach/detach pairs (every onRemoveTarget post
+                            // runs before any subsequent onAddTarget post).
+                            sessionHandler.post {
+                                val newPreview = LivePreviewSurfaceRegistry.currentSurface()
+                                if (newPreview != null && newPreview !== attachedPreviewSurface) {
+                                    try {
+                                        // Detach the previously-attached Surface
+                                        // (if any). Required before adding the new
+                                        // one — an OutputConfiguration's surface
+                                        // set is finite (per
+                                        // getMaxSharedSurfaceCount) and we want
+                                        // exactly the current Surface attached, no
+                                        // stale ones.
+                                        val prev = attachedPreviewSurface
+                                        if (prev != null) {
+                                            try {
+                                                previewOutputConfig.removeSurface(prev)
+                                            } catch (_: Throwable) { /* best-effort */ }
+                                        }
+                                        previewOutputConfig.addSurface(newPreview)
 
-                                    // First-time attach uses finalize; subsequent
-                                    // swaps use update (API 28+). On API 26-27
-                                    // a subsequent swap is a no-op (first preview
-                                    // wins; acceptable silent degradation since
-                                    // Pixel 10a smoke target is API 36).
-                                    if (!previewAttached) {
-                                        s.finalizeOutputConfigurations(listOf(previewOutputConfig))
-                                        previewAttached = true
-                                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                                        s.updateOutputConfiguration(previewOutputConfig)
-                                    }
-                                    attachedPreviewSurface = newPreview
+                                        // First-time attach uses finalize; subsequent
+                                        // swaps use update (API 28+). On API 26-27
+                                        // a subsequent swap is a no-op (first preview
+                                        // wins; acceptable silent degradation since
+                                        // Pixel 10a smoke target is API 36).
+                                        if (!previewAttached) {
+                                            s.finalizeOutputConfigurations(listOf(previewOutputConfig))
+                                            previewAttached = true
+                                        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                            s.updateOutputConfiguration(previewOutputConfig)
+                                        }
+                                        attachedPreviewSurface = newPreview
 
-                                    // Rebuild + reissue the repeating request
-                                    // with the new preview as target #2.
-                                    val nb = cam.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
-                                    nb.addTarget(surface)
-                                    nb.addTarget(newPreview)
-                                    applyRecordingRequestSettings(nb, cam, mgr)
-                                    s.setRepeatingRequest(nb.build(), null, sessionHandler)
-                                } catch (t: Throwable) {
-                                    Log.w(TAG, "onAddTarget attach/reissue threw — preview skipped", t)
+                                        // Rebuild + reissue the repeating request
+                                        // with the new preview as target #2.
+                                        val nb = cam.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
+                                        nb.addTarget(surface)
+                                        nb.addTarget(newPreview)
+                                        applyRecordingRequestSettings(nb, cam, mgr)
+                                        s.setRepeatingRequest(nb.build(), null, sessionHandler)
+                                    } catch (t: Throwable) {
+                                        Log.w(TAG, "onAddTarget attach/reissue threw — preview skipped", t)
+                                    }
                                 }
                             }
                         }
                         LivePreviewSurfaceRegistry.onRemoveTarget = {
                             Log.i(TAG, "onRemoveTarget fired")
-                            try {
-                                // Step 1 — reissue the repeating request WITHOUT
-                                // the preview target so the camera driver stops
-                                // writing to the doomed Surface. Do this BEFORE
-                                // detaching the Surface from the OutputConfiguration
-                                // so there's no window where the request still
-                                // addresses a Surface that's no longer in the
-                                // configured output set (would throw IAE).
-                                val nb = cam.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
-                                nb.addTarget(surface)
-                                applyRecordingRequestSettings(nb, cam, mgr)
-                                s.setRepeatingRequest(nb.build(), null, sessionHandler)
+                            // Same deferral as onAddTarget above — both
+                            // callbacks run on the UI thread from the
+                            // TextureView's SurfaceTextureListener; posting
+                            // to sessionHandler keeps Camera2 ops off the UI
+                            // thread AND preserves FIFO ordering with the
+                            // matching onAddTarget post when a brightness
+                            // state transition fires destroy-then-available
+                            // in quick succession (fade-to-dim followed by
+                            // an immediate tap-reveal).
+                            sessionHandler.post {
+                                try {
+                                    // Step 1 — reissue the repeating request WITHOUT
+                                    // the preview target so the camera driver stops
+                                    // writing to the doomed Surface. Do this BEFORE
+                                    // detaching the Surface from the OutputConfiguration
+                                    // so there's no window where the request still
+                                    // addresses a Surface that's no longer in the
+                                    // configured output set (would throw IAE).
+                                    val nb = cam.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
+                                    nb.addTarget(surface)
+                                    applyRecordingRequestSettings(nb, cam, mgr)
+                                    s.setRepeatingRequest(nb.build(), null, sessionHandler)
 
-                                // Step 2 — detach the Surface from the
-                                // OutputConfiguration so a subsequent
-                                // `onAddTarget` for a fresh Surface can attach
-                                // without OutputConfiguration's surface set
-                                // growing unboundedly.
-                                val prev = attachedPreviewSurface
-                                if (prev != null) {
-                                    try {
-                                        previewOutputConfig.removeSurface(prev)
-                                    } catch (_: Throwable) { /* best-effort */ }
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                    // Step 2 — detach the Surface from the
+                                    // OutputConfiguration so a subsequent
+                                    // `onAddTarget` for a fresh Surface can attach
+                                    // without OutputConfiguration's surface set
+                                    // growing unboundedly.
+                                    val prev = attachedPreviewSurface
+                                    if (prev != null) {
                                         try {
-                                            s.updateOutputConfiguration(previewOutputConfig)
+                                            previewOutputConfig.removeSurface(prev)
                                         } catch (_: Throwable) { /* best-effort */ }
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                            try {
+                                                s.updateOutputConfiguration(previewOutputConfig)
+                                            } catch (_: Throwable) { /* best-effort */ }
+                                        }
+                                        attachedPreviewSurface = null
                                     }
-                                    attachedPreviewSurface = null
+                                } catch (t: Throwable) {
+                                    Log.w(TAG, "onRemoveTarget reissue/detach threw — encoder unaffected", t)
                                 }
-                            } catch (t: Throwable) {
-                                Log.w(TAG, "onRemoveTarget reissue/detach threw — encoder unaffected", t)
                             }
                         }
                     } catch (t: Throwable) {
