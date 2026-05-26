@@ -1275,7 +1275,7 @@ const styles = StyleSheet.create({
   // Below the Stop button row, at the bottom of the screen.
   liveBottomCenter: {
     position: 'absolute',
-    bottom: spacing.m,
+    bottom: spacing.m + 5, // nudged up 5px per operator §7 re-walk #6 feedback
     left: 0,
     right: 0,
     alignItems: 'center',
