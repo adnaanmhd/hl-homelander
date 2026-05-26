@@ -6,6 +6,7 @@
   "scripts": {
     "i18n:generate": "tsx i18n/generate.ts",
     "i18n:validate": "tsx i18n/validate.ts",
+    "i18n:help-content:generate": "tsx i18n/help-content-generate.ts",
     "test": "vitest run"
   },
   "dependencies": {
