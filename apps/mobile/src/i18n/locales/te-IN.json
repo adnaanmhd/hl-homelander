@@ -99,7 +99,8 @@
   },
   "recording": {
     "preview": {
-      "live": "లైవ్ ప్రివ్యూ"
+      "live": "లైవ్ ప్రివ్యూ",
+      "tapToReveal": "ప్రివ్యూ చూడటానికి స్క్రీన్‌పై నొక్కండి"
     },
     "startRecording": "రికార్డింగ్ మొదలెట్టు",
     "stopRecording": "ఆపు",

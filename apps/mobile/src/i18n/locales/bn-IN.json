@@ -99,7 +99,8 @@
   },
   "recording": {
     "preview": {
-      "live": "লাইভ প্রিভিউ"
+      "live": "লাইভ প্রিভিউ",
+      "tapToReveal": "প্রিভিউ দেখতে স্ক্রিনে ট্যাপ করুন"
     },
     "startRecording": "রেকর্ডিং শুরু করুন",
     "stopRecording": "থামান",

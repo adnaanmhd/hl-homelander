@@ -99,7 +99,8 @@
   },
   "recording": {
     "preview": {
-      "live": "लाइव प्रीव्यू"
+      "live": "लाइव प्रीव्यू",
+      "tapToReveal": "प्रीव्यू के लिए स्क्रीन पर टैप करें"
     },
     "startRecording": "रिकॉर्डिंग शुरू करें",
     "stopRecording": "रोकें",

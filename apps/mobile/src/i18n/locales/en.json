@@ -98,7 +98,7 @@
     "buttonContinue": "Continue"
   },
   "recording": {
-    "preview": { "live": "Live preview" },
+    "preview": { "live": "Live preview", "tapToReveal": "Tap screen to preview" },
     "startRecording": "Start Recording",
     "stopRecording": "Stop",
     "skip": "Skip",

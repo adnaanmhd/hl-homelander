@@ -99,7 +99,8 @@
   },
   "recording": {
     "preview": {
-      "live": "Vista previa en vivo"
+      "live": "Vista previa en vivo",
+      "tapToReveal": "Toca la pantalla para previsualizar"
     },
     "startRecording": "Empezar a grabar",
     "stopRecording": "Detener",

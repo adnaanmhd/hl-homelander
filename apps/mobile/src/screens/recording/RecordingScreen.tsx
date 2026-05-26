@@ -979,11 +979,16 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         />
       ) : null}
 
-      {/* Full-surface Pressable for tap-to-reveal — dimmed state only
-          (D-28). pointerEvents on the Stop button area is unaffected:
-          the body View / Stop button render LATER in the JSX so they
-          win hit-test over this Pressable (T-07-07-06). */}
-      {state.substate === 'active' && brightnessState === 'dimmed' ? (
+      {/* Full-surface Pressable for tap-to-reveal — mounted in 'dimmed'
+          AND 'tap-revealed' substates so that subsequent taps DURING the
+          10-s tap-revealed window roll the timer (D-29). Previously the
+          Pressable was only mounted in 'dimmed', so the 'tap-revealed'
+          tap branch in livePreviewState never received an event — the
+          machine state code was correct but the JSX was filtering the
+          taps out. Stop button + other chrome render LATER in JSX so
+          they win hit-test (T-07-07-06). */}
+      {state.substate === 'active' &&
+      (brightnessState === 'dimmed' || brightnessState === 'tap-revealed') ? (
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={handleTapReveal}
@@ -991,20 +996,20 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         />
       ) : null}
 
-      {/* Eye-icon glyph at low contrast in the bottom-right of the dimmed
-          surface — visual affordance that a tap will reveal the preview
-          (D-27 — `lucide-react-native` `Eye`). `pointerEvents="none"` so
-          the touch passes through to the Pressable above. */}
+      {/* Bottom-right corner indicator — interchanges between the eye glyph
+          + "Tap screen to preview" copy (when preview is hidden) and the
+          "Live preview" pill (when preview is rendering). Both indicators
+          share the same bottom-right position so they swap in place; the
+          previous top-right "Live preview" pill overlapped the X button. */}
       {state.substate === 'active' && brightnessState === 'dimmed' ? (
         <View style={styles.liveEyeCorner} pointerEvents="none">
-          <Icon name="Eye" size={24} color={colors.text3} />
+          <Icon name="Eye" size={24} color={colors.accent} />
+          <Text variant="caption" style={styles.liveEyeHint}>
+            {t('recording.preview.tapToReveal')}
+          </Text>
         </View>
       ) : null}
 
-      {/* Static "Live preview" label (D-26 — no per-second numeral
-          countdown). Translated via i18n catalog as `recording.preview.live`.
-          Visible during initial-preview AND tap-revealed; hidden in
-          dimmed. */}
       {state.substate === 'active' &&
       (brightnessState === 'initial-preview' || brightnessState === 'tap-revealed') ? (
         <View style={styles.liveLabelCorner} pointerEvents="none">
@@ -1258,21 +1263,30 @@ const styles = StyleSheet.create({
     maxWidth: '90%',
   },
   toastText: { color: colors.recTextCaption, textAlign: 'center' },
-  // Phase 7 plan 07-07 — live-cam preview overlay styling (D-26 / D-27).
+  // Phase 7 plan 07-07 / 07-10 — live-cam preview overlay styling (D-26 / D-27).
+  // The eye-glyph indicator (shown when preview is hidden) and the
+  // "Live preview" pill (shown when preview is rendering) share the same
+  // bottom-right anchor — they swap in place as the brightness state machine
+  // transitions, never overlap each other. Both use brand orange so the
+  // bottom-right corner has consistent visual weight across all 3 substates.
   liveEyeCorner: {
     position: 'absolute',
     bottom: spacing.l,
     right: spacing.l,
-    opacity: 0.6,
+    alignItems: 'center',
+  },
+  liveEyeHint: {
+    color: colors.accent,
+    marginTop: 4,
   },
   liveLabelCorner: {
     position: 'absolute',
-    top: spacing.m + 4, // sits below the 3px minute-bar
+    bottom: spacing.l,
     right: spacing.l,
     paddingHorizontal: spacing.s,
     paddingVertical: 2,
     backgroundColor: colors.recOverlayTip,
     borderRadius: radii.pill,
   },
-  liveLabelText: { color: colors.recTextCaption },
+  liveLabelText: { color: colors.accent },
 });

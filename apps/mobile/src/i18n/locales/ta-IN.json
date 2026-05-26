@@ -99,7 +99,8 @@
   },
   "recording": {
     "preview": {
-      "live": "நேரடி ப்ரிவ்யூ"
+      "live": "நேரடி ப்ரிவ்யூ",
+      "tapToReveal": "ப்ரிவ்யூவைப் பார்க்க திரையில் தட்டவும்"
     },
     "startRecording": "ரெக்கார்டு தொடங்கு",
     "stopRecording": "நிறுத்து",
