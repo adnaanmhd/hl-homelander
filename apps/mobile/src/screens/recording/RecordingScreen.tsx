@@ -996,13 +996,14 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         />
       ) : null}
 
-      {/* Bottom-right corner indicator — interchanges between the eye glyph
+      {/* Bottom-center indicator — interchanges between the eye glyph
           + "Tap screen to preview" copy (when preview is hidden) and the
           "Live preview" pill (when preview is rendering). Both indicators
-          share the same bottom-right position so they swap in place; the
-          previous top-right "Live preview" pill overlapped the X button. */}
+          share the same bottom-center anchor (below the Stop button, at
+          the screen bottom) so they swap in place, never overlap each
+          other, and never collide with chrome above. */}
       {state.substate === 'active' && brightnessState === 'dimmed' ? (
-        <View style={styles.liveEyeCorner} pointerEvents="none">
+        <View style={styles.liveBottomCenter} pointerEvents="none">
           <Icon name="Eye" size={24} color={colors.accent} />
           <Text variant="caption" style={styles.liveEyeHint}>
             {t('recording.preview.tapToReveal')}
@@ -1012,10 +1013,12 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
 
       {state.substate === 'active' &&
       (brightnessState === 'initial-preview' || brightnessState === 'tap-revealed') ? (
-        <View style={styles.liveLabelCorner} pointerEvents="none">
-          <Text variant="caption" style={styles.liveLabelText}>
-            {t('recording.preview.live')}
-          </Text>
+        <View style={styles.liveBottomCenter} pointerEvents="none">
+          <View style={styles.liveLabelPill}>
+            <Text variant="caption" style={styles.liveLabelText}>
+              {t('recording.preview.live')}
+            </Text>
+          </View>
         </View>
       ) : null}
 
@@ -1266,23 +1269,22 @@ const styles = StyleSheet.create({
   // Phase 7 plan 07-07 / 07-10 — live-cam preview overlay styling (D-26 / D-27).
   // The eye-glyph indicator (shown when preview is hidden) and the
   // "Live preview" pill (shown when preview is rendering) share the same
-  // bottom-right anchor — they swap in place as the brightness state machine
-  // transitions, never overlap each other. Both use brand orange so the
-  // bottom-right corner has consistent visual weight across all 3 substates.
-  liveEyeCorner: {
+  // bottom-center anchor — they swap in place as the brightness state
+  // machine transitions, never overlap each other. Both use brand orange so
+  // the bottom-center has consistent visual weight across all 3 substates.
+  // Below the Stop button row, at the bottom of the screen.
+  liveBottomCenter: {
     position: 'absolute',
-    bottom: spacing.l,
-    right: spacing.l,
+    bottom: spacing.m,
+    left: 0,
+    right: 0,
     alignItems: 'center',
   },
   liveEyeHint: {
     color: colors.accent,
     marginTop: 4,
   },
-  liveLabelCorner: {
-    position: 'absolute',
-    bottom: spacing.l,
-    right: spacing.l,
+  liveLabelPill: {
     paddingHorizontal: spacing.s,
     paddingVertical: 2,
     backgroundColor: colors.recOverlayTip,
