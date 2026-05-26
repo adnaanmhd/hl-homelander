@@ -333,7 +333,7 @@ Plans:
 
 Internal Wave A (parallel-safe, disjoint file ownership):
 
-- [ ] 07-10-live-preview-surface-debug-and-fix-PLAN.md — debug `Camera3-PreviewFrameSpacer: Broken pipe(-32)` G-11 + G-12 + surgical fix in livepreview/ Kotlin quad + CaptureSession.kt; §9 A/B drift `delta < 0.50` is the terminal acceptance gate with contingent Option-A revert (REC-LIVE-01..07)
+- [x] 07-10-live-preview-surface-debug-and-fix-PLAN.md — debug `Camera3-PreviewFrameSpacer: Broken pipe(-32)` G-11 + G-12 + surgical fix in livepreview/ Kotlin quad + CaptureSession.kt; §9 A/B drift `delta < 0.50` is the terminal acceptance gate with contingent Option-A revert (REC-LIVE-01..07)
 - [ ] 07-11-i18n-sweep-extension-PLAN.md — CompatCheck labels + RotatePrompt + RecordingScreen TTS cue text + HomeHero greeting + tab labels + History time-filter chips + UploadStatusChip (G-02/03/04/05/06/07/09); en.json + 7 non-en regen (I18N-01, I18N-11)
 - [ ] 07-13-help-center-body-translation-PLAN.md — new sibling content.{locale}.json files for the Help Center body via the LLM tool; contentLoader.ts wires the locale select (G-10; D-03) (I18N-01)
 - [ ] 07-14-COSMETIC-PLAN.md — Signup consent center-align (COSMETIC-01) + Live-preview label top-left (COSMETIC-02) + Eye glyph accent color (COSMETIC-03); 07-COSMETIC-GAPS.md ledger flipped to closed (I18N-01, REC-LIVE-01, REC-LIVE-03)
