@@ -24,6 +24,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import Text from '../ui/primitives/Text';
 import { Pressable } from '../ui/primitives/Pressable';
 import { colors, spacing, radii, typography } from '../ui/tokens';
@@ -93,6 +94,7 @@ export function HomeHero({
   firstName = null,
   onStartRecording,
 }: HomeHeroProps): React.JSX.Element {
+  const { t } = useTranslation();
   // durationFormat takes SECONDS (services/durationFormatter.ts); ContributionsLifetimeSchema.durationMs
   // is milliseconds, so divide by 1000 before formatting.
   const lifetimeMsSafe = Number.isFinite(lifetimeMs) && lifetimeMs != null ? lifetimeMs : 0;
@@ -103,13 +105,13 @@ export function HomeHero({
     return (
       <View accessibilityLabel="home-hero-empty" style={styles.card}>
         <Text variant="caption" style={styles.eyebrow}>
-          Get started
+          {t('home.hero.empty.eyebrow')}
         </Text>
         <Text variant="sheetTitle" style={styles.titleEmpty}>
-          Record your first task
+          {t('home.hero.empty.title')}
         </Text>
         <Text variant="caption" style={styles.sub}>
-          Pick a task and start recording
+          {t('home.hero.empty.sub')}
         </Text>
         <Pressable
           accessibilityLabel="home-hero-start-recording"
@@ -117,7 +119,7 @@ export function HomeHero({
           style={styles.cta}
         >
           <Text variant="btnLabel" style={styles.ctaLabel}>
-            Start Recording
+            {t('home.hero.startRecording')}
           </Text>
         </Pressable>
       </View>
@@ -130,16 +132,21 @@ export function HomeHero({
   // Plan 06-12 follow-on (owner directive 2026-05-14) — once the user has at
   // least one verified non-practice recording, replace the lifetime mono
   // numeric with a personal greeting. The greeting flag + first name are
-  // computed at the HomeScreen call site. Fall back to "Hi there." when the
-  // first name is unavailable (Google sign-in returned an empty displayName
-  // AND the email-local-part was unusable).
+  // computed at the HomeScreen call site. Fall back to t('home.hero.greetingAnonymous')
+  // when the first name is unavailable (Google sign-in returned an empty
+  // displayName AND the email-local-part was unusable). i18next interpolation
+  // via `{{name}}` carries the contributor's first token through translated
+  // catalogs (07-11 G-05 closure).
   if (showGreeting) {
     const greetingTarget = (firstName ?? '').trim();
-    const greeting = greetingTarget.length > 0 ? `Hi ${greetingTarget}` : 'Hi there';
+    const greeting =
+      greetingTarget.length > 0
+        ? t('home.hero.greetingNamed', { name: greetingTarget })
+        : t('home.hero.greetingAnonymous');
     return (
       <View accessibilityLabel="home-hero-returning" style={styles.card}>
         <Text variant="caption" style={styles.eyebrow}>
-          Continue contributing
+          {t('home.hero.returning.eyebrow')}
         </Text>
         <Text
           variant="displayHero"
@@ -149,7 +156,7 @@ export function HomeHero({
           {greeting}
         </Text>
         <Text variant="caption" style={styles.sub}>
-          Pick a task and start recording
+          {t('home.hero.returning.sub')}
         </Text>
         <Pressable
           accessibilityLabel="home-hero-start-recording"
@@ -157,7 +164,7 @@ export function HomeHero({
           style={styles.cta}
         >
           <Text variant="btnLabel" style={styles.ctaLabel}>
-            Start Recording
+            {t('home.hero.startRecording')}
           </Text>
         </Pressable>
       </View>
@@ -167,7 +174,7 @@ export function HomeHero({
   return (
     <View accessibilityLabel="home-hero-returning" style={styles.card}>
       <Text variant="caption" style={styles.eyebrow}>
-        Continue contributing
+        {t('home.hero.returning.eyebrow')}
       </Text>
       <Text
         variant="displayHero"
@@ -177,7 +184,7 @@ export function HomeHero({
         {lifetimeLabel}
       </Text>
       <Text variant="caption" style={styles.sub}>
-        {`Across ${safeTaskCount} tasks`}
+        {t('home.hero.returning.acrossNTasks', { count: safeTaskCount })}
       </Text>
       <Pressable
         accessibilityLabel="home-hero-start-recording"
@@ -185,7 +192,7 @@ export function HomeHero({
         style={styles.cta}
       >
         <Text variant="btnLabel" style={styles.ctaLabel}>
-          Start Recording
+          {t('home.hero.startRecording')}
         </Text>
       </Pressable>
     </View>

@@ -14,6 +14,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { useTranslation } from 'react-i18next';
 // Plan 03-02 — direct lucide-react-native imports for the bottom-nav
 // tabs. The Icon primitive (apps/mobile/src/ui/primitives/Icon.tsx)
 // indexes lucide-react-native by string name; the direct import keeps
@@ -34,19 +35,26 @@ import { colors, spacing, typography } from '../ui/tokens';
 
 interface TabSpec {
   key: 'Home' | 'Tasks' | 'History';
-  label: string;
+  /** i18n key under the `tabs.*` namespace (07-11 G-06 closure). */
+  labelKey: 'tabs.home' | 'tabs.tasks' | 'tabs.history';
   Icon: LucideIcon;
   accessibilityLabel: string;
 }
 
 const TABS: ReadonlyArray<TabSpec> = [
-  { key: 'Home', label: 'Home', Icon: HomeIcon, accessibilityLabel: 'Home tab' },
-  { key: 'Tasks', label: 'Tasks', Icon: ListTodo, accessibilityLabel: 'Tasks tab' },
-  { key: 'History', label: 'History', Icon: HistoryIcon, accessibilityLabel: 'History tab' },
+  { key: 'Home', labelKey: 'tabs.home', Icon: HomeIcon, accessibilityLabel: 'Home tab' },
+  { key: 'Tasks', labelKey: 'tabs.tasks', Icon: ListTodo, accessibilityLabel: 'Tasks tab' },
+  {
+    key: 'History',
+    labelKey: 'tabs.history',
+    Icon: HistoryIcon,
+    accessibilityLabel: 'History tab',
+  },
 ];
 
 export function BottomNav({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   return (
     <View
       accessibilityLabel="Bottom navigation"
@@ -120,7 +128,7 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
                 fontWeight: focused ? '700' : '400',
               }}
             >
-              {tab.label}
+              {t(tab.labelKey)}
             </Text>
           </Pressable>
         );

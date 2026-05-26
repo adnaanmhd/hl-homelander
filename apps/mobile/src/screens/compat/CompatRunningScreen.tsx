@@ -283,7 +283,7 @@ export default function CompatRunningScreen() {
               </Text>
             </View>
             <Text variant="body" style={styles.label}>
-              {row.label}
+              {t(row.labelKey)}
             </Text>
           </View>
         ))}

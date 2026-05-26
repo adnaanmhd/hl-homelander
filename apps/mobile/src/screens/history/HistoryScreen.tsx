@@ -117,24 +117,33 @@ function deviceTz(): string {
 // string AND the FilterChip component rendered its own <ChevronDown />,
 // producing two chevrons (06-COSMETIC-GAPS Finding 10). Keep the icon-
 // component approach and drop the inline glyph here.
-function filterChipLabel(named: NamedRange, custom: { start: string; end: string } | null): string {
+//
+// 07-11 G-07 closure — the named-range branches now pull translated strings
+// from `history.filter.*` so a non-en locale sees the localized chip text.
+// The `t` function is passed in (rather than read via a hook here) so this
+// stays a pure helper.
+function filterChipLabel(
+  named: NamedRange,
+  custom: { start: string; end: string } | null,
+  t: (key: string) => string,
+): string {
   switch (named) {
     case 'today':
-      return 'Today';
+      return t('history.filter.today');
     case 'yesterday':
-      return 'Yesterday';
+      return t('history.filter.yesterday');
     case 'this-week':
-      return 'This week';
+      return t('history.filter.thisWeek');
     case 'this-month':
-      return 'This month';
+      return t('history.filter.thisMonth');
     case 'all':
-      return 'All time';
+      return t('history.filter.allTime');
     case 'custom': {
-      if (custom == null) return 'Custom range';
+      if (custom == null) return t('history.filter.customRange');
       const start = new Date(`${custom.start}T00:00:00`);
       const end = new Date(`${custom.end}T00:00:00`);
       if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
-        return 'Custom range';
+        return t('history.filter.customRange');
       }
       const startLbl = `${MONTH_ABBR[start.getMonth()]} ${start.getDate()}`;
       const endLbl = `${MONTH_ABBR[end.getMonth()]} ${end.getDate()}`;
@@ -161,11 +170,11 @@ export function HistoryScreen(): React.JSX.Element {
   const navigation = useNavigation<{
     navigate: (route: string, params?: Record<string, unknown>) => void;
   }>();
-  // Subscribe to translations even if visible literals stay as design-spec
-  // copy — when ChooseLanguage / Profile fires `i18n.changeLanguage`, this
-  // hook causes a re-render so the screen picks up the new locale at the
-  // FilterChip / FilterSheet / day-header strings as they are translated.
-  void t;
+  // 07-11 G-07 — `t` is now actively consumed by `filterChipLabel` below to
+  // translate the six time-filter chips (today / yesterday / this-week /
+  // this-month / all-time / custom-range). The subscription via
+  // `useTranslation` also rerenders this screen on locale change so other
+  // future translated literals propagate immediately.
   const historyRange = useAppStore((s) => s.historyRange);
   const historyRangeCustom = useAppStore((s) => s.historyRangeCustom);
   const setHistoryRange = useAppStore((s) => s.setHistoryRange);
@@ -595,7 +604,7 @@ export function HistoryScreen(): React.JSX.Element {
       <TopBar {...topBarProps} />
       <View accessibilityLabel="history-filter-row" style={styles.filterRow}>
         <FilterChip
-          label={filterChipLabel(historyRange, historyRangeCustom)}
+          label={filterChipLabel(historyRange, historyRangeCustom, t)}
           onPress={openFilterSheet}
         />
       </View>
