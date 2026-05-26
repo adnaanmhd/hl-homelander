@@ -66,9 +66,9 @@ requirements:
 tags: [i18n, gap-closure, mobile, layout, overflow, devanagari, search, rewalk]
 must_haves:
   truths:
-    - "G-13 closed: with locale=en, typing 'recyclable' / 'recyclables' / 'recycle' in TasksScreen search returns the 'Sorting recyclables' task. The fix is CLIENT-SIDE — a curated `EN_TOKEN_ALIASES` map appended to `taskCatalog.i18n.ts` (Path B per checker BLOCKER 4 recommendation — more reliable than algorithmic stemming for the curated 86-task catalog). reverseSearch.ts en branch consults the alias map and rewrites query tokens to a canonical form the server's `to_tsquery` matches. Server `ts_vector` route + drizzle migrations UNCHANGED (D-16). NO live HTTP probe step (no `/tasks/search` curl) — the fix is verified via a Vitest unit test of `reverseSearch('recyclable', 'en')` and the operator's hardware walk in Task 8."
+    - "G-13 closed: with locale=en or hi-IN, typing 'recyclable' (or 'recyclables') in TasksScreen search returns the 'Sorting recyclables' task. The fix path is DETERMINED by Task 1 step-0's root-cause probe matrix (per checker W-NEW-1) — likely a client-side `EN_TOKEN_ALIASES` map appended to `taskCatalog.i18n.ts` (≥10 derivational families covering the 86-task catalog), wired into `reverseSearch.ts`'s en branch. If Task 1 step-0 reveals the root cause is in the server-side `tasks-search` route or the `name_tsv` index, the plan PAUSES and surfaces to the orchestrator before committing to a fix. Server `ts_vector` config + drizzle migrations UNCHANGED in either case (D-16). NO live HTTP probe step (no `/tasks/search` curl) — verification is via the probe (Postgres `plainto_tsquery` + Vitest `reverseSearch` test) and the operator's hardware walk in Task 8."
     - "G-14 closed: CompatCheckScreen probe-label rows in hi-IN (and the other 6 non-en locales) render complete Devanagari strings — no clipping. Probe rows wrap to 2 lines when needed (`numberOfLines={2}` + `flexShrink: 1` in row + label-side flex container) so 'सेंसर का सही' renders as 'सेंसर का सही ढंग से काम करना' (or the LLM-translated full form)."
-    - 'G-15 closed: the ''Live preview'' indicator pill — JSX site at RecordingScreen.tsx ~line 1018 (`<Text variant="caption" style={styles.liveLabelText}>`); StyleSheet at ~line 1287 (`liveLabelText`). Fix is at the StyleSheet: `liveLabelText: { color: colors.accent, textAlign: ''center'' }`. The parent `liveBottomCenter` View (~line 1276) already centers via `alignItems: ''center''` + `left: 0, right: 0`; the new `textAlign: ''center''` centers GLYPHS within the pill''s padding. Confirmed visually on hardware in Task 8.'
+    - 'G-15 closed: the ''Live preview'' indicator pill — JSX site at RecordingScreen.tsx ~line 1018 (`<Text variant="caption" style={styles.liveLabelText}>`); StyleSheet at ~line 1293 (`liveLabelText`). Fix is at the StyleSheet: `liveLabelText: { color: colors.accent, textAlign: ''center'' }`. The parent `liveBottomCenter` View (~line 1276) already centers via `alignItems: ''center''` + `left: 0, right: 0`; the new `textAlign: ''center''` centers GLYPHS within the pill''s padding. Confirmed visually on hardware in Task 8.'
     - 'G-16 closed: HomeScreen tile period-chip renders translated. The BUG SITE is `HomeScreen.tsx:tileLabel(named, custom)` at line ~150 — a switch statement with 6 hardcoded English literals (`''today ▾''`, `''yesterday ▾''`, `''this week ▾''`, `''this month ▾''`, `''all time ▾''`, `''custom range ▾''`). Fix: SIX new `home.filter.{today,yesterday,thisWeek,thisMonth,allTime,customRange}` keys carry ONLY the text portion (e.g. `"today"` — NOT `"today ▾"`); the chevron `▾` stays in the JSX/return template (`return ${t(''home.filter.today'')} ▾`) so the chevron stays consistent across locales. The existing `home.filter.*` block in en.json (per the existing `home.filter` dict with `"today": "today ▾"` etc.) is REPLACED with chevron-stripped values (existing keys are owned by this plan — `git diff` will show the 6 values losing their ` ▾` suffix). The switch arms (`case ''today'':` etc.) stay; only the returned literal becomes a `t()`-interpolated string + ` ▾`. `StatCard.tsx` does NOT exist and is NOT touched (per checker BLOCKER 1 — the original plan''s path was wrong). `ContributionTile.tsx` just passes `rangeLabel` through unchanged.'
     - "G-17 closed: TasksScreen category filter chips (TaskCategoryPills) render translated. `TASK_CATEGORY_PILLS` constant in `TaskCategoryPills.tsx` stays as the canonical English enum (it's a route/state value, not a display label), but the `pillLabel(value)` resolver routes each value through new `tasks.category.{cooking|dishwashing|kitchen|cleaning|tidying|laundry|gardening|petCare|homeMaintenance|hobby}` i18n keys plus `tasks.category.all`. 11 new en keys + 7 LLM-regen passes."
     - 'G-18 closed (KEYSTONE): TasksScreen task cards render translated task names + categories + descriptions. Root cause investigated in Task 1 and recorded in 07-16-INVESTIGATION.md — `TasksScreen.tsx:206-207` reads `item.name` + `item.category` directly from the SERVER `/tasks` response (English-only catalog, per I18N-10 + D-16 lock). The fix is a NEW client-side helper `apps/mobile/src/i18n/taskI18n.ts` that exports `localizeTaskName(canonicalEn, locale): string` + `localizeTaskCategory(category, locale): string` + `localizeTaskDescription(canonicalEn, locale): string` — all driven by `TASK_CATALOG_I18N` from `taskCatalog.i18n.ts`. TasksScreen + TaskCard then wrap the server-returned `item.name`/`item.category`/`item.description` through these helpers at the render site. Catalog already carries 86×7 = 602 translated bodies (07-12); this plan wires them to the rendering path.'
@@ -119,7 +119,7 @@ must_haves:
       provides: 'Text element gains `numberOfLines={2}` + `adjustsFontSizeToFit` + `minimumFontScale={0.85}` so Devanagari renders complete (G-26).'
       contains: 'numberOfLines'
     - path: apps/mobile/src/screens/recording/RecordingScreen.tsx
-      provides: 'gatePrompt Text (line ~1090) gains the same overflow-safe props (G-27); liveLabelText StyleSheet block (line ~1287) gains `textAlign: "center"` (G-15). Three call-site edits + one StyleSheet line. (JSX site for the live label is at line ~1018 — the only edit at that line is verifying the existing variant/style ref stays the same; the actual fix is one line down in the StyleSheet block at ~1287.)'
+      provides: 'gatePrompt Text (line ~1090) gains the same overflow-safe props (G-27); liveLabelText StyleSheet block (line ~1293) gains `textAlign: "center"` (G-15). Three call-site edits + one StyleSheet line. (JSX site for the live label is at line ~1018 — the only edit at that line is verifying the existing variant/style ref stays the same; the actual fix is one line down in the StyleSheet block at ~1293.)'
       contains: 'liveLabelText'
     - path: apps/mobile/src/components/HistoryRow.tsx
       provides: 'formatUploadedAt rewritten to use `t("history.row.uploadedAt", { time })` (G-28).'
@@ -201,7 +201,7 @@ must_haves:
 - **WARNING 7:** G-23 fix uses a NEW `TranslatedHeaderTitle` component (function-form `options` DO NOT re-invoke on locale change; locale switch from Profile sheet does not trigger a navigator re-render).
 - **WARNING 9:** G-28 'TODAY' day-header decision MADE — translate via 4 new `history.daySection.*` keys; keep `.toUpperCase()` in `HistoryDayHeader.tsx`.
 - **WARNING 5:** Task 4 split into 3 sub-tasks (4a + 4b + 4c).
-- **WARNING 6:** G-15 line numbers corrected: JSX at ~1018, StyleSheet at ~1287 (the fix is on the StyleSheet line).
+- **WARNING 6:** G-15 line numbers corrected: JSX at ~1018, StyleSheet at ~1293 (the fix is on the StyleSheet line).
 - **WARNING 11:** Phase-6 cosmetic-gaps invariant compares against `5879daf` (cluster HEAD), not `main`.
 - **WARNING 12:** G-22 accessibilityLabel now also translates (only `testID` stays English).
 - **WARNINGs 8, 10**: G-22 enum→display mapping documented; Task 5 ANTHROPIC_API_KEY missing-fallback explicit.
@@ -726,7 +726,7 @@ From apps/mobile/src/screens/recording/RecordingScreen.tsx — Live indicator (G
     </Text>
   </View>
   ```
-- StyleSheet at line ~1287 (THE FIX SITE):
+- StyleSheet at line ~1293 (THE FIX SITE):
   ```typescript
   liveLabelText: { color: colors.accent },
   ```
@@ -761,6 +761,62 @@ The parent `liveBottomCenter` View (line ~1276) ALREADY centers its children via
     - .planning/phases/07-multi-linguality-live-cam-feed/07-12-SUMMARY.md (the catalog body translation that landed; confirm 602 slots populated)
   </read_first>
   <action>
+    **Step 0 — G-13 root-cause probe (BEFORE the G-18 keystone investigation, per checker W-NEW-1).**
+
+    The plan's tentative fix for G-13 is a client-side `EN_TOKEN_ALIASES` map. This step VALIDATES that approach by probing the actual server-side stemmer behavior on the dev DB. If Postgres's `to_tsvector('english', ...)` + `plainto_tsquery('english', q)` (per migration `0008_tasks_name_search_includes_category.sql`) already handles `recyclable → recyclables → recycle` derivational forms via the Snowball English stemmer, then the alias map is solving a phantom bug and the real root cause lives elsewhere (e.g. `reverseSearch.ts` transforming the query in a way that defeats the stemmer, or the search route bypassing `ts_vector` entirely for partial-prefix matches).
+
+    Run BOTH probes (~30s each):
+
+    **Probe 1 — Postgres stemmer probe (decisive).**
+
+    ```bash
+    psql -h localhost -p 5432 -U humyn -d homelander_dev -c \
+      "SELECT plainto_tsquery('english', 'recyclable')::text;"
+    ```
+
+    Expected if the Snowball stemmer works: `'recycl'` (the Snowball stem). Then:
+
+    ```bash
+    psql -h localhost -p 5432 -U humyn -d homelander_dev -c \
+      "SELECT id, name FROM tasks WHERE name_tsv @@ plainto_tsquery('english', 'recyclable') LIMIT 5;"
+    ```
+
+    Expected: returns `'Sorting recyclables'` (id=...).
+
+    **Probe 2 — Mobile reverseSearch probe (the actual code path on device).**
+
+    Construct a small Vitest test that calls `reverseSearch('recyclable', 'en')` and asserts the output ISN'T mangled before forwarding to `/tasks/search`. Specifically: assert `reverseSearch('recyclable', 'en') === 'recyclable'` (the en branch is currently a pass-through at `reverseSearch.ts:53`).
+
+    **Decision matrix (record finding verbatim in `07-16-INVESTIGATION.md`):**
+
+    | Probe 1 (psql) | Probe 2 (reverseSearch) | Likely root cause | Fix path |
+    |---|---|---|---|
+    | Returns 'Sorting recyclables' row | en branch is pass-through | G-13 is REAL but lives in `tasks-search` route's query construction (NOT the stemmer) | Investigate route — STOP, surface to owner |
+    | Returns 'Sorting recyclables' row | en branch MANGLES query | reverseSearch en-branch breaks the query | Fix `reverseSearch.ts` en branch (NOT alias map) |
+    | Returns 0 rows | en branch is pass-through | Server stemmer config or index missing | Investigate index — STOP, surface to owner (D-16 forbids migration) |
+    | Returns 0 rows | en branch MANGLES | Both bugs | Stop and surface |
+
+    **Only if Probe 1 returns the row AND Probe 2 is pass-through is the alias-map approach the wrong fix.** In any other case, the alias map is either harmlessly additive (case 1: routing bug elsewhere; case 4: dual bugs) or actively redundant (case 2: client-side fix at the wrong layer).
+
+    If the probe reveals a different root cause, PAUSE Task 3 and surface to the orchestrator/owner before continuing. Do NOT proceed with the alias-map approach if the probe says it solves the wrong problem.
+
+    **If the probe CONFIRMS the alias map is needed** (e.g. Probe 1 returns the row, Probe 2 is pass-through, but some unrelated routing bug means the server doesn't actually match — and the alias map provides a stop-gap until the routing bug is fixed):
+
+    Expand `EN_TOKEN_ALIASES` from 4 entries to a curated set covering ≥10 derivational families across the 86-task catalog:
+
+    - `recyclable / recyclables / recycle / recycling → 'recyclables'`
+    - `dishes / dishwashing / washing dishes → 'dishwashing'`
+    - `fold / folds / folded / folding → 'folding'`
+    - `slice / slices / sliced / slicing → 'slicing'`
+    - `chop / chops / chopped / chopping → 'chopping'`
+    - `peel / peels / peeled / peeling → 'peeling'`
+    - `dice / dices / diced / dicing → 'dicing'`
+    - `cook / cooks / cooked / cooking → 'cooking'`
+    - `brew / brews / brewed / brewing → 'brewing'`
+    - `clean / cleans / cleaned / cleaning → 'cleaning'`
+
+    Cite each from a task name in `taskCatalog.i18n.ts` so the map stays grounded in the actual catalog (no speculative entries). The expanded list lands in Task 3's EOF append per the canonical-Path-B implementation.
+
     1. **Confirm the catalog has the data.** Run:
        ```bash
        grep -n "खाना पकाना\|Sorting recyclables\|कचरा\|Folding towels" apps/mobile/src/i18n/taskCatalog.i18n.ts | head -10
@@ -1008,13 +1064,13 @@ The parent `liveBottomCenter` View (line ~1276) ALREADY centers its children via
   <read_first>
     - .planning/phases/07-multi-linguality-live-cam-feed/07-CONTEXT.md D-14 + D-15 + D-16 (3-stage reverse search; catalog as source of truth; NO backend changes)
     - .planning/REQUIREMENTS.md line 290 (I18N-10 — backend ts_vector stays English-only; client reverse-maps locale text to English)
-    - apps/mobile/src/i18n/reverseSearch.ts full file (the existing 3-stage chain; line 54 — the en early-return)
+    - apps/mobile/src/i18n/reverseSearch.ts full file (the existing 3-stage chain; line 53 — the en early-return)
     - apps/mobile/src/i18n/taskCatalog.i18n.ts lines 6486-6561 (the normalizeForReverseSearch + buildReverseMaps functions + REVERSE_BY_LOCALE export — and the end of the file where the new EN_TOKEN_ALIASES export will append)
     - apps/mobile/src/services/tasksApi.ts lines 74-80 (the reverseSearch call site BEFORE the network call)
     - grep for "recyclable" in `apps/mobile/src/i18n/taskCatalog.i18n.ts` to confirm the canonical task name "Sorting recyclables" and the en-side tokens already produced by `buildReverseMaps`
   </read_first>
   <behavior>
-    - **Root cause (per checker BLOCKER 3 + 4 — recommended decision):** the operator typed `"recyclable"` in the en locale. For en, `reverseSearch.ts:54` returns the input verbatim (`if (locale === 'en') return input;`). The English query `"recyclable"` then hits the server, which doesn't match the indexed `"recyclables"` (different derivational form).
+    - **Root cause (per checker BLOCKER 3 + 4 — recommended decision):** the operator typed `"recyclable"` in the en locale. For en, `reverseSearch.ts:53` returns the input verbatim (`if (locale === 'en') return input;`). The English query `"recyclable"` then hits the server, which doesn't match the indexed `"recyclables"` (different derivational form).
 
       Per D-16 we CANNOT change the backend. The original revision's algorithmic `EN_STEM_SUFFIXES` was unreliable (broken for 'recycle' — `endsWith('e')` is not in the suffix list, so no strip happens) and had duplicate entries. The checker explicitly recommended the **curated alias map** approach (Path B): more reliable for the 86-task catalog; small curated list; no surprise edge cases.
 
@@ -1055,7 +1111,7 @@ The parent `liveBottomCenter` View (line ~1276) ALREADY centers its children via
       // Top of file, near the existing imports:
       import { EN_TOKEN_ALIASES } from './taskCatalog.i18n';
 
-      // Replace the existing en early-return (line 54):
+      // Replace the existing en early-return (line 53):
       // OLD: if (locale === 'en') return input;
       // NEW:
       if (locale === 'en') {
@@ -1080,7 +1136,7 @@ The parent `liveBottomCenter` View (line ~1276) ALREADY centers its children via
   <action>
     1. **Append `EN_TOKEN_ALIASES` to `taskCatalog.i18n.ts`** at EOF. Verify the existing 86×8 catalog DATA is byte-identical via `git diff --numstat -- apps/mobile/src/i18n/taskCatalog.i18n.ts` showing `+N\t0\t` (N added lines, 0 deleted) per checker NOTE 15.
 
-    2. **Modify `reverseSearch.ts` line 54** to consult the alias map for the en branch. Add the `EN_TOKEN_ALIASES` import at the top.
+    2. **Modify `reverseSearch.ts` line 53** to consult the alias map for the en branch. Add the `EN_TOKEN_ALIASES` import at the top.
 
     3. **Add 7 test cases to `taskI18n.test.ts`** (the file Task 2 created). Run the test suite; confirm exit 0 + new tests PASS.
 
@@ -1103,7 +1159,7 @@ The parent `liveBottomCenter` View (line ~1276) ALREADY centers its children via
   <acceptance_criteria>
     - `grep -c "EN_TOKEN_ALIASES" apps/mobile/src/i18n/reverseSearch.ts` returns at least 1.
     - `grep -c "export const EN_TOKEN_ALIASES" apps/mobile/src/i18n/taskCatalog.i18n.ts` returns 1.
-    - `reverseSearch.ts:54` no longer reads `if (locale === 'en') return input;` verbatim — the en branch now goes through the alias map.
+    - `reverseSearch.ts:53` no longer reads `if (locale === 'en') return input;` verbatim — the en branch now goes through the alias map.
     - `grep -c "if (locale === 'en') return input;" apps/mobile/src/i18n/reverseSearch.ts` returns 0.
     - The 7 new test cases in `taskI18n.test.ts` PASS.
     - `git diff --stat apps/api/` empty (D-16 invariant).
@@ -1260,6 +1316,23 @@ The parent `liveBottomCenter` View (line ~1276) ALREADY centers its children via
 
   </behavior>
   <action>
+    0. **Check whether existing flat `history.emptyHeading` / `history.emptyBody` keys are still referenced** (per checker N-NEW-1).
+
+       Run:
+
+       ```bash
+       grep -rn "history\.emptyHeading\|history\.emptyBody" apps/mobile/src/
+       ```
+
+       Note: a literal grep for `style={styles.emptyHeading}` will match — those are CSS class names, NOT i18n keys. Filter to actual `t(...)` consumers only:
+
+       ```bash
+       grep -rn "t(['\"]history\.emptyHeading\|t(['\"]history\.emptyBody" apps/mobile/src/
+       ```
+
+       - **If 0 callers** (expected — planner-time grep confirmed the HistoryScreen empty-state strings are currently hardcoded English literals, NOT yet routed through these keys): REMOVE both `history.emptyHeading` + `history.emptyBody` keys from `en.json` (lines ~220-221) before adding the new structured `history.empty.{firstTime,filtered}.{heading,body,cta}` keys. The Task 5 LLM regen will drop them from the 7 non-en catalogs automatically. This avoids dead keys.
+       - **If callers exist:** leave the flat keys in place AND add the new structured keys alongside. Document the divergence in a JSON comment-style note in the en.json (or `07-16-INVESTIGATION.md`).
+
     1. **Extend en.json** with the new keys per the behavior block. Use `jq` or hand-edit; keep the existing structure intact (don't reorder existing keys; the `history.filter.*` block stays untouched).
 
     2. **Wire HistoryScreen.tsx empty-states** (G-20).
@@ -1439,6 +1512,8 @@ The parent `liveBottomCenter` View (line ~1276) ALREADY centers its children via
     - **Owner-deviation re-check:** the regen MUST NOT translate API constants, codec strings, encoder field names, or the canonical `tasks.category.*` ENUM VALUES (e.g. the value `'Cooking'` in the en.json `tasks.category.cooking` IS the English display label, but the FEEDBACK_CATEGORIES values `'app-crashed'` etc. STAY English in the enum — the i18n keys for them are display-only). The vernacular brief from 07-02 already handles this correctly.
   </behavior>
   <action>
+    **Note (per checker N-NEW-2):** Between Tasks 4a / 4b / 4c and this Task 5, `en.json` has gained keys NOT present in the 7 non-en catalogs (and the `home.filter.*` block was REPLACED with chevron-stripped values + renamed `all → allTime`). The `pnpm i18n:validate` shape-parity check WILL FAIL during this intermediate window. **Do NOT run `pnpm i18n:validate` between Tasks 4 and 5** — only run AFTER step 3 below (the regen). Step 3 explicitly re-runs `pnpm i18n:validate` to confirm shape parity is restored across all 8 catalogs.
+
     1. **Confirm `tools/.env` contains `ANTHROPIC_API_KEY=...`** (per checker WARNING 10):
        ```bash
        grep -q "^ANTHROPIC_API_KEY=" tools/.env 2>/dev/null && echo "FOUND" || echo "MISSING"
@@ -1535,7 +1610,7 @@ The parent `liveBottomCenter` View (line ~1276) ALREADY centers its children via
       ```
       AND inspect `styles.row` + `styles.label` for any fixed widths. If `styles.label` has a fixed `width: 200` or similar, change it to `flex: 1` + `flexShrink: 1` so the label can wrap to 2 lines without overflowing the row. Mirror the existing flex pattern in the row's indicator-pill + label arrangement.
 
-    - **G-15 "Live preview" indicator alignment (per WARNING 6 — JSX at line ~1018, StyleSheet at ~1287):**
+    - **G-15 "Live preview" indicator alignment (per WARNING 6 — JSX at line ~1018, StyleSheet at ~1293):**
       JSX at line ~1018 is the consumer:
       ```tsx
       <View style={styles.liveLabelPill}>
@@ -1544,7 +1619,7 @@ The parent `liveBottomCenter` View (line ~1276) ALREADY centers its children via
         </Text>
       </View>
       ```
-      JSX is UNTOUCHED. The fix is at the StyleSheet line ~1287:
+      JSX is UNTOUCHED. The fix is at the StyleSheet line ~1293:
       ```typescript
       liveLabelText: { color: colors.accent },
       ```
@@ -1603,7 +1678,7 @@ The parent `liveBottomCenter` View (line ~1276) ALREADY centers its children via
     2. **Apply the 4 layout/style edits**:
        - `RotatePrompt.tsx` line ~108: add 3 props (G-26).
        - `RecordingScreen.tsx` line ~1090: add 3 props (G-27).
-       - `RecordingScreen.tsx` line ~1287: add `textAlign: 'center'` to `liveLabelText` style (G-15). JSX at ~1018 is UNTOUCHED.
+       - `RecordingScreen.tsx` line ~1293: add `textAlign: 'center'` to `liveLabelText` style (G-15). JSX at ~1018 is UNTOUCHED.
        - `CompatRunningScreen.tsx` line ~285: add 3 props. If `styles.label` has fixed width, change to flex (G-14).
 
     3. **Run the JS test suite** to confirm no regression:
@@ -1740,7 +1815,7 @@ The parent `liveBottomCenter` View (line ~1276) ALREADY centers its children via
 <task type="checkpoint:human-verify" gate="blocking">
   <name>Task 8: Operator-walked FULL 7-locale hardware re-walk on Pixel 10a — close G-13..G-28 visually</name>
   <what-built>
-    Tasks 1-7 shipped: G-18 keystone fix (taskI18n.ts helper wired to TasksScreen + TaskDetailsSheet + RecordingScreen task-name + UniversalRulesBlock), G-13 client-side fix (curated EN_TOKEN_ALIASES map in taskCatalog.i18n.ts + reverseSearch.ts en branch — per checker BLOCKER 3 + 4), 8 t() wires across Tasks 4a/4b/4c (G-16 HomeScreen tileLabel per BLOCKER 1 / G-17 TaskCategoryPills / G-20 HistoryScreen empty / G-21 FilterSheet / G-22 ReportProblemSheet chips with TalkBack-friendly accessibilityLabel per WARNING 12 / G-23 Help Center via TranslatedHeaderTitle per WARNING 7 / G-24 SendRequestSheet / G-28 HistoryRow + historyGrouping day-section names per WARNING 9), 7 LLM-regen non-en catalogs, 4 Devanagari overflow + alignment fixes (G-14/15/26/27 — CompatCheck label / Live indicator StyleSheet line ~1287 per WARNING 6 / RotatePrompt / hand-gate prompt), fresh APK on Pixel 10a, all 6 invariants green (Phase-6 cosmetic-gaps invariant uses `5879daf` cluster-HEAD base per WARNING 11).
+    Tasks 1-7 shipped: G-18 keystone fix (taskI18n.ts helper wired to TasksScreen + TaskDetailsSheet + RecordingScreen task-name + UniversalRulesBlock), G-13 client-side fix (curated EN_TOKEN_ALIASES map in taskCatalog.i18n.ts + reverseSearch.ts en branch — per checker BLOCKER 3 + 4), 8 t() wires across Tasks 4a/4b/4c (G-16 HomeScreen tileLabel per BLOCKER 1 / G-17 TaskCategoryPills / G-20 HistoryScreen empty / G-21 FilterSheet / G-22 ReportProblemSheet chips with TalkBack-friendly accessibilityLabel per WARNING 12 / G-23 Help Center via TranslatedHeaderTitle per WARNING 7 / G-24 SendRequestSheet / G-28 HistoryRow + historyGrouping day-section names per WARNING 9), 7 LLM-regen non-en catalogs, 4 Devanagari overflow + alignment fixes (G-14/15/26/27 — CompatCheck label / Live indicator StyleSheet line ~1293 per WARNING 6 / RotatePrompt / hand-gate prompt), fresh APK on Pixel 10a, all 6 invariants green (Phase-6 cosmetic-gaps invariant uses `5879daf` cluster-HEAD base per WARNING 11).
 
     **Operator directive (verbatim, 2026-05-26 17:30 IST):** "i want to do full deep walk, skip nothing. You run the commands, handle the builds, etc. I will only interact with the device." — this task implements that directive.
 
@@ -1870,7 +1945,7 @@ The parent `liveBottomCenter` View (line ~1276) ALREADY centers its children via
 
 - **G-13 closed:** client-side curated EN_TOKEN_ALIASES map (recyclable / recyclables / recycle / recycling → recyclables) — verified via Vitest + the operator's hardware walk. NO live HTTP probe (per checker BLOCKER 3). Backend `/tasks/search` untouched (D-16).
 - **G-14 closed:** CompatCheck probe-label rows allow 2-line wrap + auto-shrink; Devanagari renders complete.
-- **G-15 closed:** "Live preview" pill text center-aligned within the pill (StyleSheet fix at ~line 1287 per WARNING 6; JSX at ~line 1018 unchanged).
+- **G-15 closed:** "Live preview" pill text center-aligned within the pill (StyleSheet fix at ~line 1293 per WARNING 6; JSX at ~line 1018 unchanged).
 - **G-16 closed:** HomeScreen `tileLabel(named, custom, t)` routes 6 hardcoded literals through `t('home.filter.<named>')`; chevron `▾` stays in JSX template; `StatCard.tsx` does NOT exist and is NOT touched (per BLOCKER 1).
 - **G-17 closed:** TaskCategoryPills route 11 enum values through `tasks.category.*` keys.
 - **G-18 closed (KEYSTONE):** TasksScreen task cards render translated name + category via new `taskI18n.ts` helpers driven by TASK_CATALOG_I18N (the 602 LLM translations from 07-12 finally connect to the rendering path).
