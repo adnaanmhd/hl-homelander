@@ -62,7 +62,11 @@ const QUICK_OPTIONS: ReadonlyArray<{ value: NamedRange | 'custom-pick'; labelKey
   { value: 'all', labelKey: 'history.filter.allTime' },
   // `Custom range` is a navigation action (push to 16b), not a value the
   // sheet commits on tap — distinguished here by 'custom-pick'.
-  { value: 'custom-pick', labelKey: 'history.filter.customRange' },
+  // G-21 (Plan 07-17): the key was renamed from `customRange` (string) to
+  // `customRangeChip` (string) so the sibling `customRange` slot can hold the
+  // new sub-sheet's 9-sub-key object. Same English value (`Custom range`);
+  // schema-breaking child rename only.
+  { value: 'custom-pick', labelKey: 'history.filter.customRangeChip' },
 ];
 
 export interface FilterSheetProps {
@@ -282,6 +286,10 @@ function Layer16b({
   onCancel: () => void;
   onApply: () => void;
 }): React.JSX.Element {
+  // G-21 (Plan 07-17): every visible string in the Custom-range sub-sheet
+  // routes through `t('history.filter.customRange.*')`. The 9 sub-keys live
+  // in en.json alongside the existing base-sheet `history.filter.*` block.
+  const { t } = useTranslation();
   // Plan 06-12 follow-on (Finding 5) — picker visibility for each leg.
   // Android's native picker is a one-shot modal; we mount the component
   // conditionally and unmount it on `onChange` (the user either picked a
@@ -291,18 +299,18 @@ function Layer16b({
   const maxDate = new Date();
 
   let errorText: string | null = null;
-  if (error === 'missing') errorText = 'Pick both dates.';
-  else if (error === 'inverted') errorText = '"From" date must be before "To" date.';
-  else if (error === 'future') errorText = "Dates can't be in the future.";
+  if (error === 'missing') errorText = t('history.filter.customRange.errorMissing');
+  else if (error === 'inverted') errorText = t('history.filter.customRange.errorInverted');
+  else if (error === 'future') errorText = t('history.filter.customRange.errorFuture');
 
   return (
     <View accessibilityLabel="filter-sheet-16b">
       <Text variant="sheetTitle" style={styles.title16b}>
-        Custom range
+        {t('history.filter.customRange.title')}
       </Text>
       <ScrollView style={styles.formScroll} keyboardShouldPersistTaps="handled">
         <Text variant="formLabel" style={styles.formLabel}>
-          FROM
+          {t('history.filter.customRange.from')}
         </Text>
         <RNPressable
           accessibilityLabel="filter-custom-from"
@@ -314,7 +322,7 @@ function Layer16b({
             variant="body"
             style={from.length === 0 ? styles.inputPlaceholder : styles.inputValue}
           >
-            {from.length > 0 ? from : 'Pick a date'}
+            {from.length > 0 ? from : t('history.filter.customRange.placeholder')}
           </Text>
         </RNPressable>
         {showFromPicker ? (
@@ -331,7 +339,7 @@ function Layer16b({
           />
         ) : null}
         <Text variant="formLabel" style={styles.formLabel}>
-          TO
+          {t('history.filter.customRange.to')}
         </Text>
         <RNPressable
           accessibilityLabel="filter-custom-to"
@@ -343,7 +351,7 @@ function Layer16b({
             variant="body"
             style={to.length === 0 ? styles.inputPlaceholder : styles.inputValue}
           >
-            {to.length > 0 ? to : 'Pick a date'}
+            {to.length > 0 ? to : t('history.filter.customRange.placeholder')}
           </Text>
         </RNPressable>
         {showToPicker ? (
@@ -371,8 +379,19 @@ function Layer16b({
           onPress={onCancel}
           style={styles.btnOutline}
         >
-          <Text variant="btnLabel" style={styles.btnOutlineLabel}>
-            Cancel
+          {/* G-22 (Plan 07-17): inline overflow guards. FilterSheet
+              Custom-range Cancel/Apply use raw <Pressable>+<Text>, NOT the
+              shared Button primitive (grep -c "<Button" FilterSheet.tsx = 0),
+              so the Task 3 Button primitive change does not propagate here.
+              Same guard triplet so hi-IN `रद्द करें` renders identically. */}
+          <Text
+            variant="btnLabel"
+            style={styles.btnOutlineLabel}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >
+            {t('history.filter.customRange.cancel')}
           </Text>
         </Pressable>
         <Pressable
@@ -381,8 +400,15 @@ function Layer16b({
           style={canApply ? styles.btnPrimary : styles.btnPrimaryDisabled}
           disabled={!canApply}
         >
-          <Text variant="btnLabel" style={styles.btnPrimaryLabel}>
-            Apply
+          {/* G-22 (Plan 07-17): inline overflow guards — see Cancel comment above. */}
+          <Text
+            variant="btnLabel"
+            style={styles.btnPrimaryLabel}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >
+            {t('history.filter.customRange.apply')}
           </Text>
         </Pressable>
       </View>

@@ -21,7 +21,10 @@ describe('FilterSheet — Plan 07-16 G-21 (i18n)', () => {
     expect(enJson.history.filter.thisWeek).toBe('This week');
     expect(enJson.history.filter.thisMonth).toBe('This month');
     expect(enJson.history.filter.allTime).toBe('All time');
-    expect(enJson.history.filter.customRange).toBe('Custom range');
+    // Plan 07-17 G-21: the base-sheet chip label was renamed from
+    // `customRange` (string) to `customRangeChip` so the new `customRange`
+    // slot can hold the Custom-range sub-sheet's 9-sub-key object.
+    expect((enJson.history.filter as Record<string, unknown>).customRangeChip).toBe('Custom range');
     expect(enJson.history.filterSheet.title).toBe('Filter by');
   });
 

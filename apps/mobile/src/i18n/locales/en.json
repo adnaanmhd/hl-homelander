@@ -258,7 +258,18 @@
       "yesterday": "Yesterday",
       "thisWeek": "This week",
       "thisMonth": "This month",
-      "customRange": "Custom range"
+      "customRangeChip": "Custom range",
+      "customRange": {
+        "title": "Custom range",
+        "from": "FROM",
+        "to": "TO",
+        "placeholder": "Pick a date",
+        "errorMissing": "Pick both dates.",
+        "errorInverted": "\"From\" date must be before \"To\" date.",
+        "errorFuture": "Dates can't be in the future.",
+        "cancel": "Cancel",
+        "apply": "Apply"
+      }
     },
     "filterSheet": {
       "title": "Filter by"
@@ -271,7 +282,8 @@
       "firstTime": {
         "heading": "Your recordings will live here.",
         "body": "You haven't recorded anything yet.",
-        "cta": "Pick a task"
+        "cta": "Pick a task",
+        "bodyTail": " and try one."
       },
       "filtered": {
         "heading": "No recordings in this range.",
