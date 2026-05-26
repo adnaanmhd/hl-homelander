@@ -53,6 +53,7 @@ import React, { useMemo } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import Text from '../ui/primitives/Text';
 import { Pressable } from '../ui/primitives/Pressable';
 import { colors, radii, spacing, typography } from '../ui/tokens';
@@ -281,7 +282,7 @@ function metaDateLine(createdAtIso: string, durationMs: number): string {
  * `t('history.row.uploadedAt', { time: 'HH:MM' })` so the prefix translates
  * per active locale; the time component stays in 24h Latin numerals (date
  * Intl-locale formatting is deferred per the I18N-09 drop). */
-function uploadedAtLabel(row: HistoryRowItem, t: (key: string, opts?: object) => string): string {
+function uploadedAtLabel(row: HistoryRowItem, t: TFunction): string {
   const iso = row.verifiedAtIso ?? row.createdAt;
   const d = new Date(iso);
   if (!Number.isFinite(d.getTime())) return t('uploadChip.success', { defaultValue: 'Uploaded' });
