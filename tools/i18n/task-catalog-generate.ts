@@ -390,13 +390,20 @@ function formatStringArray(arr: string[], baseIndent: number): string {
 
 // ---------------------------------------------------------------------------
 // LLM call wrapper (per locale).
+//
+// Uses the streaming API per Anthropic's "long requests" rule: any single
+// completion that may exceed 10 minutes MUST stream. An 86-task body
+// translation into Devanagari/Tamil/Telugu/Bengali/Marathi produces ~20-40 KB
+// of high-bytes-per-token output and reliably runs past the 10-min cap on
+// the non-streaming endpoint. We aggregate the streamed text deltas back
+// into a single string and then validate the same way as a one-shot call.
 // ---------------------------------------------------------------------------
 export async function generateTaskCatalogLocale(
   client: Anthropic,
   loc: TargetLocale,
   enCatalog: Record<string, TaskBody>,
 ): Promise<Record<string, TaskBody>> {
-  const response = await client.messages.create({
+  const stream = client.messages.stream({
     model: MODEL_ID,
     max_tokens: MAX_TOKENS,
     system: TASK_VERNACULAR_BRIEF,
@@ -410,7 +417,11 @@ export async function generateTaskCatalogLocale(
       },
     ],
   });
-  const text = response.content
+  // finalMessage() resolves once the stream completes; we then pull the text
+  // content out of the assembled message (same shape as the non-streaming
+  // response.content).
+  const message = await stream.finalMessage();
+  const text = message.content
     .filter((b: { type: string }) => b.type === 'text')
     .map((b: { type: string; text?: string }) => b.text ?? '')
     .join('');
