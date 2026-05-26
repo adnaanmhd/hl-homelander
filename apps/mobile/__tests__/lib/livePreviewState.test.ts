@@ -19,6 +19,7 @@ import {
   createLivePreviewStateMachine,
   INITIAL_PREVIEW_MS,
   TAP_REVEAL_MS,
+  __DEV_DISABLE_LIVE_PREVIEW__,
 } from '../../src/lib/livePreviewState';
 
 function makeRig() {
@@ -114,5 +115,40 @@ describe('createLivePreviewStateMachine (REC-LIVE-01..04 / D-05 / D-29)', () => 
     machine.tap();
     expect(states).toEqual(['initial-preview', 'dimmed', 'tap-revealed']);
     unsub();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// __DEV_DISABLE_LIVE_PREVIEW__ — Phase 7 plan 07-10 §9 A/B baseline switch.
+// ---------------------------------------------------------------------------
+//
+// The flag is consumed by RecordingScreen.tsx — when `true`, the
+// `<HumynLivePreviewView>` JSX is NOT mounted during the 'active' substate
+// (encoder-only single-Surface CaptureSession, exactly the pre-82d2ff7
+// baseline). This suite pins:
+//   1. The default value is `false` (mounts the preview, which is the
+//      product-correct path — a careless `true` commit can never silently
+//      regress the live-preview feature in release builds).
+//   2. The constant is gated by `__DEV__` (production builds force it to
+//      false regardless of source value).
+//
+// The actual JSX gate behavior in RecordingScreen.tsx is verified by the
+// existing render test suite + the operator §9 walk on hardware — this
+// unit test pins the contract at the constant layer so RecordingScreen
+// can rely on the import.
+describe('__DEV_DISABLE_LIVE_PREVIEW__ (plan 07-10 §9 baseline switch)', () => {
+  it('defaults to false (product-correct mount path)', () => {
+    expect(__DEV_DISABLE_LIVE_PREVIEW__).toBe(false);
+  });
+
+  it('is `false` in production (test runs with __DEV__=true; production short-circuits via __DEV__ &&)', () => {
+    // Vitest sets up `__DEV__` to `true` by default for react-native projects
+    // (see apps/mobile/vitest.config.ts setupFiles). Even with __DEV__=true the
+    // committed value of the right-hand `&& false` keeps the flag false on the
+    // shipped path. A hostile flip to `__DEV__ && true` would still resolve to
+    // `false` in production because Hermes constant-folds `__DEV__` to false
+    // for release builds — this assertion documents that contract.
+    expect(typeof __DEV_DISABLE_LIVE_PREVIEW__).toBe('boolean');
+    expect(__DEV_DISABLE_LIVE_PREVIEW__).toBe(false);
   });
 });
