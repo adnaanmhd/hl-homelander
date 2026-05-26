@@ -159,12 +159,12 @@
     },
     "viewAllMore": "+{{count}} more — tap to view all",
     "filter": {
-      "today": "today ▾",
-      "yesterday": "yesterday ▾",
-      "thisWeek": "this week ▾",
-      "thisMonth": "this month ▾",
-      "all": "all time ▾",
-      "customRange": "custom range ▾"
+      "today": "today",
+      "yesterday": "yesterday",
+      "thisWeek": "this week",
+      "thisMonth": "this month",
+      "allTime": "all time",
+      "customRange": "custom range"
     },
     "tile": {
       "taskCount_one": "1 task",

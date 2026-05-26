@@ -146,26 +146,36 @@ function chipVariantFor(row: UploadQueueRow): UploadStatusChipVariant {
   }
 }
 
-/** Build the lowercase chevron-down label per UI-SPEC §Tile filter labels (§9c). */
-function tileLabel(named: NamedRange, custom: { start: string; end: string } | null): string {
+/** Build the lowercase chevron-down label per UI-SPEC §Tile filter labels (§9c).
+ *
+ * G-16 (Plan 07-16): the 6 named-range labels route through i18n.t() instead
+ * of hardcoded English literals; the chevron `▾` stays in the JSX template so
+ * the glyph stays consistent across locales (per checker BLOCKER 1). The
+ * custom-pick date-range branch keeps its Latin month-abbreviation form V1 —
+ * Intl-locale formatting is deferred per the I18N-09 drop. */
+function tileLabel(
+  named: NamedRange,
+  custom: { start: string; end: string } | null,
+  t: (key: string) => string,
+): string {
   switch (named) {
     case 'today':
-      return 'today ▾';
+      return `${t('home.filter.today')} ▾`;
     case 'yesterday':
-      return 'yesterday ▾';
+      return `${t('home.filter.yesterday')} ▾`;
     case 'this-week':
-      return 'this week ▾';
+      return `${t('home.filter.thisWeek')} ▾`;
     case 'this-month':
-      return 'this month ▾';
+      return `${t('home.filter.thisMonth')} ▾`;
     case 'all':
-      return 'all time ▾';
+      return `${t('home.filter.allTime')} ▾`;
     case 'custom': {
-      if (custom == null) return 'custom range ▾';
+      if (custom == null) return `${t('home.filter.customRange')} ▾`;
       // "Apr 30 – May 6 ▾" — en-dash + space padding per UI-SPEC.
       const start = new Date(`${custom.start}T00:00:00`);
       const end = new Date(`${custom.end}T00:00:00`);
       if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
-        return 'custom range ▾';
+        return `${t('home.filter.customRange')} ▾`;
       }
       const startLbl = `${MONTH_ABBR[start.getMonth()]} ${start.getDate()}`;
       const endLbl = `${MONTH_ABBR[end.getMonth()]} ${end.getDate()}`;
@@ -393,7 +403,7 @@ export default function HomeScreen(): React.JSX.Element {
     navigation.navigate('MainTabs', { screen: 'Tasks' });
   }, [navigation]);
 
-  const rangeChip = tileLabel(homeRange, homeRangeCustom);
+  const rangeChip = tileLabel(homeRange, homeRangeCustom, t);
   const tileDurationText = formatDuration(Math.floor(aggregate.durationMs / 1000));
   // Plan 06-12 Finding 14 — the duration tile self-discloses its unit
   // ("0s" / "47m" / "1h 12m" from formatDuration); the task-count tile

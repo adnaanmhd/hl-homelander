@@ -14,11 +14,17 @@
 // NO hex literals — every value bound to `../ui/tokens`.
 import React from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Text } from '../ui/primitives/Text';
 import { Pressable } from '../ui/primitives/Pressable';
 import { colors, spacing, radii } from '../ui/tokens';
 
-/** The fixed pill order — 'all' sentinel + 10 taxonomy categories (UI-SPEC §10). */
+/** The fixed pill order — 'all' sentinel + 10 taxonomy categories (UI-SPEC §10).
+ *
+ * The const STAYS as the canonical English enum (it's the state value
+ * forwarded to the server via /tasks/list category param). The display label
+ * is resolved at render time via `pillLabel(value, t)` against the
+ * `tasks.category.*` i18n keys — see G-17 closure, Plan 07-16. */
 export const TASK_CATEGORY_PILLS = [
   'all',
   'Cooking',
@@ -41,15 +47,32 @@ export interface TaskCategoryPillsProps {
   onSelect: (value: TaskCategoryPill) => void;
 }
 
-/** Label resolver — 'all' renders as 'All', everything else verbatim. */
-function pillLabel(value: TaskCategoryPill): string {
-  return value === 'all' ? 'All' : value;
+/** Map pill value → i18n key. KEEP IN SYNC with `taskI18n.ts localizeTaskCategory`. */
+const PILL_LABEL_KEY: Record<TaskCategoryPill, string> = {
+  all: 'tasks.category.all',
+  Cooking: 'tasks.category.cooking',
+  Dishwashing: 'tasks.category.dishwashing',
+  Kitchen: 'tasks.category.kitchen',
+  Cleaning: 'tasks.category.cleaning',
+  Tidying: 'tasks.category.tidying',
+  Laundry: 'tasks.category.laundry',
+  Gardening: 'tasks.category.gardening',
+  'Pet Care': 'tasks.category.petCare',
+  'Home Maintenance': 'tasks.category.homeMaintenance',
+  Hobby: 'tasks.category.hobby',
+};
+
+/** Label resolver — routes through the active locale's `tasks.category.*` key. */
+function pillLabel(value: TaskCategoryPill, t: (key: string) => string): string {
+  const key = PILL_LABEL_KEY[value];
+  return t(key);
 }
 
 export function TaskCategoryPills({
   selected,
   onSelect,
 }: TaskCategoryPillsProps): React.JSX.Element {
+  const { t } = useTranslation();
   return (
     <View accessibilityLabel="task-category-pills" style={styles.wrap}>
       <ScrollView
@@ -69,7 +92,7 @@ export function TaskCategoryPills({
               style={active ? styles.pillActive : styles.pill}
             >
               <Text variant="pillLabel" style={active ? styles.labelActive : styles.label}>
-                {pillLabel(value)}
+                {pillLabel(value, t)}
               </Text>
             </Pressable>
           );
