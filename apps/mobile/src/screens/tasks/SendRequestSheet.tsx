@@ -331,9 +331,18 @@ export function SendRequestSheet({
                 onPress={() => setSetting('indoor')}
                 style={setting === 'indoor' ? styles.segmentedActive : styles.segmented_}
               >
+                {/* G-24 (Plan 07-17): overflow guards. The hi-IN values
+                    `घर के अंदर` / `घर के बाहर` share the prefix `घर के`;
+                    without auto-shrink, the truncated tail clipped at the
+                    same point producing a visual "collision" (operator
+                    2026-05-26 8.png). Values ARE distinct; the bug was
+                    truncation, not a key collision. */}
                 <Text
                   variant="pillLabel"
                   style={setting === 'indoor' ? styles.segmentedLabelActive : styles.segmentedLabel}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.75}
                 >
                   {t('tasks.setting.indoor')}
                 </Text>
@@ -349,6 +358,9 @@ export function SendRequestSheet({
                   style={
                     setting === 'outdoor' ? styles.segmentedLabelActive : styles.segmentedLabel
                   }
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.75}
                 >
                   {t('tasks.setting.outdoor')}
                 </Text>

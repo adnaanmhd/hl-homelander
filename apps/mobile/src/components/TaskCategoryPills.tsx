@@ -91,7 +91,16 @@ export function TaskCategoryPills({
               onPress={() => onSelect(value)}
               style={active ? styles.pillActive : styles.pill}
             >
-              <Text variant="pillLabel" style={active ? styles.labelActive : styles.label}>
+              {/* G-17 (Plan 07-17): overflow guards on the pill Text. Hindi
+                  bold-active glyphs (`घर का रखरखाव` etc.) clipped against the
+                  pill's fixed width; auto-shrink to 75% rescues. */}
+              <Text
+                variant="pillLabel"
+                style={active ? styles.labelActive : styles.label}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+              >
                 {pillLabel(value, t)}
               </Text>
             </Pressable>
@@ -113,12 +122,19 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.xl,
+    // G-17 (Plan 07-17): extra right padding so the rightmost pill
+    // (e.g. `बागवानी` on hi-IN) doesn't clip at the screen edge during
+    // scroll (operator 2026-05-26 7.png evidence).
+    paddingRight: spacing.xl + spacing.m,
     gap: spacing.m,
     flexDirection: 'row',
   },
   pill: {
     paddingVertical: 9,
-    paddingHorizontal: spacing.l,
+    // G-17 (Plan 07-17): reduced from spacing.l → spacing.m (~10% more
+    // horizontal slack inside the pill) so the active-bold variant's wider
+    // glyphs don't push the label past the pill width.
+    paddingHorizontal: spacing.m,
     borderRadius: radii.pill,
     borderWidth: 1.5,
     borderColor: colors.line,
@@ -126,7 +142,7 @@ const styles = StyleSheet.create({
   },
   pillActive: {
     paddingVertical: 9,
-    paddingHorizontal: spacing.l,
+    paddingHorizontal: spacing.m, // G-17 (Plan 07-17) — see `pill` above
     borderRadius: radii.pill,
     borderWidth: 1.5,
     borderColor: colors.text,

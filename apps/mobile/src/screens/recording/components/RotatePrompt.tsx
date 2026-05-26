@@ -111,13 +111,18 @@ export function RotatePrompt(): React.JSX.Element {
       {/* [07-11] Moved to i18n catalog under recording.rotatePrompt.
           G-26 (Plan 07-16): allow Devanagari + Bengali + Tamil + Telugu +
           Marathi to wrap to 2 lines + auto-shrink. RN-Text props only — no
-          new design tokens; the recording-caption variant is untouched. */}
+          new design tokens; the recording-caption variant is untouched.
+          G-26 (Plan 07-17): lowered `minimumFontScale` from 0.85 to 0.75 to
+          handle the longest Devanagari/Indic rotate-prompt forms (operator
+          2026-05-26 hi-IN walk: 0.85 floor still clipped). The wrap also
+          gains paddingHorizontal so it has horizontal slack against the
+          parent's flex constraints. */}
       <Text
         variant="caption"
         style={styles.body}
         numberOfLines={2}
         adjustsFontSizeToFit
-        minimumFontScale={0.85}
+        minimumFontScale={0.75}
       >
         {t('recording.rotatePrompt')}
       </Text>
@@ -126,7 +131,13 @@ export function RotatePrompt(): React.JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.l },
+  wrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.l,
+    paddingHorizontal: spacing.l,
+  },
   body: { color: colors.recTextCaption, textAlign: 'center' },
 });
 

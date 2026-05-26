@@ -1009,7 +1009,18 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
       {state.substate === 'active' && brightnessState === 'dimmed' ? (
         <View style={styles.liveBottomCenter} pointerEvents="none">
           <Icon name="Eye" size={24} color={colors.accent} />
-          <Text variant="caption" style={styles.liveEyeHint}>
+          {/* G-15 (Plan 07-17): the operator's hi-IN walk surfaced this Text
+              (the "Tap screen to preview" hint, distinct from the sibling
+              `liveLabelText` 07-16 fixed) as truncating to "...टैप" on the
+              Devanagari value. Adds the same overflow-guard triplet so the
+              hint wraps to 2 lines + auto-shrinks. */}
+          <Text
+            variant="caption"
+            style={styles.liveEyeHint}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+          >
             {t('recording.preview.tapToReveal')}
           </Text>
         </View>
@@ -1093,13 +1104,20 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
             />
             {/* G-27 (Plan 07-16): allow Devanagari + Bengali + Tamil + Telugu +
                 Marathi to wrap to 2 lines + auto-shrink. RN-Text props only —
-                the recGatePrompt variant is untouched. */}
+                the recGatePrompt variant is untouched.
+                G-27 (Plan 07-17): override variant lineHeight inline; do NOT
+                modify ui/tokens.ts:recGatePrompt (consumed by other call
+                sites). The variant's lineHeight:24 on fontSize:17 renders ~141%
+                leading → visible vertical gap when wrapping to 2 lines (the
+                operator's hi-IN walk caught this). Inline lineHeight:20 ≈ 118%
+                leading, more compact. minimumFontScale lowered to 0.75 to
+                handle the longest Devanagari/Indic gate-prompt forms. */}
             <Text
               variant="recGatePrompt"
-              style={styles.gatePrompt}
+              style={[styles.gatePrompt, { lineHeight: 20 }]}
               numberOfLines={2}
               adjustsFontSizeToFit
-              minimumFontScale={0.85}
+              minimumFontScale={0.75}
             >
               {t('recording.gatePrompt')}
             </Text>

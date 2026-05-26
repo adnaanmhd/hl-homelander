@@ -116,9 +116,17 @@ export function ReportProblemSheet({ onClose }: ReportProblemSheetProps): React.
                     accessibilityLabel={label}
                     style={selected ? styles.chipSelected : styles.chip}
                   >
+                    {/* G-22 (Plan 07-17): allow long Devanagari chip labels
+                        (`वीडियो की क्वालिटी में दिक्कत` ~24 chars) to wrap to
+                        2 lines INSIDE the chip rather than overflowing past
+                        its width. Auto-shrink kicks in when 2 lines still
+                        don't fit. */}
                     <Text
                       variant="caption"
                       style={selected ? styles.chipTextSelected : styles.chipText}
+                      numberOfLines={2}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.85}
                     >
                       {label}
                     </Text>
