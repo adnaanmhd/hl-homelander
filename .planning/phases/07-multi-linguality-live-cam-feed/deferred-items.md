@@ -34,3 +34,15 @@ MetadataSchemaConformance / HevcEncoderConfig / RealtimeGate / etc.) PASS.
 
 - soloader interaction (likely a Robolectric SDK or AGP-version mismatch since
   this test pre-dates the recent capture pipeline changes). Not blocking any phase.
+
+## 2026-05-26 — plan 07-13 — RecordingScreen visual baseline drift (out of scope)
+
+Two visual snapshot failures in `apps/mobile/__tests__/visual/RecordingScreen.visual.test.tsx`:
+
+- "recording-active-t05m32s" — 5.40% pixel diff
+- (1 other in the same file — diff PNG at `__tests__/visual/__image_snapshots__/__diff_output__/`)
+
+Pre-existing drift confirmed by reproducing on `HEAD` (before plan 07-13 edits)
+via `git stash --include-untracked` + targeted vitest run. Plan 07-13 touches
+help-center screens only; the RecordingScreen / live preview surface area is
+unrelated. Logged for the wave's verifier or a later baseline-refresh pass.
