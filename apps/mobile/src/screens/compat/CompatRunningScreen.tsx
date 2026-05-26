@@ -282,7 +282,17 @@ export default function CompatRunningScreen() {
                 {glyphFor(rowStates[row.key])}
               </Text>
             </View>
-            <Text variant="body" style={styles.label}>
+            {/* G-14 (Plan 07-16): allow long localized labels to wrap to 2 lines
+                + auto-shrink so Devanagari / Bengali / Tamil / Telugu / Marathi
+                strings ("सेंसर का सही ढंग से काम करना") render complete instead
+                of being truncated at the right edge. */}
+            <Text
+              variant="body"
+              style={styles.label}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+            >
               {t(row.labelKey)}
             </Text>
           </View>
@@ -307,5 +317,8 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
   },
   indicatorGlyph: { color: colors.surface },
-  label: { color: colors.text },
+  // G-14 (Plan 07-16): `flex: 1` + `flexShrink: 1` lets long Devanagari labels
+  // claim the full row width minus the 22 px indicator + 14 px gutter, so the
+  // text can wrap to 2 lines instead of overflowing the row's right edge.
+  label: { color: colors.text, flex: 1, flexShrink: 1 },
 });
