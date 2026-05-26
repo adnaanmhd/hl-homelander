@@ -34,11 +34,14 @@ export interface DaySection<T extends GroupableRow> {
   data: T[];
 }
 
+import i18n from '../i18n';
+
 // Full English month names per 06-UI-SPEC §History day-group header
 // ("{MonthName YYYY}" — e.g. "April 2026"). Kept here rather than relying on
-// `Intl.DateTimeFormat` so the section titles are stable across locales
-// (MVP is English-only per CLAUDE.md "Geos / locale: India + Brazil at MVP,
-// English only. Localization deferred.").
+// `Intl.DateTimeFormat` so the prior-month section titles are stable across
+// locales (Intl-locale formatting is deferred per the I18N-09 drop; the 4
+// named sections — Today / Yesterday / This week / This month — now route
+// through `history.daySection.*` i18n keys per G-28 / WARNING 9).
 const MONTH_NAMES = [
   'January',
   'February',
@@ -91,16 +94,26 @@ export function groupByDay<T extends GroupableRow>(
     buckets[title]!.push(row);
   }
 
+  // G-28 (Plan 07-16 / WARNING 9): the 4 named sections route through
+  // `history.daySection.*` i18n keys. Resolved at grouping time so the
+  // SectionList consumer doesn't need to know about i18n — keeps the
+  // grouper's API surface unchanged. Prior-month sections stay
+  // `{MonthName YYYY}` Latin V1 (Intl-locale formatting deferred per the
+  // I18N-09 drop).
+  const sectionToday = i18n.t('history.daySection.today');
+  const sectionYesterday = i18n.t('history.daySection.yesterday');
+  const sectionThisWeek = i18n.t('history.daySection.thisWeek');
+  const sectionThisMonth = i18n.t('history.daySection.thisMonth');
   for (const r of rows) {
     const d = new Date(r.createdAt);
     if (d >= startOfToday) {
-      push('Today', r);
+      push(sectionToday, r);
     } else if (d >= startOfYesterday) {
-      push('Yesterday', r);
+      push(sectionYesterday, r);
     } else if (d >= startOfWeekCutoff) {
-      push('This week', r);
+      push(sectionThisWeek, r);
     } else if (d >= startOfMonth) {
-      push('This month', r);
+      push(sectionThisMonth, r);
     } else {
       push(`${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`, r);
     }

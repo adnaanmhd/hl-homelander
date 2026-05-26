@@ -537,6 +537,10 @@ export function HistoryScreen(): React.JSX.Element {
 
   const renderEmpty = (): React.JSX.Element => {
     const filterActive = historyRange !== 'all';
+    // G-20 (Plan 07-16): HIST-04 vs HIST-05 empty-state copy now routes
+    // through `history.empty.{firstTime|filtered}.{heading|body|cta}` keys.
+    // The CTA press handlers (onPickTask / onShowAllTime) stay; only the
+    // visible text changes.
     return (
       <View accessibilityLabel="history-empty" style={styles.emptyWrap}>
         <Inbox size={48} strokeWidth={1.75} color={colors.text3} />
@@ -547,7 +551,7 @@ export function HistoryScreen(): React.JSX.Element {
               accessibilityLabel="history-empty-heading"
               style={styles.emptyHeading}
             >
-              No recordings in this range.
+              {t('history.empty.filtered.heading')}
             </Text>
             <Text
               variant="body"
@@ -555,14 +559,14 @@ export function HistoryScreen(): React.JSX.Element {
               accessibilityLabel="history-empty-body"
               style={styles.emptyBody}
             >
-              No recordings in this range.{' '}
+              {t('history.empty.filtered.body')}{' '}
               <Text
                 accessibilityRole="link"
                 accessibilityLabel="history-empty-show-all-time"
                 onPress={onShowAllTime}
                 style={styles.emptyLink}
               >
-                Show all time
+                {t('history.empty.filtered.cta')}
               </Text>
               .
             </Text>
@@ -574,7 +578,7 @@ export function HistoryScreen(): React.JSX.Element {
               accessibilityLabel="history-empty-heading"
               style={styles.emptyHeading}
             >
-              Your recordings will live here.
+              {t('history.empty.firstTime.heading')}
             </Text>
             <Text
               variant="body"
@@ -582,14 +586,15 @@ export function HistoryScreen(): React.JSX.Element {
               accessibilityLabel="history-empty-body"
               style={styles.emptyBody}
             >
-              You haven&apos;t recorded anything yet.{'\n'}
+              {t('history.empty.firstTime.body')}
+              {'\n'}
               <Text
                 accessibilityRole="link"
                 accessibilityLabel="history-empty-pick-a-task"
                 onPress={onPickTask}
                 style={styles.emptyLink}
               >
-                Pick a task
+                {t('history.empty.firstTime.cta')}
               </Text>{' '}
               and try one.
             </Text>

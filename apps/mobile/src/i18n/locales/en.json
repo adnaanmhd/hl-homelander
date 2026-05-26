@@ -239,8 +239,6 @@
   },
   "history": {
     "title": "History",
-    "emptyHeading": "No recordings yet",
-    "emptyBody": "Start your first recording from the Tasks tab.",
     "tabs": {
       "all": "All",
       "verified": "Verified",
@@ -254,6 +252,31 @@
       "thisWeek": "This week",
       "thisMonth": "This month",
       "customRange": "Custom range"
+    },
+    "filterSheet": {
+      "title": "Filter by"
+    },
+    "row": {
+      "uploadedAt": "Uploaded at {{time}}",
+      "feedbackComingSoon": "Feedback (coming soon)"
+    },
+    "empty": {
+      "firstTime": {
+        "heading": "Your recordings will live here.",
+        "body": "You haven't recorded anything yet.",
+        "cta": "Pick a task"
+      },
+      "filtered": {
+        "heading": "No recordings in this range.",
+        "body": "No recordings in this range.",
+        "cta": "Show all time"
+      }
+    },
+    "daySection": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "thisWeek": "This week",
+      "thisMonth": "This month"
     },
     "loadingMore": "Loading more…",
     "endOfList": "End of list"
