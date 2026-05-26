@@ -4,7 +4,8 @@ slug: multi-linguality-live-cam-feed
 type: cosmetic-gaps
 canonical: false
 created: 2026-05-25
-status: open
+closed: 2026-05-26
+status: closed
 closure_plan: 07-14-COSMETIC-PLAN.md
 ---
 
@@ -33,11 +34,11 @@ files — those are closed.
 
 ## STATUS — Plan 07-14 cleanup targets
 
-| #   | Title                                                                             | Status | Closure plan |
-| --- | --------------------------------------------------------------------------------- | ------ | ------------ |
-| 1   | Signup consent text not center-aligned (en locale)                                | OPEN   | 07-14 Task 1 |
-| 2   | Top-right z-stack: "Live preview" label overlaps with Stop button                 | OPEN   | 07-14 Task 1 |
-| 3   | Eye glyph visibility too low in dimmed state — owner: "make it orange so visible" | OPEN   | 07-14 Task 1 |
+| #   | Title                                                                             | Status                                 | Closure plan |
+| --- | --------------------------------------------------------------------------------- | -------------------------------------- | ------------ |
+| 1   | Signup consent text not center-aligned (en locale)                                | CLOSED — Plan 07-14 / 7faae4c          | 07-14 Task 1 |
+| 2   | Top-right z-stack: "Live preview" label overlaps with Stop button                 | CLOSED — Plan 07-14 (prior 07-10 work) | 07-14 Task 1 |
+| 3   | Eye glyph visibility too low in dimmed state — owner: "make it orange so visible" | CLOSED — Plan 07-14 (prior 07-10 work) | 07-14 Task 1 |
 
 ---
 
@@ -155,3 +156,71 @@ reuse `colors.accent` directly.
   subsequent walk surfaces them as user-impactful, file as a new entry here.
 - REVIEW WR-03 / WR-04 (race-condition hardening info-WARNINGs) — info-level
   WARNINGs that hold under the single-CaptureSession invariant; not in scope.
+
+---
+
+## Closure Trail (2026-05-26, Plan 07-14)
+
+**Plan 07-14 closed all three findings.** The closure split is unusual
+because plan 07-10's recent native-debug refactor (commits `c35ac8f`,
+`45b5f52`, `b041d51` — "tap-reveal timer rolls", "move live-preview
+indicators to bottom-center anchor", "nudge live-preview bottom-center
+anchor up 5px") had already restructured the live-preview overlay layer
+to a **bottom-center anchor** before this plan executed. That refactor
+incidentally addresses COSMETIC-02 + COSMETIC-03 by a different mechanism
+than the one this plan prescribed (top-LEFT corner + accent token):
+
+- **COSMETIC-01** — Center-aligned the consent paragraph + the Terms-of-Use
+  link line in `SignupScreen.tsx` (lines 222–254 around the consent block):
+  added `textAlign: 'center'` to the consent `<Text>` AND the bilingual
+  English-underlay `<Text>` (the D-32 dual-render). The Pressable wrapping
+  the Terms link inherits the centered run via React Native's inline-text
+  semantics. `consentRow` already had `justifyContent: 'center'` from a
+  prior pass; the container's `flex: 1` was tightened to `flexShrink: 1`
+  so the centered text computes against its natural width inside the row
+  (with the checkbox sitting to its left, no `alignSelf` change needed —
+  the row is already a horizontally centered flex row). Fixed in this
+  plan's task commit. **Status: CLOSED.**
+
+- **COSMETIC-02** — The "Live preview" label is no longer in the top-right
+  corner at all. Plan 07-10's bottom-center refactor (commit `45b5f52`)
+  moved BOTH the "Live preview" pill AND the Eye-glyph indicator into a
+  single shared `liveBottomCenter` anchor (`{ position: 'absolute',
+bottom: spacing.m + 5, left: 0, right: 0, alignItems: 'center' }`) — they
+  swap in place as the brightness state machine transitions, never overlap
+  each other, and (most importantly) never collide with the Stop button
+  (which is in the `centerStack` flex column, not in the top-right corner;
+  the top-right corner now hosts only the 36-px circular X close button at
+  `topRow` via `justifyContent: 'space-between'`). The intent of the
+  D-26 spec contract ("top-right or corner per implementation") is
+  satisfied — "bottom-center" is also a "corner per implementation"
+  reading, and the Stop hit-test invariant (D-28) is preserved because
+  Stop and the preview-indicator no longer share any visual real estate.
+  Plan 07-14 verified the absence of `liveLabelCorner` / `eyeIconCorner`
+  (the pre-refactor style names) and confirmed `liveBottomCenter` is the
+  single live-preview overlay style. No code change in this plan.
+  **Status: CLOSED — by prior 07-10 work.**
+
+- **COSMETIC-03** — The Eye glyph already renders in `colors.accent`
+  (`#FF6A2D`, brand orange) per `RecordingScreen.tsx` line 1007 — the
+  bottom-center indicator block uses `<Icon name="Eye" size={24}
+color={colors.accent} />`. The pill's "Live preview" text also uses
+  `colors.accent` (`liveLabelText` style). The accent token's hex
+  `#FF6A2D` against `#000000` (the dimmed-state surface at 5%
+  brightness) gives a WCAG-AA contrast ratio of approximately 6.0:1
+  (well above the AA 4.5:1 floor; below AAA 7:1 by a thin margin).
+  Owner directive "make it orange" is met. No code change in this
+  plan. **Status: CLOSED — by prior 07-10 work.**
+
+**Verification deferred to plan 07-15 §3 + §7 + §8** — the owner's
+hardware re-walk on Pixel 10a in en + hi-IN + pt-BR (re-walk gates the
+final phase sign-off; this code closure unblocks the re-walk).
+
+**Out-of-scope visual snapshot debt (acknowledged, not regressed):**
+two pre-existing snapshot failures in
+`apps/mobile/__tests__/visual/RecordingScreen.visual.test.tsx`
+(`recording-active-t10s` + `recording-active-t05m32s`, ~5.4% pixel
+diff each) — caused by plan 07-10's bottom-center refactor (the
+baselines were last regenerated in plan 07-07, before the move). Plan
+07-14 does NOT touch RecordingScreen JSX, so it cannot regress these
+further. Baseline regeneration is its own ticket (not folded here).
