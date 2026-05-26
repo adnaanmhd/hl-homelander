@@ -18,6 +18,7 @@
 
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useTranslation } from 'react-i18next';
 import HomeScreen from '../screens/home/HomeScreen';
 import { TasksScreen } from '../screens/tasks/TasksScreen';
 import { HistoryScreen } from '../screens/history/HistoryScreen';
@@ -25,15 +26,26 @@ import BottomNav from '../components/BottomNav';
 
 const Tab = createBottomTabNavigator();
 
+// 07-11 G-06 closure: the visible tab labels are owned by `BottomNav` (a custom
+// `tabBar` callback) which translates `tabs.{home,tasks,history}` directly via
+// `useTranslation()`. The `tabBarLabel` options below are belt-and-suspenders
+// for any future plan that swaps off the custom BottomNav — react-navigation
+// will fall back to these strings for the default tab-bar renderer. Route
+// `name` (Home/Tasks/History) stays English for route-stability per HOME-07.
 export default function MainTabs() {
+  const { t } = useTranslation();
   return (
     <Tab.Navigator
       screenOptions={{ headerShown: false }}
       tabBar={(props) => <BottomNav {...props} />}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Tasks" component={TasksScreen} />
-      <Tab.Screen name="History" component={HistoryScreen} />
+      <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: t('tabs.home') }} />
+      <Tab.Screen name="Tasks" component={TasksScreen} options={{ tabBarLabel: t('tabs.tasks') }} />
+      <Tab.Screen
+        name="History"
+        component={HistoryScreen}
+        options={{ tabBarLabel: t('tabs.history') }}
+      />
     </Tab.Navigator>
   );
 }

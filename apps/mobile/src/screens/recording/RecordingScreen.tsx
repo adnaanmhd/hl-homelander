@@ -19,7 +19,7 @@
  *     → GATE_BYPASS) / HAND-07 Skip (→ GATE_SKIP, no voice/haptic, brightness
  *     still drops)
  *   - the HAND-09 TTS-masked gate-pass → active transition (Vibration.vibrate(120)
- *     → speakCue('Recording started') → VoiceCue pill 1.8s → set(0.05) →
+ *     → showVoiceCue(t(recording.cue.started)) → VoiceCue pill 1.8s → set(0.05) →
  *     stopGate() → SETTLE_MS → HumynCapture.start(buildCaptureOpts(...))
  *     → CAPTURE_STARTED, or on reject set(-1) + CAPTURE_START_FAILED + toast)
  *   - HAND-11 RemoteConfig gate reads (readGateConfig); HAND-14 analytics
@@ -414,7 +414,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         // a battery/thermal stop during practice is handled here regardless.
         Orientation.unlockAllOrientations();
         logEvent('recording_stopped', { ...(isDeviceDistress ? { reason: _reason } : {}) });
-        speakCue('Recording stopped');
+        speakCue(t('recording.cue.stopped'));
         navigateToPracticeComplete(navigation);
         return;
       }
@@ -425,7 +425,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         // The segment was auto-enqueued by the onSegmentComplete hook above.
         Orientation.unlockAllOrientations();
         logEvent('recording_stopped', { ...(isDeviceDistress ? { reason: _reason } : {}) });
-        speakCue('Recording stopped');
+        speakCue(t('recording.cue.stopped'));
         // Wave-1.5 Item 5 — the contribution toast must survive the
         // RecordingScreen → Home transition for ≥5 s. Use the global ToastHost
         // (App.tsx:78 — already mounted as a NavigationContainer sibling) via
@@ -657,7 +657,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
       const passed = !state.gate.skipped && !state.gate.bypassed;
       if (passed) {
         Vibration.vibrate(120);
-        showVoiceCue('Recording started');
+        showVoiceCue(t('recording.cue.started'));
         logEvent('recording_gate_passed', { locale: deviceLocale() });
         logEvent('recording_started');
       }

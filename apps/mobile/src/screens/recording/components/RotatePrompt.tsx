@@ -8,10 +8,12 @@
  * block) tipping a quarter-turn counter-clockwise to landscape and back, on the
  * prototype's exact `@keyframes rotatePhone` timeline (2.8 s ease-in-out:
  * hold portrait 0→18%, rotate to -90° 18→42%, hold landscape 42→72%, rotate
- * back 72→100%) — plus the verbatim label "Rotate to landscape and mount on
- * rig". Nothing else — the `__DEV__`-only "Pretend I rotated →" bypass pill was
- * removed (debug session handgate-never-passes, owner directive: it let a take
- * start without the device actually being in landscape).
+ * back 72→100%) — plus the verbatim label sourced from
+ * `recording.rotatePrompt` in the i18n catalog (was hardcoded English until
+ * the 07-11 sweep). Nothing else — the `__DEV__`-only "Pretend I rotated →"
+ * bypass pill was removed (debug session handgate-never-passes, owner
+ * directive: it let a take start without the device actually being in
+ * landscape).
  *
  * The rotate-prompt → ready exit is the `RecordingScreen` device-orientation
  * effect (CR-01): a physical rotation to landscape (or the device already being
@@ -29,6 +31,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Rect } from 'react-native-svg';
+import { useTranslation } from 'react-i18next';
 import { Text } from '../../../ui/primitives/Text';
 import { colors, spacing } from '../../../ui/tokens';
 
@@ -44,6 +47,7 @@ const HOLD_LANDSCAPE_MS = 840;
 const TILT_BACK_MS = 784;
 
 export function RotatePrompt(): React.JSX.Element {
+  const { t } = useTranslation();
   // 0 → 1 → 0; mapped to 0° → -90° → 0° (a quarter-turn CCW tilt, repeating).
   const tilt = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -104,8 +108,9 @@ export function RotatePrompt(): React.JSX.Element {
           />
         </Svg>
       </Animated.View>
+      {/* [07-11] Moved to i18n catalog under recording.rotatePrompt. */}
       <Text variant="caption" style={styles.body}>
-        Rotate to landscape and mount on rig
+        {t('recording.rotatePrompt')}
       </Text>
     </View>
   );

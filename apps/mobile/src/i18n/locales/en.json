@@ -52,6 +52,15 @@
       "title": "Checking your phone",
       "subtitle": "Takes around 30 secs"
     },
+    "checkLabels": {
+      "ultrawide": "Ultrawide camera",
+      "resolutionFps": "1080p @ 30 FPS",
+      "motionSensors": "Motion sensors",
+      "imuStable": "Stable sensor stream",
+      "mic": "Microphone",
+      "realtime": "Time sync source",
+      "integrity": "Device integrity"
+    },
     "pass": {
       "title": "You're in.",
       "subtitle": "All checks passed.",
@@ -99,6 +108,11 @@
   },
   "recording": {
     "preview": { "live": "Live preview", "tapToReveal": "Tap screen to preview" },
+    "rotatePrompt": "Rotate to landscape and mount on rig",
+    "cue": {
+      "started": "Recording started",
+      "stopped": "Recording stopped"
+    },
     "startRecording": "Start Recording",
     "stopRecording": "Stop",
     "skip": "Skip",
@@ -127,6 +141,22 @@
     "sectionContribution": "YOUR CONTRIBUTION",
     "sectionPendingUploads": "PENDING UPLOADS",
     "emptyTip": "Your hours and tasks will track here as you record.",
+    "hero": {
+      "greetingNamed": "Hi {{name}}",
+      "greetingAnonymous": "Hi there",
+      "empty": {
+        "eyebrow": "Get started",
+        "title": "Record your first task",
+        "sub": "Pick a task and start recording"
+      },
+      "returning": {
+        "eyebrow": "Continue contributing",
+        "sub": "Pick a task and start recording",
+        "acrossNTasks_one": "Across {{count}} task",
+        "acrossNTasks_other": "Across {{count}} tasks"
+      },
+      "startRecording": "Start Recording"
+    },
     "viewAllMore": "+{{count}} more — tap to view all",
     "filter": {
       "today": "today ▾",
@@ -141,6 +171,18 @@
       "taskCount_other": "{{count}} tasks",
       "recordingFallback": "Recording"
     }
+  },
+  "tabs": {
+    "home": "Home",
+    "tasks": "Tasks",
+    "history": "History"
+  },
+  "uploadChip": {
+    "uploading": "Uploading…",
+    "verifying": "Uploaded — verifying…",
+    "failed": "Upload failed",
+    "success": "✓ Uploaded",
+    "pausedOffline": "Paused — no Wi-Fi"
   },
   "tasks": {
     "searchPlaceholder": "Search tasks…",
@@ -184,10 +226,12 @@
       "failed": "Failed"
     },
     "filter": {
-      "allTime": "all time",
-      "today": "today",
-      "thisWeek": "this week",
-      "thisMonth": "this month"
+      "allTime": "All time",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "thisWeek": "This week",
+      "thisMonth": "This month",
+      "customRange": "Custom range"
     },
     "loadingMore": "Loading more…",
     "endOfList": "End of list"
