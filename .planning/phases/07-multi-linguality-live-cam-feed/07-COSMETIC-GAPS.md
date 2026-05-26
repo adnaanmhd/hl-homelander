@@ -36,7 +36,7 @@ files — those are closed.
 
 | #   | Title                                                                             | Status                                 | Closure plan |
 | --- | --------------------------------------------------------------------------------- | -------------------------------------- | ------------ |
-| 1   | Signup consent text not center-aligned (en locale)                                | CLOSED — Plan 07-14 / {commit-hash-1}  | 07-14 Task 1 |
+| 1   | Signup consent text not center-aligned (en locale)                                | CLOSED — Plan 07-14 / 7faae4c          | 07-14 Task 1 |
 | 2   | Top-right z-stack: "Live preview" label overlaps with Stop button                 | CLOSED — Plan 07-14 (prior 07-10 work) | 07-14 Task 1 |
 | 3   | Eye glyph visibility too low in dimmed state — owner: "make it orange so visible" | CLOSED — Plan 07-14 (prior 07-10 work) | 07-14 Task 1 |
 
