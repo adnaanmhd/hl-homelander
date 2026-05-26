@@ -302,7 +302,7 @@ Plans:
 4. Task search works end-to-end in a non-English locale: a user typing a task name in Hindi (e.g. "चाय बनाओ") is mapped back to the canonical English ("Make tea") before hitting `/tasks/search`, and the search returns the expected result. The `ts_vector` GIN index + `tasks` table schema are unchanged; no database migration ships in this phase
 5. The renumber sweep is clean: `.planning/ROADMAP.md`, `.planning/STATE.md`, `.planning/REQUIREMENTS.md`, `CLAUDE.md`, and every Phase-7-referencing planning artifact correctly shows the observability work as Phase 8, with a single ROADMAP banner line noting the swap. The historical commit messages and quick-task directories that mention "Phase 7" in older contexts are left as-is (those are frozen history)
 
-**Plans:** 16 plans (8 original + 1 Profile-sweep gap-closure (07-09) + 6 cluster gap-closure (07-10..07-15) added 2026-05-25 after 07-HUMAN-UAT.md re-walk surfaced G-02..G-12 + COSMETIC-01..03 + 1 Wave-3 re-walk gap-closure (07-16) added 2026-05-26 after Pixel-10a hi-IN walk surfaced G-13..G-28)
+**Plans:** 17 plans (8 original + 1 Profile-sweep gap-closure (07-09) + 6 cluster gap-closure (07-10..07-15) added 2026-05-25 after 07-HUMAN-UAT.md re-walk surfaced G-02..G-12 + COSMETIC-01..03 + 1 Wave-3 re-walk gap-closure (07-16) added 2026-05-26 after Pixel-10a hi-IN walk surfaced G-13..G-28 + 1 Wave-4 regression-sweep gap-closure (07-17) added 2026-05-26 after 07-16 Task 8 hi-IN walk surfaced 9 FAIL rows + G-29 new escape + 4 Bucket C deferrals)
 
 Plans:
 **Wave 1** _(i18n infrastructure foundation — parallel; disjoint file ownership)_
@@ -348,36 +348,8 @@ Internal Wave C (depends on Wave A + Wave B closures):
 
 Internal Wave D (depends on Wave C 07-15 pause; closes G-13..G-28 surfaced during the Wave-3 hi-IN walk):
 
-- [ ] 07-16-i18n-completion-and-truncation-PLAN.md — close 16 gaps (G-13..G-28) surfaced by the operator's Wave-3 re-walk: G-18 keystone client-side wiring (TasksScreen reads server response, NOT taskCatalog.i18n.ts — new `taskI18n.ts` helper bridges this) + G-13 client-side English stem-strip in reverseSearch (D-16 forbids backend changes) + 7 t() wires (StatCard period chip / TaskCategoryPills / HistoryScreen empty / FilterSheet / ReportProblemSheet / RootNativeStack HelpCenter title / SendRequestSheet chips + Indoor/Outdoor / HistoryRow uploadedAt + FEEDBACK eyebrow) + 4 Devanagari overflow/alignment fixes (CompatCheck label / Live indicator center-align / RotatePrompt / hand-gate prompt) + LLM regen of 7 non-en catalogs + operator-walked FULL 7-locale hardware re-walk on Pixel 10a per owner directive 'skip nothing' (I18N-01, I18N-08, I18N-09, I18N-10, I18N-11, I18N-12, REC-LIVE-01)
+- [x] 07-16-i18n-completion-and-truncation-PLAN.md — close 16 gaps (G-13..G-28) surfaced by the operator's Wave-3 re-walk: G-18 keystone client-side wiring (TasksScreen reads server response, NOT taskCatalog.i18n.ts — new `taskI18n.ts` helper bridges this) + G-13 client-side English stem-strip in reverseSearch (D-16 forbids backend changes) + 7 t() wires (StatCard period chip / TaskCategoryPills / HistoryScreen empty / FilterSheet / ReportProblemSheet / RootNativeStack HelpCenter title / SendRequestSheet chips + Indoor/Outdoor / HistoryRow uploadedAt + FEEDBACK eyebrow) + 4 Devanagari overflow/alignment fixes (CompatCheck label / Live indicator center-align / RotatePrompt / hand-gate prompt) + LLM regen of 7 non-en catalogs + operator-walked FULL 7-locale hardware re-walk on Pixel 10a per owner directive 'skip nothing' (I18N-01, I18N-08, I18N-09, I18N-10, I18N-11, I18N-12, REC-LIVE-01) — Tasks 1-7 code-level COMPLETE at commit `612161a` (2026-05-26); Task 8 (operator-walked) handed off to 07-17 per 07-16-TASK-8-HANDOFF.md (9 FAIL rows + G-29 new escape + 4 Bucket C deferrals routed to 07-17)
 
-**UI hint**: yes — new Choose Language screen + Profile row + recording-surface preview overlay + tap-affordance indicator
+Internal Wave E (depends on Wave D 07-16 Task 8 handoff; closes the 9 FAIL rows + G-29 disposition + 4 Bucket C deferrals):
 
-### Phase 8: Observability & APK Distribution Hardening
-
-**Goal**: The operational observability stack visible to ops can detect a regression before users complain, and the signed-APK distribution pipeline (build flavors, release signing, in-app update channel) is production-hardened. (iOS parity and the staged Play Store → App Store rollout are descoped from this MVP to a follow-on milestone — see REQUIREMENTS.md §v2: DIST-05, DIST-06, IOS-01..07.)
-**Depends on**: Phase 6
-**Requirements**: OBS-01, OBS-02, OBS-03, OBS-04, OBS-05
-**Success Criteria** (what must be TRUE):
-
-1. The full event funnel from `engineering-handoff.md` §11 (signup*\*, permission*\_, compat\__, recording*\*, gate*_, upload\__, history*\*, profile*_, help\_\_) emits via Firebase Analytics, native + JVM crashes + ANRs report via Firebase Crashlytics, the backend emits structured CloudWatch logs with per-device-model + per-OS-version + per-locale cohorting, the Bull-Board dashboard surfaces queue depth + retry counts + DLQ for the hash-verify worker, and Sentry / Datadog / third-party RUM are explicitly absent at MVP
-2. The signed-APK distribution pipeline is production-hardened — the `apkRollout` flavor builds a release-signed APK with its distinct `applicationId`, `HumynUpdater` downloads + SHA-256-verifies + installs the next APK via `PackageInstaller`, `GET /app/version` drives the force-upgrade gate against `min_supported` plus the dismissible banner below `latest`, and a release / signing / key-rotation runbook is documented (Play Store + iOS App Store distribution channels deferred — see REQUIREMENTS.md §v2: DIST-05, DIST-06, IOS-01..07)
-   **Plans**: TBD
-   **Phase 5 carry-over (folded 2026-05-13):** OEM battery-optimization deep-link device sweep (Xiaomi MIUI/HyperOS Autostart, Oppo ColorOS background-permission, Vivo FunTouch high-power-mode, Samsung OneUI Sleeping-Apps allowlist) — Phase 5 Item 3 PASSED for the AOSP/Pixel fallback (Item 3 entry in `.planning/phases/05-upload-pipeline-hash-verify-worker-anti-fraud/05-HUMAN-UAT.md`); the per-OEM deep-link paths were NOT walked because no Xiaomi / Oppo / Vivo / Samsung devices were available in the Phase 5 walk session. Target devices for the India + Brazil rollout: Xiaomi Redmi/Mi, Oppo F/A series, Vivo Y/V series, Samsung A series — at least one device per OEM. The on-device walk should re-walk Phase 5's `BatteryOptimizationScreen` flow (the first-upload modal) plus visually confirm that the OEM Autostart Pressable resolves on each device + that the per-vendor help-center walkthrough copy still matches the live OEM Settings UI. Phase 5's UP-09 contract holds in code (AOSP fallback is the always-present floor); this is structurally a test-coverage carry-over, NOT a code defect. Fits naturally with Phase 8's signed-APK pre-rollout regression pass.
-
-## Progress
-
-**Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
-
-(Per research SUMMARY.md, parallelization opportunities exist where indicated — Phase 2 with Phase 3, Phase 4 (HandDetector portion) with Phase 5 (Upload portion). Numeric order is the default execution order; parallelization is a planning-time choice.)
-
-| Phase                                                      | Plans Complete | Status      | Completed  |
-| ---------------------------------------------------------- | -------------- | ----------- | ---------- |
-| 1. Foundation, Backend & Distribution Recon                | 13/13          | Complete    | 2026-05-08 |
-| 2. Mobile Shell, Onboarding, Permissions, Compat & Profile | 22/22          | Complete    | 2026-05-10 |
-| 3. HumynCapture Native Module (Bytes-on-disk)              | 11/11          | Complete    | 2026-05-11 |
-| 4. HandDetector, Recording UX & Practice Tutorial          | 12/12          | Complete    | 2026-05-12 |
-| 5. Upload Pipeline & Hash-Verify Worker                    | 15/15          | Complete    | 2026-05-13 |
-| 6. Tasks, History, Home Tiles & Lexical Search             | 10/11          | In Progress | -          |
-| 7. Multi-linguality & Live-Cam Feed                        | 0/TBD          | Not started | -          |
-| 8. Observability & APK Distribution Hardening              | 0/TBD          | Not started | -          |
+- [ ] 07-17-i18n-regression-sweep-PLAN.md — close 9 FAILs from 07-16 hi-IN walk (G-15 liveEyeHint overflow / G-17 TaskCategoryPills bold-active truncate / G-20 history empty trailing literal / G-21 FilterSheet Custom-range sub-sheet 9 new keys / G-22 Button primitive overflow guards cross-cutting + chip text 2-line wrap / G-24 Indoor/Outdoor truncation + collision regression test / G-25 PracticeIntroScreen + RecordingScreen practice-fallback chain / G-26 RotatePrompt scale + padding / G-27 gatePrompt inline lineHeight + hi-IN prose surgical patch) + 4 Bucket C re-walks (G-13 search probes / G-14 fresh-install CompatCheck / G-19 TaskDetailsSheet tap / G-28 HistoryRow real-recording) + G-29 transcription-error disposition + LLM regen 7 non-en for ~12 new keys + operator-walked FULL 7-locale hardware re-walk on Pixel 10a per owner directive 'skip nothing' (locale order LOCKED hi-IN → pt-BR → es → bn-IN → ta-IN → te-IN → mr-IN per `feedback_walk_locale_order`) (I18N-01, I18N-11)
