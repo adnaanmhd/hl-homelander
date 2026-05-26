@@ -32,6 +32,7 @@ import {
 } from 'react-native';
 import HapticFeedback from 'react-native-haptic-feedback';
 import { Check } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 // Plan 06-12 follow-on (Finding 5, owner directive 2026-05-14) — replace
 // the two free-text `YYYY-MM-DD` TextInputs in the 16b custom-range layer
 // with the platform native date picker. Picker honours device locale +
@@ -48,16 +49,20 @@ const SCRIM_COLOR = 'rgba(0, 0, 0, 0.5)';
  *  ContributionsTimeseriesQuerySchema). */
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** The 6 quick-select options exactly per UI-SPEC §16a, in order. */
-const QUICK_OPTIONS: ReadonlyArray<{ value: NamedRange | 'custom-pick'; label: string }> = [
-  { value: 'today', label: 'Today' },
-  { value: 'yesterday', label: 'Yesterday' },
-  { value: 'this-week', label: 'This week' },
-  { value: 'this-month', label: 'This month' },
-  { value: 'all', label: 'All time' },
+/** The 6 quick-select options exactly per UI-SPEC §16a, in order.
+ *
+ * G-21 (Plan 07-16): the `label` field is now an i18n KEY resolved at render
+ * time via t(opt.labelKey). The 6 values are already in en.json under
+ * `history.filter.*` (Phase 6 + 07-05 sweep). */
+const QUICK_OPTIONS: ReadonlyArray<{ value: NamedRange | 'custom-pick'; labelKey: string }> = [
+  { value: 'today', labelKey: 'history.filter.today' },
+  { value: 'yesterday', labelKey: 'history.filter.yesterday' },
+  { value: 'this-week', labelKey: 'history.filter.thisWeek' },
+  { value: 'this-month', labelKey: 'history.filter.thisMonth' },
+  { value: 'all', labelKey: 'history.filter.allTime' },
   // `Custom range` is a navigation action (push to 16b), not a value the
   // sheet commits on tap — distinguished here by 'custom-pick'.
-  { value: 'custom-pick', label: 'Custom range' },
+  { value: 'custom-pick', labelKey: 'history.filter.customRange' },
 ];
 
 export interface FilterSheetProps {
@@ -200,10 +205,11 @@ function Layer16a({
   onPickNamed: (n: NamedRange) => void;
   onPushCustom: () => void;
 }): React.JSX.Element {
+  const { t } = useTranslation();
   return (
     <View accessibilityLabel="filter-sheet-16a">
       <Text variant="bodyLg" style={styles.title16a}>
-        Filter by
+        {t('history.filterSheet.title')}
       </Text>
       {QUICK_OPTIONS.map((opt) => {
         const isSelected =
@@ -226,7 +232,7 @@ function Layer16a({
               variant="body"
               style={[styles.optionLabel, isSelected ? styles.optionLabelSelected : null]}
             >
-              {opt.label}
+              {t(opt.labelKey)}
             </Text>
             {isSelected ? <Check size={20} color={colors.accent} strokeWidth={2} /> : null}
           </Pressable>

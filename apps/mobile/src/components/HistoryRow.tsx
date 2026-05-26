@@ -52,6 +52,8 @@
 import React, { useMemo } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import Text from '../ui/primitives/Text';
 import { Pressable } from '../ui/primitives/Pressable';
 import { colors, radii, spacing, typography } from '../ui/tokens';
@@ -274,14 +276,19 @@ function metaDateLine(createdAtIso: string, durationMs: number): string {
   return `${dur} · ${month} ${day}, ${year} · ${hh}:${mm}`;
 }
 
-/** "Uploaded at HH:MM" — uses verifiedAtIso when present, else createdAt fallback. */
-function uploadedAtLabel(row: HistoryRowItem): string {
+/** "Uploaded at HH:MM" — uses verifiedAtIso when present, else createdAt fallback.
+ *
+ * G-28 (Plan 07-16 Task 4b): the label is now resolved via
+ * `t('history.row.uploadedAt', { time: 'HH:MM' })` so the prefix translates
+ * per active locale; the time component stays in 24h Latin numerals (date
+ * Intl-locale formatting is deferred per the I18N-09 drop). */
+function uploadedAtLabel(row: HistoryRowItem, t: TFunction): string {
   const iso = row.verifiedAtIso ?? row.createdAt;
   const d = new Date(iso);
-  if (!Number.isFinite(d.getTime())) return 'Uploaded';
+  if (!Number.isFinite(d.getTime())) return t('uploadChip.success', { defaultValue: 'Uploaded' });
   const hh = String(d.getHours()).padStart(2, '0');
   const mm = String(d.getMinutes()).padStart(2, '0');
-  return `Uploaded at ${hh}:${mm}`;
+  return t('history.row.uploadedAt', { time: `${hh}:${mm}` });
 }
 
 /**
@@ -309,6 +316,7 @@ export function HistoryRow({
   progressPct,
   needsAttentionReason,
 }: HistoryRowProps): React.JSX.Element {
+  const { t } = useTranslation();
   // Quick task 260517-p5g CAPTURE-QA-05 — `row.cancel` overrides the
   // chip/sidecar/retry decisions below. Owner-blessed deviation per
   // CLAUDE.md 2026-05-17 banner — the three copy strings are local
@@ -403,7 +411,7 @@ export function HistoryRow({
               accessibilityLabel="history-row-uploaded-at"
               style={styles.chipSidecarLabel}
             >
-              {uploadedAtLabel(row)}
+              {uploadedAtLabel(row, t)}
             </Text>
           ) : null}
           {showFailedRetry ? (
@@ -471,14 +479,15 @@ export function HistoryRow({
         {/* HIST-11 — disabled feedback-coming-soon slot. NOT pressable,
             NOT a real interactive control; just an inline trailing badge per
             UI-SPEC §13. No onPress; rendered as a plain Text so the disabled
-            semantics are clear to assistive tech. */}
+            semantics are clear to assistive tech.
+            G-28 (Plan 07-16): text routes through `history.row.feedbackComingSoon`. */}
         <Text
           variant="comingSoonBadge"
           tone="tertiary"
           accessibilityLabel="history-row-feedback-coming-soon"
           style={styles.comingSoon}
         >
-          Feedback (coming soon)
+          {t('history.row.feedbackComingSoon')}
         </Text>
       </View>
     </Pressable>

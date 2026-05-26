@@ -31,6 +31,12 @@ import { Button } from '../../ui/primitives/Button';
 import { TaskIcon } from '../../../../../design-system/task-icons';
 import { UniversalRulesBlock } from '../../components/UniversalRulesBlock';
 import { colors, spacing, radii } from '../../ui/tokens';
+import {
+  localizeTaskName,
+  localizeTaskCategory,
+  localizeTaskDescription,
+  localizeTaskInstructions,
+} from '../../i18n/taskI18n';
 
 export interface TaskDetailsSheetProps {
   /** Sheet visibility. */
@@ -53,7 +59,7 @@ export function TaskDetailsSheet({
   onDismiss,
   onStartRecording,
 }: TaskDetailsSheetProps): React.JSX.Element | null {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // Plan 06-12 follow-on (Finding 2, owner directive 2026-05-14;
   // re-fixed after the first attempt didn't actually claim the touch on-
   // device) — the backdrop tap + X close already dismissed the sheet;
@@ -88,7 +94,28 @@ export function TaskDetailsSheet({
   if (!task) return null;
 
   const isOutdoor = task.setting === 'outdoor';
-  const instructions = (task.instructions ?? []).slice(0, 3); // TASK-07 — max 3
+  // G-19 (Plan 07-16): localize name/category/description/instructions via
+  // the catalog. The strategy:
+  //   - name + category: always localize (catalog or its en value when
+  //     missing — i.e. canonical English).
+  //   - description + instructions: prefer SERVER-returned task data when the
+  //     active locale is en (en === canonical English, so the server payload
+  //     IS the truth); use the catalog ONLY for non-en locales. This keeps
+  //     existing en-render tests that mock `task.instructions` deterministic
+  //     while still rendering Devanagari/etc. for non-en users.
+  const isEn = i18n.language === 'en';
+  const localizedName = localizeTaskName(task.name, i18n.language);
+  const localizedCategory = localizeTaskCategory(task.category, i18n.language);
+  const localizedDescription = isEn
+    ? task.description
+    : localizeTaskDescription(task.name, i18n.language) || task.description;
+  const localizedInstructions = isEn
+    ? (task.instructions ?? [])
+    : (() => {
+        const fromCatalog = localizeTaskInstructions(task.name, i18n.language);
+        return fromCatalog.length > 0 ? fromCatalog : (task.instructions ?? []);
+      })();
+  const instructions = localizedInstructions.slice(0, 3); // TASK-07 — max 3
 
   return (
     <Sheet visible={visible} onDismiss={onDismiss} accessibilityLabel="task-details-sheet">
@@ -116,7 +143,7 @@ export function TaskDetailsSheet({
         <View style={styles.chipRow}>
           <View accessibilityLabel="task-details-category-chip" style={styles.categoryChip}>
             <Text variant="formLabel" style={styles.categoryChipLabel}>
-              {task.category.toUpperCase()}
+              {localizedCategory.toUpperCase()}
             </Text>
           </View>
           {isOutdoor ? (
@@ -134,7 +161,7 @@ export function TaskDetailsSheet({
           accessibilityLabel="task-details-name"
           style={styles.name}
         >
-          {task.name}
+          {localizedName}
         </Text>
         <Text
           variant="body"
@@ -142,7 +169,7 @@ export function TaskDetailsSheet({
           accessibilityLabel="task-details-description"
           style={styles.description}
         >
-          {task.description}
+          {localizedDescription}
         </Text>
 
         <View style={styles.rulesBlock}>

@@ -36,13 +36,21 @@
 // taskCatalog.i18n.ts (see buildReverseMaps); subsequent reverseSearch()
 // calls are O(1) hash-map lookups + an NFD/NFC normalize on each token.
 
-import { REVERSE_BY_LOCALE, normalizeForReverseSearch, type ReverseMap } from './taskCatalog.i18n';
+import {
+  REVERSE_BY_LOCALE,
+  normalizeForReverseSearch,
+  EN_TOKEN_ALIASES,
+  type ReverseMap,
+} from './taskCatalog.i18n';
 
 /**
  * Rewrite a locale-text task search input to canonical English.
  *
  * Returns the input verbatim when:
- *   - `locale === 'en'` (no rewrite needed — D-14)
+ *   - `locale === 'en'` AND no en alias entry matches (G-13 closure,
+ *     Plan 07-16: en tokens are rewritten via EN_TOKEN_ALIASES so
+ *     "recyclable"/"recycle"/"recycling" all hit the indexed "recyclables"
+ *     stem regardless of Snowball-stemmer config drift on the server)
  *   - the locale has no reverse map (e.g. an out-of-allowlist BCP-47 tag
  *     that somehow leaks past i18n.changeLanguage)
  *   - none of Stages 1/2 hit (Stage-3 passthrough)
@@ -50,7 +58,16 @@ import { REVERSE_BY_LOCALE, normalizeForReverseSearch, type ReverseMap } from '.
  * For all other cases returns the canonical English equivalent.
  */
 export function reverseSearch(input: string, locale: string): string {
-  if (locale === 'en') return input;
+  if (locale === 'en') {
+    // G-13 (Plan 07-16 Task 3): rewrite each whitespace-token through the
+    // curated alias map. Tokens absent from the map pass through unchanged
+    // (the previous identity behaviour for the en branch).
+    return input
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((tok) => EN_TOKEN_ALIASES[tok.toLowerCase()] ?? tok)
+      .join(' ');
+  }
 
   const map: ReverseMap | undefined = REVERSE_BY_LOCALE[locale];
   if (!map) return input;

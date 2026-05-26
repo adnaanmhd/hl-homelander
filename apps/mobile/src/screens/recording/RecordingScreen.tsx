@@ -1087,7 +1087,16 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
               target={state.gate.targetHits}
               loading={state.gate.phase === 'loading'}
             />
-            <Text variant="recGatePrompt" style={styles.gatePrompt}>
+            {/* G-27 (Plan 07-16): allow Devanagari + Bengali + Tamil + Telugu +
+                Marathi to wrap to 2 lines + auto-shrink. RN-Text props only —
+                the recGatePrompt variant is untouched. */}
+            <Text
+              variant="recGatePrompt"
+              style={styles.gatePrompt}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+            >
               {t('recording.gatePrompt')}
             </Text>
             {/* Skip link — visible from t=0 (HAND-02); hidden once confirmed. */}
@@ -1290,5 +1299,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.recOverlayTip,
     borderRadius: radii.pill,
   },
-  liveLabelText: { color: colors.accent },
+  // G-15 (Plan 07-16): center the GLYPHS within the pill's padding. The
+  // parent `liveBottomCenter` View already centers the pill via
+  // `alignItems: 'center'` + `left: 0, right: 0`; this `textAlign: 'center'`
+  // centers the text inside the pill itself (distinct concern).
+  liveLabelText: { color: colors.accent, textAlign: 'center' },
 });

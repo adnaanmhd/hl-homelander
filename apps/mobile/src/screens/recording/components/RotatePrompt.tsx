@@ -108,8 +108,17 @@ export function RotatePrompt(): React.JSX.Element {
           />
         </Svg>
       </Animated.View>
-      {/* [07-11] Moved to i18n catalog under recording.rotatePrompt. */}
-      <Text variant="caption" style={styles.body}>
+      {/* [07-11] Moved to i18n catalog under recording.rotatePrompt.
+          G-26 (Plan 07-16): allow Devanagari + Bengali + Tamil + Telugu +
+          Marathi to wrap to 2 lines + auto-shrink. RN-Text props only — no
+          new design tokens; the recording-caption variant is untouched. */}
+      <Text
+        variant="caption"
+        style={styles.body}
+        numberOfLines={2}
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
+      >
         {t('recording.rotatePrompt')}
       </Text>
     </View>

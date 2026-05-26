@@ -97,10 +97,26 @@ vi.mock('react-native', () => {
   function makeComponent(name: string) {
     return React.forwardRef<
       HTMLDivElement,
-      Record<string, unknown> & { children?: React.ReactNode }
+      Record<string, unknown> & { children?: React.ReactNode; testID?: string }
     >(function HostComponent(props, ref) {
-      const { children, accessibilityLabel, accessibilityRole, onPress, style, ...rest } = props;
-      const dom: Record<string, unknown> = { ref, 'data-testid': name, ...rest };
+      const {
+        children,
+        accessibilityLabel,
+        accessibilityRole,
+        onPress,
+        style,
+        // Plan 07-16 Task 4c (G-22 / WARNING 12): React Native maps `testID`
+        // to `data-testid` on Android/iOS — mirror that in jsdom so tests can
+        // query by `getByTestId(...)` and the component-level testID
+        // overrides the primitive's default `name` testID.
+        testID,
+        ...rest
+      } = props;
+      const dom: Record<string, unknown> = {
+        ref,
+        'data-testid': typeof testID === 'string' && testID.length > 0 ? testID : name,
+        ...rest,
+      };
       if (typeof accessibilityLabel === 'string') {
         dom['aria-label'] = accessibilityLabel;
       }

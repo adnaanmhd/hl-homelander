@@ -38,6 +38,25 @@ import {
   type FeedbackCategory,
 } from '../services/feedbackService';
 
+/**
+ * Display-label keys for each feedback category enum. The enum STAYS English
+ * (server contract per I18N-10) — only the rendered TEXT + accessibilityLabel
+ * route through i18n. Two enums get UX-simpler labels per checker WARNING 8:
+ *   imu-issue     → "Sensor issue"     (the user-facing word for the IMU sensor)
+ *   thermal-issue → "Device overheating" (clearer than "thermal issue")
+ * The server still receives 'imu-issue' / 'thermal-issue' verbatim.
+ */
+const REPORT_CATEGORY_LABEL_KEY: Record<FeedbackCategory, string> = {
+  'app-crashed': 'report.category.appCrashed',
+  'task-doesnt-start': 'report.category.taskDoesntStart',
+  'upload-stuck': 'report.category.uploadStuck',
+  'login-issue': 'report.category.loginIssue',
+  'video-quality-issue': 'report.category.videoQualityIssue',
+  'imu-issue': 'report.category.imuIssue',
+  'thermal-issue': 'report.category.thermalIssue',
+  other: 'report.category.other',
+};
+
 export interface ReportProblemSheetProps {
   onClose: () => void;
 }
@@ -86,18 +105,22 @@ export function ReportProblemSheet({ onClose }: ReportProblemSheetProps): React.
             <View style={styles.categoryWrap}>
               {FEEDBACK_CATEGORIES.map((c) => {
                 const selected = category === c;
+                // G-22 (Plan 07-16 / WARNING 12): chip text + accessibilityLabel
+                // translate; testID stays English (server contract + test ID).
+                const label = t(REPORT_CATEGORY_LABEL_KEY[c]);
                 return (
                   <Pressable
                     key={c}
                     onPress={() => setCategory(c)}
-                    accessibilityLabel={`category-${c}`}
+                    testID={`category-${c}`}
+                    accessibilityLabel={label}
                     style={selected ? styles.chipSelected : styles.chip}
                   >
                     <Text
                       variant="caption"
                       style={selected ? styles.chipTextSelected : styles.chipText}
                     >
-                      {c}
+                      {label}
                     </Text>
                   </Pressable>
                 );

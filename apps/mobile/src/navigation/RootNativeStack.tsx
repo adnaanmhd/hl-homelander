@@ -41,6 +41,7 @@ import ForceUpgradeScreen from '../screens/force-upgrade/ForceUpgradeScreen';
 import { LogoutModal } from '../components/LogoutModal';
 import { DeleteAccountModal } from '../components/DeleteAccountModal';
 import { useForegroundUserRehydrate } from '../hooks/useForegroundUserRehydrate';
+import TranslatedHeaderTitle from '../components/TranslatedHeaderTitle';
 
 const Root = createNativeStackNavigator();
 
@@ -113,7 +114,13 @@ export default function RootNativeStack() {
       <Root.Screen
         name="HelpCenter"
         component={HelpCenterScreen}
-        options={{ headerShown: true, title: 'Help Center' }}
+        // G-23 (Plan 07-16 / WARNING 7): use `headerTitle: () => <Component />`
+        // so the header re-renders when i18n.changeLanguage fires. The function-
+        // form `title` does NOT re-invoke on a global state change.
+        options={{
+          headerShown: true,
+          headerTitle: () => <TranslatedHeaderTitle i18nKey="helpCenter.title" />,
+        }}
       />
       <Root.Screen
         name="ForceUpgrade"
