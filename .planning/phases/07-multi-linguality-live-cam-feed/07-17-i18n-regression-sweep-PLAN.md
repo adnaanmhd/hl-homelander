@@ -58,11 +58,11 @@ must_haves:
     - "G-19 re-walked (carried into Task 8 from 07-16 Bucket C — NOT walked because the operator didn't tap any task in the 2026-05-26 walk). Verified on Pixel 10a: TaskDetailsSheet for at least one task renders translated name + category eyebrow + description + 4 ALWAYS rules + per-task instructions in the active locale. The 07-16 taskI18n.ts helpers (localizeTaskName/Category/Description/Instructions) + UniversalRulesBlock labelKey wiring stay UNTOUCHED — Task 8 verifies the existing wire fires correctly on real device data."
     - "G-20 closed (History empty-state trailing English literal): HistoryScreen.tsx:599 — the JSX literal ` and try one.` after the `<Text>{t('history.empty.firstTime.cta')}</Text>` link moves into a new en.json key `history.empty.firstTime.bodyTail` (value `' and try one.'` — including the leading space). Render becomes `{t('history.empty.firstTime.body')}{'\\n'}<Text>...cta...</Text>{t('history.empty.firstTime.bodyTail')}`. The same pattern is checked on the `filtered` empty branch — line 571 has a trailing literal `.` after `{t('history.empty.filtered.cta')}`; this stays as the period punctuation is uniform across languages OR also moves to `history.empty.filtered.bodyTail` if the LLM regen handles it more naturally. Decision recorded in Task 1 investigation."
     - "G-21 closed (FilterSheet Custom-range sub-sheet entirely untranslated): the 7 hardcoded English strings in `FilterSheet.tsx` Custom-range sub-sheet (lines 294 / 295 / 296 / 301 / 305 / 317+346 / 334 / 375 / 385) all move through new `t()` keys: `history.filter.customRange.{title,from,to,placeholder,errorMissing,errorInverted,errorFuture,cancel,apply}` (9 keys). en.json gains the 9 keys; Task 5 LLM-regen propagates to 7 non-en locales. The existing base sheet's `history.filter.*` and `history.filterSheet.title` (added by 07-16) stay UNTOUCHED."
-    - "G-22 closed (Cancel button truncation in Report Problem + Custom-range sub-sheet — `रद्द करें` clips to `रद`): root cause is the shared `Button` primitive at `apps/mobile/src/ui/primitives/Button.tsx:85` — the internal `<Text variant=\"btnLabel\">` has no `numberOfLines` / `adjustsFontSizeToFit`. Fix: add `numberOfLines={1}` + `adjustsFontSizeToFit` + `minimumFontScale={0.75}` to the Button's internal Text. ADDITIONALLY: ReportProblemSheet category chip Text (line 119-124) gains `numberOfLines={2}` + `adjustsFontSizeToFit` + `minimumFontScale={0.85}` so long Devanagari chip labels wrap inside the chip rather than overflowing past the parent's flexWrap row. Both fixes share the same heuristic but apply at different layers."
+    - "G-22 closed (Cancel button truncation in Report Problem + Custom-range sub-sheet — `रद्द करें` clips to `रद`): root cause is two distinct Text-without-overflow-guard sites. (a) The shared `Button` primitive at `apps/mobile/src/ui/primitives/Button.tsx:85` — the internal `<Text variant=\"btnLabel\">` has no `numberOfLines` / `adjustsFontSizeToFit` — handles ReportProblemSheet Cancel + ~30 other call sites. (b) FilterSheet Custom-range footer at `apps/mobile/src/screens/shared/FilterSheet.tsx:369-388` uses raw `<Pressable>` + `<Text variant=\"btnLabel\">` and does NOT consume `<Button>` (verified by plan-checker: `grep -c \"<Button\" FilterSheet.tsx` = 0; Task 3 Button primitive change does NOT propagate here). Fix: (a) add `numberOfLines={1}` + `adjustsFontSizeToFit` + `minimumFontScale={0.75}` to Button.tsx:85's internal Text (Task 3). (b) add the SAME three props inline to both raw Text elements at FilterSheet.tsx:373 (Cancel) + FilterSheet.tsx:384 (Apply) — Task 2 G-21 step 3. ADDITIONALLY: ReportProblemSheet category chip Text (line 119-124) gains `numberOfLines={2}` + `adjustsFontSizeToFit` + `minimumFontScale={0.85}` so long Devanagari chip labels wrap inside the chip rather than overflowing past the parent's flexWrap row. All three fixes share the same heuristic but apply at different layers."
     - "G-24 closed (SendRequestSheet Indoor/Outdoor segmented toggle showing `घर के` for BOTH — Devanagari truncation, NOT a key collision): the hi-IN.json values are correctly distinct (`tasks.setting.indoor` = `'घर के अंदर'`, `tasks.setting.outdoor` = `'घर के बाहर'`). The bug is the segmented pill's Text has no overflow guard, so both 5-char Devanagari labels clip at the first `के`. Fix: add `numberOfLines={1}` + `adjustsFontSizeToFit` + `minimumFontScale={0.75}` to both segmented pill labels in SendRequestSheet.tsx (lines 334-339 + 347-354). Add a Vitest regression test asserting `t('tasks.setting.indoor', { lng: L })` !== `t('tasks.setting.outdoor', { lng: L })` for every locale in SUPPORTED_LOCALES — guards against a future LLM-regen collision that the operator's truncation observation accidentally surfaced."
     - "G-25 closed (RecordingScreen app-bar shows `Practice — 60 sec` in English on hi-IN): bug site is `apps/mobile/src/screens/tutorial/PracticeIntroScreen.tsx:46-50` — `PRACTICE_ROUTE_PARAMS` hardcodes `taskName: 'Practice — 60 sec'`. AND `apps/mobile/src/screens/recording/RecordingScreen.tsx:178` has the matching fallback `params.taskName ?? 'Practice — 60 sec'`. Fix: (a) delete `taskName` from `PRACTICE_ROUTE_PARAMS` (let it fall through as `undefined`); (b) at RecordingScreen.tsx:178, change the fallback from the hardcoded literal to `t('recording.practiceFallback')` (key added to en.json + LLM-regen'd to 7 non-en locales in Task 5); (c) move the `taskName = params.taskName ?? ...` resolution INSIDE the component (after the `useTranslation()` hook at line 182) so the fallback is locale-reactive. Hindi value will be the LLM regen of `'Practice — 60 sec'`."
     - "G-26 closed (RotatePrompt body still 1-line clips even with 07-16's `numberOfLines={2}` + `adjustsFontSizeToFit`): the 07-16 fix is intact at `apps/mobile/src/screens/recording/components/RotatePrompt.tsx:115-123`, but the parent container in `RecordingScreen.tsx:1076 styles.body` has constraints that win over the Text's wrap. Root cause investigated in Task 1. Fix: (a) confirm `styles.body` in RecordingScreen.tsx does NOT have a fixed `height` — if it does, replace with `minHeight` + `flex: 1`; (b) confirm `styles.wrap` in RotatePrompt.tsx is `flex: 1` (it is — line 129) AND give the `styles.body` Text a `paddingHorizontal: spacing.l` so the wrap has horizontal slack. Additionally lower the `minimumFontScale` from `0.85` to `0.75` to handle the longest Devanagari/Tamil/Telugu/Bengali/Marathi rotate-prompt forms."
-    - "G-27 closed (HandGate prompt wraps with visible vertical gap; Hindi prose awkwardness): root cause is the `recGatePrompt` Text variant in `apps/mobile/src/ui/tokens.ts:212-216` has `lineHeight: 24` on `fontSize: 17` — that's 41% leading, which renders as a visible vertical gap when wrapping to 2 lines. Fix: at the JSX call site `RecordingScreen.tsx:1093-1101`, OVERRIDE the variant lineHeight with an inline `style={[styles.gatePrompt, { lineHeight: 20 }]}` (20 = ~118% leading; more compact). Do NOT modify `ui/tokens.ts:recGatePrompt` (the variant is used by other call sites). Lower `minimumFontScale` from `0.85` to `0.75` to match G-26. Additionally: the hi-IN.json value `recording.handGatePrompt` is reworded from `'2 सेकंड के लिए हाथ फ्रेम में छोड़ें'` to the spec form `'2 सेकंड तक अपने हाथ फ़्रेम में रखें'` (more natural Hindi; the LLM produced an awkward translation that even the wrap fix can't make readable). This is a direct hi-IN.json edit performed AFTER Task 5's LLM regen so it survives — see Task 5 step 7."
+    - "G-27 closed (HandGate prompt wraps with visible vertical gap; Hindi prose awkwardness): root cause is the `recGatePrompt` Text variant in `apps/mobile/src/ui/tokens.ts:212-216` has `lineHeight: 24` on `fontSize: 17` — that's 41% leading, which renders as a visible vertical gap when wrapping to 2 lines. Fix: at the JSX call site `RecordingScreen.tsx:1093-1101`, OVERRIDE the variant lineHeight with an inline `style={[styles.gatePrompt, { lineHeight: 20 }]}` (20 = ~118% leading; more compact). Do NOT modify `ui/tokens.ts:recGatePrompt` (the variant is used by other call sites). Lower `minimumFontScale` from `0.85` to `0.75` to match G-26. Additionally: the hi-IN.json value `recording.gatePrompt` is reworded from `'2 सेकंड के लिए हाथ फ्रेम में छोड़ें'` to the spec form `'2 सेकंड तक अपने हाथ फ़्रेम में रखें'` (more natural Hindi; the LLM produced an awkward translation that even the wrap fix can't make readable). This is a direct hi-IN.json edit performed AFTER Task 5's LLM regen so it survives — see Task 5 step 7."
     - "G-28 re-walked (carried into Task 8 from 07-16 Bucket C — NOT walked because the operator's History was empty during 2026-05-26). Verified on Pixel 10a after capturing at least one practice or real recording: HistoryRow renders task name in active locale (downstream of G-25/G-18 fixes), `Uploaded at HH:MM` prefix translates via `t('history.row.uploadedAt', { time })`, FEEDBACK (COMING SOON) eyebrow translates, day-section header (TODAY / YESTERDAY / THIS WEEK / THIS MONTH) renders in active locale per the 07-16 historyGrouping.ts wire + WARNING-9 .toUpperCase() decision. The 07-16 wires stay UNTOUCHED — Task 8 verifies the existing implementation on real device data."
     - "G-29 disposition (NEW from 07-16 walk: operator reported History tab label rendering as `हिन्दी` (language name) instead of `इतिहास` / `हिस्ट्री`): Task 1 investigation found that the actual hi-IN.json `tabs.history` value is `'हिस्ट्री'` (correctly transliterated 'History'), and `BottomNav.tsx` correctly routes through `t('tabs.history')` (line 49 / line 131 — confirmed via grep). The screenshot evidence at `07-16-rewalk-evidence/2026-05-26-hi-IN/3.png` shows the History tab IS rendering as `हिस्ट्री`, NOT `हिन्दी` — the operator's matrix entry appears to be a TRANSCRIPTION ERROR. Task 1 records the discrepancy; Task 8 hardware re-walk confirms via fresh screenshot. NO code change required for G-29; the verdict is PASS by re-observation. If Task 8 reveals the bug IS real on a different code path (e.g. an alternate dev-build APK), Task 1's investigation flags it and the plan PAUSES for an in-scope fix."
     - "Operator-walked 7-locale hardware re-walk on Pixel 10a PASSES across all FAIL rows from 07-16 + the Bucket C deferred surfaces (G-13/G-14/G-19/G-28) + G-29 disposition. The walk order is the LOCKED one (hi-IN → pt-BR → es → bn-IN → ta-IN → te-IN → mr-IN — per memory `feedback_walk_locale_order`). Verdicts recorded row-by-row in a fresh `## Re-walk 2026-05-XX (Plan 07-17 closure)` block in `07-HUMAN-UAT.md`."
@@ -75,7 +75,7 @@ must_haves:
       provides: '~12 new keys + 1 modified hi-IN value (in Task 5b post-regen patch). New keys: `history.empty.firstTime.bodyTail` (' and try one.'), `history.filter.customRange.{title,from,to,placeholder,errorMissing,errorInverted,errorFuture,cancel,apply}` (9), `recording.practiceFallback` (Practice — 60 sec). The existing keys (rules.universal.*, tasks.category.*, tasks.setting.*, report.category.*, history.empty.*, history.filterSheet.title, history.row.*, helpCenter.title — all added by 07-16) STAY UNTOUCHED.'
       contains: 'history.filter.customRange'
     - path: apps/mobile/src/i18n/locales/hi-IN.json
-      provides: 'Hindi catalog regenerated by `pnpm i18n:generate` after en.json updates — shape parity with en.json + non-empty Devanagari values for the ~12 new keys. POST-REGEN PATCH (Task 5b): `recording.handGatePrompt` overwritten from the LLM-produced awkward form to the spec form `2 सेकंड तक अपने हाथ फ़्रेम में रखें` (G-27 prose fix). The patch is surgical and the audit sidecar is updated to document the manual override per WARNING-style discipline.'
+      provides: 'Hindi catalog regenerated by `pnpm i18n:generate` after en.json updates — shape parity with en.json + non-empty Devanagari values for the ~12 new keys. POST-REGEN PATCH (Task 5b): `recording.gatePrompt` overwritten from the LLM-produced awkward form to the spec form `2 सेकंड तक अपने हाथ फ़्रेम में रखें` (G-27 prose fix). The patch is surgical and the audit sidecar is updated to document the manual override per WARNING-style discipline.'
       contains: 'history.filter.customRange'
     - path: apps/mobile/src/screens/history/HistoryScreen.tsx
       provides: 'Line 599 — replace JSX literal ` and try one.` with `{t(''history.empty.firstTime.bodyTail'')}`. If Task 1 reveals the `.filtered` branch (line 571 ".") also needs a key, add it; otherwise the period punctuation stays as-is.'
@@ -129,7 +129,7 @@ must_haves:
       pattern: "history\\.filter\\.customRange"
     - from: apps/mobile/src/ui/primitives/Button.tsx
       to: apps/mobile/src/components/ReportProblemSheet.tsx
-      via: "All Button consumers inherit numberOfLines={1} + adjustsFontSizeToFit on the internal Text — closes the `रद` truncation across ReportProblem + FilterSheet Cancel + every other Devanagari/Indic button"
+      via: "All Button consumers inherit numberOfLines={1} + adjustsFontSizeToFit on the internal Text — closes the `रद` truncation across ReportProblem (Button consumer) + every other Button call site (~30 sites). FilterSheet Custom-range Cancel/Apply use raw `<Pressable>`+`<Text>` (NOT the Button primitive — verified via grep returning 0 `<Button>` matches in FilterSheet.tsx); they receive matching guards inline at Task 2 step 3 instead."
       pattern: "numberOfLines=\\{1\\}"
     - from: apps/mobile/__tests__/i18n/indoorOutdoorCollision.test.ts
       to: apps/mobile/src/i18n/locales/*.json
@@ -818,7 +818,7 @@ hi-IN → pt-BR → es → bn-IN → ta-IN → te-IN → mr-IN
     - apps/mobile/src/screens/history/HistoryScreen.tsx lines 540-605 (the G-20 firstTime/filtered empty-state JSX; line 599 hardcoded ` and try one.`)
     - apps/mobile/src/i18n/locales/hi-IN.json — full file; confirm `tasks.setting.indoor`/`tasks.setting.outdoor` ARE distinct values (`'घर के अंदर'` vs `'घर के बाहर'`) — G-24 is a TRUNCATION not a collision
     - apps/mobile/src/screens/tasks/SendRequestSheet.tsx lines 327-356 (the segmented styles use `flex: 1`; segmentedLabel + segmentedLabelActive have no width constraint)
-    - apps/mobile/src/ui/primitives/Button.tsx lines 55-91 (the Button primitive's internal Text element — line 85; consumed by both ReportProblemSheet footer AND FilterSheet Custom-range footer per `rg "import.*Button" apps/mobile/src/`)
+    - apps/mobile/src/ui/primitives/Button.tsx lines 55-91 (the Button primitive's internal Text element — line 85; consumed by ReportProblemSheet footer + ~30 other call sites per `rg "import.*Button.*from.*primitives/Button" apps/mobile/src/`. FilterSheet Custom-range Cancel/Apply at lines 369-388 do NOT consume `<Button>` — they use raw `<Pressable>`+`<Text variant="btnLabel">`; the FilterSheet overflow guards land inline in Task 2 step 3, not via this primitive change.)
     - apps/mobile/src/i18n/locales/hi-IN.json `common.cancel` + `delete.cancel` keys — confirm value is `"रद्द करें"` (rad-da karen) — G-22 Cancel button truncation is at the Button primitive, NOT the i18n value
   </read_first>
   <action>
@@ -882,7 +882,7 @@ hi-IN → pt-BR → es → bn-IN → ta-IN → te-IN → mr-IN
     grep -rn "<Button" apps/mobile/src/components/ReportProblemSheet.tsx apps/mobile/src/screens/shared/FilterSheet.tsx | head -10
     ```
 
-    Expected result: hi-IN.json values are CORRECTLY spelled `"रद्द करें"` (with the `्द` ligature); the Button primitive's internal Text at line 85 has NO `numberOfLines` / `adjustsFontSizeToFit` / `minimumFontScale`; both ReportProblemSheet AND FilterSheet Custom-range Cancel use the shared `<Button>` primitive. The truncation is a layout bug at the Button primitive, NOT a value bug.
+    Expected result: hi-IN.json values are CORRECTLY spelled `"रद्द करें"` (with the `्द` ligature); the Button primitive's internal Text at line 85 has NO `numberOfLines` / `adjustsFontSizeToFit` / `minimumFontScale`; ReportProblemSheet's Cancel button uses the shared `<Button>` primitive; FilterSheet Custom-range Cancel/Apply at lines 369-388 use raw `<Pressable>` + `<Text variant="btnLabel">` (NOT the Button primitive — verified via `grep -c "<Button" FilterSheet.tsx` returning 0). The truncation is a layout bug at TWO sites: (a) the shared Button primitive (Task 3 fix — propagates to ReportProblem + ~30 other consumers); (b) the raw FilterSheet Cancel/Apply Text elements (Task 2 G-21 inline fix — does NOT inherit from the Button primitive). NOT a value bug.
 
     **6. G-24 (Indoor/Outdoor both showing `घर के` — truncation OR collision):**
 
@@ -918,7 +918,7 @@ hi-IN → pt-BR → es → bn-IN → ta-IN → te-IN → mr-IN
     {HistoryScreen.tsx:599 literal; en.json firstTime.cta value; decision on bodyTail vs cta extension; filtered branch verdict}
 
     ## G-22 (Cancel button truncation root cause)
-    {hi-IN.json common.cancel + delete.cancel values — confirmed correct; Button primitive internal Text props — confirmed no overflow guards; consumer trace: both ReportProblemSheet AND FilterSheet Custom-range share the primitive}
+    {hi-IN.json common.cancel + delete.cancel values — confirmed correct; Button primitive internal Text props — confirmed no overflow guards; consumer trace: ReportProblemSheet consumes the `<Button>` primitive (Task 3 fix applies). FilterSheet Custom-range Cancel/Apply at lines 369-388 use raw `<Pressable>` + `<Text variant="btnLabel">` — NOT the Button primitive (grep -c "<Button" FilterSheet.tsx = 0). Task 2 G-21 step 3 adds inline overflow guards to those two raw Text elements.}
 
     ## G-24 (Indoor/Outdoor truncation vs collision)
     {hi-IN.json setting.indoor + setting.outdoor values — confirmed DISTINCT; segmented Pressable styles — confirmed flex:1 no overflow guards; verdict: TRUNCATION not collision}
@@ -976,10 +976,14 @@ hi-IN → pt-BR → es → bn-IN → ta-IN → te-IN → mr-IN
       3. Per Task 1 finding: if the `filtered` branch's trailing period also needs translation, add `history.empty.filtered.bodyTail` (value `"."`). Otherwise leave as-is.
 
     - **G-21 (FilterSheet Custom-range sub-sheet — 9 new keys):**
-      1. First handle the schema-breaking rename (per the <interfaces> SHAPE-PARITY NOTE):
-         - Grep for any `t('history.filter.customRange')` consumers (expected: only the base sheet OPTIONS array via `labelKey: 'history.filter.customRange'` at FilterSheet.tsx:65 — confirmed by planner-time grep).
-         - If the consumer count is just the OPTIONS array entry, RENAME the existing string-valued key from `history.filter.customRange` → `history.filter.customRangeChip` in en.json (1-line value rename); update FilterSheet.tsx:65's `labelKey: 'history.filter.customRange'` to `labelKey: 'history.filter.customRangeChip'`.
-         - If there are other consumers, PAUSE and surface to user (the rename target may need to be different).
+      1. Schema-breaking rename (per the <interfaces> SHAPE-PARITY NOTE) — execute it; do NOT pause. Plan-checker verified 3 consumer sites and pre-decided the strategy:
+         - **Consumer 1 — FilterSheet.tsx:65:** `{ value: 'custom-pick', labelKey: 'history.filter.customRange' }` (the base-sheet OPTIONS array chip label). Update to `labelKey: 'history.filter.customRangeChip'`.
+         - **Consumer 2 — HistoryScreen.tsx:142:** `if (custom == null) return t('history.filter.customRange');` (the time-range chip fallback when Custom is selected but no dates picked). Update to `t('history.filter.customRangeChip')`.
+         - **Consumer 3 — HistoryScreen.tsx:146:** `return t('history.filter.customRange');` (same chip fallback, second branch). Update to `t('history.filter.customRangeChip')`.
+         - **Test consumers** (skip — they read from the mocked `t`): `apps/mobile/__tests__/screens/history/HistoryScreen.tsx`-related test files that reference the old key string remain valid because they mock `t` and assert on call args — update any literal-key assertions if the test references `'history.filter.customRange'` as a STRING outside a `t()` call; otherwise leave.
+         - en.json: rename the existing string-valued key from `"customRange": "custom range"` → `"customRangeChip": "custom range"` in the `history.filter` block. Then add the new OBJECT-valued `"customRange": { ... }` per step 2 below.
+         - All 3 source rename + the en.json rename land in the SAME commit alongside the new object addition (atomic schema change).
+         - If grep reveals consumers BEYOND these 3 + test files (e.g. a stray `t('history.filter.customRange')` somewhere else in the tree), PAUSE then — but the planner verification confirmed there are no others.
       2. Extend en.json `history.filter` with a new OBJECT-valued `customRange` carrying 9 sub-keys:
          ```json
          "customRange": {
@@ -995,8 +999,32 @@ hi-IN → pt-BR → es → bn-IN → ta-IN → te-IN → mr-IN
          }
          ```
       3. Modify FilterSheet.tsx lines 280-388:
-         - Add `const { t } = useTranslation()` at the top of `FilterSheet16b` function (line 280 area) — verify if useTranslation is already imported at module top (it should be — used by the base sheet).
+         - Add `const { t } = useTranslation()` at the top of `Layer16b` function (line 280 area) — verify if useTranslation is already imported at module top (it should be — used by the base sheet).
          - Replace 9 hardcoded English strings (294 / 295 / 296 / 301 / 305 / 317 / 334 / 346 / 375 / 385) with their `t('history.filter.customRange.*')` equivalents per the <interfaces> mapping.
+         - **CRITICAL — G-22 Cancel/Apply overflow guards (plan-checker BLOCKER 3 fix):** The Custom-range footer Cancel + Apply at FilterSheet.tsx:369-388 use raw `<Pressable>` + `<Text variant="btnLabel">` — NOT the shared `<Button>` primitive that Task 3 guards. Verified via `grep -n "<Button" apps/mobile/src/screens/shared/FilterSheet.tsx` returning 0 matches. The Task 3 Button primitive change does NOT propagate here. Add overflow guards to BOTH raw Text elements:
+           ```tsx
+           <Text
+             variant="btnLabel"
+             style={styles.btnOutlineLabel}
+             numberOfLines={1}
+             adjustsFontSizeToFit
+             minimumFontScale={0.75}
+           >
+             {t('history.filter.customRange.cancel')}
+           </Text>
+           ```
+           ```tsx
+           <Text
+             variant="btnLabel"
+             style={styles.btnPrimaryLabel}
+             numberOfLines={1}
+             adjustsFontSizeToFit
+             minimumFontScale={0.75}
+           >
+             {t('history.filter.customRange.apply')}
+           </Text>
+           ```
+         - These guards match the Task 3 Button primitive guards (`numberOfLines={1}` + `adjustsFontSizeToFit` + `minimumFontScale={0.75}`) so the hi-IN `रद्द करें` / `अप्लाई` render identically across ReportProblem (via Button primitive) and FilterSheet Custom-range (via raw Pressable).
 
     - **Tests:**
       - `HistoryScreen.emptyTail.i18n.test.tsx`: render `HistoryScreen` with `recordings: []` + `historyRange: 'all'` + mock `useTranslation` to assert `t` is called with `'history.empty.firstTime.bodyTail'` AND the rendered output includes a Text component whose text is the mocked t-return value (preserves the linkable structure where the CTA is a Pressable Text inside the body).
@@ -1287,7 +1315,7 @@ hi-IN → pt-BR → es → bn-IN → ta-IN → te-IN → mr-IN
     - tools/i18n/validate.ts (shape-parity rules)
     - tools/.env (must contain ANTHROPIC_API_KEY)
     - apps/mobile/src/i18n/locales/en.json (post-Task-2/3 — confirm the new ~12 keys are in place: `history.empty.firstTime.bodyTail`, `history.filter.customRange.{title,from,to,placeholder,errorMissing,errorInverted,errorFuture,cancel,apply}` (9), `recording.practiceFallback`, `history.filter.customRangeChip` rename)
-    - apps/mobile/src/i18n/locales/hi-IN.json (post-07-16; confirm `recording.handGatePrompt` currently has the awkward `'2 सेकंड के लिए हाथ फ्रेम में छोड़ें'` form — the G-27 prose target)
+    - apps/mobile/src/i18n/locales/hi-IN.json (post-07-16; confirm `recording.gatePrompt` currently has the awkward `'2 सेकंड के लिए हाथ फ्रेम में छोड़ें'` form — the G-27 prose target)
     - apps/mobile/src/i18n/storage.ts (the `SUPPORTED_LOCALES` array — needed for the collision-regression test)
   </read_first>
   <behavior>
@@ -1333,27 +1361,27 @@ hi-IN → pt-BR → es → bn-IN → ta-IN → te-IN → mr-IN
 
     - **Task 5c (post-regen surgical patch — G-27 hi-IN prose):**
 
-      The LLM may overwrite the hi-IN `recording.handGatePrompt` value with another awkward form (the G-27 prose issue). After the regen completes, directly patch hi-IN.json:
+      The LLM may overwrite the hi-IN `recording.gatePrompt` value with another awkward form (the G-27 prose issue). After the regen completes, directly patch hi-IN.json:
 
       ```bash
       # Read current value
-      jq -r '.recording.handGatePrompt' apps/mobile/src/i18n/locales/hi-IN.json
+      jq -r '.recording.gatePrompt' apps/mobile/src/i18n/locales/hi-IN.json
       ```
 
       If the value is NOT the spec form `"2 सेकंड तक अपने हाथ फ़्रेम में रखें"`, replace it via jq:
 
       ```bash
-      jq '.recording.handGatePrompt = "2 सेकंड तक अपने हाथ फ़्रेम में रखें"' apps/mobile/src/i18n/locales/hi-IN.json > apps/mobile/src/i18n/locales/hi-IN.json.tmp \
+      jq '.recording.gatePrompt = "2 सेकंड तक अपने हाथ फ़्रेम में रखें"' apps/mobile/src/i18n/locales/hi-IN.json > apps/mobile/src/i18n/locales/hi-IN.json.tmp \
         && mv apps/mobile/src/i18n/locales/hi-IN.json.tmp apps/mobile/src/i18n/locales/hi-IN.json
       ```
 
       Then update the hi-IN audit sidecar to document the manual override:
       ```bash
-      jq '.manual_overrides = (.manual_overrides // []) + [{"key": "recording.handGatePrompt", "reason": "G-27 prose fix (Plan 07-17) — LLM produced awkward form; spec form is more natural Hindi", "date": "2026-05-XX"}]' apps/mobile/src/i18n/locales/hi-IN.audit.json > apps/mobile/src/i18n/locales/hi-IN.audit.json.tmp \
+      jq '.manual_overrides = (.manual_overrides // []) + [{"key": "recording.gatePrompt", "reason": "G-27 prose fix (Plan 07-17) — LLM produced awkward form; spec form is more natural Hindi", "date": "2026-05-XX"}]' apps/mobile/src/i18n/locales/hi-IN.audit.json > apps/mobile/src/i18n/locales/hi-IN.audit.json.tmp \
         && mv apps/mobile/src/i18n/locales/hi-IN.audit.json.tmp apps/mobile/src/i18n/locales/hi-IN.audit.json
       ```
 
-      For the other 6 non-en locales (`pt-BR`, `es`, `bn-IN`, `ta-IN`, `te-IN`, `mr-IN`): the operator's hi-IN walk surfaced the prose issue. Skim the regen output for awkward forms in each locale's `recording.handGatePrompt` — if any read as nonsense or back-translate as wrong meaning, log the discrepancy in the executor's narration BUT do NOT patch them in this plan (out-of-scope unless the operator surfaces them in Task 8). One value at a time.
+      For the other 6 non-en locales (`pt-BR`, `es`, `bn-IN`, `ta-IN`, `te-IN`, `mr-IN`): the operator's hi-IN walk surfaced the prose issue. Skim the regen output for awkward forms in each locale's `recording.gatePrompt` — if any read as nonsense or back-translate as wrong meaning, log the discrepancy in the executor's narration BUT do NOT patch them in this plan (out-of-scope unless the operator surfaces them in Task 8). One value at a time.
 
     - **NO human-translator review pass at MVP** — per CONTEXT.md D-11 + "Deferred Ideas". The regen plus the surgical hi-IN patch is the post-MVP-quality-bar treatment for now.
 
@@ -1401,7 +1429,7 @@ hi-IN → pt-BR → es → bn-IN → ta-IN → te-IN → mr-IN
        ```
 
     7. **Task 5c — surgical hi-IN G-27 prose patch:**
-       - Read the post-regen hi-IN `recording.handGatePrompt` value.
+       - Read the post-regen hi-IN `recording.gatePrompt` value.
        - If not the spec form `"2 सेकंड तक अपने हाथ फ़्रेम में रखें"`, patch via the jq commands in the behavior block.
        - Re-validate shape parity (`pnpm i18n:validate`) — the patch is value-only, shape unchanged.
        - Update hi-IN.audit.json with the manual_overrides entry.
@@ -1437,8 +1465,8 @@ hi-IN → pt-BR → es → bn-IN → ta-IN → te-IN → mr-IN
     - `jq '.history.filter.customRange.cancel' apps/mobile/src/i18n/locales/hi-IN.json` returns a Devanagari string (likely `"रद्द करें"` or similar).
     - `jq '.history.filter.customRange.apply' apps/mobile/src/i18n/locales/hi-IN.json` returns a Devanagari string.
     - `jq '.history.empty.firstTime.bodyTail' apps/mobile/src/i18n/locales/hi-IN.json` returns a Devanagari string.
-    - `jq -r '.recording.handGatePrompt' apps/mobile/src/i18n/locales/hi-IN.json` returns exactly `"2 सेकंड तक अपने हाथ फ़्रेम में रखें"` (the G-27 spec form — proves Task 5c surgical patch landed).
-    - `jq '.manual_overrides[] | select(.key == "recording.handGatePrompt")' apps/mobile/src/i18n/locales/hi-IN.audit.json` returns a non-null entry (proves the audit trail).
+    - `jq -r '.recording.gatePrompt' apps/mobile/src/i18n/locales/hi-IN.json` returns exactly `"2 सेकंड तक अपने हाथ फ़्रेम में रखें"` (the G-27 spec form — proves Task 5c surgical patch landed).
+    - `jq '.manual_overrides[] | select(.key == "recording.gatePrompt")' apps/mobile/src/i18n/locales/hi-IN.audit.json` returns a non-null entry (proves the audit trail).
     - All 7 `*.audit.json` sidecars have `generated_at` timestamps within the last 24 hours of Task 5 completion.
     - JS test suite exit 0.
     - All 8 invariant gates empty.
@@ -1588,7 +1616,7 @@ hi-IN → pt-BR → es → bn-IN → ta-IN → te-IN → mr-IN
   <verify><automated>grep -c "Re-walk 2026.*Plan 07-17 closure" .planning/phases/07-multi-linguality-live-cam-feed/07-HUMAN-UAT.md</automated></verify>
   <done>Operator types resume signal &quot;approved — 07-17 walk all PASS&quot; OR &quot;07-17 walk done — FAILs: ...&quot;. 07-HUMAN-UAT.md gains a new ## Re-walk 2026-05-XX (Plan 07-17 closure) section with the PASS/FAIL matrix across all 7 locales + G-13/G-14/G-29 one-off rows.</done>
   <what-built>
-    Tasks 1-6 shipped: G-25 practice-fallback chain rewired (PracticeIntroScreen + RecordingScreen); G-20 history empty bodyTail added; G-21 FilterSheet Custom-range sub-sheet wired through 9 new t() keys; G-22 Button primitive overflow guards (cross-cutting — every Button across the app inherits numberOfLines={1} + adjustsFontSizeToFit + minimumFontScale={0.75}); G-22 ReportProblemSheet chip text 2-line wrap; G-24 SendRequestSheet Indoor/Outdoor segmented overflow guards (the collision was a TRUNCATION, NOT a value bug — Vitest regression test added); G-17 TaskCategoryPills overflow guards + padding tuning; G-15 RecordingScreen liveEyeHint overflow guards (the bug was on the SIBLING Text, not the liveLabelText that 07-16 fixed); G-26 RotatePrompt scale lowered to 0.75 + padding added; G-27 RecordingScreen gatePrompt inline lineHeight override + scale lowered (the ui/tokens.ts variant is UNTOUCHED); 7 non-en catalogs LLM-regenerated with the 12 new keys; hi-IN G-27 prose surgically patched to spec form `2 सेकंड तक अपने हाथ फ़्रेम में रखें`; fresh APK on Pixel 10a; all 8 invariants green.
+    Tasks 1-6 shipped: G-25 practice-fallback chain rewired (PracticeIntroScreen + RecordingScreen); G-20 history empty bodyTail added; G-21 FilterSheet Custom-range sub-sheet wired through 9 new t() keys; G-22 two-site fix: (a) Button primitive overflow guards (cross-cutting — every Button consumer inherits numberOfLines={1} + adjustsFontSizeToFit + minimumFontScale={0.75}); (b) FilterSheet Custom-range Cancel/Apply raw Text elements get the SAME guards inline (does NOT inherit from Button — verified zero `<Button>` consumers in FilterSheet.tsx); G-22 ReportProblemSheet chip text 2-line wrap; G-24 SendRequestSheet Indoor/Outdoor segmented overflow guards (the collision was a TRUNCATION, NOT a value bug — Vitest regression test added); G-17 TaskCategoryPills overflow guards + padding tuning; G-15 RecordingScreen liveEyeHint overflow guards (the bug was on the SIBLING Text, not the liveLabelText that 07-16 fixed); G-26 RotatePrompt scale lowered to 0.75 + padding added; G-27 RecordingScreen gatePrompt inline lineHeight override + scale lowered (the ui/tokens.ts variant is UNTOUCHED); 7 non-en catalogs LLM-regenerated with the 12 new keys; hi-IN G-27 prose surgically patched to spec form `2 सेकंड तक अपने हाथ फ़्रेम में रखें`; fresh APK on Pixel 10a; all 8 invariants green.
 
     **Bucket C carry-forward:** the 2026-05-26 hi-IN walk did NOT walk G-13 (search probes), G-14 (CompatCheck — needs fresh install), G-19 (TaskDetailsSheet — needs operator tap), G-28 (HistoryRow — needs a real recording in History). Task 7 covers ALL FOUR via specific walking sequences below.
 
@@ -1641,7 +1669,7 @@ hi-IN → pt-BR → es → bn-IN → ta-IN → te-IN → mr-IN
     10. **Report a Problem (G-22 re-verify):**
         - From Profile → tap "Report a problem" → confirm category chips render translated (07-16 wire).
         - Confirm chip TEXT no longer truncates inside the chip (07-17 fix — 2-line wrap inside the chip for long Devanagari).
-        - Cancel button (uses shared Button primitive) reads `रद्द करें` without truncating to `रद`.
+        - Cancel button (raw `<Pressable>`+`<Text>` per FilterSheet.tsx:369 — overflow guards added inline in Task 2 G-21 step 3) reads `रद्द करें` without truncating to `रद`. Apply button (same pattern at FilterSheet.tsx:382) reads `अप्लाई` or locale equivalent without truncation.
 
     11. **CompatCheck (G-14 Bucket C — needs CLEAN install):**
         - Uninstall + reinstall the APK: `adb uninstall ai.humynlabs.capture.apk.debug && adb install <APK_PATH>`. CompatCheck fires on first launch per Phase 2.
@@ -1777,11 +1805,11 @@ hi-IN → pt-BR → es → bn-IN → ta-IN → te-IN → mr-IN
 - **G-19 re-walked PASS** (Bucket C deferred from 07-16): TaskDetailsSheet renders translated body via the 07-16 taskI18n.ts helpers + UniversalRulesBlock labelKey wires (UNTOUCHED by 07-17).
 - **G-20 closed:** HistoryScreen.tsx:599 trailing JSX literal ` and try one.` moves to a new en.json key `history.empty.firstTime.bodyTail`.
 - **G-21 closed:** FilterSheet Custom-range sub-sheet (lines 280-388) — 9 hardcoded English literals route through 9 new `history.filter.customRange.*` keys; existing `history.filter.customRange` string key renamed to `history.filter.customRangeChip` to make room for the new object-valued key.
-- **G-22 closed (Cancel button + chip text wrap):** Button primitive (`apps/mobile/src/ui/primitives/Button.tsx:85`) gains numberOfLines={1} + adjustsFontSizeToFit + minimumFontScale={0.75} — cross-cutting fix benefiting every Button consumer (ReportProblem Cancel + FilterSheet Custom-range Cancel + ~30 other call sites). ReportProblemSheet chip Text gains numberOfLines={2} + adjustsFontSizeToFit + minimumFontScale={0.85} so long Devanagari chip labels wrap inside the chip.
+- **G-22 closed (Cancel button + chip text wrap):** TWO fix sites because FilterSheet Custom-range does NOT consume `<Button>` (verified by plan-checker — grep returned 0 `<Button>` matches in FilterSheet.tsx). (1) Button primitive (`apps/mobile/src/ui/primitives/Button.tsx:85`) gains numberOfLines={1} + adjustsFontSizeToFit + minimumFontScale={0.75} — cross-cutting fix benefiting every Button consumer (ReportProblem Cancel + ~30 other call sites). (2) FilterSheet Custom-range Cancel + Apply raw Text elements at lines 369-388 receive the SAME overflow guards inline (Task 2 G-21 step 3). ReportProblemSheet chip Text gains numberOfLines={2} + adjustsFontSizeToFit + minimumFontScale={0.85} so long Devanagari chip labels wrap inside the chip.
 - **G-24 closed:** SendRequestSheet Indoor/Outdoor segmented Text elements gain numberOfLines={1} + adjustsFontSizeToFit + minimumFontScale={0.75}; new Vitest regression test (`indoorOutdoorCollision.test.ts`) asserts the keys values are DISTINCT across all 8 locales (permanent guard against future LLM-regen collisions).
 - **G-25 closed:** PracticeIntroScreen drops `taskName` from PRACTICE_ROUTE_PARAMS; RecordingScreen.tsx:178 fallback rewritten to `params.taskName ?? t(recording.practiceFallback)` AFTER the `useTranslation()` hook line. New en.json key `recording.practiceFallback` = `"Practice — 60 sec"` LLM-regend to 7 non-en locales.
 - **G-26 closed:** RotatePrompt.tsx body Text minimumFontScale lowered from 0.85 to 0.75; wrap style gains paddingHorizontal: spacing.l for horizontal slack.
-- **G-27 closed:** RecordingScreen.tsx gatePrompt JSX call site gains inline `style={[styles.gatePrompt, { lineHeight: 20 }]}` (overrides the `recGatePrompt` variants 24px lineHeight) + minimumFontScale lowered to 0.75. `ui/tokens.ts:recGatePrompt` variant UNTOUCHED. hi-IN `recording.handGatePrompt` surgically patched to spec form `"2 सेकंड तक अपने हाथ फ़्रेम में रखें"` via Task 5c post-regen patch + audit sidecar manual_overrides entry.
+- **G-27 closed:** RecordingScreen.tsx gatePrompt JSX call site gains inline `style={[styles.gatePrompt, { lineHeight: 20 }]}` (overrides the `recGatePrompt` variants 24px lineHeight) + minimumFontScale lowered to 0.75. `ui/tokens.ts:recGatePrompt` variant UNTOUCHED. hi-IN `recording.gatePrompt` surgically patched to spec form `"2 सेकंड तक अपने हाथ फ़्रेम में रखें"` via Task 5c post-regen patch + audit sidecar manual_overrides entry.
 - **G-28 re-walked PASS** (Bucket C deferred from 07-16): HistoryRow row task name + Uploaded at HH:MM prefix + FEEDBACK eyebrow + day-section header all render in active locale per 07-16s wires (UNTOUCHED by 07-17).
 - **G-29 disposition:** Task 1 investigation + Task 7 fresh screenshot confirms the bottom-tab History label renders correctly as `हिस्ट्री` (or active-locale equivalent), NOT the language name `हिन्दी`. Operators matrix entry was a TRANSCRIPTION ERROR. NO code change.
 - **7 non-English catalogs regenerated** by Task 5 with the 12 new keys + 1 renamed key; shape parity green; hi-IN G-27 prose surgical patch in place.
