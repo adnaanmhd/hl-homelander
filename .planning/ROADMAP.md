@@ -302,7 +302,7 @@ Plans:
 4. Task search works end-to-end in a non-English locale: a user typing a task name in Hindi (e.g. "चाय बनाओ") is mapped back to the canonical English ("Make tea") before hitting `/tasks/search`, and the search returns the expected result. The `ts_vector` GIN index + `tasks` table schema are unchanged; no database migration ships in this phase
 5. The renumber sweep is clean: `.planning/ROADMAP.md`, `.planning/STATE.md`, `.planning/REQUIREMENTS.md`, `CLAUDE.md`, and every Phase-7-referencing planning artifact correctly shows the observability work as Phase 8, with a single ROADMAP banner line noting the swap. The historical commit messages and quick-task directories that mention "Phase 7" in older contexts are left as-is (those are frozen history)
 
-**Plans:** 15 plans (8 original + 1 Profile-sweep gap-closure (07-09) + 6 cluster gap-closure (07-10..07-15) added 2026-05-25 after 07-HUMAN-UAT.md re-walk surfaced G-02..G-12 + COSMETIC-01..03)
+**Plans:** 16 plans (8 original + 1 Profile-sweep gap-closure (07-09) + 6 cluster gap-closure (07-10..07-15) added 2026-05-25 after 07-HUMAN-UAT.md re-walk surfaced G-02..G-12 + COSMETIC-01..03 + 1 Wave-3 re-walk gap-closure (07-16) added 2026-05-26 after Pixel-10a hi-IN walk surfaced G-13..G-28)
 
 Plans:
 **Wave 1** _(i18n infrastructure foundation — parallel; disjoint file ownership)_
@@ -344,7 +344,11 @@ Internal Wave B (depends on Wave A 07-11 catalog stability):
 
 Internal Wave C (depends on Wave A + Wave B closures):
 
-- [ ] 07-15-rewalk-and-verification-refresh-PLAN.md — Pixel-10a operator re-walks §2 + §3 + §4 + §6 + §7 + §8 + §10 + §11; 07-VERIFICATION.md flipped to `verified` or `gaps_found`; conditional ROADMAP / STATE advance (all I18N + REC-LIVE requirements re-affirmed)
+- [ ] 07-15-rewalk-and-verification-refresh-PLAN.md — Pixel-10a operator re-walks §2 + §3 + §4 + §6 + §7 + §8 + §10 + §11; 07-VERIFICATION.md flipped to `verified` or `gaps_found`; conditional ROADMAP / STATE advance (all I18N + REC-LIVE requirements re-affirmed) — **PAUSED 2026-05-26 at §2 hi-IN walk after surfacing G-14..G-28; re-attempts after 07-16 lands**
+
+Internal Wave D (depends on Wave C 07-15 pause; closes G-13..G-28 surfaced during the Wave-3 hi-IN walk):
+
+- [ ] 07-16-i18n-completion-and-truncation-PLAN.md — close 16 gaps (G-13..G-28) surfaced by the operator's Wave-3 re-walk: G-18 keystone client-side wiring (TasksScreen reads server response, NOT taskCatalog.i18n.ts — new `taskI18n.ts` helper bridges this) + G-13 client-side English stem-strip in reverseSearch (D-16 forbids backend changes) + 7 t() wires (StatCard period chip / TaskCategoryPills / HistoryScreen empty / FilterSheet / ReportProblemSheet / RootNativeStack HelpCenter title / SendRequestSheet chips + Indoor/Outdoor / HistoryRow uploadedAt + FEEDBACK eyebrow) + 4 Devanagari overflow/alignment fixes (CompatCheck label / Live indicator center-align / RotatePrompt / hand-gate prompt) + LLM regen of 7 non-en catalogs + operator-walked FULL 7-locale hardware re-walk on Pixel 10a per owner directive 'skip nothing' (I18N-01, I18N-08, I18N-09, I18N-10, I18N-11, I18N-12, REC-LIVE-01)
 
 **UI hint**: yes — new Choose Language screen + Profile row + recording-surface preview overlay + tap-affordance indicator
 
