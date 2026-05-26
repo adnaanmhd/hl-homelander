@@ -108,6 +108,7 @@
   },
   "recording": {
     "preview": { "live": "Live preview", "tapToReveal": "Tap screen to preview" },
+    "practiceFallback": "Practice — 60 sec",
     "rotatePrompt": "Rotate to landscape and mount on rig",
     "cue": {
       "started": "Recording started",

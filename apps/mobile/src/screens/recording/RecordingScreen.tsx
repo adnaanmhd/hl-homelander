@@ -175,11 +175,15 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
   const route = useRoute<{ key: string; name: string; params?: RecordingRouteParams }>();
   const params = route.params ?? {};
   const taskId = params.taskId ?? '__practice__';
-  const taskName = params.taskName ?? 'Practice — 60 sec';
   const taskCategory = params.taskCategory ?? 'practice';
   const taskSetting: 'indoor' | 'outdoor' = params.taskSetting ?? 'indoor';
   const isPractice = params.isPractice ?? false;
   const { t, i18n } = useTranslation();
+  // G-25 (Plan 07-17): locale-reactive practice fallback. The declaration
+  // moved BELOW the useTranslation() hook so `t` is in scope; PracticeIntro
+  // now omits the taskName field from PRACTICE_ROUTE_PARAMS so this fallback
+  // wins when params.taskName is undefined (practice flow).
+  const taskName = params.taskName ?? t('recording.practiceFallback');
 
   const [state, dispatch] = useReducer(
     recReducer,

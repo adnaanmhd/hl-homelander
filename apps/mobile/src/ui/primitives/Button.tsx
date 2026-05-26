@@ -82,7 +82,19 @@ export function Button({
       style={[computed, style]}
     >
       <View>
-        <Text variant="btnLabel" style={{ color: v.fg }}>
+        {/* G-22 (Plan 07-17): cross-cutting overflow guards on the internal
+            Text. Every Button consumer (~30 call sites incl. ReportProblem
+            Cancel + Submit) inherits these props — handles long Devanagari
+            labels (`रद्द करें` etc.) by auto-shrinking down to 75% of the
+            normal font size rather than truncating. Short en labels stay at
+            full size; this is opt-in via the scale floor. */}
+        <Text
+          variant="btnLabel"
+          style={{ color: v.fg }}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.75}
+        >
           {label}
         </Text>
       </View>
