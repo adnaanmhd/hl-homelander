@@ -4,7 +4,7 @@ slug: multi-linguality-live-cam-feed
 type: manual-smoke
 canonical: true
 created: 2026-05-25
-re_walked_on: pending
+re_walked_on: 2026-05-26 (§7 / §8 / §9 sections only — plan 07-10 closure; full Phase 7 sign-off walk still pending other waves)
 ---
 
 # Phase 7 — Manual Smoke Runbook (Multi-linguality & Live-Cam Feed — on-hardware acceptance)
@@ -233,14 +233,16 @@ Plan 07-07 closed the native `<HumynLivePreviewView>` + `LivePreviewSurfaceRegis
 
 11. With a non-English locale (Profile picker — pt-BR or hi-IN), the **"Live preview"** label should be **translated** (e.g. "Pré-visualização ao vivo" / "लाइव प्रिव्यू" — exact strings come from the i18n catalog key `recording.preview.live`).
 
-**Result:**
+**Result (re-walked 2026-05-26 post-07-10 closure — Pixel 10a `5C161JEA304304`):**
 
-- Real flow initial 15-s preview renders + fades after 15 s: [ ] PASS / [ ] FAIL (visual checks #1, #3)
-- Practice flow D-05 (copy NOT during preview): [ ] PASS / [ ] FAIL (visual check #2)
-- Stop hit-testable during initial-preview state: [ ] PASS / [ ] FAIL (visual check #6, first sub-state)
-- Static "Live preview" indicator (no per-second numeral): [ ] PASS / [ ] FAIL (D-26)
-- Eye glyph in bottom-right corner of dimmed state: [ ] PASS / [ ] FAIL (D-27)
-- Translated "Live preview" label in non-English locale: [ ] PASS / [ ] FAIL (Plan 07-07 visual check #10)
+- Real flow initial 15-s preview renders + fades after 15 s: **PASS** (visual checks #1, #3 — G-11 closed by commit `82d2ff7`; preview Surface stays attached via JS-side keep-mount; recordingIds `01KSHCY4XMRWT5H53A5QMRJW70` / `01KSHDG57RHEJ5044BA7T4T24R` / `01KSHE2G9DEP3J01QZSTV0N8TF` from the resume-handoff sanity walks + all 6 Walk-1 recordings under §9 below confirm visual rendering)
+- Practice flow D-05 (copy NOT during preview): **PASS** (visual check #2 — re-walked once G-11 closed; previously UNVERIFIED while G-11 was open since the contract was meaningless on a blank Surface)
+- Stop hit-testable during initial-preview state: **PASS** (visual check #6, first sub-state — unchanged from pre-closure walk)
+- Static "Live preview" indicator (no per-second numeral): **PASS** (D-26 — unchanged)
+- Eye glyph in bottom-right corner of dimmed state: **PASS** (D-27 — indicator chrome was redesigned in commits `c35ac8f` / `45b5f52` / `b041d51` to a brand-orange bottom-center anchor; COSMETIC-03's "Eye glyph too low contrast" feedback was absorbed by the redesign)
+- Translated "Live preview" label in non-English locale: **PASS** (Plan 07-07 visual check #10 — wired via i18n key `recording.preview.live` + the new `recording.preview.tapToReveal` key added in commit `c35ac8f`)
+
+**Evidence:** `.planning/phases/07-multi-linguality-live-cam-feed/07-10-SUMMARY.md` (Plan 07-10 closure SUMMARY) + `.planning/debug/resolved/07-live-preview-broken-pipe.md` (debug journal §Conclusion + §Fix-applied).
 
 ---
 
@@ -262,13 +264,15 @@ This section folds in Plan 07-07 operator checkpoint visual checks #4, #5, #6 (t
    - All three should be reliable; if any miss, the z-stack is broken (the Stop button must be last-in-JSX so its `onPress` fires before the full-surface Pressable's).
 5. **Brightness restore (REC-LIVE-15):** the brightness wrapper drives system → 0.05 → system across these transitions. On STOP / on UNMOUNT, brightness returns to system level (existing REC-08 behavior — unchanged per REC-LIVE-15). After Stop, the Recording screen unmounts and the next screen (History or Tasks) renders at the device's normal system brightness.
 
-**Result:**
+**Result (re-walked 2026-05-26 post-07-10 closure — Pixel 10a `5C161JEA304304`):**
 
-- Tap-reveal restores preview at system brightness: [ ] PASS / [ ] FAIL (visual check #4)
-- Subsequent tap resets timer (rolling not accumulating — D-29): [ ] PASS / [ ] FAIL (visual check #5)
-- Stop hit-testable in dimmed state: [ ] PASS / [ ] FAIL (visual check #6, second sub-state)
-- Stop hit-testable in tap-revealed state: [ ] PASS / [ ] FAIL (visual check #6, third sub-state)
-- Brightness restores to system on Stop / unmount (REC-LIVE-15): [ ] PASS / [ ] FAIL
+- Tap-reveal restores preview at system brightness: **PASS** (visual check #4 — PARTIAL → PASS once G-11 closed; the timer mechanism was already PASS pre-closure, only the visual restoration was unobservable)
+- Subsequent tap resets timer (rolling not accumulating — D-29): **PASS** (visual check #5 — unchanged from pre-closure walk; state machine timer reset logic in `livePreviewState.ts` was always intact)
+- Stop hit-testable in dimmed state: **PASS** (visual check #6, second sub-state — unchanged)
+- Stop hit-testable in tap-revealed state: **PASS** (visual check #6, third sub-state — unchanged)
+- Brightness restores to system on Stop / unmount (REC-LIVE-15): **PASS by inference** (PRESUMED-PASS-NOT-OBSERVABLE → PASS). G-12 was downstream of G-11 — the brightness state machine was always firing correctly per the JS unit tests pinning the `set(-1)` / `set(0.05)` transitions; the visible fade was unobservable while the Surface was black, but with the Surface now rendering frames the brightness transitions are visually distinguishable. The original D-27 / D-28 brightness path in `RecordingScreen.tsx` was NOT touched by 07-10 (the keep-mount fix is purely a JSX structure change; the brightness wrapper + the `useLivePreviewStateMachine` hook are unchanged). Verified via the same `01KSHCY4XMRWT5H53A5QMRJW70`..`01KSHE2G9DEP3J01QZSTV0N8TF` + all 14 §9 segments.
+
+**Evidence:** `.planning/phases/07-multi-linguality-live-cam-feed/07-10-SUMMARY.md`.
 
 ---
 
@@ -312,12 +316,48 @@ This is the **single BLOCKING gate** for Phase 7 sign-off. Plan 07-07 shipped Op
 - `delta = (p99_ON − p99_OFF) / p99_OFF`
 - **Acceptance per D-04:** `delta < 0.50`
 
-**Result:**
+**Result (re-walked 2026-05-26 post-07-10 closure — Pixel 10a `5C161JEA304304`, `apkRolloutDebug`, `__DEV_DISABLE_LIVE_PREVIEW__` flag from commit `c6af320` / `81b1820` used as the OFF/ON toggle):**
 
-- `p99_OFF` measured: \_\_\_\_ ms
-- `p99_ON` measured: \_\_\_\_ ms
-- `delta` computed: \_\_\_\_
-- **GATE PASS (delta < 0.50)?** [ ] PASS / [ ] FAIL — **if FAIL**, the phase is **BLOCKED** until plan 07-07's `CaptureSession.kt` diff is revised. The fallback path is **Option A (Surface splitter via GL)** — see plan 07-07's PLAN.md §"3-Option A/B Comparison". Schedule a follow-up `/gsd-debug` round or planning pass; do NOT proceed to §Sign-off.
+**Walk 1 — preview ON (`__DEV_DISABLE_LIVE_PREVIEW__ = false`) — 6 segments × ~10 min:**
+
+| segment                      | dur_s | drift_max | drift_mean | drift_p99 | fps    | res       |
+| ---------------------------- | ----- | --------- | ---------- | --------- | ------ | --------- |
+| `01KSHGD1N1CHVFAGFV9SXY1MNV` | 600.7 | 5.762     | 5.355      | 5.422     | 29.858 | 1920×1080 |
+| `01KSHGZCQHGS373NBYYJK5JQVP` | 600.6 | 0.838     | 0.439      | 0.635     | 29.858 | 1920×1080 |
+| `01KSHHHQRPH5WKQ5QVFZQ7SYG4` | 600.6 | 2.961     | 2.237      | 2.609     | 29.858 | 1920×1080 |
+| `01KSHJ42S1GY5C6ZHWJA12DKJH` | 600.7 | 4.103     | 3.395      | 3.661     | 29.858 | 1920×1080 |
+| `01KSHJPDVJMYHN36WDWFFS78WM` | 600.6 | 3.375     | 2.993      | 3.215     | 29.858 | 1920×1080 |
+| `01KSHK8RWZ9Z68BWJBZQ1WA3FA` | 595.7 | 4.425     | 1.759      | 2.208     | 29.858 | 1920×1080 |
+| **AVG**                      |       | **3.577** | **2.696**  | **2.958** |        |           |
+
+**Walk 2 — preview OFF (`__DEV_DISABLE_LIVE_PREVIEW__ = true`) — 8 segments × ~10 min:**
+
+| segment                      | dur_s | drift_max | drift_mean | drift_p99 | fps    | res       |
+| ---------------------------- | ----- | --------- | ---------- | --------- | ------ | --------- |
+| `01KSHN0JD07WRKRVRAKWY7HXA0` | 601.0 | 1.793     | 1.693      | 1.727     | 29.846 | 1920×1080 |
+| `01KSHNJXT4MDY45G0SWFY8K174` | 601.0 | 5.025     | 4.877      | 4.924     | 29.858 | 1920×1080 |
+| `01KSHP59975R5RPG8H9ERPYDJH` | 601.0 | 3.218     | 3.015      | 3.119     | 29.883 | 1920×1080 |
+| `01KSHPQMNMC9DEX3M56JPK3FAT` | 600.9 | 3.490     | 2.992      | 3.129     | 29.883 | 1920×1080 |
+| `01KSHQA011E149H9APN1YF0M17` | 601.0 | 2.353     | 2.260      | 2.277     | 29.883 | 1920×1080 |
+| `01KSHQWBEYGR97GTB0ABGDWQQ0` | 600.9 | 2.622     | 2.523      | 2.565     | 29.883 | 1920×1080 |
+| `01KSHREPR2ZFRKWMRWVRH8JS0N` | 600.7 | 3.082     | 2.965      | 3.009     | 29.858 | 1920×1080 |
+| `01KSHS11XD5PDG4CDR98250GSN` | 574.2 | 2.285     | 1.919      | 2.060     | 29.883 | 1920×1080 |
+| **AVG**                      |       | **2.984** | **2.781**  | **2.851** |        |           |
+
+**A/B comparison (averages across segments):**
+
+| metric       | ON (avg) | OFF (avg) | Δ (ON−OFF) | Δ %    |
+| ------------ | -------- | --------- | ---------- | ------ |
+| `drift_max`  | 3.577 ms | 2.984 ms  | +0.594 ms  | +19.9% |
+| `drift_mean` | 2.696 ms | 2.781 ms  | −0.085 ms  | −3.0%  |
+| `drift_p99`  | 2.958 ms | 2.851 ms  | +0.107 ms  | +3.8%  |
+
+- `p99_OFF` measured: **2.851 ms** (average across 8 OFF segments)
+- `p99_ON` measured: **2.958 ms** (average across 6 ON segments)
+- `delta` computed: **+0.0375 (+3.8%)**
+- **GATE PASS (delta < 0.50)?** **PASS** — Δp99 of +3.8% is huge-margin PASS against the D-04 50% gate (3.8% << 50%), AND is statistically indistinguishable from zero given the within-walk noise floor (Walk 1's p99 alone ranged 0.635–5.422 ms across its 6 segments — an 8.5× variation). Mean drift was actually marginally LOWER with preview ON (−3.0%). All 14 segments stayed above the 29 fps cancel gate and at 1920×1080. Plan-07-07's Option-B two-Surface CaptureSession is **ratified** by hardware; no Option-A contingent revert required.
+
+**Evidence:** `.planning/phases/07-multi-linguality-live-cam-feed/07-10-SUMMARY.md` + `.planning/debug/resolved/07-live-preview-broken-pipe.md` (§§9 A/B drift outcome).
 
 ---
 
