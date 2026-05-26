@@ -203,8 +203,12 @@ describe('TASK_VERNACULAR_BRIEF (G-08 closure)', () => {
   it('forbids touching the en slot (LLM only translates the 7 non-English locales)', () => {
     // The brief tells the model to translate string VALUES while preserving
     // the JSON structure. Top-level keys (canonical English task names) are
-    // stable identifiers and must not be translated.
-    expect(TASK_VERNACULAR_BRIEF).toMatch(/(top-level keys|object keys|task names).*(not|do not|don't)/i);
+    // stable identifiers and must not be translated. The negation may come
+    // either before ("Do NOT change the top-level keys") or after ("top-level
+    // keys must not be translated") — both phrasings encode the same rule.
+    expect(TASK_VERNACULAR_BRIEF).toMatch(
+      /(not|do not|don't).*(top-level keys|object keys|task names)|(top-level keys|object keys|task names).*(not|do not|don't)/i,
+    );
   });
 
   it('requires strict JSON output with no markdown fences', () => {
