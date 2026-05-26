@@ -64,18 +64,29 @@ export async function evaluateIntegrity(opts: {
   if (payload.requestDetails.requestPackageName !== applicationId) {
     return { pass: false, verdict: 'passed', reason: 'package_name_mismatch' };
   }
-  if (payload.appIntegrity.packageName !== applicationId) {
+  // packageName is absent when appRecognitionVerdict is UNEVALUATED — skip the
+  // check in that case; the appRecognitionVerdict gate below handles it.
+  if (
+    payload.appIntegrity.appRecognitionVerdict !== 'UNEVALUATED' &&
+    payload.appIntegrity.packageName !== applicationId
+  ) {
     return { pass: false, verdict: 'passed', reason: 'app_integrity_package_mismatch' };
   }
 
   // 4. Device integrity — emulator hard-reject
-  const dvr = payload.deviceIntegrity.deviceRecognitionVerdict;
+  const dvr = payload.deviceIntegrity.deviceRecognitionVerdict ?? [];
   if (dvr.includes('MEETS_VIRTUAL_INTEGRITY')) {
     return { pass: false, verdict: 'passed', reason: 'integrity-emulator' };
   }
-  // Reject if NO acceptable integrity verdict — covers rooted devices that
-  // produce empty / UNRECOGNIZED arrays per Google docs.
+  // UNEVALUATED device integrity (empty dvr) is expected for the apkRollout
+  // sideload flavor — the GCP project is not linked to a Play Console app so
+  // Play Integrity cannot evaluate the device. Allow it through to the
+  // install-source bypass gate below. For all other flavors, reject if no
+  // acceptable integrity verdict (covers rooted devices / empty arrays).
+  const isUnevaluated =
+    payload.appIntegrity.appRecognitionVerdict === 'UNEVALUATED' && dvr.length === 0;
   if (
+    !isUnevaluated &&
     !dvr.includes('MEETS_DEVICE_INTEGRITY') &&
     !dvr.includes('MEETS_BASIC_INTEGRITY') &&
     !dvr.includes('MEETS_STRONG_INTEGRITY')
@@ -87,10 +98,15 @@ export async function evaluateIntegrity(opts: {
   if (payload.appIntegrity.appRecognitionVerdict === 'PLAY_RECOGNIZED') {
     return { pass: true, verdict: 'passed' };
   }
-  if (payload.appIntegrity.appRecognitionVerdict === 'UNRECOGNIZED_VERSION') {
+  // UNEVALUATED is treated as UNRECOGNIZED_VERSION for the apkRollout flavor:
+  // the sideload APK is never on Play Store so Play Integrity cannot recognise
+  // it, but the install-source bypass (D-AUTH-02) covers this distribution path.
+  if (
+    payload.appIntegrity.appRecognitionVerdict === 'UNRECOGNIZED_VERSION' ||
+    payload.appIntegrity.appRecognitionVerdict === 'UNEVALUATED'
+  ) {
     const bypass = await shouldBypassInstallSource({ flavor, applicationId });
     if (bypass) {
-      // Install-source bypass per D-AUTH-02. Both gates passed.
       return { pass: true, verdict: 'bypassed_apk' };
     }
   }
