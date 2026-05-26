@@ -950,10 +950,33 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
           hit-testable in all three brightness substates per
           T-07-07-06). Practice instructional copy is gated on
           `brightnessState === 'dimmed'` (D-05). */}
-      {state.substate === 'active' &&
-      (brightnessState === 'initial-preview' || brightnessState === 'tap-revealed') &&
-      isLivePreviewAvailable() ? (
-        <HumynLivePreviewView style={StyleSheet.absoluteFill} />
+      {/* Phase 7 plan 07-10: keep the live-preview view MOUNTED for the entire
+          'active' substate and toggle visibility via opacity instead of
+          mount/unmount. Reason: every mount/unmount creates a fresh
+          SurfaceTexture-backed Surface; the Camera2 session's
+          `updateOutputConfiguration` swap path then fails on the second
+          attach with `IllegalArgumentException: Surface was abandoned` because
+          the new SurfaceTexture's BufferQueue producer isn't connected yet
+          when Android introspects the surface size via writeToParcel ->
+          getConfiguredSize -> updateCachedSurfaceSize -> SurfaceUtils.getSurfaceSize.
+          A 200ms post-delay on sessionHandler did NOT help (Pixel-10a operator
+          logs at commits cdcada9 + eb70d33 reproduced the same exception).
+          Keeping the view mounted throughout 'active' means the SurfaceTexture
+          is created exactly ONCE at recording start; CaptureSession's
+          finalizeOutputConfigurations (which does NOT introspect surface size)
+          attaches it once and no subsequent swap is needed. Visual intent
+          (preview shown only during initial-preview + tap-revealed, hidden
+          during dimmed) is preserved by toggling opacity. The native onAddTarget
+          / onRemoveTarget swap code stays as defense for any edge case where
+          the view does remount, but on the common path it now fires exactly
+          once. */}
+      {state.substate === 'active' && isLivePreviewAvailable() ? (
+        <HumynLivePreviewView
+          style={{
+            ...StyleSheet.absoluteFillObject,
+            opacity: brightnessState === 'dimmed' ? 0 : 1,
+          }}
+        />
       ) : null}
 
       {/* Full-surface Pressable for tap-to-reveal — dimmed state only
