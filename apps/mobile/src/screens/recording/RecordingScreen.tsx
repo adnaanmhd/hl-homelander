@@ -67,10 +67,7 @@ import {
 } from '../../native/HumynGateCamera';
 import { HumynLivePreviewView, isLivePreviewAvailable } from '../../native/HumynLivePreviewView';
 import * as HumynScreenBrightness from '../../native/HumynScreenBrightness';
-import {
-  useLivePreviewStateMachine,
-  __DEV_DISABLE_LIVE_PREVIEW__,
-} from '../../lib/livePreviewState';
+import { useLivePreviewStateMachine } from '../../lib/livePreviewState';
 import { pickAndSetLocaleVoice, speakCue } from '../../lib/ttsVoice';
 import { formatContributionDuration } from '../../lib/durationFormat';
 import { buildCaptureOpts } from '../../lib/buildCaptureOpts';
@@ -973,14 +970,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
           / onRemoveTarget swap code stays as defense for any edge case where
           the view does remount, but on the common path it now fires exactly
           once. */}
-      {/* Phase 7 plan 07-10 §9 — `__DEV_DISABLE_LIVE_PREVIEW__` gates the mount
-          entirely (NOT just visually): when true, the live-preview Surface is
-          never published to LivePreviewSurfaceRegistry, CaptureSession opens
-          single-Surface (encoder-only), exactly matching the pre-82d2ff7
-          baseline. This is the OFF baseline switch for the §9 A/B drift gate
-          (REC-LIVE-05 / D-04). Defaults to `false` in dev and is force-false
-          in production via the __DEV__ guard in the constant's definition. */}
-      {state.substate === 'active' && isLivePreviewAvailable() && !__DEV_DISABLE_LIVE_PREVIEW__ ? (
+      {state.substate === 'active' && isLivePreviewAvailable() ? (
         <HumynLivePreviewView
           style={{
             ...StyleSheet.absoluteFillObject,

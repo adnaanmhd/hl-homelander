@@ -33,47 +33,6 @@ export type LivePreviewState = 'initial-preview' | 'dimmed' | 'tap-revealed';
 export const INITIAL_PREVIEW_MS = 15_000;
 export const TAP_REVEAL_MS = 10_000;
 
-// ---------------------------------------------------------------------------
-// __DEV_DISABLE_LIVE_PREVIEW__ — Phase 7 plan 07-10 §9 A/B baseline switch.
-// ---------------------------------------------------------------------------
-//
-// When `true`, the `<HumynLivePreviewView>` JSX in RecordingScreen.tsx is NOT
-// mounted during the 'active' substate — the capture pipeline runs encoder-only
-// (single-Surface CaptureSession), exactly the baseline state that existed
-// before commit 82d2ff7 (the "keep mounted across all 'active' substates" fix).
-//
-// Purpose: produce the clean preview-OFF drift baseline required by
-// 07-MANUAL-SMOKE.md §9 (REC-LIVE-05 / D-04). The classical A/B comparison is
-// `delta = (p99_ON - p99_OFF) / p99_OFF`; without this flag the JS keep-mounted
-// refactor leaves the preview Surface attached to the CaptureSession throughout
-// the 'active' substate even when visually hidden via opacity:0, so the encoder
-// always sees the two-Surface session — there is no longer a meaningful "OFF"
-// baseline in normal product use.
-//
-// Workflow:
-//   1. Set this constant to `true`, rebuild + install, walk the §9 baseline
-//      (10-min recording), record `p99_OFF` from the metadata.
-//   2. Set it back to `false`, rebuild + install, walk the §9 treatment run
-//      (10-min recording, exercise initial-preview + tap-reveal), record
-//      `p99_ON` from the metadata.
-//   3. Compute delta + paste both numbers into 07-MANUAL-SMOKE.md §9.
-//
-// __DEV__-gated: in production builds (`__DEV__ === false`) the flag is forced
-// to `false` regardless of what is committed here, so a careless commit of
-// `true` can NEVER ship to operators / Play Store builds. The release-build
-// constant folding by Hermes makes `__DEV__ && X` evaluate to `false` at
-// build time — the JSX consumer in RecordingScreen reads this exported
-// constant directly, and the constant's value flips on the build flavor.
-//
-// Default: `false` — the standard product-correct mount path.
-
-// Hermes / RN provides __DEV__ as a global at runtime; vitest's setup file
-// also defines it. Declare here so the TypeScript compiler picks it up.
-declare const __DEV__: boolean | undefined;
-
-export const __DEV_DISABLE_LIVE_PREVIEW__: boolean =
-  typeof __DEV__ !== 'undefined' && __DEV__ === true && false;
-
 /** Brightness wrapper — narrowed to the surface area the machine needs. */
 export interface BrightnessApi {
   /**
