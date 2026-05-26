@@ -17,6 +17,7 @@ import {
   localizeTaskInstructions,
 } from '../../src/i18n/taskI18n';
 import { TASK_CATALOG_I18N } from '../../src/i18n/taskCatalog.i18n';
+import { reverseSearch } from '../../src/i18n/reverseSearch';
 
 describe('taskI18n.ts (G-18 / G-19 / G-25 keystone helper)', () => {
   // Read the canonical en+hi-IN+pt-BR truth from the catalog so the assertion
@@ -73,5 +74,44 @@ describe('taskI18n.ts (G-18 / G-19 / G-25 keystone helper)', () => {
     // Empty-string / empty-array fallback for a completely unknown key.
     expect(localizeTaskDescription('Unknown task xyz', 'hi-IN')).toBe('');
     expect(localizeTaskInstructions('Unknown task xyz', 'hi-IN')).toEqual([]);
+  });
+});
+
+describe('reverseSearch EN_TOKEN_ALIASES (G-13 closure, Plan 07-16 Task 3)', () => {
+  // The curated alias map rewrites English derivational forms to the
+  // canonical token the server's ts_vector index matches. Backend stays
+  // unmodified per D-16 — this is purely the client-side bridge.
+
+  it('reverseSearch("recyclable", "en") → "recyclables" (singular adjective form)', () => {
+    expect(reverseSearch('recyclable', 'en')).toBe('recyclables');
+  });
+
+  it('reverseSearch is case-insensitive for the en alias lookup', () => {
+    // The alias map uses .toLowerCase() before lookup, so "Recyclable" /
+    // "RECYCLABLE" / "Recyclables" all hit.
+    expect(reverseSearch('Recyclable', 'en')).toBe('recyclables');
+    expect(reverseSearch('RECYCLABLE', 'en')).toBe('recyclables');
+  });
+
+  it('reverseSearch("recyclables", "en") → "recyclables" (identity passthrough)', () => {
+    expect(reverseSearch('recyclables', 'en')).toBe('recyclables');
+  });
+
+  it('reverseSearch("recycle", "en") → "recyclables" (verb form)', () => {
+    expect(reverseSearch('recycle', 'en')).toBe('recyclables');
+  });
+
+  it('reverseSearch("recycling", "en") → "recyclables" (gerund form)', () => {
+    expect(reverseSearch('recycling', 'en')).toBe('recyclables');
+  });
+
+  it('reverseSearch("recyclable bottles", "en") → "recyclables bottles" (multi-token; "bottles" passes through)', () => {
+    expect(reverseSearch('recyclable bottles', 'en')).toBe('recyclables bottles');
+  });
+
+  it('reverseSearch("cooking a meal", "en") → "cooking a meal" (no alias entries; tokens pass through)', () => {
+    // All tokens are absent from the alias map → return unchanged. Stage-3
+    // passthrough behaviour for en.
+    expect(reverseSearch('cooking a meal', 'en')).toBe('cooking a meal');
   });
 });
