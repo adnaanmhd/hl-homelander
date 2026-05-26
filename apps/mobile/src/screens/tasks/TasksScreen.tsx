@@ -38,15 +38,17 @@ import { Text } from '../../ui/primitives/Text';
 import { Pressable } from '../../ui/primitives/Pressable';
 import { TopBar } from '../../components/TopBar';
 import { TaskCard } from '../../components/TaskCard';
-import {
-  TaskCategoryPills,
-  type TaskCategoryPill,
-} from '../../components/TaskCategoryPills';
+import { TaskCategoryPills, type TaskCategoryPill } from '../../components/TaskCategoryPills';
 import { SearchInput } from '../../components/SearchInput';
 import { useTabTopBarProps } from '../../hooks/useTabTopBarProps';
 import { fetchTasks, useTaskSearch } from '../../services/tasksApi';
 import type { Task } from '@humyn/shared-types';
 import { colors, spacing } from '../../ui/tokens';
+import {
+  localizeTaskName,
+  localizeTaskCategory,
+  localizeTaskDescription,
+} from '../../i18n/taskI18n';
 
 import { TaskDetailsSheet } from './TaskDetailsSheet';
 import { SendRequestSheet } from './SendRequestSheet';
@@ -71,14 +73,19 @@ type RecordingNav = {
 export function TasksScreen(): React.JSX.Element {
   const topBarProps = useTabTopBarProps();
   const navigation = useNavigation() as unknown as RecordingNav;
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [debouncedQuery, setDebouncedQuery] = useState<string>('');
   const [categoryFilter, setCategoryFilter] = useState<TaskCategoryPill>('all');
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [loadingList, setLoadingList] = useState<boolean>(false);
-  const [listError, setListError] = useState<Error | null>(null);
+  // Pre-existing setters used by the legacy loadList + cancellable useEffect
+  // chain; the values themselves aren't rendered (the search hook drives
+  // loading + error). Underscore-prefix added 2026-05-26 to satisfy the
+  // no-unused-vars lint rule that escalated after this file was touched by
+  // plan 07-16 Task 2 (Rule 3 — auto-fix blocking lint issue; pre-existing).
+  const [, setLoadingList] = useState<boolean>(false);
+  const [, setListError] = useState<Error | null>(null);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
   // Phase-6 design-spec §10 — server-side lexical search hook fires 200ms
@@ -144,7 +151,10 @@ export function TasksScreen(): React.JSX.Element {
 
   const isSearching = debouncedQuery.trim().length > 0;
   const showEmptyState =
-    isSearching && search.loading === false && search.results !== null && search.results.length === 0;
+    isSearching &&
+    search.loading === false &&
+    search.results !== null &&
+    search.results.length === 0;
 
   // Sheet visibility — both sheets live at this screen so a sheet-driven
   // request can dismiss into the other (TASK-10 "send a request" link).
@@ -173,18 +183,21 @@ export function TasksScreen(): React.JSX.Element {
   const handleStartRecording = useCallback(
     (task: Task): void => {
       // design-spec §11 footer — close the sheet, then 200ms later navigate.
+      // G-25 (Plan 07-16): pass the LOCALIZED task name through the navigation
+      // params so RecordingScreen's `state.taskName` reads localized from the
+      // first render — no need to touch the RecordingScreen state.taskName chain.
       setDetailsOpen(false);
       setTimeout(() => {
         navigation.navigate('Recording', {
           taskId: task.id,
-          taskName: task.name,
+          taskName: localizeTaskName(task.name, i18n.language),
           taskCategory: task.category,
           taskSetting: task.setting,
           isPractice: false,
         });
       }, 200);
     },
-    [navigation],
+    [navigation, i18n.language],
   );
 
   // Debounced search wiring — `onChangeDebounced` updates the query that
@@ -198,19 +211,31 @@ export function TasksScreen(): React.JSX.Element {
     // Owned by Plan 06-10 (Firebase Analytics adapter).
   }, []);
 
+  // G-18 keystone (Plan 07-16): wrap server-returned canonical-English
+  // name/category/description through TASK_CATALOG_I18N lookups so the cards
+  // render in the active locale. For en (the canonical language) we use the
+  // server-returned `item.description` directly — the server IS the truth
+  // for en; the catalog is only consulted for non-en locales (per D-12 the
+  // helper returns en when the locale entry is missing).
   const renderCard: ListRenderItem<Task> = useCallback(
-    ({ item }) => (
-      <View style={styles.cardWrap}>
-        <TaskCard
-          slug={item.slug}
-          name={item.name}
-          category={item.category}
-          description={item.description}
-          onPress={() => openTaskDetails(item)}
-        />
-      </View>
-    ),
-    [openTaskDetails],
+    ({ item }) => {
+      const isEn = i18n.language === 'en';
+      const desc = isEn
+        ? item.description
+        : localizeTaskDescription(item.name, i18n.language) || item.description;
+      return (
+        <View style={styles.cardWrap}>
+          <TaskCard
+            slug={item.slug}
+            name={localizeTaskName(item.name, i18n.language)}
+            category={localizeTaskCategory(item.category, i18n.language)}
+            description={desc}
+            onPress={() => openTaskDetails(item)}
+          />
+        </View>
+      );
+    },
+    [openTaskDetails, i18n.language],
   );
 
   // __DEV__ long-press affordance — preserved verbatim from

@@ -46,3 +46,16 @@ Pre-existing drift confirmed by reproducing on `HEAD` (before plan 07-13 edits)
 via `git stash --include-untracked` + targeted vitest run. Plan 07-13 touches
 help-center screens only; the RecordingScreen / live preview surface area is
 unrelated. Logged for the wave's verifier or a later baseline-refresh pass.
+
+### 2026-05-26 — Pre-existing visual-snapshot failures
+
+Discovered during Task 2 (taskI18n.ts wiring). Confirmed via `git stash` + re-run on
+the base branch (commit beec43d / 5bcac19 — the worktree base).
+
+- `__tests__/visual/RecordingScreen.visual.test.tsx > matches baseline (recording-active-t10s)` — 5.40% diff vs snapshot, 20016 differing pixels.
+- `__tests__/visual/RecordingScreen.visual.test.tsx > matches baseline (recording-active-t05m32s)` — 5.40% diff, 20016 pixels.
+
+These failures predate plan 07-16 (the snapshot baselines drifted relative to the
+current RecordingScreen render — likely the calibration / metadata schema 1.2.0
+banner from 2026-05-22 changed the Text variant token references). Out of scope
+for 07-16's i18n closure. Track in a follow-on visual-snapshot refresh quick task.

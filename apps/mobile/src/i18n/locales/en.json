@@ -189,7 +189,29 @@
     "emptyHeading": "No tasks match. Try clearing filters or ",
     "emptySendLink": "send a request",
     "footerPrefix": "Can't find a task? ",
-    "footerLink": "Send request →"
+    "footerLink": "Send request →",
+    "category": {
+      "all": "All",
+      "cooking": "Cooking",
+      "dishwashing": "Dishwashing",
+      "kitchen": "Kitchen",
+      "cleaning": "Cleaning",
+      "tidying": "Tidying",
+      "laundry": "Laundry",
+      "gardening": "Gardening",
+      "petCare": "Pet Care",
+      "homeMaintenance": "Home Maintenance",
+      "hobby": "Hobby",
+      "other": "Other"
+    }
+  },
+  "rules": {
+    "universal": {
+      "handsInFrame": "Keep your hands in frame",
+      "mountDevice": "Mount the device firmly on the rig",
+      "wellLit": "Make sure your space is well-lit",
+      "closeApps": "Close all other apps before you start"
+    }
   },
   "taskDetails": {
     "outdoorChip": "Outdoor",

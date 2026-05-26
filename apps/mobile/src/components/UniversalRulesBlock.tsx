@@ -26,6 +26,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { HandMetal, Video, Lightbulb, LayoutGrid } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Text } from '../ui/primitives/Text';
 import { colors, spacing, radii } from '../ui/tokens';
 
@@ -34,23 +35,32 @@ type LucideRule = React.ComponentType<{ size?: number; strokeWidth?: number; col
 interface UniversalRule {
   /** Canonical Material Symbols Outlined name (verbatim from task-taxonomy.md). */
   readonly icon: 'front_hand' | 'videocam' | 'lightbulb' | 'apps';
-  readonly label: string;
+  /**
+   * i18n key for the rule label (G-19 closure, Plan 07-16). Resolved at render
+   * time via `t(rule.labelKey)`; keeps the rule constants locale-agnostic and
+   * the 4 strings co-located with the rest of the i18n catalog.
+   */
+  readonly labelKey: string;
   /** Lucide-react-native equivalent we actually render at MVP. */
   readonly lucide: LucideRule;
 }
 
 /**
  * The four canonical rules — verbatim from `task-taxonomy.md` Universal-rules
- * header + design-spec §11. Order is fixed (TASK-06).
+ * header + design-spec §11. Order is fixed (TASK-06). The label STRINGS now
+ * live in en.json under `rules.universal.{handsInFrame|mountDevice|wellLit|closeApps}`
+ * (Plan 07-16 G-19 closure); the LLM regen pass in Task 5 populates the 7
+ * non-en catalogs.
  */
 export const UNIVERSAL_RULES: readonly UniversalRule[] = [
-  { icon: 'front_hand', label: 'Keep your hands in frame', lucide: HandMetal },
-  { icon: 'videocam', label: 'Mount the device firmly on the rig', lucide: Video },
-  { icon: 'lightbulb', label: 'Make sure your space is well-lit', lucide: Lightbulb },
-  { icon: 'apps', label: 'Close all other apps before you start', lucide: LayoutGrid },
+  { icon: 'front_hand', labelKey: 'rules.universal.handsInFrame', lucide: HandMetal },
+  { icon: 'videocam', labelKey: 'rules.universal.mountDevice', lucide: Video },
+  { icon: 'lightbulb', labelKey: 'rules.universal.wellLit', lucide: Lightbulb },
+  { icon: 'apps', labelKey: 'rules.universal.closeApps', lucide: LayoutGrid },
 ] as const;
 
 export function UniversalRulesBlock(): React.JSX.Element {
+  const { t } = useTranslation();
   return (
     <View accessibilityLabel="universal-rules-block" style={styles.well}>
       <Text variant="formLabel" style={styles.header} accessibilityLabel="universal-rules-header">
@@ -69,7 +79,7 @@ export function UniversalRulesBlock(): React.JSX.Element {
                 <Glyph size={18} strokeWidth={1.75} color={colors.accent} />
               </View>
               <Text variant="ruleLabel" tone="primary" style={styles.label}>
-                {rule.label}
+                {t(rule.labelKey)}
               </Text>
             </View>
           );
