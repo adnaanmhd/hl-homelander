@@ -209,8 +209,23 @@ export default function SignupScreen() {
               </Text>
             ) : null}
           </Pressable>
-          <View style={{ marginLeft: spacing.m, flex: 1 }}>
-            <Text variant="caption" tone="primary" accessibilityLabel="Consent label">
+          {/* Plan 07-14 (COSMETIC-01) — consent paragraph + Terms-link line
+              center-aligned. `textAlign: 'center'` on each Text node centers
+              the wrapped lines (the inline <Text> for the Terms link inherits
+              from its parent so the link sits in the centered run). The
+              container drops `flex: 1` so the centering computes against the
+              text's natural width inside the row (with the checkbox to its
+              left). The bilingual D-32 underlay block (non-en locales) keeps
+              the same centering across both the translated text on top AND
+              the English underlay below — verified visually in pt-BR + hi-IN
+              during plan 07-15 §3 re-walk. */}
+          <View style={{ marginLeft: spacing.m, flexShrink: 1 }}>
+            <Text
+              variant="caption"
+              tone="primary"
+              accessibilityLabel="Consent label"
+              style={{ textAlign: 'center' }}
+            >
               {t('signup.consentLabelPrefix')}
               <Text
                 variant="caption"
@@ -227,7 +242,7 @@ export default function SignupScreen() {
                 variant="caption"
                 tone="secondary"
                 accessibilityLabel="Consent label English underlay"
-                style={{ opacity: 0.7, marginTop: spacing.xs }}
+                style={{ opacity: 0.7, marginTop: spacing.xs, textAlign: 'center' }}
               >
                 {i18nDefault.getFixedT('en')('signup.consentLabelPrefix')}
                 <Text
