@@ -203,6 +203,10 @@
       "homeMaintenance": "Home Maintenance",
       "hobby": "Hobby",
       "other": "Other"
+    },
+    "setting": {
+      "indoor": "Indoor",
+      "outdoor": "Outdoor"
     }
   },
   "rules": {
@@ -225,6 +229,9 @@
     "placeholderTaskName": "e.g. Iron clothes",
     "labelDescription": "What does it involve?",
     "placeholderDescription": "A few words on what the task involves.",
+    "labelCategory": "Category",
+    "labelSetting": "Setting",
+    "labelDescriptionEyebrow": "Description",
     "buttonSubmit": "Send request",
     "buttonCancel": "Cancel",
     "submitting": "Sending…",
@@ -301,6 +308,16 @@
     "buttonCancel": "Cancel",
     "buttonSend": "Send report",
     "sending": "Sending…",
+    "category": {
+      "appCrashed": "App crashed",
+      "taskDoesntStart": "Task doesn't start",
+      "uploadStuck": "Upload stuck",
+      "loginIssue": "Login issue",
+      "videoQualityIssue": "Video quality issue",
+      "imuIssue": "Sensor issue",
+      "thermalIssue": "Device overheating",
+      "other": "Other"
+    },
     "alerts": {
       "pickCategory": "Pick a category",
       "pickCategoryBody": "Choose what kind of problem you hit.",
@@ -311,6 +328,9 @@
       "failedTitle": "Failed",
       "failedBodyFallback": "Try again later."
     }
+  },
+  "helpCenter": {
+    "title": "Help Center"
   },
   "forceUpgrade": {
     "title": "Update to continue.",

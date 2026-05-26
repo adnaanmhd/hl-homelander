@@ -29,7 +29,14 @@
 //
 // NO hex literals — every value bound to `../../ui/tokens`.
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, TextInput, ScrollView, Modal, StyleSheet, type GestureResponderEvent } from 'react-native';
+import {
+  View,
+  TextInput,
+  ScrollView,
+  Modal,
+  StyleSheet,
+  type GestureResponderEvent,
+} from 'react-native';
 import { Paperclip } from 'lucide-react-native';
 
 import { Text } from '../../ui/primitives/Text';
@@ -67,6 +74,22 @@ const CATEGORY_OPTIONS = [
   'Other',
 ] as const;
 type CategoryOption = (typeof CATEGORY_OPTIONS)[number];
+
+/** Category enum → i18n key map (G-24 / Plan 07-16). KEEP IN SYNC with
+ *  TaskCategoryPills + taskI18n.ts localizeTaskCategory. */
+const SEND_REQUEST_CATEGORY_KEY: Record<CategoryOption, string> = {
+  Cooking: 'tasks.category.cooking',
+  Dishwashing: 'tasks.category.dishwashing',
+  Kitchen: 'tasks.category.kitchen',
+  Cleaning: 'tasks.category.cleaning',
+  Tidying: 'tasks.category.tidying',
+  Laundry: 'tasks.category.laundry',
+  Gardening: 'tasks.category.gardening',
+  'Pet Care': 'tasks.category.petCare',
+  'Home Maintenance': 'tasks.category.homeMaintenance',
+  Hobby: 'tasks.category.hobby',
+  Other: 'tasks.category.other',
+};
 
 type Setting = 'indoor' | 'outdoor';
 
@@ -149,9 +172,10 @@ export function SendRequestSheet({
       showToast(t('sendRequest.toastSent'), 2000);
       // emit task_request_submitted({ category, setting, has_video: false })
       handleClose();
-    } catch (e) {
+    } catch {
       setBanner({ kind: 'error', text: t('sendRequest.errors.submitFailed') });
-      // emit task_request_failed({ reason: e?.message })
+      // emit task_request_failed({ reason: e?.message }) — when wiring
+      // analytics, capture the error param above and emit here.
     } finally {
       setSubmitting(false);
     }
@@ -208,7 +232,7 @@ export function SendRequestSheet({
 
             {/* TASK NAME */}
             <Text variant="formLabel" tone="secondary" style={styles.label}>
-              TASK NAME
+              {t('sendRequest.labelTaskName').toUpperCase()}
             </Text>
             <TextInput
               accessibilityLabel="send-request-name"
@@ -220,14 +244,20 @@ export function SendRequestSheet({
               style={styles.input}
             />
             {nameError ? (
-              <Text variant="caption" style={styles.errorText} accessibilityLabel="send-request-name-error">
+              <Text
+                variant="caption"
+                style={styles.errorText}
+                accessibilityLabel="send-request-name-error"
+              >
                 {nameError}
               </Text>
             ) : null}
 
             {/* DESCRIPTION */}
             <Text variant="formLabel" tone="secondary" style={[styles.label, styles.labelGap]}>
-              DESCRIPTION
+              {t('sendRequest.labelDescriptionEyebrow', {
+                defaultValue: 'Description',
+              }).toUpperCase()}
             </Text>
             <TextInput
               accessibilityLabel="send-request-description"
@@ -252,11 +282,16 @@ export function SendRequestSheet({
 
             {/* CATEGORY */}
             <Text variant="formLabel" tone="secondary" style={[styles.label, styles.labelGap]}>
-              CATEGORY
+              {t('sendRequest.labelCategory').toUpperCase()}
             </Text>
             <View style={styles.chipWrap}>
               {CATEGORY_OPTIONS.map((c) => {
                 const active = category === c;
+                // G-24 (Plan 07-16): label translates via tasks.category.*;
+                // the accessibilityLabel stays in canonical English so the
+                // existing test getByLabelText('send-request-category-Cooking')
+                // continues to find the chip.
+                const translated = t(SEND_REQUEST_CATEGORY_KEY[c]);
                 return (
                   <Pressable
                     key={c}
@@ -265,8 +300,11 @@ export function SendRequestSheet({
                     onPress={() => setCategory(c)}
                     style={active ? styles.chipActive : styles.chip}
                   >
-                    <Text variant="caption" style={active ? styles.chipLabelActive : styles.chipLabel}>
-                      {c}
+                    <Text
+                      variant="caption"
+                      style={active ? styles.chipLabelActive : styles.chipLabel}
+                    >
+                      {translated}
                     </Text>
                   </Pressable>
                 );
@@ -284,7 +322,7 @@ export function SendRequestSheet({
 
             {/* SETTING */}
             <Text variant="formLabel" tone="secondary" style={[styles.label, styles.labelGap]}>
-              SETTING
+              {t('sendRequest.labelSetting').toUpperCase()}
             </Text>
             <View style={styles.segmented}>
               <Pressable
@@ -297,7 +335,7 @@ export function SendRequestSheet({
                   variant="pillLabel"
                   style={setting === 'indoor' ? styles.segmentedLabelActive : styles.segmentedLabel}
                 >
-                  Indoor
+                  {t('tasks.setting.indoor')}
                 </Text>
               </Pressable>
               <Pressable
@@ -308,9 +346,11 @@ export function SendRequestSheet({
               >
                 <Text
                   variant="pillLabel"
-                  style={setting === 'outdoor' ? styles.segmentedLabelActive : styles.segmentedLabel}
+                  style={
+                    setting === 'outdoor' ? styles.segmentedLabelActive : styles.segmentedLabel
+                  }
                 >
-                  Outdoor
+                  {t('tasks.setting.outdoor')}
                 </Text>
               </Pressable>
             </View>
