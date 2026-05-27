@@ -111,13 +111,18 @@ export function RotatePrompt(): React.JSX.Element {
       {/* [07-11] Moved to i18n catalog under recording.rotatePrompt.
           G-26 (Plan 07-16): allow Devanagari + Bengali + Tamil + Telugu +
           Marathi to wrap to 2 lines + auto-shrink. RN-Text props only — no
-          new design tokens; the recording-caption variant is untouched. */}
+          new design tokens; the recording-caption variant is untouched.
+          G-26 (Plan 07-17): lowered `minimumFontScale` from 0.85 to 0.75 to
+          handle the longest Devanagari/Indic rotate-prompt forms (operator
+          2026-05-26 hi-IN walk: 0.85 floor still clipped). The wrap also
+          gains paddingHorizontal so it has horizontal slack against the
+          parent's flex constraints. */}
       <Text
         variant="caption"
         style={styles.body}
         numberOfLines={2}
         adjustsFontSizeToFit
-        minimumFontScale={0.85}
+        minimumFontScale={0.75}
       >
         {t('recording.rotatePrompt')}
       </Text>
@@ -126,8 +131,33 @@ export function RotatePrompt(): React.JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.l },
-  body: { color: colors.recTextCaption, textAlign: 'center' },
+  // Plan 07-17 re-walk 2nd attempt 2026-05-27: RecordingScreen's
+  // `styles.body` is `{ flex: 1, alignItems: 'center', justifyContent:
+  // 'center' }` which content-hugs the wrap horizontally — so the inner
+  // Text's `alignSelf: 'stretch'` had no parent width to stretch to. Add
+  // `alignSelf: 'stretch'` on the wrap itself to override the parent's
+  // alignItems and span the full screen width. The wrap KEEPS its own
+  // `alignItems: 'center'` so the SVG icon stays centered.
+  wrap: {
+    flex: 1,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.l,
+    paddingHorizontal: spacing.l,
+  },
+  // Plan 07-17 re-walk 2026-05-27 (Bug C-2): `wrap.alignItems: 'center'`
+  // makes the body Text content-hug horizontally, so the hi-IN value
+  // "फ़ोन को घुमाकर लैंडस्केप करें और रिग पर लगाएँ" clipped to
+  // "...रिग पर". `alignSelf: 'stretch'` overrides that and lets the Text
+  // span the wrap's padded width, so the existing `numberOfLines={2} +
+  // adjustsFontSizeToFit + minimumFontScale={0.75}` overflow guards on
+  // the Text element can actually engage.
+  body: {
+    color: colors.recTextCaption,
+    textAlign: 'center',
+    alignSelf: 'stretch',
+  },
 });
 
 export default RotatePrompt;

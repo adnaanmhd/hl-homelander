@@ -91,7 +91,25 @@ export function TaskCategoryPills({
               onPress={() => onSelect(value)}
               style={active ? styles.pillActive : styles.pill}
             >
-              <Text variant="pillLabel" style={active ? styles.labelActive : styles.label}>
+              {/* Plan 07-17 re-walk 3rd attempt 2026-05-27: KEEP
+                  `numberOfLines={1}` (drop the shrink-to-fit props). The
+                  2nd attempt removed all overflow props expecting the
+                  Pressable to content-hug to the Text's full natural
+                  width. Instead, RN-Android wrapped the multi-word
+                  Devanagari text at the first space (e.g.
+                  "खाना बनाना" → 2 lines) and the Pressable's content-hug
+                  height collapsed to line 1 only ("खाना"). uiautomator
+                  dump confirms the underlying Text content is correct;
+                  the bug is in Android's render-time line wrap.
+                  `numberOfLines={1}` forces a single-line layout, so the
+                  Pressable widens horizontally to fit the natural
+                  single-line text — no wrap, no ellipsize (Pressable has
+                  no width constraint, so the Text has unbounded width). */}
+              <Text
+                variant="pillLabel"
+                style={active ? styles.labelActive : styles.label}
+                numberOfLines={1}
+              >
                 {pillLabel(value, t)}
               </Text>
             </Pressable>
@@ -113,12 +131,19 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.xl,
+    // G-17 (Plan 07-17): extra right padding so the rightmost pill
+    // (e.g. `बागवानी` on hi-IN) doesn't clip at the screen edge during
+    // scroll (operator 2026-05-26 7.png evidence).
+    paddingRight: spacing.xl + spacing.m,
     gap: spacing.m,
     flexDirection: 'row',
   },
   pill: {
     paddingVertical: 9,
-    paddingHorizontal: spacing.l,
+    // G-17 (Plan 07-17): reduced from spacing.l → spacing.m (~10% more
+    // horizontal slack inside the pill) so the active-bold variant's wider
+    // glyphs don't push the label past the pill width.
+    paddingHorizontal: spacing.m,
     borderRadius: radii.pill,
     borderWidth: 1.5,
     borderColor: colors.line,
@@ -126,7 +151,7 @@ const styles = StyleSheet.create({
   },
   pillActive: {
     paddingVertical: 9,
-    paddingHorizontal: spacing.l,
+    paddingHorizontal: spacing.m, // G-17 (Plan 07-17) — see `pill` above
     borderRadius: radii.pill,
     borderWidth: 1.5,
     borderColor: colors.text,
@@ -143,11 +168,14 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
-    width: 40,
-    // Use the canonical bg color as the fade target — keeps the no-hex gate
-    // happy and reads as a soft fade against the screen surface.
+    // Plan 07-17 re-walk 2026-05-27 — shrunk 40 → 28 + lowered opacity 0.6
+    // → 0.3 so the rightmost pill's Devanagari glyphs stay legible
+    // through the UI-SPEC §10 right-edge fade hint (operator 2026-05-27
+    // "text truncated in category pills" — the rightmost pill's text was
+    // washed out under the prior 40px / 0.6-opacity overlay).
+    width: 28,
     backgroundColor: colors.bg,
-    opacity: 0.6,
+    opacity: 0.3,
   },
 });
 

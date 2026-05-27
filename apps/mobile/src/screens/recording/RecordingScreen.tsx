@@ -175,11 +175,15 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
   const route = useRoute<{ key: string; name: string; params?: RecordingRouteParams }>();
   const params = route.params ?? {};
   const taskId = params.taskId ?? '__practice__';
-  const taskName = params.taskName ?? 'Practice — 60 sec';
   const taskCategory = params.taskCategory ?? 'practice';
   const taskSetting: 'indoor' | 'outdoor' = params.taskSetting ?? 'indoor';
   const isPractice = params.isPractice ?? false;
   const { t, i18n } = useTranslation();
+  // G-25 (Plan 07-17): locale-reactive practice fallback. The declaration
+  // moved BELOW the useTranslation() hook so `t` is in scope; PracticeIntro
+  // now omits the taskName field from PRACTICE_ROUTE_PARAMS so this fallback
+  // wins when params.taskName is undefined (practice flow).
+  const taskName = params.taskName ?? t('recording.practiceFallback');
 
   const [state, dispatch] = useReducer(
     recReducer,
@@ -1005,7 +1009,18 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
       {state.substate === 'active' && brightnessState === 'dimmed' ? (
         <View style={styles.liveBottomCenter} pointerEvents="none">
           <Icon name="Eye" size={24} color={colors.accent} />
-          <Text variant="caption" style={styles.liveEyeHint}>
+          {/* G-15 (Plan 07-17): the operator's hi-IN walk surfaced this Text
+              (the "Tap screen to preview" hint, distinct from the sibling
+              `liveLabelText` 07-16 fixed) as truncating to "...टैप" on the
+              Devanagari value. Adds the same overflow-guard triplet so the
+              hint wraps to 2 lines + auto-shrinks. */}
+          <Text
+            variant="caption"
+            style={styles.liveEyeHint}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+          >
             {t('recording.preview.tapToReveal')}
           </Text>
         </View>
@@ -1089,13 +1104,20 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
             />
             {/* G-27 (Plan 07-16): allow Devanagari + Bengali + Tamil + Telugu +
                 Marathi to wrap to 2 lines + auto-shrink. RN-Text props only —
-                the recGatePrompt variant is untouched. */}
+                the recGatePrompt variant is untouched.
+                G-27 (Plan 07-17): override variant lineHeight inline; do NOT
+                modify ui/tokens.ts:recGatePrompt (consumed by other call
+                sites). The variant's lineHeight:24 on fontSize:17 renders ~141%
+                leading → visible vertical gap when wrapping to 2 lines (the
+                operator's hi-IN walk caught this). Inline lineHeight:20 ≈ 118%
+                leading, more compact. minimumFontScale lowered to 0.75 to
+                handle the longest Devanagari/Indic gate-prompt forms. */}
             <Text
               variant="recGatePrompt"
-              style={styles.gatePrompt}
+              style={[styles.gatePrompt, { lineHeight: 20 }]}
               numberOfLines={2}
               adjustsFontSizeToFit
-              minimumFontScale={0.85}
+              minimumFontScale={0.75}
             >
               {t('recording.gatePrompt')}
             </Text>
@@ -1289,9 +1311,19 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: 'center',
   },
+  // Plan 07-17 re-walk 2026-05-27 (Bug C-3): `liveBottomCenter.alignItems:
+  // 'center'` made this hint Text content-hug; the hi-IN value
+  // "प्रीव्यू देखने के लिए स्क्रीन पर टैप करें" clipped to "...टैप".
+  // `alignSelf: 'stretch' + paddingHorizontal` give the Text a finite
+  // width so the existing `numberOfLines={2} + adjustsFontSizeToFit +
+  // minimumFontScale={0.85}` props can engage. `textAlign: 'center'`
+  // keeps the visual center alignment.
   liveEyeHint: {
     color: colors.accent,
     marginTop: 4,
+    alignSelf: 'stretch',
+    textAlign: 'center',
+    paddingHorizontal: spacing.l,
   },
   liveLabelPill: {
     paddingHorizontal: spacing.s,

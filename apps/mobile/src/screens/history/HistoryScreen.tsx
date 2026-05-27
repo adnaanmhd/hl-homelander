@@ -139,11 +139,11 @@ function filterChipLabel(
     case 'all':
       return t('history.filter.allTime');
     case 'custom': {
-      if (custom == null) return t('history.filter.customRange');
+      if (custom == null) return t('history.filter.customRangeChip');
       const start = new Date(`${custom.start}T00:00:00`);
       const end = new Date(`${custom.end}T00:00:00`);
       if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
-        return t('history.filter.customRange');
+        return t('history.filter.customRangeChip');
       }
       const startLbl = `${MONTH_ABBR[start.getMonth()]} ${start.getDate()}`;
       const endLbl = `${MONTH_ABBR[end.getMonth()]} ${end.getDate()}`;
@@ -595,8 +595,8 @@ export function HistoryScreen(): React.JSX.Element {
                 style={styles.emptyLink}
               >
                 {t('history.empty.firstTime.cta')}
-              </Text>{' '}
-              and try one.
+              </Text>
+              {t('history.empty.firstTime.bodyTail')}
             </Text>
           </>
         )}

@@ -118,7 +118,13 @@ export function HomeHero({
           onPress={onStartRecording}
           style={styles.cta}
         >
-          <Text variant="btnLabel" style={styles.ctaLabel}>
+          {/* Plan 07-17 re-walk 3rd attempt 2026-05-27: HomeHero CTA is
+              a raw Pressable (not the Button primitive). RN-Android
+              wraps the multi-word hi-IN value "रिकॉर्डिंग शुरू करें" at
+              the space; the CTA's content-hug height collapses to line
+              1 ("रिकॉर्डिंग शुरू") and "करें" disappears.
+              `numberOfLines={1}` forces single-line layout. */}
+          <Text variant="btnLabel" style={styles.ctaLabel} numberOfLines={1}>
             {t('home.hero.startRecording')}
           </Text>
         </Pressable>
@@ -163,7 +169,13 @@ export function HomeHero({
           onPress={onStartRecording}
           style={styles.cta}
         >
-          <Text variant="btnLabel" style={styles.ctaLabel}>
+          {/* Plan 07-17 re-walk 3rd attempt 2026-05-27: HomeHero CTA is
+              a raw Pressable (not the Button primitive). RN-Android
+              wraps the multi-word hi-IN value "रिकॉर्डिंग शुरू करें" at
+              the space; the CTA's content-hug height collapses to line
+              1 ("रिकॉर्डिंग शुरू") and "करें" disappears.
+              `numberOfLines={1}` forces single-line layout. */}
+          <Text variant="btnLabel" style={styles.ctaLabel} numberOfLines={1}>
             {t('home.hero.startRecording')}
           </Text>
         </Pressable>
@@ -191,7 +203,8 @@ export function HomeHero({
         onPress={onStartRecording}
         style={styles.cta}
       >
-        <Text variant="btnLabel" style={styles.ctaLabel}>
+        {/* Plan 07-17 re-walk 3rd attempt 2026-05-27 (returning variant). */}
+        <Text variant="btnLabel" style={styles.ctaLabel} numberOfLines={1}>
           {t('home.hero.startRecording')}
         </Text>
       </Pressable>

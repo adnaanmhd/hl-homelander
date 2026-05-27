@@ -43,9 +43,13 @@ import { logEvent } from '../../util/analytics';
 // pipeline / upload queue use to mark a recording as practice (never
 // uploaded, not in History, not counted). Mirrors prototype.html
 // `startRecording('Practice — 60 sec', true)`.
+//
+// G-25 (Plan 07-17): taskName intentionally omitted from the const. The
+// destination `RecordingScreen.tsx` falls back to
+// `t('recording.practiceFallback')` so the active locale renders in the
+// app-bar (was hardcoded English, defeating the locale switch in Profile).
 const PRACTICE_ROUTE_PARAMS = {
   taskId: '__practice__',
-  taskName: 'Practice — 60 sec',
   isPractice: true,
 } as const;
 

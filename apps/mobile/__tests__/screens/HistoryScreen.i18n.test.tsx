@@ -33,7 +33,10 @@ describe('HistoryScreen filterChipLabel — 07-11 G-07', () => {
     expect(SOURCE).toContain("t('history.filter.thisWeek')");
     expect(SOURCE).toContain("t('history.filter.thisMonth')");
     expect(SOURCE).toContain("t('history.filter.allTime')");
-    expect(SOURCE).toContain("t('history.filter.customRange')");
+    // Plan 07-17 G-21: the chip label key was renamed from `customRange`
+    // (string) to `customRangeChip` to make room for the new object-valued
+    // `customRange` carrying the Custom-range sub-sheet's 9 sub-keys.
+    expect(SOURCE).toContain("t('history.filter.customRangeChip')");
   });
 
   it('en.json carries non-empty values for every history.filter.* key', () => {
@@ -43,6 +46,9 @@ describe('HistoryScreen filterChipLabel — 07-11 G-07', () => {
     expect(f.thisWeek).toBe('This week');
     expect(f.thisMonth).toBe('This month');
     expect(f.allTime).toBe('All time');
-    expect(f.customRange).toBe('Custom range');
+    // Plan 07-17 G-21: same English value, renamed key (see comment above).
+    expect((f as Record<string, unknown>).customRangeChip).toBe('Custom range');
+    // The Custom-range sub-sheet's 9-sub-key object lives here now.
+    expect((f.customRange as Record<string, string>).title).toBe('Custom range');
   });
 });

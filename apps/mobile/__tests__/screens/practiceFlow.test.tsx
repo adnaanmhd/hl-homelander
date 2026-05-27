@@ -10,8 +10,9 @@
 //     retarget landed in plan 04-03; here we re-assert the route arg is
 //     'PracticeIntro', NOT 'MainTabs' (the pre-Phase-4 target).
 // (b) PracticeIntroScreen "Start practice" → navigation leaves OnboardingStack
-//     to 'Recording' with { taskId: '__practice__', taskName:
-//     'Practice — 60 sec', isPractice: true }.
+//     to 'Recording' with { taskId: '__practice__', isPractice: true }.
+//     Plan 07-17 G-25: taskName is omitted; RecordingScreen falls back to
+//     t('recording.practiceFallback') so the active locale renders.
 // (c) PracticeCompleteScreen "Continue" → setPracticeDone(<sub>) THEN
 //     navigation.reset({ routes: [{ name: 'MainTabs' }] }) + Vibration.vibrate
 //     ([0,40,80,40]) on enter.
@@ -178,9 +179,11 @@ import { computeInitialRoute } from '../../src/state/initialRoute';
 // (the thing under test) rather than the brand-new locale gate.
 import { localeMmkv, LOCALE_KEYS } from '../../src/i18n/storage';
 
+// G-25 (Plan 07-17): taskName intentionally omitted — RecordingScreen.tsx
+// falls back to t('recording.practiceFallback') so the locale switch in
+// Profile re-renders the app-bar.
 const PRACTICE_PARAMS = {
   taskId: '__practice__',
-  taskName: 'Practice — 60 sec',
   isPractice: true,
 };
 

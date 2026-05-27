@@ -12,7 +12,7 @@
  * required for screen-reader and testing-library-by-label assertions.
  */
 import React from 'react';
-import { View, type StyleProp, type ViewStyle } from 'react-native';
+import { type StyleProp, type ViewStyle } from 'react-native';
 import { colors, radii, spacing } from '../tokens';
 import { Pressable } from './Pressable';
 import { Text } from './Text';
@@ -81,11 +81,28 @@ export function Button({
       onPress={disabled ? undefined : onPress}
       style={[computed, style]}
     >
-      <View>
-        <Text variant="btnLabel" style={{ color: v.fg }}>
-          {label}
-        </Text>
-      </View>
+      {/* G-22 (Plan 07-17, re-walk 2026-05-27): cross-cutting overflow
+          guards on the internal Text. Every Button consumer (~30 call
+          sites incl. ReportProblem Cancel + Submit) inherits these props.
+          The 1st 07-17 attempt wrapped this Text in a `<View>` (no width)
+          which defeated `adjustsFontSizeToFit` on Android — "मंज़ूरी दें"
+          → "मंज़ूरी", "रिकॉर्डिंग शुरू करें" → "रिकॉर्डिंग शुरू", etc.
+          The 2nd attempt (initial re-walk fix) replaced the View with
+          `flex: 1` on the Text — but RN's default `flexDirection: 'column'`
+          on the Pressable made `flex: 1` stretch the Text VERTICALLY
+          (wrong axis) and on hi-IN the Continue button rendered with the
+          label invisible. The current shape uses `width: '100%'` so the
+          Text spans the Pressable's inner width regardless of flex axis,
+          giving `adjustsFontSizeToFit` a finite width to engage against. */}
+      <Text
+        variant="btnLabel"
+        style={{ color: v.fg, width: '100%', textAlign: 'center' }}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
