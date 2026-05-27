@@ -1311,9 +1311,19 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: 'center',
   },
+  // Plan 07-17 re-walk 2026-05-27 (Bug C-3): `liveBottomCenter.alignItems:
+  // 'center'` made this hint Text content-hug; the hi-IN value
+  // "प्रीव्यू देखने के लिए स्क्रीन पर टैप करें" clipped to "...टैप".
+  // `alignSelf: 'stretch' + paddingHorizontal` give the Text a finite
+  // width so the existing `numberOfLines={2} + adjustsFontSizeToFit +
+  // minimumFontScale={0.85}` props can engage. `textAlign: 'center'`
+  // keeps the visual center alignment.
   liveEyeHint: {
     color: colors.accent,
     marginTop: 4,
+    alignSelf: 'stretch',
+    textAlign: 'center',
+    paddingHorizontal: spacing.l,
   },
   liveLabelPill: {
     paddingHorizontal: spacing.s,

@@ -138,7 +138,18 @@ const styles = StyleSheet.create({
     gap: spacing.l,
     paddingHorizontal: spacing.l,
   },
-  body: { color: colors.recTextCaption, textAlign: 'center' },
+  // Plan 07-17 re-walk 2026-05-27 (Bug C-2): `wrap.alignItems: 'center'`
+  // makes the body Text content-hug horizontally, so the hi-IN value
+  // "फ़ोन को घुमाकर लैंडस्केप करें और रिग पर लगाएँ" clipped to
+  // "...रिग पर". `alignSelf: 'stretch'` overrides that and lets the Text
+  // span the wrap's padded width, so the existing `numberOfLines={2} +
+  // adjustsFontSizeToFit + minimumFontScale={0.75}` overflow guards on
+  // the Text element can actually engage.
+  body: {
+    color: colors.recTextCaption,
+    textAlign: 'center',
+    alignSelf: 'stretch',
+  },
 });
 
 export default RotatePrompt;

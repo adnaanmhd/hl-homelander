@@ -268,10 +268,29 @@ export default function CompatRunningScreen() {
       <View style={styles.ringWrap}>
         <CompatRing percent={percent} />
       </View>
-      <Text variant="compatTitle" style={styles.title}>
+      {/* Plan 07-17 re-walk 2026-05-27 (Bug C-1): the title + subtitle here
+          are full headers — the prior `alignSelf: 'center'` made them
+          content-hug horizontally so the hi-IN value
+          "आपका फ़ोन जाँच रहे हैं" clipped the trailing `हैं`. Now the Text
+          stretches across the screen and `adjustsFontSizeToFit` can shrink
+          if the string is too long at the variant's base size. */}
+      <Text
+        variant="compatTitle"
+        style={styles.title}
+        numberOfLines={2}
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
+      >
         {t('compat.running.title')}
       </Text>
-      <Text variant="caption" tone="secondary" style={styles.sub}>
+      <Text
+        variant="caption"
+        tone="secondary"
+        style={styles.sub}
+        numberOfLines={2}
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
+      >
         {t('compat.running.subtitle')}
       </Text>
       <View style={styles.checks}>
@@ -304,8 +323,11 @@ export default function CompatRunningScreen() {
 
 const styles = StyleSheet.create({
   ringWrap: { alignItems: 'center', marginTop: spacing.hh },
-  title: { marginTop: spacing.xxxl, alignSelf: 'center' },
-  sub: { marginTop: spacing.s, alignSelf: 'center' },
+  // Plan 07-17 re-walk 2026-05-27 — was `alignSelf: 'center'` which
+  // content-hugs the Text and defeats shrink-to-fit; now stretches across
+  // the screen so the title/subtitle can wrap + auto-shrink.
+  title: { marginTop: spacing.xxxl, alignSelf: 'stretch', textAlign: 'center' },
+  sub: { marginTop: spacing.s, alignSelf: 'stretch', textAlign: 'center' },
   checks: { marginTop: spacing.xxxl, alignSelf: 'stretch' },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.s },
   indicator: {
