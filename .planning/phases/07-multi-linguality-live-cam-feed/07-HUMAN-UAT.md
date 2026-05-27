@@ -1,9 +1,9 @@
 ---
-status: gaps_found
+status: resolved
 phase: 07-multi-linguality-live-cam-feed
 source: [07-VERIFICATION.md]
 started: 2026-05-25T05:15:00Z
-updated: 2026-05-26T16:25:00Z
+updated: 2026-05-27T10:50:00Z
 ---
 
 ## Current Test
@@ -247,3 +247,41 @@ Pixel 10a (`5C161JEA304304`, Android 16), clean install (`adb uninstall` + reins
 These 11 fails do NOT close cleanly into 07-17's planned task structure (Tasks 1-7 already shipped; Task 8 is the operator walk). Per the orchestrator's "you drive" directive (2026-05-27), the fixes are applied as additional commits on the 07-17 worktree — same plan, same wave — and the operator re-walks against a fresh APK build.
 
 The fix path is documented in the Root-cause table above. After commits land, the orchestrator rebuilds the apkRolloutDebug APK + reinstalls on Pixel 10a + the operator re-walks.
+
+---
+
+## Re-walk 2026-05-27 (Plan 07-17 attempt 2 → attempt 3, APK `9dbb1d5`) — ALL PASS
+
+After 3 fix iterations against the original worktree, the operator drove a final 7-locale deep walk on a clean-install APK at commit `9dbb1d5` (Pixel 10a `5C161JEA304304`, Android 16, apkRolloutDebug). Backend: dev API + hash-verify worker via `pnpm dev`, LocalStack + Postgres + Redis up, 87 seeded tasks in `humyn_dev`.
+
+### Operator verdict
+
+> "i'm happy with all languages, push the changes. Thanks"
+
+### Coverage
+
+- **hi-IN (canary, longest devanagari forms):** PASS — CompatRunning title `आपका फ़ोन जाँच रहे हैं` renders full, RotatePrompt body `फ़ोन को आड़ा करें और रिग पर लगाएं` renders full, RecordingScreen liveEyeHint `प्रीव्यू देखने के लिए स्क्रीन पर टैप करें` renders full, TaskCategoryPills show multi-word labels (`खाना बनाना` / `बर्तन धोना` / `सामान जमाना` / `कपड़े धोना` / `बागवानी` / `पालतू जानवर की देखभाल` / `घर की देखभाल`), HomeHero CTA `रिकॉर्डिंग शुरू करें` renders full, SendRequest Indoor/Outdoor segmented shows distinct `घर के अंदर` / `घर के बाहर`, HelpCenter CTAs `सपोर्ट से बात करें` / `समस्या बताएँ` render full, ReportProblemSheet chips render full multi-word labels (`ऐप क्रैश हो गया` / `काम शुरू नहीं हो रहा` / `वीडियो की क्वालिटी में दिक्कत`), HistoryRow task names render in active locale via `localizeTaskName` wire.
+- **pt-BR / es / bn-IN / ta-IN / te-IN / mr-IN:** PASS across all surfaces.
+- **Search (Stage 1.5 substring + token-aggregate):** PASS — partial Hindi queries (`खाना` → cooking tasks, `बर्तन` → dishwashing tasks, `धोना` → washing tasks, `सफ़ाई` → cleaning tasks) return relevant results via client-side reverseSearch shim → server ts_vector index; full-string queries hit Stage 1 directly.
+- **Translations:** UNTOUCHED across all 13 post-handoff fix commits. The operator's directive ("do NOT touch the translations") was honored.
+
+### G-30..G-40 resolution status
+
+| Gap                | Status   | Closed by commit |
+| ------------------ | -------- | ---------------- |
+| G-30               | RESOLVED | `b30bdcb`        |
+| G-31               | RESOLVED | `097725a`        |
+| G-32               | RESOLVED | `ce84bc2`        |
+| G-33               | RESOLVED | `097725a`        |
+| G-34               | RESOLVED | `aac5ec7`        |
+| G-35               | RESOLVED | `aac5ec7`        |
+| G-36               | RESOLVED | `b30bdcb`        |
+| G-37               | RESOLVED | `b30bdcb`        |
+| G-38               | RESOLVED | `b30bdcb`        |
+| G-39               | RESOLVED | `b30bdcb`        |
+| G-40               | RESOLVED | `86af496`        |
+| Search (Stage 1.5) | RESOLVED | `9dbb1d5`        |
+
+### Phase 7 closure
+
+This walk also closes plan 07-15 (paused 2026-05-26 awaiting the 07-16/07-17 cluster). The 7-locale operator deep walk on APK `9dbb1d5` satisfies 07-15's terminal-walk acceptance criteria — Phase 7 is COMPLETE.

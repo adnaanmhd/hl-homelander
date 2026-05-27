@@ -218,7 +218,40 @@ None. The plan's `<threat_model>` covers the LLM translation pipeline (already m
 
 ---
 
+## 2026-05-27 — Task 7 operator walk PASS (+ 13 post-handoff fix commits)
+
+The operator's hi-IN deep walk on APK `c95074f` surfaced 11 NEW regressions (G-30..G-40 — recorded in 07-HUMAN-UAT.md). The orchestrator drove a 3-attempt remediation cluster inline against the same worktree, then a final operator-walked PASS on APK `9dbb1d5`.
+
+### Re-walk fix cluster (13 commits past `c95074f`)
+
+| Commit    | Scope                                                                                                                |
+| --------- | -------------------------------------------------------------------------------------------------------------------- |
+| `840e6e2` | docs: 10-row root-cause table for G-30..G-40 in 07-HUMAN-UAT.md                                                      |
+| `d0456d2` | Button primitive — remove `<View>` wrapper (attempt 1 — defeated `adjustsFontSizeToFit`)                             |
+| `86af496` | HistoryRow — wire `localizeTaskName(row.taskName, i18n.language)` for the row name + avatar first letter             |
+| `097725a` | CompatRunning title + RotatePrompt body + liveEyeHint — `alignSelf: 'stretch'` so Text has parent width to engage    |
+| `aac5ec7` | SendRequest Indoor/Outdoor segmented label `width:'100%'` + TaskCategoryPills fade hint width:28/opacity:0.3         |
+| `dbddf43` | test: rebase 10 visual snapshots after the cross-cutting Button + screen-level changes                               |
+| `9b7c7a0` | Button primitive — `flex:1` collapsed in column flexDirection (attempt 2 — made Continue label invisible)            |
+| `ce84bc2` | RotatePrompt wrap `alignSelf:'stretch'` (parent was content-hugging) + drop ellipsize-trigger props on pills + chips |
+| `b30bdcb` | Restore `numberOfLines={1}` on TaskCategoryPills + ReportProblemSheet chips + HomeHero CTA (attempt 3 — final)       |
+| `9dbb1d5` | reverseSearch — Stage 1.5 substring + token-aggregate against catalog (rescues partial Hindi queries)                |
+
+### Operator hardware walk verdict — APK `9dbb1d5`
+
+- **hi-IN**: PASS across CompatRunning / RotatePrompt / liveEyeHint / Tasks pills / Help CTA / Report chips / SendRequest segmented / HomeHero CTA / HistoryRow task name
+- **pt-BR / es / bn-IN / ta-IN / te-IN / mr-IN**: PASS (operator: "i'm happy with all languages")
+- **Search**: PASS — partial Hindi queries (`खाना`, `बर्तन`, `पकाना`, `सफ़ाई`, etc.) now return relevant English-canonical results via Stage 1.5 catalog substring matching; full-string queries (`खाना पकाना`) still hit Stage 1 directly
+- **Translations**: NOT MODIFIED in any post-handoff commit — the operator's directive ("do NOT touch the translations") was honored across all 13 fix commits
+
+### Plan-level closure
+
+07-17 is COMPLETE. The operator's 7-locale walk on APK `9dbb1d5` supersedes the original 07-15 terminal-walk plan (07-15 was paused on 2026-05-26 awaiting the 07-16 / 07-17 cluster).
+
+---
+
 _Phase: 07-multi-linguality-live-cam-feed_
 _Plan: 17_
-_Completed (code-level, Tasks 1-6): 2026-05-27 00:55:00 UTC_
-_Task 7 (hardware walk): pending operator_
+_Code-level (Tasks 1-6) completed: 2026-05-27 00:55:00 UTC at commit `c95074f`_
+_Re-walk fix cluster (13 commits): 2026-05-27 commits `840e6e2` → `9dbb1d5`_
+_Task 7 operator walk PASS: 2026-05-27, all 7 non-en locales + en, APK `9dbb1d5`_

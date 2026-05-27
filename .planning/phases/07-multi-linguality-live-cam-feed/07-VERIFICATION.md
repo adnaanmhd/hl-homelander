@@ -1,15 +1,19 @@
 ---
 phase: 07-multi-linguality-live-cam-feed
-verified: 2026-05-25T05:15:00Z
-status: human_needed
-score: 5/5 must-haves code-verified (SC#1 sweep gap WR-01 closed; SC#2..#4 still awaiting operator hardware walk; SC#5 unchanged PASS)
+verified: 2026-05-27T10:50:00Z
+status: verified
+score: 5/5 must-haves verified on hardware (7-locale operator deep walk on APK 9dbb1d5)
 overrides_applied: 0
 re_verification:
-  previous_status: gaps_found
-  previous_score: 4/5
+  previous_status: human_needed
+  previous_score: 5/5 must-haves code-verified
   previous_verification_commit: 37d8645
   gaps_closed:
     - 'WR-01 — ProfileScreen.tsx + DeleteAccountModal.tsx i18n sweep incomplete (closed by plan 07-09 + CR-01 inline follow-up fix in commit 81d4dfe)'
+    - 'G-02..G-12 + COSMETIC-01..03 — i18n sweep extension + taskCatalog body + Help Center body + cosmetic cleanup closed by plans 07-10/07-11/07-12/07-13/07-14'
+    - 'G-13..G-28 — 86×8 taskCatalog wired through every render site + 34 new keys (plan 07-16)'
+    - 'G-29 — dispositioned as transcription error (plan 07-17 Task 1 investigation)'
+    - 'G-30..G-40 — Button primitive width:100% + HistoryRow localizeTaskName + CompatRunning/RotatePrompt/liveEyeHint stretch + SendRequest segmented + TaskCategoryPills/ReportProblemSheet/HomeHero numberOfLines={1} + reverseSearch Stage 1.5 substring (plan 07-17 commits 840e6e2..9dbb1d5)'
   gaps_remaining: []
   regressions: []
   follow_on_findings_during_re_review:
