@@ -82,18 +82,21 @@ export function Button({
       style={[computed, style]}
     >
       {/* G-22 (Plan 07-17, re-walk 2026-05-27): cross-cutting overflow
-          guards on the internal Text. Every Button consumer (~30 call sites
-          incl. ReportProblem Cancel + Submit) inherits these props.
-          The first 07-17 attempt wrapped this Text in a `<View>` which
-          content-hugged on Android and defeated `adjustsFontSizeToFit`
-          (operator 2026-05-27 walk: "मंज़ूरी दें" → "मंज़ूरी", "रिकॉर्डिंग
-          शुरू करें" → "रिकॉर्डिंग शुरू", etc.). The wrapper is removed and
-          the Text gets `flex: 1` + `textAlign: 'center'` so it stretches
-          to the Pressable's full inner width and the shrink-to-fit kicks
-          in on long Devanagari forms. */}
+          guards on the internal Text. Every Button consumer (~30 call
+          sites incl. ReportProblem Cancel + Submit) inherits these props.
+          The 1st 07-17 attempt wrapped this Text in a `<View>` (no width)
+          which defeated `adjustsFontSizeToFit` on Android — "मंज़ूरी दें"
+          → "मंज़ूरी", "रिकॉर्डिंग शुरू करें" → "रिकॉर्डिंग शुरू", etc.
+          The 2nd attempt (initial re-walk fix) replaced the View with
+          `flex: 1` on the Text — but RN's default `flexDirection: 'column'`
+          on the Pressable made `flex: 1` stretch the Text VERTICALLY
+          (wrong axis) and on hi-IN the Continue button rendered with the
+          label invisible. The current shape uses `width: '100%'` so the
+          Text spans the Pressable's inner width regardless of flex axis,
+          giving `adjustsFontSizeToFit` a finite width to engage against. */}
       <Text
         variant="btnLabel"
-        style={{ color: v.fg, flex: 1, textAlign: 'center' }}
+        style={{ color: v.fg, width: '100%', textAlign: 'center' }}
         numberOfLines={1}
         adjustsFontSizeToFit
         minimumFontScale={0.75}
