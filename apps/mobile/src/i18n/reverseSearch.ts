@@ -79,11 +79,51 @@ export function reverseSearch(input: string, locale: string): string {
   const fullStringHit = map.fullStringMap[normalized];
   if (fullStringHit) return fullStringHit;
 
+  // Stage 1.5 — substring lookup against the localized full-name catalog.
+  // Plan 07-17 re-walk 2026-05-27: partial Hindi queries (a single
+  // Devanagari word like "खाना" or "बर्तन") used to fall through to
+  // Stage 2's token map, which is built only when localized + English
+  // names tokenize to the SAME COUNT — a fragile heuristic that
+  // produced wrong English ("खाना बनाना" → "खाना coffee") or no
+  // mapping at all ("खाना" → unchanged → server gets Hindi → 0 hits).
+  //
+  // 1.5a: scan for any localized name that CONTAINS the normalized
+  // user input as a substring. First hit's canonical English name is
+  // returned. Catches the common "user types one Hindi word" case.
+  // 1.5b: if 1.5a misses, tokenize the input and for each token find
+  // every catalog name containing it; aggregate the canonical English
+  // names (de-duped, capped at 5) and return them as a space-joined
+  // multi-keyword query. The server's ts_vector matches any of them.
+  // Both pass before Stage 2's fragile token-count-match. O(N×|q|) per
+  // keystroke where N ≈ 86 tasks — well within the 200ms debounce
+  // budget. D-16 still holds (no backend changes).
+  for (const [localizedNorm, canonical] of Object.entries(map.fullStringMap)) {
+    if (localizedNorm.includes(normalized)) return canonical;
+  }
+  const inputTokens = normalized.split(/\s+/).filter(Boolean);
+  if (inputTokens.length > 0) {
+    const englishCandidates = new Set<string>();
+    for (const tok of inputTokens) {
+      for (const [localizedNorm, canonical] of Object.entries(map.fullStringMap)) {
+        if (localizedNorm.includes(tok)) {
+          englishCandidates.add(canonical);
+          if (englishCandidates.size >= 5) break;
+        }
+      }
+      if (englishCandidates.size >= 5) break;
+    }
+    if (englishCandidates.size > 0) {
+      return [...englishCandidates].join(' ');
+    }
+  }
+
   // Stage 2 — token fallback. Rebuild an English string by mapping each
   // normalized localized token via the per-locale tokenMap; tokens that
   // don't match stay as-is (the backend pg_trgm threshold catches them).
   // We return the Stage-2 rebuild only when at least one token actually
-  // mapped — otherwise it's identical to Stage-3 passthrough.
+  // mapped — otherwise it's identical to Stage-3 passthrough. Kept as a
+  // last-resort safety net before passthrough — Stage 1.5 should catch
+  // most realistic queries first.
   const rawTokens = input.split(/\s+/).filter(Boolean);
   const normalizedTokens = rawTokens.map(normalizeForReverseSearch);
   const mapped = normalizedTokens.map((t) => map.tokenMap[t] ?? t);
