@@ -91,18 +91,25 @@ export function TaskCategoryPills({
               onPress={() => onSelect(value)}
               style={active ? styles.pillActive : styles.pill}
             >
-              {/* Plan 07-17 re-walk 2nd attempt 2026-05-27: removing
-                  `numberOfLines={1} + adjustsFontSizeToFit + minimumFontScale`
-                  — the pill is a width-unconstrained Pressable inside a
-                  horizontal ScrollView. With those props, Android's Text
-                  measurement aggressively ellipsizes multi-word Devanagari
-                  ("खाना बनाना" → "खाना", "बर्तन धोना" → "बर्तन",
-                  "सामान जमाना" → "सामान"). Without them, the Text
-                  content-hugs naturally → the Pressable widens to fit →
-                  the ScrollView scrolls horizontally if the row overflows.
-                  This is the original UI-SPEC §10 contract (pills size to
-                  their natural content). */}
-              <Text variant="pillLabel" style={active ? styles.labelActive : styles.label}>
+              {/* Plan 07-17 re-walk 3rd attempt 2026-05-27: KEEP
+                  `numberOfLines={1}` (drop the shrink-to-fit props). The
+                  2nd attempt removed all overflow props expecting the
+                  Pressable to content-hug to the Text's full natural
+                  width. Instead, RN-Android wrapped the multi-word
+                  Devanagari text at the first space (e.g.
+                  "खाना बनाना" → 2 lines) and the Pressable's content-hug
+                  height collapsed to line 1 only ("खाना"). uiautomator
+                  dump confirms the underlying Text content is correct;
+                  the bug is in Android's render-time line wrap.
+                  `numberOfLines={1}` forces a single-line layout, so the
+                  Pressable widens horizontally to fit the natural
+                  single-line text — no wrap, no ellipsize (Pressable has
+                  no width constraint, so the Text has unbounded width). */}
+              <Text
+                variant="pillLabel"
+                style={active ? styles.labelActive : styles.label}
+                numberOfLines={1}
+              >
                 {pillLabel(value, t)}
               </Text>
             </Pressable>

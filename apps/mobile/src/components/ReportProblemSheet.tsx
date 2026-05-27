@@ -116,19 +116,20 @@ export function ReportProblemSheet({ onClose }: ReportProblemSheetProps): React.
                     accessibilityLabel={label}
                     style={selected ? styles.chipSelected : styles.chip}
                   >
-                    {/* Plan 07-17 re-walk 2nd attempt 2026-05-27: removing
-                        `numberOfLines={2} + adjustsFontSizeToFit +
-                        minimumFontScale` — the chip is a width-unconstrained
-                        Pressable inside a `flexWrap` row. With those props,
-                        Android ellipsized multi-word Devanagari labels
-                        ("ऐप क्रैश हो गया" → "ऐप क्रैश हो",
-                        "काम शुरू नहीं हो रहा" → "काम शुरू नहीं हो"). Without
-                        them, the Text content-hugs naturally and the chip
-                        widens to fit; the parent `flexWrap` row wraps chips
-                        to the next line when the row overflows. */}
+                    {/* Plan 07-17 re-walk 3rd attempt 2026-05-27: same fix
+                        as TaskCategoryPills — KEEP `numberOfLines={1}`,
+                        drop the shrink-to-fit props. RN-Android wraps
+                        the chip Text at the first space and the chip's
+                        content-hug height collapses to line 1
+                        ("ऐप क्रैश हो गया" → "ऐप क्रैश हो"). Forcing
+                        single-line layout lets the chip widen to the
+                        natural single-line text width — the parent's
+                        `flexWrap` row then wraps chips to a new row
+                        when the current row overflows. */}
                     <Text
                       variant="caption"
                       style={selected ? styles.chipTextSelected : styles.chipText}
+                      numberOfLines={1}
                     >
                       {label}
                     </Text>
