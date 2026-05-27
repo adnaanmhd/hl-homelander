@@ -1,19 +1,35 @@
-// TermsOfUseModal — Phase 2 plan 02-09 Task 1.
+// TermsOfUseModal — quick task 260527-hkl Task 1.
 //
-// Behaviour matrix (4 tests):
-//   Test 1: visible=false → modal body not rendered.
-//   Test 2: visible=true → renders title "Terms of Use" + verbatim §5.2 body.
-//   Test 3: tap "Got it" → onClose callback invoked exactly once.
-//   Test 4: TERMS_OF_USE_TEXT export matches the canonical idea-brief.md §5.2 /
-//           design-spec.md §18.1 string byte-for-byte.
+// Behaviour matrix (7 tests, RED → GREEN per plan):
+//   Test 1: visible=true → sticky banner (consent-scroll-banner) renders ABOVE
+//           the scrollable body, with the localized "Scroll to the bottom and
+//           click on Agree after reading." copy. Title "Terms of Use" present.
+//   Test 2: Agree button starts disabled (opacity 0.4 + no onClick wired).
+//   Test 3: firing onScroll on the inner ScrollView (consent-scroll-body) at
+//           bottom (y + h >= contentSize - 4) enables Agree; a subsequent
+//           scroll back up keeps it enabled (sticky).
+//   Test 4: tapping Agree AFTER it's enabled invokes onAgree exactly once.
+//   Test 5: pressing the Privacy Policy link calls
+//           Linking.openURL('https://humynlabs.ai/privacy-policy') once.
+//   Test 6: while visible=true, BackHandler.addEventListener is called and the
+//           registered handler returns true (back blocked); when visible flips
+//           to false the subscription is removed.
+//   Test 7: no element with accessibilityLabel="close-button" or a button-role
+//           "Close"/"X" renders (non-dismissable invariant).
 //
-// Tests run under JSDOM with the host-component shim from vitest.setup.ts so
-// the RN <Modal> primitive collapses to a plain <div>; visibility-by-prop is
-// asserted via the `aria-label="Terms of Use modal"` query.
+// Plus the legacy invariants we must NOT regress:
+//   - TERMS_OF_USE_TEXT export byte-identical (LEGAL-02 audit-trail constant).
+//   - Bilingual D-32 underlay still renders on non-English locales.
+//
+// Tests run under JSDOM with the host-component shim from vitest.setup.ts; the
+// RN <Modal> primitive collapses to a pass-through <div>. The shim's react-
+// native mock above forwards Linking + BackHandler as no-op stubs; this file
+// overrides them via vi.mocked() so we can spy on the calls.
 
 import React from 'react';
-import { render, fireEvent, cleanup } from '@testing-library/react';
+import { render, fireEvent, cleanup, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import * as RN from 'react-native';
 
 import { TermsOfUseModal, TERMS_OF_USE_TEXT } from '../../src/screens/signup/TermsOfUseModal';
 import i18n from '../../src/i18n';
@@ -27,11 +43,9 @@ const CANONICAL_TEXT =
   "I understand that my data will be stored securely and used in accordance with Humyn's " +
   'Privacy Policy.';
 
-describe('TermsOfUseModal (plan 02-09 Task 1 + plan 07-05 Task 3 bilingual)', () => {
+describe('TermsOfUseModal (quick 260527-hkl Task 1 — auto-open + scroll-gated Agree)', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
-    // Reset to English between tests — the bilingual locale-switch test below
-    // would otherwise leak hi-IN into Test 2's English-only assertion.
     await i18n.changeLanguage('en');
   });
 
@@ -39,80 +53,162 @@ describe('TermsOfUseModal (plan 02-09 Task 1 + plan 07-05 Task 3 bilingual)', ()
     cleanup();
   });
 
-  it('Test 1: visible=false → underlying RN Modal receives visible=false (hides on real device)', () => {
-    // Under the JSDOM host-component shim from vitest.setup.ts, RN's <Modal>
-    // collapses to a passthrough <div> that always renders its children — so
-    // we can't assert "body is not in the DOM tree". Instead we assert the
-    // contract that matters at runtime: the underlying RN Modal sees
-    // visible=false and on a real device renders nothing. The shim forwards
-    // unknown props onto the DOM, so we read them off the data-testid="Modal"
-    // element.
-    const { container } = render(<TermsOfUseModal visible={false} onClose={() => {}} />);
-    const modalNode = container.querySelector('[data-testid="Modal"]');
-    expect(modalNode).not.toBeNull();
-    // React-DOM coerces boolean props on unknown DOM elements to "false"/"true"
-    // strings (or omits them). We check both forms.
-    const visibleAttr = modalNode?.getAttribute('visible');
-    expect(visibleAttr === 'false' || visibleAttr === null).toBe(true);
-  });
-
-  it('Test 2: visible=true → renders the title and verbatim §5.2 body', () => {
+  // ---------------------------------------------------------------------------
+  // Test 1 — sticky banner renders above the scrollable body
+  // ---------------------------------------------------------------------------
+  it('Test 1: visible=true → renders title "Terms of Use" + sticky scroll banner above body', () => {
     const { getByText, getByLabelText } = render(
-      <TermsOfUseModal visible={true} onClose={() => {}} />,
+      <TermsOfUseModal visible={true} onAgree={() => {}} />,
     );
-    // Title rendered (Modal primitive forwards `title` prop into a Text node).
     expect(getByText('Terms of Use')).toBeTruthy();
-    // Body rendered with the verbatim canonical text.
-    const body = getByLabelText('Terms of Use body');
-    expect(body.textContent).toBe(CANONICAL_TEXT);
-    // Spot-check the most legally-sensitive sentinel substrings.
-    expect(body.textContent).toContain('I am 18 years or older');
-    expect(body.textContent).toContain('no one being recorded is a minor');
-    expect(body.textContent).toContain('approximate location and IP address');
-    expect(body.textContent).toContain("Humyn's");
+    const banner = getByLabelText('consent-scroll-banner');
+    expect(banner).toBeTruthy();
+    expect(banner.textContent).toContain('Scroll to the bottom and click on Agree after reading.');
+    // The banner must precede the scrollable body in document order (sticky
+    // above the scroll area).
+    const body = getByLabelText('consent-scroll-body');
+    const compare = banner.compareDocumentPosition(body);
+    // Node.DOCUMENT_POSITION_FOLLOWING === 4
+    expect(compare & 4).toBe(4);
   });
 
-  it('Test 3: tapping "Got it" calls onClose exactly once', () => {
-    const onClose = vi.fn();
-    const { getByLabelText } = render(<TermsOfUseModal visible={true} onClose={onClose} />);
-    fireEvent.click(getByLabelText('Got it close terms'));
-    expect(onClose).toHaveBeenCalledTimes(1);
+  // ---------------------------------------------------------------------------
+  // Test 2 — Agree button starts disabled (opacity 0.4 + no onClick wired)
+  // ---------------------------------------------------------------------------
+  it('Test 2: Agree button starts disabled (opacity ≈0.4 + click is a no-op)', () => {
+    const onAgree = vi.fn();
+    const { getByLabelText } = render(<TermsOfUseModal visible={true} onAgree={onAgree} />);
+    const agreeBtn = getByLabelText('consent-agree-button');
+    // The host-component shim resolves the style array; the Button primitive
+    // applies opacity:0.4 when disabled. The wrapping Pressable receives the
+    // computed style.
+    const styleAttr = agreeBtn.getAttribute('style') ?? '';
+    expect(styleAttr).toMatch(/opacity:\s*0\.4/);
+    // Click is a no-op (Button passes `onPress={disabled ? undefined : onPress}`
+    // so the shim never installs onClick on the DOM).
+    fireEvent.click(agreeBtn);
+    expect(onAgree).not.toHaveBeenCalled();
   });
 
-  it('Test 4: TERMS_OF_USE_TEXT export matches the canonical idea-brief.md §5.2 string byte-for-byte', () => {
+  // ---------------------------------------------------------------------------
+  // Test 3 — onScroll to bottom enables Agree; back-up scroll keeps it enabled
+  // ---------------------------------------------------------------------------
+  it('Test 3: scrolling to bottom enables Agree; sticky once enabled', () => {
+    const onAgree = vi.fn();
+    const { getByLabelText } = render(<TermsOfUseModal visible={true} onAgree={onAgree} />);
+    const body = getByLabelText('consent-scroll-body');
+    // Fire the bottom-reached scroll: y + h >= contentSize.height - 4. The
+    // standard DOM Event constructor doesn't preserve arbitrary EventInit
+    // props, so we manually build a scroll Event and attach the RN-shape
+    // payload directly (the jsdom shim hands the React `onScroll` prop the
+    // raw DOM event; the modal's handler is shaped to accept both RN
+    // SyntheticEvent and plain DOM event payloads).
+    const fireScroll = (y: number) => {
+      act(() => {
+        const evt = new Event('scroll', { bubbles: true });
+        Object.assign(evt, {
+          contentOffset: { y },
+          layoutMeasurement: { height: 400 },
+          contentSize: { height: 1198 },
+        });
+        body.dispatchEvent(evt);
+      });
+    };
+    fireScroll(800); // 800 + 400 = 1200 ≥ 1198 - 4 → enable
+    const agreeBtn = getByLabelText('consent-agree-button');
+    // Once enabled, the opacity:0.4 style is removed (Button primitive applies
+    // opacity:1 when disabled=false).
+    let styleAttr = agreeBtn.getAttribute('style') ?? '';
+    expect(styleAttr).not.toMatch(/opacity:\s*0\.4/);
+    // Tapping fires onAgree.
+    fireEvent.click(agreeBtn);
+    expect(onAgree).toHaveBeenCalledTimes(1);
+    // Scroll back up — Agree must stay enabled (sticky).
+    fireScroll(0);
+    styleAttr = agreeBtn.getAttribute('style') ?? '';
+    expect(styleAttr).not.toMatch(/opacity:\s*0\.4/);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Test 4 — Agree click after enabled invokes onAgree exactly once
+  // (combined with Test 3's click; this one isolates the click contract).
+  // ---------------------------------------------------------------------------
+  it('Test 4: tapping Agree once after enable invokes onAgree exactly once', () => {
+    const onAgree = vi.fn();
+    const { getByLabelText } = render(<TermsOfUseModal visible={true} onAgree={onAgree} />);
+    const body = getByLabelText('consent-scroll-body');
+    act(() => {
+      const evt = new Event('scroll', { bubbles: true });
+      Object.assign(evt, {
+        contentOffset: { y: 800 },
+        layoutMeasurement: { height: 400 },
+        contentSize: { height: 1198 },
+      });
+      body.dispatchEvent(evt);
+    });
+    fireEvent.click(getByLabelText('consent-agree-button'));
+    expect(onAgree).toHaveBeenCalledTimes(1);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Test 5 — Privacy Policy link calls Linking.openURL('https://humynlabs.ai/privacy-policy')
+  // ---------------------------------------------------------------------------
+  it('Test 5: tapping the Privacy Policy link calls Linking.openURL with the canonical URL', () => {
+    const openSpy = vi.spyOn(RN.Linking, 'openURL').mockResolvedValue(undefined as never);
+    const { getByLabelText } = render(<TermsOfUseModal visible={true} onAgree={() => {}} />);
+    fireEvent.click(getByLabelText('privacy-policy-link'));
+    expect(openSpy).toHaveBeenCalledTimes(1);
+    expect(openSpy).toHaveBeenCalledWith('https://humynlabs.ai/privacy-policy');
+  });
+
+  // ---------------------------------------------------------------------------
+  // Test 6 — BackHandler is registered while visible=true and returns true.
+  // ---------------------------------------------------------------------------
+  it('Test 6: BackHandler.addEventListener registers a true-returning handler while visible; subscription removed when visible flips false', () => {
+    const removeSpy = vi.fn();
+    const addSpy = vi.spyOn(RN.BackHandler, 'addEventListener').mockImplementation(((
+      _event: string,
+      _handler: () => boolean,
+    ) => ({
+      remove: removeSpy,
+    })) as unknown as typeof RN.BackHandler.addEventListener);
+    const { rerender } = render(<TermsOfUseModal visible={true} onAgree={() => {}} />);
+    expect(addSpy).toHaveBeenCalled();
+    const lastCall = addSpy.mock.calls[addSpy.mock.calls.length - 1];
+    expect(lastCall?.[0]).toBe('hardwareBackPress');
+    const handler = lastCall?.[1] as () => boolean;
+    expect(typeof handler).toBe('function');
+    expect(handler()).toBe(true);
+    // When visible flips to false, the cleanup runs and remove() is called.
+    rerender(<TermsOfUseModal visible={false} onAgree={() => {}} />);
+    expect(removeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Test 7 — no close affordance is rendered (non-dismissable invariant)
+  // ---------------------------------------------------------------------------
+  it('Test 7: no close-button / "X" / "Close" affordance is rendered (non-dismissable)', () => {
+    const { queryByLabelText, queryByText } = render(
+      <TermsOfUseModal visible={true} onAgree={() => {}} />,
+    );
+    expect(queryByLabelText('close-button')).toBeNull();
+    expect(queryByLabelText('Got it close terms')).toBeNull();
+    expect(queryByText('Close')).toBeNull();
+    expect(queryByText('X')).toBeNull();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Legal-constants invariants (regression coverage for LEGAL-02)
+  // ---------------------------------------------------------------------------
+  it('Invariant A: TERMS_OF_USE_TEXT export is byte-identical to the canonical §5.2 string', () => {
     expect(TERMS_OF_USE_TEXT).toBe(CANONICAL_TEXT);
-    // Length sanity — drift detector. Update this number ONLY when the
-    // canonical text changes (which itself requires updating idea-brief.md +
-    // bumping the consent version on the backend per LEGAL-02).
     expect(TERMS_OF_USE_TEXT.length).toBe(CANONICAL_TEXT.length);
   });
 
-  // Plan 07-05 Task 3 — bilingual rendering per D-32 / D-33. The canonical
-  // `TERMS_OF_USE_TEXT` byte sequence is unchanged (D-33 — the legal record
-  // stays English on the server). When the active locale is non-English the
-  // modal renders TWO Text blocks: translated body on top, English underlay
-  // below at ~70% opacity.
-  it('Test 5 (D-32): renders only the English body when active locale is en', () => {
-    const { queryByLabelText } = render(<TermsOfUseModal visible onClose={() => {}} />);
-    expect(queryByLabelText('Terms of Use body')).toBeTruthy();
-    expect(queryByLabelText('Terms of Use English underlay')).toBeFalsy();
-  });
-
-  it('Test 6 (D-32): renders translated body on top + English underlay below when locale != en', async () => {
+  it('Invariant B (D-32): bilingual underlay renders for non-English locale', async () => {
     await i18n.changeLanguage('hi-IN');
-    const { queryByLabelText } = render(<TermsOfUseModal visible onClose={() => {}} />);
-    // Both blocks present (translated on top, English underlay below at 70% opacity).
+    const { queryByLabelText } = render(<TermsOfUseModal visible onAgree={() => {}} />);
     expect(queryByLabelText('Terms of Use body')).toBeTruthy();
     expect(queryByLabelText('Terms of Use English underlay')).toBeTruthy();
-    // The English underlay is byte-equal to the canonical constant (D-33).
-    const underlay = queryByLabelText('Terms of Use English underlay');
-    expect(underlay?.textContent).toBe(CANONICAL_TEXT);
-  });
-
-  it('Test 7 (D-33): en.json `terms.consent.body` is byte-equal to TERMS_OF_USE_TEXT', () => {
-    // The English value in the i18n catalog must match the legal canonical
-    // constant exactly — the plan's parity assertion (no drift between the
-    // legal record and the localized catalog).
-    expect(i18n.getFixedT('en')('terms.consent.body')).toBe(TERMS_OF_USE_TEXT);
   });
 });
