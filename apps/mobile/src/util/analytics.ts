@@ -42,6 +42,11 @@ export const EVENT_NAMES = [
   'signup_google_started',
   'signup_google_completed',
   'signup_google_failed',
+  // Quick 260527-hkl — fires when the user taps the modal's Agree button
+  // (post scroll-gate). Payload: `{ consent_version }`. Server-side
+  // consent_log persistence (LEGAL-02) is unchanged and remains the
+  // authoritative legal record.
+  'consent_agreed',
   // Permissions
   'permission_camera_requested',
   'permission_camera_granted',
