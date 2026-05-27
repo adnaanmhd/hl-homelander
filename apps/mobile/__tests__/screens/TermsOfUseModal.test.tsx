@@ -3,7 +3,7 @@
 // Behaviour matrix (7 tests, RED → GREEN per plan):
 //   Test 1: visible=true → sticky banner (consent-scroll-banner) renders ABOVE
 //           the scrollable body, with the localized "Scroll to the bottom and
-//           click on Agree after reading." copy. Title "Terms of Use" present.
+//           tap on I Agree after reading." copy. Title "Terms of Use" present.
 //   Test 2: Agree button starts disabled (opacity 0.4 + no onClick wired).
 //   Test 3: firing onScroll on the inner ScrollView (consent-scroll-body) at
 //           bottom (y + h >= contentSize - 4) enables Agree; a subsequent
@@ -63,7 +63,7 @@ describe('TermsOfUseModal (quick 260527-hkl Task 1 — auto-open + scroll-gated 
     expect(getByText('Terms of Use')).toBeTruthy();
     const banner = getByLabelText('consent-scroll-banner');
     expect(banner).toBeTruthy();
-    expect(banner.textContent).toContain('Scroll to the bottom and click on Agree after reading.');
+    expect(banner.textContent).toContain('Scroll to the bottom and tap on I Agree after reading.');
     // The banner must precede the scrollable body in document order (sticky
     // above the scroll area).
     const body = getByLabelText('consent-scroll-body');

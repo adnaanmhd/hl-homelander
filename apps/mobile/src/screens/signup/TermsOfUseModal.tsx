@@ -92,8 +92,11 @@ export function TermsOfUseModal({ visible, onAgree }: TermsOfUseModalProps) {
   const englishBanner = i18nDefault.getFixedT('en')('signup.consent.scrollBanner');
 
   // Sticky enable: once the user reaches the bottom, the Agree button stays
-  // enabled even if they scroll back up.
+  // enabled even if they scroll back up. Also enabled immediately when the
+  // body fits the viewport (nothing to scroll → onScroll never fires).
   const [agreeEnabled, setAgreeEnabled] = useState(false);
+  const [contentHeight, setContentHeight] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(0);
 
   // BackHandler — defense in depth alongside the no-op onDismiss passed to
   // the Modal primitive (RNModal.onRequestClose is fired by Android hardware
@@ -104,6 +107,19 @@ export function TermsOfUseModal({ visible, onAgree }: TermsOfUseModalProps) {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
     return () => sub.remove();
   }, [visible]);
+
+  // Short-body enable: when the rendered body fits the viewport, onScroll
+  // never fires (there's nothing to scroll). Without this, Agree stays
+  // locked out forever on small screens or short-locale bodies.
+  useEffect(() => {
+    if (
+      contentHeight > 0 &&
+      viewportHeight > 0 &&
+      contentHeight <= viewportHeight + BOTTOM_SLOP_PX
+    ) {
+      setAgreeEnabled(true);
+    }
+  }, [contentHeight, viewportHeight]);
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     // On the real RN bridge `e.nativeEvent` is the ScrollEvent payload. Under
@@ -142,18 +158,19 @@ export function TermsOfUseModal({ visible, onAgree }: TermsOfUseModalProps) {
       }
     >
       {/* Sticky banner — sits ABOVE the scrollable body and does NOT scroll
-          with content. Localized copy on top + D-32 English underlay on
-          non-en locales (mirrors the consent-body bilingual treatment). */}
+          with content. Brand-orange (colors.accent) to draw the eye to the
+          scroll-then-tap instruction. Localized copy on top + D-32 English
+          underlay on non-en locales (mirrors the consent-body bilingual
+          treatment); the underlay keeps the orange hue at reduced opacity. */}
       <View accessibilityLabel="consent-scroll-banner" style={{ marginBottom: spacing.m }}>
-        <Text variant="caption" tone="primary">
+        <Text variant="caption" style={{ color: colors.accent }}>
           {translatedBanner}
         </Text>
         {!isEnglish ? (
           <Text
             variant="caption"
-            tone="secondary"
             accessibilityLabel="consent-scroll-banner-english-underlay"
-            style={{ opacity: 0.7, marginTop: spacing.xs }}
+            style={{ color: colors.accent, opacity: 0.7, marginTop: spacing.xs }}
           >
             {englishBanner}
           </Text>
@@ -165,6 +182,8 @@ export function TermsOfUseModal({ visible, onAgree }: TermsOfUseModalProps) {
         style={{ maxHeight: 400 }}
         onScroll={onScroll}
         scrollEventThrottle={16}
+        onContentSizeChange={(_w, h) => setContentHeight(h)}
+        onLayout={(e) => setViewportHeight(e.nativeEvent.layout.height)}
       >
         <Text
           variant="body"
