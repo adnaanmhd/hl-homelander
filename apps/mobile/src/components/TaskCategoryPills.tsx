@@ -91,16 +91,18 @@ export function TaskCategoryPills({
               onPress={() => onSelect(value)}
               style={active ? styles.pillActive : styles.pill}
             >
-              {/* G-17 (Plan 07-17): overflow guards on the pill Text. Hindi
-                  bold-active glyphs (`घर का रखरखाव` etc.) clipped against the
-                  pill's fixed width; auto-shrink to 75% rescues. */}
-              <Text
-                variant="pillLabel"
-                style={active ? styles.labelActive : styles.label}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.75}
-              >
+              {/* Plan 07-17 re-walk 2nd attempt 2026-05-27: removing
+                  `numberOfLines={1} + adjustsFontSizeToFit + minimumFontScale`
+                  — the pill is a width-unconstrained Pressable inside a
+                  horizontal ScrollView. With those props, Android's Text
+                  measurement aggressively ellipsizes multi-word Devanagari
+                  ("खाना बनाना" → "खाना", "बर्तन धोना" → "बर्तन",
+                  "सामान जमाना" → "सामान"). Without them, the Text
+                  content-hugs naturally → the Pressable widens to fit →
+                  the ScrollView scrolls horizontally if the row overflows.
+                  This is the original UI-SPEC §10 contract (pills size to
+                  their natural content). */}
+              <Text variant="pillLabel" style={active ? styles.labelActive : styles.label}>
                 {pillLabel(value, t)}
               </Text>
             </Pressable>

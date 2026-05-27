@@ -116,17 +116,19 @@ export function ReportProblemSheet({ onClose }: ReportProblemSheetProps): React.
                     accessibilityLabel={label}
                     style={selected ? styles.chipSelected : styles.chip}
                   >
-                    {/* G-22 (Plan 07-17): allow long Devanagari chip labels
-                        (`वीडियो की क्वालिटी में दिक्कत` ~24 chars) to wrap to
-                        2 lines INSIDE the chip rather than overflowing past
-                        its width. Auto-shrink kicks in when 2 lines still
-                        don't fit. */}
+                    {/* Plan 07-17 re-walk 2nd attempt 2026-05-27: removing
+                        `numberOfLines={2} + adjustsFontSizeToFit +
+                        minimumFontScale` — the chip is a width-unconstrained
+                        Pressable inside a `flexWrap` row. With those props,
+                        Android ellipsized multi-word Devanagari labels
+                        ("ऐप क्रैश हो गया" → "ऐप क्रैश हो",
+                        "काम शुरू नहीं हो रहा" → "काम शुरू नहीं हो"). Without
+                        them, the Text content-hugs naturally and the chip
+                        widens to fit; the parent `flexWrap` row wraps chips
+                        to the next line when the row overflows. */}
                     <Text
                       variant="caption"
                       style={selected ? styles.chipTextSelected : styles.chipText}
-                      numberOfLines={2}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.85}
                     >
                       {label}
                     </Text>

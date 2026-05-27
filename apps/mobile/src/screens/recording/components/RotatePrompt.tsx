@@ -131,8 +131,16 @@ export function RotatePrompt(): React.JSX.Element {
 }
 
 const styles = StyleSheet.create({
+  // Plan 07-17 re-walk 2nd attempt 2026-05-27: RecordingScreen's
+  // `styles.body` is `{ flex: 1, alignItems: 'center', justifyContent:
+  // 'center' }` which content-hugs the wrap horizontally — so the inner
+  // Text's `alignSelf: 'stretch'` had no parent width to stretch to. Add
+  // `alignSelf: 'stretch'` on the wrap itself to override the parent's
+  // alignItems and span the full screen width. The wrap KEEPS its own
+  // `alignItems: 'center'` so the SVG icon stays centered.
   wrap: {
     flex: 1,
+    alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.l,
