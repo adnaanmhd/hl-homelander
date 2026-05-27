@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 7 context gathered
-last_updated: '2026-05-26T18:12:39.126Z'
-last_activity: 2026-05-26 -- Phase 07 execution started
+stopped_at: Phase 7 complete — operator 7-locale hardware walk ALL PASS on APK 9dbb1d5; ready for Phase 8 (observability + APK distribution hardening)
+last_updated: '2026-05-27T11:00:00.000Z'
+last_activity: 2026-05-27 -- Phase 7 complete (operator-walked 7-locale deep walk ALL PASS); 17 plans landed; 07-15 superseded by 07-17 operator walk
 progress:
-  total_phases: 7
-  completed_phases: 5
-  total_plans: 102
-  completed_plans: 99
-  percent: 97
+  total_phases: 8
+  completed_phases: 6
+  total_plans: 119
+  completed_plans: 117
+  percent: 98
 ---
 
 # Project State
@@ -21,13 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-07)
 
 **Core value:** On-device capture quality is non-negotiable — every uploaded segment must hit the locked spec (1080p / 30 FPS / ≥110° dFOV / IMU sustained ≥100 Hz / ±1 ms timestamp alignment) or the bytes are worthless for training. (The ±1 ms drift gate was relaxed 2026-05-12 to measure-and-record per CLAUDE.md banner; ultrawide ≥110° dFOV is the load-bearing constraint.)
-**Current focus:** Phase 07 — multi-linguality-live-cam-feed
+**Current focus:** Phase 8 — observability-apk-distribution-hardening
 
 ## Current Position
 
-Phase: 07 (multi-linguality-live-cam-feed) — EXECUTING
-Plan: 1 of 17
-Status: Executing Phase 07
+Phase: 07 (multi-linguality-live-cam-feed) — COMPLETE (2026-05-27)
+Plan: 17 of 17
+Status: Phase 7 closed — operator-walked 7-locale deep walk on APK `9dbb1d5` returned ALL PASS; ready for Phase 8
+
+Phase 7 close-out (2026-05-27): All 17 plans landed (07-01..07-17, with 07-15 superseded by 07-17's operator walk per 07-15-SUMMARY.md). The 07-17 cluster started with code-level Tasks 1-6 closing G-30..G-40 from 07-16's hi-IN walk, then the operator walk on APK `c95074f` surfaced 11 NEW regressions (G-30..G-40), which the orchestrator drove to closure inline as a 13-commit re-walk fix cluster on the same worktree: Button primitive `<View>` removed + `width:'100%'` (3 attempts to find the right RN/Yoga incantation), HistoryRow `localizeTaskName` wire, content-hugging stretch fixes on CompatRunning title + RotatePrompt body + RecordingScreen liveEyeHint, SendRequest Indoor/Outdoor segmented `width:'100%'`, TaskCategoryPills + ReportProblemSheet chips + HomeHero CTA `numberOfLines={1}` (forces single-line so Pressable widens to natural text width instead of wrapping silently to a hidden 2nd line), TaskCategoryPills fade-hint legibility tuning, reverseSearch Stage 1.5 substring + token-aggregate against the catalog (rescues partial Hindi queries: `खाना` → `Cooking a meal`, `बर्तन` → `Washing dishes`, etc.), and 10 visual-snapshot rebases. Translations stayed UNTOUCHED across all 13 fix commits per operator directive. Final 7-locale operator deep walk on APK `9dbb1d5` (Pixel 10a `5C161JEA304304`, fresh install, dev API + hash-verify worker via `pnpm dev`, LocalStack + Postgres + Redis up, 87 seeded tasks): ALL PASS — operator verbatim "i'm happy with all languages, push the changes". 07-VERIFICATION.md status flipped to `verified`. Next: `/gsd:discuss-phase 8` or `/gsd:plan-phase 8`.
 
 Phase 2 operator smoke-walk history (carried forward):
 
