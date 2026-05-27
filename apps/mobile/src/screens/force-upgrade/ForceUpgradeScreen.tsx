@@ -29,6 +29,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, BackHandler, Alert } from 'react-native';
 import { useRoute } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import ScreenContainer from '../../ui/primitives/ScreenContainer';
 import Text from '../../ui/primitives/Text';
 import Button from '../../ui/primitives/Button';
@@ -46,6 +47,7 @@ export default function ForceUpgradeScreen(): React.JSX.Element {
   const route = useRoute<{ key: string; name: string; params?: RouteParams }>();
   const params: RouteParams = route?.params ?? { hardBlock: true };
   const hardBlock = params.hardBlock ?? true;
+  const { t } = useTranslation();
   // versionService writes the entry; we narrow to .response (the wire DTO).
   const payload = useAppStore((s) =>
     s.appVersionCache ? (s.appVersionCache.response as AppVersionResponse) : null,
@@ -70,42 +72,51 @@ export default function ForceUpgradeScreen(): React.JSX.Element {
 
   const onUpdate = useCallback(async () => {
     if (!payload) {
-      Alert.alert('Update info unavailable', 'Try again in a moment.');
+      Alert.alert(
+        t('forceUpgrade.alerts.infoUnavailableTitle'),
+        t('forceUpgrade.alerts.infoUnavailableBody'),
+      );
       return;
     }
     setBusy(true);
     try {
       await startUpgrade(payload);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Try again later.';
+      const msg = e instanceof Error ? e.message : t('forceUpgrade.alerts.failedBodyFallback');
       if (msg === 'apk_hash_mismatch') {
         // D-UPG-02 catastrophic copy — never pass a mismatched APK to
         // PackageInstaller. The catastrophic Analytics event already fired
         // inside startUpgrade.
-        Alert.alert('Update failed (integrity check)', 'Try again or contact support.');
+        Alert.alert(
+          t('forceUpgrade.alerts.integrityTitle'),
+          t('forceUpgrade.alerts.integrityBody'),
+        );
       } else if (msg === 'apk_download_failed') {
-        Alert.alert('Update failed', 'Check your connection and try again.');
+        Alert.alert(
+          t('forceUpgrade.alerts.failedTitle'),
+          t('forceUpgrade.alerts.failedBodyNetwork'),
+        );
       } else {
-        Alert.alert('Update failed', msg);
+        Alert.alert(t('forceUpgrade.alerts.failedTitle'), msg);
       }
     } finally {
       setBusy(false);
     }
-  }, [payload]);
+  }, [payload, t]);
 
   return (
     <ScreenContainer accessibilityLabel="force-upgrade-screen" padding={spacing.h}>
       <View style={styles.center}>
         <Text variant="sheetTitle" style={styles.title}>
-          Update to continue.
+          {t('forceUpgrade.title')}
         </Text>
         <Text variant="body" tone="secondary" style={styles.body}>
-          A newer version of Humyn Labs Capture is required to keep recording.
+          {t('forceUpgrade.body')}
         </Text>
         <Button
           variant="primary"
           accessibilityLabel="force-upgrade-update"
-          label={busy ? 'Updating…' : 'Update'}
+          label={busy ? t('forceUpgrade.buttonUpdating') : t('forceUpgrade.buttonUpdate')}
           onPress={onUpdate}
           disabled={busy}
         />

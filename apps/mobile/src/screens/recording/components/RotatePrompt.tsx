@@ -8,10 +8,12 @@
  * block) tipping a quarter-turn counter-clockwise to landscape and back, on the
  * prototype's exact `@keyframes rotatePhone` timeline (2.8 s ease-in-out:
  * hold portrait 0→18%, rotate to -90° 18→42%, hold landscape 42→72%, rotate
- * back 72→100%) — plus the verbatim label "Rotate to landscape and mount on
- * rig". Nothing else — the `__DEV__`-only "Pretend I rotated →" bypass pill was
- * removed (debug session handgate-never-passes, owner directive: it let a take
- * start without the device actually being in landscape).
+ * back 72→100%) — plus the verbatim label sourced from
+ * `recording.rotatePrompt` in the i18n catalog (was hardcoded English until
+ * the 07-11 sweep). Nothing else — the `__DEV__`-only "Pretend I rotated →"
+ * bypass pill was removed (debug session handgate-never-passes, owner
+ * directive: it let a take start without the device actually being in
+ * landscape).
  *
  * The rotate-prompt → ready exit is the `RecordingScreen` device-orientation
  * effect (CR-01): a physical rotation to landscape (or the device already being
@@ -29,6 +31,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Rect } from 'react-native-svg';
+import { useTranslation } from 'react-i18next';
 import { Text } from '../../../ui/primitives/Text';
 import { colors, spacing } from '../../../ui/tokens';
 
@@ -44,6 +47,7 @@ const HOLD_LANDSCAPE_MS = 840;
 const TILT_BACK_MS = 784;
 
 export function RotatePrompt(): React.JSX.Element {
+  const { t } = useTranslation();
   // 0 → 1 → 0; mapped to 0° → -90° → 0° (a quarter-turn CCW tilt, repeating).
   const tilt = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -104,16 +108,56 @@ export function RotatePrompt(): React.JSX.Element {
           />
         </Svg>
       </Animated.View>
-      <Text variant="caption" style={styles.body}>
-        Rotate to landscape and mount on rig
+      {/* [07-11] Moved to i18n catalog under recording.rotatePrompt.
+          G-26 (Plan 07-16): allow Devanagari + Bengali + Tamil + Telugu +
+          Marathi to wrap to 2 lines + auto-shrink. RN-Text props only — no
+          new design tokens; the recording-caption variant is untouched.
+          G-26 (Plan 07-17): lowered `minimumFontScale` from 0.85 to 0.75 to
+          handle the longest Devanagari/Indic rotate-prompt forms (operator
+          2026-05-26 hi-IN walk: 0.85 floor still clipped). The wrap also
+          gains paddingHorizontal so it has horizontal slack against the
+          parent's flex constraints. */}
+      <Text
+        variant="caption"
+        style={styles.body}
+        numberOfLines={2}
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
+      >
+        {t('recording.rotatePrompt')}
       </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.l },
-  body: { color: colors.recTextCaption, textAlign: 'center' },
+  // Plan 07-17 re-walk 2nd attempt 2026-05-27: RecordingScreen's
+  // `styles.body` is `{ flex: 1, alignItems: 'center', justifyContent:
+  // 'center' }` which content-hugs the wrap horizontally — so the inner
+  // Text's `alignSelf: 'stretch'` had no parent width to stretch to. Add
+  // `alignSelf: 'stretch'` on the wrap itself to override the parent's
+  // alignItems and span the full screen width. The wrap KEEPS its own
+  // `alignItems: 'center'` so the SVG icon stays centered.
+  wrap: {
+    flex: 1,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.l,
+    paddingHorizontal: spacing.l,
+  },
+  // Plan 07-17 re-walk 2026-05-27 (Bug C-2): `wrap.alignItems: 'center'`
+  // makes the body Text content-hug horizontally, so the hi-IN value
+  // "फ़ोन को घुमाकर लैंडस्केप करें और रिग पर लगाएँ" clipped to
+  // "...रिग पर". `alignSelf: 'stretch'` overrides that and lets the Text
+  // span the wrap's padded width, so the existing `numberOfLines={2} +
+  // adjustsFontSizeToFit + minimumFontScale={0.75}` overflow guards on
+  // the Text element can actually engage.
+  body: {
+    color: colors.recTextCaption,
+    textAlign: 'center',
+    alignSelf: 'stretch',
+  },
 });
 
 export default RotatePrompt;

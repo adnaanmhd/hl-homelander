@@ -123,7 +123,12 @@ object FinalizeWorker {
             val drift: MetadataComposer.Drift? =
                 if (videoTimestamps.size >= 2 && imuTimestamps.size >= 2) {
                     val d = DriftCalculator.compute(videoTimestamps, imuTimestamps)
-                    MetadataComposer.Drift(maxMs = d.maxMs, meanMs = d.meanMs, p99Ms = d.p99Ms)
+                    MetadataComposer.Drift(
+                        maxMs = d.maxMs,
+                        meanMs = d.meanMs,
+                        p99Ms = d.p99Ms,
+                        warmupFramesSkipped = d.warmupFramesSkipped,
+                    )
                 } else {
                     null
                 }
@@ -476,6 +481,13 @@ object FinalizeWorker {
             // captured at session start. MetadataComposer.compose reads this to
             // stamp metadata.orientation truthfully.
             recordedRotation = s.recordedRotation,
+            // Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — propagate
+            // the live-Camera2 calibration captured at segment open.
+            // MetadataComposer.compose emits it as the top-level `calibration`
+            // block (or the uncalibrated fallback when null). CameraCalibration
+            // is shared between the SidecarManager + MetadataComposer payloads,
+            // so this is a direct pass-through (no per-field bridge).
+            calibration = s.calibration,
         )
 }
 

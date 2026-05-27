@@ -19,7 +19,7 @@
  *     → GATE_BYPASS) / HAND-07 Skip (→ GATE_SKIP, no voice/haptic, brightness
  *     still drops)
  *   - the HAND-09 TTS-masked gate-pass → active transition (Vibration.vibrate(120)
- *     → speakCue('Recording started') → VoiceCue pill 1.8s → set(0.05) →
+ *     → showVoiceCue(t(recording.cue.started)) → VoiceCue pill 1.8s → set(0.05) →
  *     stopGate() → SETTLE_MS → HumynCapture.start(buildCaptureOpts(...))
  *     → CAPTURE_STARTED, or on reject set(-1) + CAPTURE_START_FAILED + toast)
  *   - HAND-11 RemoteConfig gate reads (readGateConfig); HAND-14 analytics
@@ -41,6 +41,7 @@ import { Animated, Pressable, StyleSheet, Vibration, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Orientation, { type OrientationType } from 'react-native-orientation-locker';
 import RNFS from 'react-native-fs';
+import { useTranslation } from 'react-i18next';
 import { Text } from '../../ui/primitives/Text';
 import { Icon } from '../../ui/primitives/Icon';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
@@ -64,8 +65,10 @@ import {
   stopGate as stopGateCamera,
   HumynGateCameraView,
 } from '../../native/HumynGateCamera';
+import { HumynLivePreviewView, isLivePreviewAvailable } from '../../native/HumynLivePreviewView';
 import * as HumynScreenBrightness from '../../native/HumynScreenBrightness';
-import { pickAndSetEnInVoice, speakCue } from '../../lib/ttsVoice';
+import { useLivePreviewStateMachine } from '../../lib/livePreviewState';
+import { pickAndSetLocaleVoice, speakCue } from '../../lib/ttsVoice';
 import { formatContributionDuration } from '../../lib/durationFormat';
 import { buildCaptureOpts } from '../../lib/buildCaptureOpts';
 import { readGateConfig, GATE_DEFAULTS, type GateConfig } from '../../lib/remoteConfigGate';
@@ -172,10 +175,15 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
   const route = useRoute<{ key: string; name: string; params?: RecordingRouteParams }>();
   const params = route.params ?? {};
   const taskId = params.taskId ?? '__practice__';
-  const taskName = params.taskName ?? 'Practice — 60 sec';
   const taskCategory = params.taskCategory ?? 'practice';
   const taskSetting: 'indoor' | 'outdoor' = params.taskSetting ?? 'indoor';
   const isPractice = params.isPractice ?? false;
+  const { t, i18n } = useTranslation();
+  // G-25 (Plan 07-17): locale-reactive practice fallback. The declaration
+  // moved BELOW the useTranslation() hook so `t` is in scope; PracticeIntro
+  // now omits the taskName field from PRACTICE_ROUTE_PARAMS so this fallback
+  // wins when params.taskName is undefined (practice flow).
+  const taskName = params.taskName ?? t('recording.practiceFallback');
 
   const [state, dispatch] = useReducer(
     recReducer,
@@ -251,11 +259,18 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
   // --- compat dfov + app version (read once at mount) -----------------------
   const dfovMeasuredDeg = useRef<number | null>(null);
   const appVersionRef = useRef<string>('1.0.0');
-  // pickAndSetEnInVoice + Orientation lock + cacheDir sweep — once on mount.
+  // pickAndSetLocaleVoice + Orientation lock + cacheDir sweep — once on mount.
+  // Plan 07-06 (I18N-06 / D-31): the recording-cue voice now resolves against
+  // the user's active locale (read here from i18n.language at mount). For the
+  // 'en' locale the owner-deviation behavior is preserved (en-US-female).
+  // Intentionally `[]` deps — we want the locale read ONCE at mount, not on
+  // every re-render. A mid-session locale change would not propagate here,
+  // but that's an extreme corner case (the user would have to background the
+  // app, change locale in Profile, then return mid-recording).
   useEffect(() => {
     dfovMeasuredDeg.current = readCompatUltrawideDfovDeg();
     appVersionRef.current = readAppVersion();
-    pickAndSetEnInVoice().catch(() => undefined);
+    pickAndSetLocaleVoice(i18n.language).catch(() => undefined);
     Orientation.lockToLandscape();
     // Sweep stragglers from a crashed previous gate session (Security V8/V12 —
     // in addition to the Phase-3 app-launch sweep).
@@ -400,7 +415,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         // a battery/thermal stop during practice is handled here regardless.
         Orientation.unlockAllOrientations();
         logEvent('recording_stopped', { ...(isDeviceDistress ? { reason: _reason } : {}) });
-        speakCue('Recording stopped');
+        speakCue(t('recording.cue.stopped'));
         navigateToPracticeComplete(navigation);
         return;
       }
@@ -411,7 +426,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         // The segment was auto-enqueued by the onSegmentComplete hook above.
         Orientation.unlockAllOrientations();
         logEvent('recording_stopped', { ...(isDeviceDistress ? { reason: _reason } : {}) });
-        speakCue('Recording stopped');
+        speakCue(t('recording.cue.stopped'));
         // Wave-1.5 Item 5 — the contribution toast must survive the
         // RecordingScreen → Home transition for ≥5 s. Use the global ToastHost
         // (App.tsx:78 — already mounted as a NavigationContainer sibling) via
@@ -446,18 +461,18 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         // and we route to Home.
         Orientation.unlockAllOrientations();
         logEvent('recording_stopped', { reason: _reason });
-        showToast('Recording stopped — your phone needs attention.');
+        showToast(t('recording.toasts.deviceDistress'));
         navigateToHome(navigation);
         return;
       }
       // Normal sub-60s manual discard — the screen shows the toast then returns to
       // the landscape gate for a fresh attempt (REC-05); it STAYS landscape-locked.
       logEvent('recording_too_short');
-      showToast('Recording too short — discarded.');
+      showToast(t('recording.toasts.tooShort'));
       handlingStopRef.current = false;
       dispatch({ type: 'RESET_FOR_FRESH' });
     },
-    [navigation, showToast],
+    [navigation, showToast, t],
   );
 
   // WR-06 — `loggedOut` wired to the auth-token signal: the §10 "logout while
@@ -643,7 +658,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
       const passed = !state.gate.skipped && !state.gate.bypassed;
       if (passed) {
         Vibration.vibrate(120);
-        showVoiceCue('Recording started');
+        showVoiceCue(t('recording.cue.started'));
         logEvent('recording_gate_passed', { locale: deviceLocale() });
         logEvent('recording_started');
       }
@@ -724,22 +739,22 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         const code = (e as { code?: string } | undefined)?.code;
         speakCue(
           code === 'profile_incomplete'
-            ? 'Please complete your profile'
+            ? t('recording.voiceCues.profileIncomplete')
             : code === 'thermal_throttling'
-              ? 'Phone too warm'
+              ? t('recording.voiceCues.thermalThrottling')
               : code === 'permission_revoked'
-                ? 'Camera permission needed'
-                : 'Could not start recording',
+                ? t('recording.voiceCues.permissionRevoked')
+                : t('recording.voiceCues.couldNotStart'),
         );
         await HumynScreenBrightness.set(-1).catch(() => undefined);
         showToast(
           code === 'profile_incomplete'
-            ? 'Please complete your profile in Profile → Email.'
+            ? t('recording.toasts.profileIncomplete')
             : code === 'storage_full'
-              ? 'Not enough storage to record.'
+              ? t('recording.toasts.storageFull')
               : code === 'thermal_throttling'
-                ? 'Phone too warm — let it cool and try again.'
-                : 'Could not start recording.',
+                ? t('recording.toasts.thermalThrottling')
+                : t('recording.toasts.couldNotStart'),
         );
         dispatch({ type: 'CAPTURE_START_FAILED' });
       }
@@ -877,6 +892,20 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
   const minuteBarFraction =
     state.substate === 'active' ? Math.min(1, state.durationMs / 60_000) : 0;
 
+  // Phase 7 plan 07-07 — live-cam preview brightness state machine.
+  // Driven by `state.startedAt` going non-null when the 'active' substate
+  // is entered (post-gate-pass / Skip → CAPTURE_STARTED). The machine
+  // immediately calls `HumynScreenBrightness.set(-1)` to restore system
+  // brightness for the 15-s initial preview window, then transitions to
+  // 'dimmed' (set(0.05)) — re-shown for rolling 10-s windows on tap.
+  // REC-LIVE-01..04 / D-05 / D-28 / D-29. On stop / unmount the existing
+  // set(-1) restorers below (line 743 / 876 / cleanup return) own the
+  // terminal brightness restore — REC-LIVE-15.
+  const captureStartedAt =
+    state.substate === 'active' && state.startedAt != null ? state.startedAt : null;
+  const { state: brightnessState, tap: handleTapReveal } =
+    useLivePreviewStateMachine(captureStartedAt);
+
   return (
     <ScreenContainer
       accessibilityLabel="Recording screen"
@@ -905,6 +934,109 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         <HumynGateCameraView style={StyleSheet.absoluteFill} />
       ) : null}
 
+      {/* Phase 7 plan 07-07 — live-cam preview during the 'active' substate
+          (REC-LIVE-01..04 / D-05 / D-26 / D-27 / D-28 / D-29). The
+          <HumynLivePreviewView> publishes its Surface to the native
+          LivePreviewSurfaceRegistry; CaptureSession.kt picks it up at
+          session-config time and attaches it as a second target of the
+          recording CameraCaptureSession (Option B, two-Surface). The
+          encoder Surface is ALWAYS a target across the whole session —
+          drift telemetry (CLAUDE.md "±1 ms drift gate relaxed" banner)
+          and FinalizeWorker capture-quality cancel gates
+          (`mean_fps < 29` / `width < 1920 OR height < 1080` /
+          `videoFrameTimestamps.size < 2` — CLAUDE.md "Capture-quality
+          cancel gate added" / REC-LIVE-07 invariant) are NOT regressed
+          by this Surface routing.
+
+          The Pressable + Eye icon glyph render only in 'dimmed'
+          (D-28 z-stack — RecordingScreen lines later in the JSX render
+          ON TOP of these layers, so the Stop button below stays
+          hit-testable in all three brightness substates per
+          T-07-07-06). Practice instructional copy is gated on
+          `brightnessState === 'dimmed'` (D-05). */}
+      {/* Phase 7 plan 07-10: keep the live-preview view MOUNTED for the entire
+          'active' substate and toggle visibility via opacity instead of
+          mount/unmount. Reason: every mount/unmount creates a fresh
+          SurfaceTexture-backed Surface; the Camera2 session's
+          `updateOutputConfiguration` swap path then fails on the second
+          attach with `IllegalArgumentException: Surface was abandoned` because
+          the new SurfaceTexture's BufferQueue producer isn't connected yet
+          when Android introspects the surface size via writeToParcel ->
+          getConfiguredSize -> updateCachedSurfaceSize -> SurfaceUtils.getSurfaceSize.
+          A 200ms post-delay on sessionHandler did NOT help (Pixel-10a operator
+          logs at commits cdcada9 + eb70d33 reproduced the same exception).
+          Keeping the view mounted throughout 'active' means the SurfaceTexture
+          is created exactly ONCE at recording start; CaptureSession's
+          finalizeOutputConfigurations (which does NOT introspect surface size)
+          attaches it once and no subsequent swap is needed. Visual intent
+          (preview shown only during initial-preview + tap-revealed, hidden
+          during dimmed) is preserved by toggling opacity. The native onAddTarget
+          / onRemoveTarget swap code stays as defense for any edge case where
+          the view does remount, but on the common path it now fires exactly
+          once. */}
+      {state.substate === 'active' && isLivePreviewAvailable() ? (
+        <HumynLivePreviewView
+          style={{
+            ...StyleSheet.absoluteFillObject,
+            opacity: brightnessState === 'dimmed' ? 0 : 1,
+          }}
+        />
+      ) : null}
+
+      {/* Full-surface Pressable for tap-to-reveal — mounted in 'dimmed'
+          AND 'tap-revealed' substates so that subsequent taps DURING the
+          10-s tap-revealed window roll the timer (D-29). Previously the
+          Pressable was only mounted in 'dimmed', so the 'tap-revealed'
+          tap branch in livePreviewState never received an event — the
+          machine state code was correct but the JSX was filtering the
+          taps out. Stop button + other chrome render LATER in JSX so
+          they win hit-test (T-07-07-06). */}
+      {state.substate === 'active' &&
+      (brightnessState === 'dimmed' || brightnessState === 'tap-revealed') ? (
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={handleTapReveal}
+          accessibilityLabel="recording-tap-reveal"
+        />
+      ) : null}
+
+      {/* Bottom-center indicator — interchanges between the eye glyph
+          + "Tap screen to preview" copy (when preview is hidden) and the
+          "Live preview" pill (when preview is rendering). Both indicators
+          share the same bottom-center anchor (below the Stop button, at
+          the screen bottom) so they swap in place, never overlap each
+          other, and never collide with chrome above. */}
+      {state.substate === 'active' && brightnessState === 'dimmed' ? (
+        <View style={styles.liveBottomCenter} pointerEvents="none">
+          <Icon name="Eye" size={24} color={colors.accent} />
+          {/* G-15 (Plan 07-17): the operator's hi-IN walk surfaced this Text
+              (the "Tap screen to preview" hint, distinct from the sibling
+              `liveLabelText` 07-16 fixed) as truncating to "...टैप" on the
+              Devanagari value. Adds the same overflow-guard triplet so the
+              hint wraps to 2 lines + auto-shrinks. */}
+          <Text
+            variant="caption"
+            style={styles.liveEyeHint}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+          >
+            {t('recording.preview.tapToReveal')}
+          </Text>
+        </View>
+      ) : null}
+
+      {state.substate === 'active' &&
+      (brightnessState === 'initial-preview' || brightnessState === 'tap-revealed') ? (
+        <View style={styles.liveBottomCenter} pointerEvents="none">
+          <View style={styles.liveLabelPill}>
+            <Text variant="caption" style={styles.liveLabelText}>
+              {t('recording.preview.live')}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
       {/* Top 3px full-width minute-bar (only fills during active recording). */}
       <View style={styles.minuteBarTrack} accessibilityLabel="recording-minute-bar">
         <View style={[styles.minuteBarFill, { width: `${minuteBarFraction * 100}%` }]} />
@@ -931,7 +1063,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
           accessibilityLabel="recording-overlay-tip"
         >
           <Text variant="caption" style={styles.overlayTipText}>
-            Don&apos;t exit while recording.
+            {t('recording.overlayTip')}
           </Text>
         </Animated.View>
       ) : null}
@@ -950,7 +1082,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
             style={styles.recordButton}
           />
           <Text variant="pillLabel" style={styles.recordLabel}>
-            Start Recording
+            {t('recording.startRecording')}
           </Text>
         </View>
       ) : null}
@@ -970,8 +1102,24 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
               target={state.gate.targetHits}
               loading={state.gate.phase === 'loading'}
             />
-            <Text variant="recGatePrompt" style={styles.gatePrompt}>
-              Mount the phone on your head and bring your hands in frame for 2 secs
+            {/* G-27 (Plan 07-16): allow Devanagari + Bengali + Tamil + Telugu +
+                Marathi to wrap to 2 lines + auto-shrink. RN-Text props only —
+                the recGatePrompt variant is untouched.
+                G-27 (Plan 07-17): override variant lineHeight inline; do NOT
+                modify ui/tokens.ts:recGatePrompt (consumed by other call
+                sites). The variant's lineHeight:24 on fontSize:17 renders ~141%
+                leading → visible vertical gap when wrapping to 2 lines (the
+                operator's hi-IN walk caught this). Inline lineHeight:20 ≈ 118%
+                leading, more compact. minimumFontScale lowered to 0.75 to
+                handle the longest Devanagari/Indic gate-prompt forms. */}
+            <Text
+              variant="recGatePrompt"
+              style={[styles.gatePrompt, { lineHeight: 20 }]}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
+            >
+              {t('recording.gatePrompt')}
             </Text>
             {/* Skip link — visible from t=0 (HAND-02); hidden once confirmed. */}
             {state.gate.phase !== 'confirmed' ? (
@@ -984,7 +1132,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
                 style={styles.skipLink}
               >
                 <Text variant="recSkipLink" style={styles.skipLinkText}>
-                  Skip
+                  {t('recording.skip')}
                 </Text>
               </Pressable>
             ) : null}
@@ -1006,7 +1154,11 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
             <VoiceCuePill text={voiceCue.text} visible={voiceCue.visible} />
             <AlertPill
               label={
-                state.alerts.battery ? 'Battery 15%' : state.alerts.thermal ? 'Phone too hot' : ''
+                state.alerts.battery
+                  ? t('recording.alerts.batteryPrefix')
+                  : state.alerts.thermal
+                    ? t('recording.alerts.thermal')
+                    : ''
               }
               visible={!!state.alerts.battery || !!state.alerts.thermal}
             />
@@ -1145,4 +1297,43 @@ const styles = StyleSheet.create({
     maxWidth: '90%',
   },
   toastText: { color: colors.recTextCaption, textAlign: 'center' },
+  // Phase 7 plan 07-07 / 07-10 — live-cam preview overlay styling (D-26 / D-27).
+  // The eye-glyph indicator (shown when preview is hidden) and the
+  // "Live preview" pill (shown when preview is rendering) share the same
+  // bottom-center anchor — they swap in place as the brightness state
+  // machine transitions, never overlap each other. Both use brand orange so
+  // the bottom-center has consistent visual weight across all 3 substates.
+  // Below the Stop button row, at the bottom of the screen.
+  liveBottomCenter: {
+    position: 'absolute',
+    bottom: spacing.m + 5, // nudged up 5px per operator §7 re-walk #6 feedback
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  // Plan 07-17 re-walk 2026-05-27 (Bug C-3): `liveBottomCenter.alignItems:
+  // 'center'` made this hint Text content-hug; the hi-IN value
+  // "प्रीव्यू देखने के लिए स्क्रीन पर टैप करें" clipped to "...टैप".
+  // `alignSelf: 'stretch' + paddingHorizontal` give the Text a finite
+  // width so the existing `numberOfLines={2} + adjustsFontSizeToFit +
+  // minimumFontScale={0.85}` props can engage. `textAlign: 'center'`
+  // keeps the visual center alignment.
+  liveEyeHint: {
+    color: colors.accent,
+    marginTop: 4,
+    alignSelf: 'stretch',
+    textAlign: 'center',
+    paddingHorizontal: spacing.l,
+  },
+  liveLabelPill: {
+    paddingHorizontal: spacing.s,
+    paddingVertical: 2,
+    backgroundColor: colors.recOverlayTip,
+    borderRadius: radii.pill,
+  },
+  // G-15 (Plan 07-16): center the GLYPHS within the pill's padding. The
+  // parent `liveBottomCenter` View already centers the pill via
+  // `alignItems: 'center'` + `left: 0, right: 0`; this `textAlign: 'center'`
+  // centers the text inside the pill itself (distinct concern).
+  liveLabelText: { color: colors.accent, textAlign: 'center' },
 });

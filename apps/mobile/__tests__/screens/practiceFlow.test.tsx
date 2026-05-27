@@ -10,8 +10,9 @@
 //     retarget landed in plan 04-03; here we re-assert the route arg is
 //     'PracticeIntro', NOT 'MainTabs' (the pre-Phase-4 target).
 // (b) PracticeIntroScreen "Start practice" → navigation leaves OnboardingStack
-//     to 'Recording' with { taskId: '__practice__', taskName:
-//     'Practice — 60 sec', isPractice: true }.
+//     to 'Recording' with { taskId: '__practice__', isPractice: true }.
+//     Plan 07-17 G-25: taskName is omitted; RecordingScreen falls back to
+//     t('recording.practiceFallback') so the active locale renders.
 // (c) PracticeCompleteScreen "Continue" → setPracticeDone(<sub>) THEN
 //     navigation.reset({ routes: [{ name: 'MainTabs' }] }) + Vibration.vibrate
 //     ([0,40,80,40]) on enter.
@@ -173,10 +174,16 @@ import { decodeGoogleSubFromJwt } from '../../src/lib/jwtSub';
 import { secureMmkv } from '../../src/state/mmkv';
 import { practiceDoneKey } from '../../src/state/keys';
 import { computeInitialRoute } from '../../src/state/initialRoute';
+// Phase 7 plan 07-04 — D-22 locale gate now sits ABOVE every non-force-upgrade
+// gate. Seed it in step (d) so computeInitialRoute exercises the practice gate
+// (the thing under test) rather than the brand-new locale gate.
+import { localeMmkv, LOCALE_KEYS } from '../../src/i18n/storage';
 
+// G-25 (Plan 07-17): taskName intentionally omitted — RecordingScreen.tsx
+// falls back to t('recording.practiceFallback') so the locale switch in
+// Profile re-renders the app-bar.
 const PRACTICE_PARAMS = {
   taskId: '__practice__',
-  taskName: 'Practice — 60 sec',
   isPractice: true,
 };
 
@@ -226,6 +233,11 @@ describe('practice-tutorial chain (plan 04-06 — ONB-03 / ONB-07 / ONB-08)', ()
       tutorialDone: true,
     } as unknown as Parameters<typeof computeInitialRoute>[0];
 
+    // Phase 7 plan 07-04 — seed the D-22 locale gate so this test exercises
+    // the practice gate, not the new locale gate.
+    localeMmkv.set(LOCALE_KEYS.CODE, 'en');
+    localeMmkv.set(LOCALE_KEYS.CHOSEN_AT, '2026-05-24T00:00:00.000Z');
+
     secureMmkv.remove(practiceDoneKey(sub));
     expect(computeInitialRoute(greenState, null)).toEqual({
       stack: 'OnboardingStack',
@@ -237,5 +249,7 @@ describe('practice-tutorial chain (plan 04-06 — ONB-03 / ONB-07 / ONB-08)', ()
     expect(computeInitialRoute(greenState, null)).toEqual({ stack: 'MainTabs' });
 
     secureMmkv.remove(practiceDoneKey(sub));
+    localeMmkv.remove(LOCALE_KEYS.CODE);
+    localeMmkv.remove(LOCALE_KEYS.CHOSEN_AT);
   });
 });

@@ -30,6 +30,8 @@
  */
 import React from 'react';
 import { View, StyleSheet, ScrollView, Linking } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { Text } from '../../ui/primitives/Text';
 import { Button } from '../../ui/primitives/Button';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
@@ -41,14 +43,15 @@ const SUPPORT_EMAIL = 'support@humynlabs.ai';
 
 export default function CompatFailScreen() {
   const compat = useAppStore((s) => s.compatLastResult);
+  const { t } = useTranslation();
 
-  const lines = compat ? failureLines(compat) : [];
+  const lines = compat ? failureLines(compat, t) : [];
 
   return (
     <ScreenContainer accessibilityLabel="CompatFail screen" padding={0}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text variant="sheetTitle" style={styles.title}>
-          This phone can&apos;t record yet
+          {t('compat.fail.title')}
         </Text>
 
         <View style={styles.list}>
@@ -68,14 +71,14 @@ export default function CompatFailScreen() {
             failure list above already itemizes WHAT failed, so the bullets
             were filler between the failure reason and the action. */}
         <Text variant="body" tone="secondary" style={styles.recoveryBody}>
-          This phone doesn&apos;t meet the recording requirements.
+          {t('compat.fail.body')}
         </Text>
 
         <View style={styles.ctaWrap}>
           <Button
             variant="primary"
             accessibilityLabel="compat-fail-contact-support"
-            label="Contact Support"
+            label={t('compat.fail.contactSupport')}
             onPress={() => {
               const subject = encodeURIComponent('Compatibility check — need help');
               const body = encodeURIComponent(
@@ -93,51 +96,53 @@ export default function CompatFailScreen() {
 /**
  * Map failed-check keys into the verbatim design-spec §4d copy with measured
  * values substituted. Order matches the design-spec's diagnostic list.
+ * Translated per I18N-07 — the line strings come from `compat.fail.lines.*`.
  */
-function failureLines(r: CompatResult): { key: string; line: string }[] {
+function failureLines(r: CompatResult, t: TFunction): { key: string; line: string }[] {
   const out: { key: string; line: string }[] = [];
   const c = r.checks;
   if (!c.ultrawideDfov.pass) {
     out.push({
       key: 'ultrawideDfov',
-      line: `Ultrawide camera 110°+ required (yours: ${c.ultrawideDfov.measuredDeg.toFixed(0)}°)`,
+      line: t('compat.fail.lines.ultrawideDfov', {
+        deg: c.ultrawideDfov.measuredDeg.toFixed(0),
+      }),
     });
   }
   if (!c.resolution || !c.fps) {
-    out.push({ key: 'resolutionFps', line: '1080p @ 30 FPS required' });
+    out.push({ key: 'resolutionFps', line: t('compat.fail.lines.resolutionFps') });
   }
   if (!c.imuSustained100Hz.pass) {
     out.push({
       key: 'imuSustained100Hz',
-      line: `Stable motion sensors at 100 Hz+ required (yours: ${c.imuSustained100Hz.measuredHz.toFixed(0)} Hz)`,
+      line: t('compat.fail.lines.imuSustained100Hz', {
+        hz: c.imuSustained100Hz.measuredHz.toFixed(0),
+      }),
     });
   }
   if (!c.imuP99Ms.pass) {
     out.push({
       key: 'imuP99Ms',
-      line: `Sensor jitter ≤12 ms required (yours: ${c.imuP99Ms.measuredMs.toFixed(1)} ms p99)`,
+      line: t('compat.fail.lines.imuP99Ms', { ms: c.imuP99Ms.measuredMs.toFixed(1) }),
     });
   }
   if (!c.micSampleRate) {
-    out.push({ key: 'micSampleRate', line: 'Microphone 48 kHz capability required' });
+    out.push({ key: 'micSampleRate', line: t('compat.fail.lines.micSampleRate') });
   }
   if (!c.realtimeTimestamp) {
-    out.push({ key: 'realtimeTimestamp', line: 'REALTIME timestamp source required' });
+    out.push({ key: 'realtimeTimestamp', line: t('compat.fail.lines.realtimeTimestamp') });
   }
   if (!c.root.pass) {
-    out.push({ key: 'root', line: 'Device must not be rooted' });
+    out.push({ key: 'root', line: t('compat.fail.lines.root') });
   }
   if (!c.encoderNoBFrames) {
-    out.push({
-      key: 'encoderNoBFrames',
-      line: 'HEVC encoder must produce I/P-only (no B-frames)',
-    });
+    out.push({ key: 'encoderNoBFrames', line: t('compat.fail.lines.encoderNoBFrames') });
   }
   if (!c.oisOff) {
-    out.push({ key: 'oisOff', line: 'Optical stabilization must be disabled at capture time' });
+    out.push({ key: 'oisOff', line: t('compat.fail.lines.oisOff') });
   }
   if (!c.hdrSdrForced) {
-    out.push({ key: 'hdrSdrForced', line: 'SDR mode must be forced (no HDR)' });
+    out.push({ key: 'hdrSdrForced', line: t('compat.fail.lines.hdrSdrForced') });
   }
   return out;
 }

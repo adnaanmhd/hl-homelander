@@ -20,6 +20,14 @@
 //   - no per-row delete affordance, no abort affordance, no edit affordance
 //     (HIST-10 forbids row deletion).
 //
+// 2026-05-18 — debug session `.planning/debug/upload-queue-hol-finalizing.md`
+// (Fix C item 4) added support for the `'needs-attention'` device state on
+// the existing chip-failed visual. NEEDS_ATTENTION rows render the same
+// "Upload failed — Retry" affordance as DEAD_LETTER rows, but the retry
+// path on the screen wires to `HumynUpload.retryNeedsAttention` instead of
+// `reupload` (different transition rules — see HumynUploadModule.kt).
+// This file is render-only; the screen owns the dispatch.
+//
 // Chip-variant mapping (UI-SPEC §13 — five conceptual variants:
 // `chip-success` / `chip-progress` / `chip-failed` / `chip-verifying` /
 // `chip-paused-no-wifi`). The existing Phase 5 `UploadStatusChip.tsx` ships
@@ -44,11 +52,14 @@
 import React, { useMemo } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import Text from '../ui/primitives/Text';
 import { Pressable } from '../ui/primitives/Pressable';
 import { colors, radii, spacing, typography } from '../ui/tokens';
 import { formatDuration } from '../services/durationFormatter';
 import type { ThumbnailLedgerEntry } from '../services/thumbnailLedger';
+import { localizeTaskName } from '../i18n/taskI18n';
 import { UploadStatusChip, type UploadStatusChipVariant } from './UploadStatusChip';
 
 /**
@@ -129,13 +140,20 @@ export interface HistoryRowItem {
  * through without an extra mapping layer. Optional — server-only rows
  * (verified rows whose local queue entry was cleared on the verified event)
  * omit it and fall back to the server `qaStatus` for the chip variant.
+ *
+ * 2026-05-18 — debug session `upload-queue-hol-finalizing` (Fix C item 4)
+ * added `'needs-attention'` for rows whose automatic retry budget was
+ * exhausted. Same `chip-failed` visual as `'dead-letter'`, but the screen's
+ * retry handler dispatches via `HumynUpload.retryNeedsAttention` instead of
+ * `reupload`.
  */
 export type HistoryRowDeviceState =
   | 'pending'
   | 'uploading'
   | 'finalizing'
   | 'awaiting-verify'
-  | 'dead-letter';
+  | 'dead-letter'
+  | 'needs-attention';
 
 export interface HistoryRowProps {
   row: HistoryRowItem;
@@ -162,6 +180,15 @@ export interface HistoryRowProps {
    * verbatim (same track / fill styles, same Math.max/min/round clamp).
    */
   progressPct?: number;
+  /**
+   * Debug session `upload-queue-hol-finalizing` (Fix C item 4) — optional
+   * short reason string for a NEEDS_ATTENTION row, surfaced from the
+   * coordinator via `UploadQueueRow.lastFailureReason`. When present,
+   * replaces the default "Upload failed — Retry" label with a reason-
+   * specific copy ("Stuck on finalize — Retry"). Truncated to a single
+   * UI line; the full text lives in the debug-bundle ZIP.
+   */
+  needsAttentionReason?: string;
 }
 
 /**
@@ -189,7 +216,10 @@ export function chipVariant(
   // Device state takes precedence — it reflects the in-flight reality before
   // the server has caught up (or, for dead-letter, before any operator action).
   if (deviceState != null) {
-    if (deviceState === 'dead-letter') return 'chip-failed';
+    // 2026-05-18 — needs-attention shares the chip-failed visual with
+    // dead-letter (both are "Upload failed" shapes with a Retry affordance);
+    // the screen's retry handler dispatches by inspecting the deviceState.
+    if (deviceState === 'dead-letter' || deviceState === 'needs-attention') return 'chip-failed';
     if (deviceState === 'awaiting-verify') return 'chip-verifying';
     if (offline) return 'chip-paused-no-wifi';
     return 'chip-progress'; // pending / uploading / finalizing
@@ -247,14 +277,34 @@ function metaDateLine(createdAtIso: string, durationMs: number): string {
   return `${dur} · ${month} ${day}, ${year} · ${hh}:${mm}`;
 }
 
-/** "Uploaded at HH:MM" — uses verifiedAtIso when present, else createdAt fallback. */
-function uploadedAtLabel(row: HistoryRowItem): string {
+/** "Uploaded at HH:MM" — uses verifiedAtIso when present, else createdAt fallback.
+ *
+ * G-28 (Plan 07-16 Task 4b): the label is now resolved via
+ * `t('history.row.uploadedAt', { time: 'HH:MM' })` so the prefix translates
+ * per active locale; the time component stays in 24h Latin numerals (date
+ * Intl-locale formatting is deferred per the I18N-09 drop). */
+function uploadedAtLabel(row: HistoryRowItem, t: TFunction): string {
   const iso = row.verifiedAtIso ?? row.createdAt;
   const d = new Date(iso);
-  if (!Number.isFinite(d.getTime())) return 'Uploaded';
+  if (!Number.isFinite(d.getTime())) return t('uploadChip.success', { defaultValue: 'Uploaded' });
   const hh = String(d.getHours()).padStart(2, '0');
   const mm = String(d.getMinutes()).padStart(2, '0');
-  return `Uploaded at ${hh}:${mm}`;
+  return t('history.row.uploadedAt', { time: `${hh}:${mm}` });
+}
+
+/**
+ * Debug session `upload-queue-hol-finalizing` (Fix C item 4) — Retry label
+ * for a NEEDS_ATTENTION row. Falls back to the existing "Upload failed —
+ * Retry" copy when no reason is supplied (e.g. legacy on-disk rows that
+ * pre-date the failure-marker fields). When a reason is present, prefixes
+ * it onto the Retry CTA.
+ */
+function retryLabelFor(deviceState: HistoryRowDeviceState, reason?: string): string {
+  if (deviceState === 'needs-attention' && reason != null && reason.length > 0) {
+    return `${reason} — Retry`;
+  }
+  // dead-letter, or needs-attention with no reason → legacy copy
+  return 'Upload failed — Retry';
 }
 
 export function HistoryRow({
@@ -265,7 +315,15 @@ export function HistoryRow({
   onRetry,
   deviceState,
   progressPct,
+  needsAttentionReason,
 }: HistoryRowProps): React.JSX.Element {
+  const { t, i18n } = useTranslation();
+  // Plan 07-17 re-walk 2026-05-27 (G-28 re-attempt): the recording's task
+  // name is stored canonical-English on the row (it's the server's
+  // `task.name`). Localize at render time so hi-IN/pt-BR/etc. operators see
+  // the row's task in the active locale, mirroring how TasksScreen +
+  // TaskDetailsSheet localize via `localizeTaskName(name, i18n.language)`.
+  const localizedTaskName = localizeTaskName(row.taskName, i18n.language);
   // Quick task 260517-p5g CAPTURE-QA-05 — `row.cancel` overrides the
   // chip/sidecar/retry decisions below. Owner-blessed deviation per
   // CLAUDE.md 2026-05-17 banner — the three copy strings are local
@@ -296,7 +354,14 @@ export function HistoryRow({
   const showInProgress =
     !isCanceled && (variant === 'chip-progress' || variant === 'chip-verifying');
 
-  const firstLetter = (row.taskName || '?').slice(0, 1).toUpperCase();
+  const firstLetter = (localizedTaskName || '?').slice(0, 1).toUpperCase();
+
+  // 2026-05-18 — Fix C item 4: pick the Retry copy. needs-attention overrides
+  // dead-letter when both apply (the deviceState is the authoritative source).
+  const retryLabel = retryLabelFor(
+    deviceState === 'needs-attention' ? 'needs-attention' : 'dead-letter',
+    needsAttentionReason,
+  );
 
   return (
     <Pressable
@@ -337,7 +402,7 @@ export function HistoryRow({
           accessibilityLabel="history-row-name"
           style={styles.name}
         >
-          {row.taskName}
+          {localizedTaskName}
         </Text>
         <Text variant="rowMeta" accessibilityLabel="history-row-meta" style={styles.meta}>
           {meta}
@@ -353,7 +418,7 @@ export function HistoryRow({
               accessibilityLabel="history-row-uploaded-at"
               style={styles.chipSidecarLabel}
             >
-              {uploadedAtLabel(row)}
+              {uploadedAtLabel(row, t)}
             </Text>
           ) : null}
           {showFailedRetry ? (
@@ -369,7 +434,7 @@ export function HistoryRow({
               disabled={onRetry == null}
             >
               <Text variant="caption" style={styles.chipSidecarLabelAccent}>
-                Upload failed — Retry
+                {retryLabel}
               </Text>
             </Pressable>
           ) : null}
@@ -421,14 +486,15 @@ export function HistoryRow({
         {/* HIST-11 — disabled feedback-coming-soon slot. NOT pressable,
             NOT a real interactive control; just an inline trailing badge per
             UI-SPEC §13. No onPress; rendered as a plain Text so the disabled
-            semantics are clear to assistive tech. */}
+            semantics are clear to assistive tech.
+            G-28 (Plan 07-16): text routes through `history.row.feedbackComingSoon`. */}
         <Text
           variant="comingSoonBadge"
           tone="tertiary"
           accessibilityLabel="history-row-feedback-coming-soon"
           style={styles.comingSoon}
         >
-          Feedback (coming soon)
+          {t('history.row.feedbackComingSoon')}
         </Text>
       </View>
     </Pressable>

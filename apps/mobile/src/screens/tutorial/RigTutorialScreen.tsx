@@ -36,6 +36,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Image, StyleSheet, Linking } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
 import { Text } from '../../ui/primitives/Text';
 import { Button } from '../../ui/primitives/Button';
@@ -69,6 +70,7 @@ export default function RigTutorialScreen() {
   const setTutorialDone = useAppStore((s) => s.setTutorialDone);
   const jwt = useAppStore((s) => s.jwt);
   const [offRampOpen, setOffRampOpen] = useState(false);
+  const { t } = useTranslation();
 
   // ONB-01 telemetry — single fire on mount.
   useEffect(() => {
@@ -124,7 +126,7 @@ export default function RigTutorialScreen() {
           style={styles.heading}
           accessibilityLabel="rig tutorial heading"
         >
-          You&apos;ll need a head rig
+          {t('rigTutorial.heading')}
         </Text>
         <View style={{ height: spacing.m }} />
         <Text
@@ -133,7 +135,7 @@ export default function RigTutorialScreen() {
           style={styles.body}
           accessibilityLabel="rig tutorial body"
         >
-          Mount your phone on the head rig and make sure it is steady while recording.
+          {t('rigTutorial.body')}
         </Text>
         <View style={{ height: spacing.m }} />
         <Text
@@ -142,8 +144,7 @@ export default function RigTutorialScreen() {
           style={styles.body}
           accessibilityLabel="rig tutorial framing tip"
         >
-          Before each take, use the on-screen camera preview to check your hands are in frame — ask
-          someone to verify if you can.
+          {t('rigTutorial.framingTip')}
         </Text>
         <View style={{ height: spacing.l }} />
         <Pressable
@@ -152,12 +153,17 @@ export default function RigTutorialScreen() {
           accessibilityLabel="Don't have a rig yet"
         >
           <Text variant="caption" style={styles.noRigLink}>
-            Don&apos;t have a rig yet?
+            {t('rigTutorial.noRigLink')}
           </Text>
         </Pressable>
       </View>
 
-      <Button variant="primary" label="Next" onPress={handleNext} accessibilityLabel="Next" />
+      <Button
+        variant="primary"
+        label={t('rigTutorial.buttonNext')}
+        onPress={handleNext}
+        accessibilityLabel="Next"
+      />
 
       <Sheet
         visible={offRampOpen}
@@ -165,25 +171,23 @@ export default function RigTutorialScreen() {
         accessibilityLabel="No rig off-ramp sheet"
       >
         <Text variant="sheetTitle" tone="primary" accessibilityLabel="off-ramp title">
-          No rig yet?
+          {t('rigTutorial.offRamp.title')}
         </Text>
         <View style={{ height: spacing.m }} />
         <Text variant="body" tone="primary" accessibilityLabel="off-ramp body">
-          You&apos;ll need a head rig to record. We&apos;re working on getting rigs to contributors.
-          Email us at {SUPPORT_EMAIL} and we&apos;ll let you know when one ships your way. You can
-          keep exploring the app in the meantime.
+          {t('rigTutorial.offRamp.bodyPrefix', { email: SUPPORT_EMAIL })}
         </Text>
         <View style={{ height: spacing.l }} />
         <Button
           variant="primary"
-          label="Email support"
+          label={t('rigTutorial.offRamp.emailSupport')}
           onPress={handleEmailSupport}
           accessibilityLabel="Email support about rig"
         />
         <View style={{ height: spacing.m }} />
         <Button
           variant="outline"
-          label="Got it"
+          label={t('rigTutorial.offRamp.gotIt')}
           onPress={() => setOffRampOpen(false)}
           accessibilityLabel="Got it close off-ramp"
         />

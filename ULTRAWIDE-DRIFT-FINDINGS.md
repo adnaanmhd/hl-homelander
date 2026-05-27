@@ -4,6 +4,13 @@
 > `.planning/debug/handgate-never-passes.md` (Stage 2 — recording on the ultrawide). Written during
 > the Phase-4 on-hardware smoke walk. **Owner decision recorded at the bottom: the ±1 ms drift gate
 > is relaxed to "measure & record"; the ultrawide lens code is frozen as-is.**
+>
+> **Update 2026-05-23 — cold-start curve attenuated + warm-up trim shipped.** A follow-up walk on
+> the post-`PrimitiveLongBuffer` build (Pixel 10a + 8a, 10-min segments) found the cold-start drift
+> curve is real but **~24-30× smaller** than the 2026-05-18 walk reported. The Pixel 8a seg-3 BUG-01
+> spike is fully fixed by the IMU OOM rollover work (~530× reduction). Methodology change applied to
+> `DriftCalculator.compute` — see §3 below. Full trail:
+> `.planning/debug/resolved/early-session-imu-video-drift.md`.
 
 ## TL;DR
 
@@ -180,3 +187,68 @@ owner as a spec question. (That last bit is now moot — see below.)
   to the metadata JSON (mirrors Figure). Not required for MVP.
 - `HumynHandDetectorModuleTest.kt:85` won't compile on a clean tree (RN-0.83 `src/test` infra breakage)
   — unrelated, track with a separate `/gsd-quick`.
+
+---
+
+## 5. Follow-up walk (2026-05-23) — cold-start curve attenuated, warm-up trim shipped
+
+A separate debug session (`.planning/debug/resolved/early-session-imu-video-drift.md`) opened
+to investigate "early-session IMU↔video drift spikes far outside spec; recovers after several
+minutes." The 2026-05-18 walk had reported Pixel 10a seg-1 max **258.65** / mean **114.44** /
+p99 **254.34 ms** — an order of magnitude beyond §1's relaxed-banner profile. Two hypothesized
+failure modes:
+
+1. **Mode A — ultrawide HAL warm-up.** First-segment Camera2 `CONTROL_ZOOM_RATIO` settling +
+   `LENS_FOCUS_DISTANCE` pin + auto-exposure / image-stabilization / ultrawide fusion-pipeline
+   convergence produces non-affine `bufferInfo.presentationTimeUs` for the first ~tens-to-hundreds
+   of frames. The least-squares fit in `DriftCalculator` cannot model the warm-up kink, so it
+   smears residuals across every frame in the segment and dominates `max`.
+2. **Mode B — IMU dispatch starvation (BUG-01).** The pre-`PrimitiveLongBuffer` boxed-`Long`
+   ArrayList in `ImuWriter.timestampList` / `Segment.videoFrameTimestamps` caused GC pauses that
+   stalled the `HumynCapture-Imu` `SensorEventCallback` dispatcher mid-segment. Pixel 8a seg-3
+   showed an isolated max **357.97 / 137.58 / 341.56 ms** spike, attributed to this.
+
+### Walk result — both modes much smaller than originally reported
+
+Pixel 10a + 8a, both on the post-`PrimitiveLongBuffer` build (commit `38f321f`), 10-min
+segments back-to-back from a cold force-stop + 2-min thermal-settle:
+
+| Device    | seg-1 max ms (2026-05-18 → 2026-05-23) | seg-3 max ms                                   |
+| --------- | -------------------------------------- | ---------------------------------------------- |
+| Pixel 10a | **258.65 → 10.46** (~25×)              | (was clean both walks)                         |
+| Pixel 8a  | (was clean both walks)                 | **357.97 → 0.67** (~530×; **BUG-01 fix held**) |
+
+- **Mode B is fully resolved** by the `PrimitiveLongBuffer` change. Re-walk shows zero isolated
+  spikes on Pixel 8a — every segment within or near §1's relaxed band.
+- **Mode A is real but small.** Pixel 10a seg-1 (max 10.46) is ~10× higher than seg-2 (max
+  0.99); Pixel 8a seg-1 (max 37.10) is ~17× higher than seg-2 (max 2.13). Both seg-1 maxes are
+  modestly above §1's relaxed cap (6.16 ms) — measurement artifact rather than a real
+  cross-stream drift event.
+
+### Methodology change — warm-up trim (`IMU-DRIFT-METHODOLOGY.md` Step 0)
+
+`DriftCalculator.compute` now drops the first **150** video frames (5 s @ 30 fps) + matching
+IMU samples before the least-squares fit, on every production segment. Validated against the
+raw walk timestamps (real MP4 PTS via `ffprobe` + real IMU CSV from S3):
+
+| Segment                              | metric | skip=0 | skip=150 | reduction          |
+| ------------------------------------ | ------ | ------ | -------- | ------------------ |
+| Pixel 8a seg-1 (cold)                | max ms | 37.36  | **7.06** | 81%                |
+| Pixel 10a seg-1 (cold)               | max ms | 10.40  | **5.86** | 44%                |
+| Pixel 10a seg-3 (clean steady-state) | max ms | 2.33   | 2.33     | 0% (no regression) |
+
+Both cold-start max values land inside the §1 relaxed band after the trim; clean steady-state
+segments are untouched. The methodology change is purely additive — Step 0 only — and falls
+back to no-trim for crash-truncated segments shorter than the skip count. The capture pipeline,
+the ultrawide lens code, the ±1 ms gate decision, and the `CLAUDE.md` drift banner are all
+unchanged. Tests that exercise the pure pre-trim methodology pass `skipFirstVideoFrames = 0`.
+
+### Secondary finding — DB ingest of drift columns is broken (separate bug)
+
+`recordings.imu_video_drift_{max,mean,p99}_ms` are NULL in Postgres for every recording
+from the 2026-05-23 walk, even though `metadata.json` in S3 carries the values correctly.
+The hash-verify worker's `verifyRecording` path either doesn't parse the metadata for these
+fields, or the migration that added them didn't backfill the ingest. **Out of scope for this
+finding** — flag it as a separate debug item (`/gsd-debug recording-drift-cols-null-in-db`).
+The on-device `metadata.json` (which the training pipeline actually consumes from S3) is the
+source of truth and carries the figures correctly.

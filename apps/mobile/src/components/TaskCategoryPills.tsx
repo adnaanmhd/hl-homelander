@@ -14,11 +14,17 @@
 // NO hex literals — every value bound to `../ui/tokens`.
 import React from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Text } from '../ui/primitives/Text';
 import { Pressable } from '../ui/primitives/Pressable';
 import { colors, spacing, radii } from '../ui/tokens';
 
-/** The fixed pill order — 'all' sentinel + 10 taxonomy categories (UI-SPEC §10). */
+/** The fixed pill order — 'all' sentinel + 10 taxonomy categories (UI-SPEC §10).
+ *
+ * The const STAYS as the canonical English enum (it's the state value
+ * forwarded to the server via /tasks/list category param). The display label
+ * is resolved at render time via `pillLabel(value, t)` against the
+ * `tasks.category.*` i18n keys — see G-17 closure, Plan 07-16. */
 export const TASK_CATEGORY_PILLS = [
   'all',
   'Cooking',
@@ -41,15 +47,32 @@ export interface TaskCategoryPillsProps {
   onSelect: (value: TaskCategoryPill) => void;
 }
 
-/** Label resolver — 'all' renders as 'All', everything else verbatim. */
-function pillLabel(value: TaskCategoryPill): string {
-  return value === 'all' ? 'All' : value;
+/** Map pill value → i18n key. KEEP IN SYNC with `taskI18n.ts localizeTaskCategory`. */
+const PILL_LABEL_KEY: Record<TaskCategoryPill, string> = {
+  all: 'tasks.category.all',
+  Cooking: 'tasks.category.cooking',
+  Dishwashing: 'tasks.category.dishwashing',
+  Kitchen: 'tasks.category.kitchen',
+  Cleaning: 'tasks.category.cleaning',
+  Tidying: 'tasks.category.tidying',
+  Laundry: 'tasks.category.laundry',
+  Gardening: 'tasks.category.gardening',
+  'Pet Care': 'tasks.category.petCare',
+  'Home Maintenance': 'tasks.category.homeMaintenance',
+  Hobby: 'tasks.category.hobby',
+};
+
+/** Label resolver — routes through the active locale's `tasks.category.*` key. */
+function pillLabel(value: TaskCategoryPill, t: (key: string) => string): string {
+  const key = PILL_LABEL_KEY[value];
+  return t(key);
 }
 
 export function TaskCategoryPills({
   selected,
   onSelect,
 }: TaskCategoryPillsProps): React.JSX.Element {
+  const { t } = useTranslation();
   return (
     <View accessibilityLabel="task-category-pills" style={styles.wrap}>
       <ScrollView
@@ -68,8 +91,26 @@ export function TaskCategoryPills({
               onPress={() => onSelect(value)}
               style={active ? styles.pillActive : styles.pill}
             >
-              <Text variant="pillLabel" style={active ? styles.labelActive : styles.label}>
-                {pillLabel(value)}
+              {/* Plan 07-17 re-walk 3rd attempt 2026-05-27: KEEP
+                  `numberOfLines={1}` (drop the shrink-to-fit props). The
+                  2nd attempt removed all overflow props expecting the
+                  Pressable to content-hug to the Text's full natural
+                  width. Instead, RN-Android wrapped the multi-word
+                  Devanagari text at the first space (e.g.
+                  "खाना बनाना" → 2 lines) and the Pressable's content-hug
+                  height collapsed to line 1 only ("खाना"). uiautomator
+                  dump confirms the underlying Text content is correct;
+                  the bug is in Android's render-time line wrap.
+                  `numberOfLines={1}` forces a single-line layout, so the
+                  Pressable widens horizontally to fit the natural
+                  single-line text — no wrap, no ellipsize (Pressable has
+                  no width constraint, so the Text has unbounded width). */}
+              <Text
+                variant="pillLabel"
+                style={active ? styles.labelActive : styles.label}
+                numberOfLines={1}
+              >
+                {pillLabel(value, t)}
               </Text>
             </Pressable>
           );
@@ -90,12 +131,19 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.xl,
+    // G-17 (Plan 07-17): extra right padding so the rightmost pill
+    // (e.g. `बागवानी` on hi-IN) doesn't clip at the screen edge during
+    // scroll (operator 2026-05-26 7.png evidence).
+    paddingRight: spacing.xl + spacing.m,
     gap: spacing.m,
     flexDirection: 'row',
   },
   pill: {
     paddingVertical: 9,
-    paddingHorizontal: spacing.l,
+    // G-17 (Plan 07-17): reduced from spacing.l → spacing.m (~10% more
+    // horizontal slack inside the pill) so the active-bold variant's wider
+    // glyphs don't push the label past the pill width.
+    paddingHorizontal: spacing.m,
     borderRadius: radii.pill,
     borderWidth: 1.5,
     borderColor: colors.line,
@@ -103,7 +151,7 @@ const styles = StyleSheet.create({
   },
   pillActive: {
     paddingVertical: 9,
-    paddingHorizontal: spacing.l,
+    paddingHorizontal: spacing.m, // G-17 (Plan 07-17) — see `pill` above
     borderRadius: radii.pill,
     borderWidth: 1.5,
     borderColor: colors.text,
@@ -120,11 +168,14 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
-    width: 40,
-    // Use the canonical bg color as the fade target — keeps the no-hex gate
-    // happy and reads as a soft fade against the screen surface.
+    // Plan 07-17 re-walk 2026-05-27 — shrunk 40 → 28 + lowered opacity 0.6
+    // → 0.3 so the rightmost pill's Devanagari glyphs stay legible
+    // through the UI-SPEC §10 right-edge fade hint (operator 2026-05-27
+    // "text truncated in category pills" — the rightmost pill's text was
+    // washed out under the prior 40px / 0.6-opacity overlay).
+    width: 28,
     backgroundColor: colors.bg,
-    opacity: 0.6,
+    opacity: 0.3,
   },
 });
 

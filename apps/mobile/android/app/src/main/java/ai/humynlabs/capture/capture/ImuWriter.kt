@@ -50,6 +50,22 @@ import java.io.FileWriter
  *                Idempotent. stop() does NOT close — the caller may
  *                call timestamps() between stop() and close() to
  *                inspect the final array.
+ *
+ * **Debug session `humyn capture-imu-oom-rollover` (2026-05-18).** The
+ * per-segment IMU timestamp buffer used to be `mutableListOf<Long>()` — a
+ * boxed `ArrayList<Long>` that allocated a ~24-byte `Long` object on every
+ * `writeRow` call. At sustained ~800–934 Hz combined gyro+accel × 10-min
+ * segments, that was ~480 K boxed Long objects per segment (~12 MB) + a
+ * growing `Object[]` backing array. Across 7 continuous segments on the
+ * Pixel 10a manual-smoke walk it saturated the 256 MB Dalvik growth limit
+ * and the process force-closed at the framework's next `Integer.valueOf`
+ * allocation inside `SystemSensorManager$SensorEventQueue.dispatchSensorEvent`
+ * (the FATAL was reported on the `HumynCapture-Imu` thread because that's
+ * where the framework happened to be running when the OOM hit; the actual
+ * memory pressure was the boxed list). The list is now backed by a
+ * primitive `LongArray` via [PrimitiveLongBuffer] — pre-allocated at
+ * [PrimitiveLongBuffer.IMU_CAPACITY] longs once per segment, never grows,
+ * released when the segment is GC'd. No autoboxing on the hot path.
  */
 class ImuWriter(
     private val ctx: Context,
@@ -89,7 +105,13 @@ class ImuWriter(
         ctx.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
     private val gyro: Sensor? = sm?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
     private val accel: Sensor? = sm?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-    private val timestampList = mutableListOf<Long>()
+
+    /**
+     * Debug session `humyncapture-imu-oom-rollover` (2026-05-18) — primitive
+     * `LongArray`-backed timestamp buffer, replaces the previous
+     * `mutableListOf<Long>()`. See class doc.
+     */
+    private val timestampBuffer = PrimitiveLongBuffer(PrimitiveLongBuffer.IMU_CAPACITY)
     private val handlerThread = HandlerThread("HumynCapture-Imu").apply { start() }
     private val handler = Handler(handlerThread.looper)
     private val listener = object : SensorEventListener {
@@ -134,7 +156,7 @@ class ImuWriter(
      * up to 8 KiB of IMU rows (~256 rows / ~0.6 s of IMU at 416 Hz) sit
      * in the BufferedWriter's in-memory buffer between stop() and
      * close(), and a SIGKILL in that window loses them — the CSV file
-     * is then short relative to the in-memory timestampList (which the
+     * is then short relative to the in-memory timestampBuffer (which the
      * caller has already snapshotted), and the CSV SHA mismatches the
      * implied row count. Phase 5 server QA may flag this as an
      * integrity error. The flush is best-effort under csvLock so it
@@ -145,7 +167,7 @@ class ImuWriter(
         synchronized(csvLock) {
             try { csv.flush() } catch (_: Throwable) { /* best-effort */ }
         }
-        return timestampList.toLongArray()
+        return timestampBuffer.toLongArray()
     }
 
     /**
@@ -173,7 +195,7 @@ class ImuWriter(
     }
 
     /** All physical timestamps observed (live snapshot). */
-    fun timestamps(): LongArray = timestampList.toLongArray()
+    fun timestamps(): LongArray = timestampBuffer.toLongArray()
 
     /**
      * Visible-for-tests pure-fn formatting. The exact byte sequence
@@ -205,7 +227,7 @@ class ImuWriter(
         synchronized(csvLock) {
             if (closed) return
             csv.write(formatRow(timestampNs, type, x, y, z))
-            timestampList.add(timestampNs)
+            timestampBuffer.add(timestampNs)
         }
     }
 }

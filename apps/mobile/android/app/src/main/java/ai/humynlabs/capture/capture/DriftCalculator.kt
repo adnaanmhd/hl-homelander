@@ -7,6 +7,11 @@ package ai.humynlabs.capture.capture
  * Methodology — least-squares residual subtraction per `idea-brief.md §6.5`
  * (canonical):
  *
+ *   0. **Trim warm-up window** — drop the first [DEFAULT_WARMUP_FRAMES_SKIP]
+ *      video frames + the IMU samples preceding the new first video frame
+ *      (see "Why the warm-up trim" below). Production callers use the
+ *      default; tests use `skipFirstVideoFrames = 0` to exercise the pure
+ *      methodology.
  *   1. Fit a least-squares line through the video timestamps `(i, v[i])`,
  *      subtract the fit from each timestamp → residuals `r_v[i]`.
  *   2. Same for IMU timestamps → residuals `r_s[i]`.
@@ -24,40 +29,98 @@ package ai.humynlabs.capture.capture
  *   - Per-frame jitter.
  *   - A monotonically growing offset that doesn't fit a single line.
  *
- * This is the methodology working as designed: the {max, mean, p99} drift
- * triple captures *non-affine* misalignment between the video and IMU
- * clock domains.
- *
- * Memory: at 30 FPS × 10 min = 18 000 video frames; per-frame drift array
- * = 18 000 × 8 bytes (double) = ~144 KB. Sort for max/mean/p99 is trivial.
- * No streaming required (CONTEXT.md `<specifics>` "Drift computation
- * memory bound").
+ * **Why the warm-up trim (Step 0):** the ultrawide-recording HAL has two
+ * settling phases at segment start — sub-second CONTROL_ZOOM_RATIO + AF
+ * pin settling, then 3-5 s of auto-exposure / image-stabilization / fusion
+ * pipeline convergence. During convergence the encoder stamps `bufferInfo
+ * .presentationTimeUs` with non-affine values that the least-squares fit
+ * cannot model, so they smear residuals across the whole segment and
+ * dominate `max` (occasionally `p99` on short segments). On the 2026-05-23
+ * cold-start walk, dropping the first 150 frames (5 s @ 30 fps) cut
+ * Pixel 8a seg-1 max from 37.36 → 7.06 ms (81% reduction) and Pixel 10a
+ * seg-1 max from 10.40 → 5.86 ms (44%) — both into the relaxed-banner
+ * profile (max ~6.16 / mean ~5.58 / p99 ~5.63 ms). Clean steady-state
+ * segments showed no regression (Pixel 10a seg-3 max 2.33 → 2.33 ms with
+ * vs without trim). Full trail: `.planning/debug/resolved/early-session-imu-video-drift.md`
+ * + `ULTRAWIDE-DRIFT-FINDINGS.md` §3 (cold-start curve).
  *
  * Memory: at 30 FPS × 10 min = 18 000 video frames; per-frame drift array
  * = 18 000 × 8 bytes (double) = ~144 KB. Sort for max/mean/p99 is trivial.
  * No streaming required (CONTEXT.md `<specifics>` "Drift computation
  * memory bound").
  */
-data class Drift(val maxMs: Double, val meanMs: Double, val p99Ms: Double)
+/**
+ * Drift figures `{max, mean, p99}` in milliseconds, plus the actual
+ * `warmupFramesSkipped` Step 0 applied. The skip count is surfaced so
+ * downstream consumers (training pipeline, anyone recomputing drift from
+ * the raw `video.mp4` + `imu.csv`) can reproduce the metric exactly —
+ * it's the offset between "drop the first N video frames + matching IMU
+ * samples" and "use all timestamps verbatim". Equals the requested
+ * `skipFirstVideoFrames` for normal-length segments; falls back to 0 on
+ * crash-truncated segments shorter than the skip count.
+ */
+data class Drift(
+    val maxMs: Double,
+    val meanMs: Double,
+    val p99Ms: Double,
+    val warmupFramesSkipped: Int,
+)
 
 object DriftCalculator {
+    /**
+     * Default warm-up frames trimmed before the least-squares fit. 5 s @
+     * 30 FPS — empirically covers both observed Pixel ultrawide HAL
+     * settling phases (CONTROL_ZOOM_RATIO + AE/AWB/IS). See class kdoc.
+     */
+    const val DEFAULT_WARMUP_FRAMES_SKIP: Int = 150
+
     /**
      * Computes drift between two timestamp series in nanoseconds.
      *
      * @param videoFrameTimestampsNs MUST be ascending; size ≥ 2.
      * @param imuTimestampsNs MUST be ascending; size ≥ 2.
+     * @param skipFirstVideoFrames warm-up window to drop before the fit.
+     *   Defaults to [DEFAULT_WARMUP_FRAMES_SKIP]; tests pass 0 to exercise
+     *   the pure methodology. If trimming would leave < 2 video frames OR
+     *   < 2 IMU samples post-trim, the call silently falls back to no
+     *   trim — the segment is too short to benefit from the warm-up
+     *   distinction.
      * @return drift triple in milliseconds.
      * @throws IllegalArgumentException ("insufficient_samples_for_drift")
      *   if either input has < 2 samples.
      */
-    fun compute(videoFrameTimestampsNs: LongArray, imuTimestampsNs: LongArray): Drift {
+    fun compute(
+        videoFrameTimestampsNs: LongArray,
+        imuTimestampsNs: LongArray,
+        skipFirstVideoFrames: Int = DEFAULT_WARMUP_FRAMES_SKIP,
+    ): Drift {
         require(videoFrameTimestampsNs.size >= 2) { "insufficient_samples_for_drift" }
         require(imuTimestampsNs.size >= 2) { "insufficient_samples_for_drift" }
 
-        val rv = residualsFromLeastSquaresFit(videoFrameTimestampsNs)
-        val rs = residualsFromLeastSquaresFit(imuTimestampsNs)
+        // Step 0 — warm-up trim. Fall back to no trim if it would leave
+        // either stream with < 2 samples; track the actual count applied
+        // so the result carries it for downstream reproducibility.
+        var v = videoFrameTimestampsNs
+        var s = imuTimestampsNs
+        var actualSkip = 0
+        if (skipFirstVideoFrames > 0 && videoFrameTimestampsNs.size - skipFirstVideoFrames >= 2) {
+            val trimmedV = videoFrameTimestampsNs.copyOfRange(
+                skipFirstVideoFrames,
+                videoFrameTimestampsNs.size,
+            )
+            val floor = trimmedV.first()
+            val firstImuKept = imuTimestampsNs.indexOfFirst { it >= floor }
+            if (firstImuKept >= 0 && imuTimestampsNs.size - firstImuKept >= 2) {
+                v = trimmedV
+                s = imuTimestampsNs.copyOfRange(firstImuKept, imuTimestampsNs.size)
+                actualSkip = skipFirstVideoFrames
+            }
+        }
+
+        val rv = residualsFromLeastSquaresFit(v)
+        val rs = residualsFromLeastSquaresFit(s)
         val rsAtV = DoubleArray(rv.size) { i ->
-            interpolate(imuTimestampsNs, rs, videoFrameTimestampsNs[i])
+            interpolate(s, rs, v[i])
         }
         val absD = DoubleArray(rv.size) { i ->
             kotlin.math.abs(rv[i] - rsAtV[i]) / 1_000_000.0  // ns → ms
@@ -67,6 +130,7 @@ object DriftCalculator {
             maxMs = absD.last(),
             meanMs = absD.sum() / absD.size,
             p99Ms = absD[(absD.size * 99 / 100).coerceAtMost(absD.size - 1)],
+            warmupFramesSkipped = actualSkip,
         )
     }
 

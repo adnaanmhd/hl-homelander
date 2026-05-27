@@ -10,13 +10,14 @@ Every recorded segment timestamps its video frames (Camera2, `SENSOR_INFO_TIMEST
 
 The locked invariant (`idea-brief.md` §2.1, §6.5) is **±1 ms alignment of the clock domains** — _not_ sample-time proximity (at 100 Hz, IMU samples are ~10 ms apart natively; that's fine, the consumer interpolates). "Drift" is the residual _differential wobble_ between the two timestamp streams after the trivially-correctable parts (constant offset, constant rate difference) have been removed. That residual is the only thing that actually breaks video↔IMU alignment, so it's the only thing the metric measures.
 
-Three figures are written to every segment's metadata JSON (`idea-brief.md` §8.3, `metadata` block):
+Three figures + one reproducibility offset are written to every segment's metadata JSON (`idea-brief.md` §8.3, `metadata` block; schema **1.3.0**):
 
-| Field                     | Role                                                                     |
-| ------------------------- | ------------------------------------------------------------------------ |
-| `imu_video_drift_max_ms`  | Per-frame worst case. Anchors the upper bound.                           |
-| `imu_video_drift_p99_ms`  | The QA gate. Robust to one freak sample, still surfaces sustained drift. |
-| `imu_video_drift_mean_ms` | Fleet-health analytics across recordings.                                |
+| Field                                                      | Role                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `imu_video_drift_max_ms`                                   | Per-frame worst case. Anchors the upper bound.                                                                                                                                                                                                                                                             |
+| `imu_video_drift_p99_ms`                                   | The QA gate. Robust to one freak sample, still surfaces sustained drift.                                                                                                                                                                                                                                   |
+| `imu_video_drift_mean_ms`                                  | Fleet-health analytics across recordings.                                                                                                                                                                                                                                                                  |
+| `imu_video_drift_warmup_frames_skipped` (**new in 1.3.0**) | The Step 0 trim count actually applied. Drop this many leading video frames + every IMU sample preceding the new first frame's timestamp BEFORE the fit to reproduce the three figures above from the raw `video.mp4` + `imu.csv`. `0` = no trim (segment shorter than the default 150 — safety fallback). |
 
 ## Inputs
 
@@ -28,6 +29,27 @@ Both must have ≥ 2 samples; otherwise the calculation throws `insufficient_sam
 ## The algorithm
 
 Run once at end-of-segment (see "When it runs" below), in memory, over the captured timestamp arrays.
+
+### Step 0 — Trim the warm-up window (2026-05-23)
+
+Before the fit, drop the first `DEFAULT_WARMUP_FRAMES_SKIP` video frames (currently **150** = 5 s @ 30 FPS) **and** the IMU samples that precede the new first video frame. This removes the ultrawide-recording HAL's two settling phases at segment start:
+
+1. **Sub-second** — `CONTROL_ZOOM_RATIO`-driven active-physical switch + `LENS_FOCUS_DISTANCE` motor pin (~50-200 ms; frames 1-10).
+2. **3-5 s** — auto-exposure / white-balance / image-stabilization / ultrawide fusion-pipeline convergence (frames 30-150).
+
+During convergence the encoder stamps `bufferInfo.presentationTimeUs` with non-affine values that the Step 1 least-squares fit cannot model. Without the trim, the warm-up smears residuals across every frame in the segment and dominates `max` (occasionally `p99` on short segments) — the same shape the detrend is _designed_ to surface, but for a measurement artifact rather than a real cross-stream drift event.
+
+Fallback: if trimming would leave either stream with `< 2` samples (very short crash-truncated segments), the implementation silently falls back to no trim. Production segments at the 10-min cancel-gate are nowhere near this floor.
+
+**Validated on the 2026-05-23 cold-start walk** (Pixel 10a + 8a, post-PrimitiveLongBuffer build):
+
+| Segment                 | metric | skip=0 | skip=150 | reduction          |
+| ----------------------- | ------ | ------ | -------- | ------------------ |
+| Pixel 8a seg-1 (cold)   | max ms | 37.36  | **7.06** | 81%                |
+| Pixel 10a seg-1 (cold)  | max ms | 10.40  | **5.86** | 44%                |
+| Pixel 10a seg-3 (clean) | max ms | 2.33   | 2.33     | 0% (no regression) |
+
+Both cold-start MAX values land inside the relaxed-banner profile (`ULTRAWIDE-DRIFT-FINDINGS.md` §1: max 6.16 / mean 5.58 / p99 5.63 ms on a clean 10-min gate-pass) after the trim; clean steady-state segments are untouched. Tests that exercise the pure methodology pass `skipFirstVideoFrames = 0`. Full trail: `.planning/debug/resolved/early-session-imu-video-drift.md`.
 
 ### Step 1 — Detrend each stream with a least-squares line fit
 
@@ -133,7 +155,14 @@ Post-audio-removal smoke 7, Pixel 10a (`idea-brief.md` top banner, `.planning/ph
 ### Pseudocode
 
 ```text
-function compute(v[], s[]):                       # v = video frame ts (ns), s = IMU ts (ns); both ascending, len ≥ 2
+function compute(v[], s[], skip = 150):           # v = video frame ts (ns), s = IMU ts (ns); both ascending, len ≥ 2
+    if skip > 0 and len(v) - skip >= 2:           # Step 0 — warm-up trim
+        v_trim = v[skip:]
+        first_kept_imu = first j such that s[j] >= v_trim[0]
+        if first_kept_imu found and len(s) - first_kept_imu >= 2:
+            v = v_trim
+            s = s[first_kept_imu:]
+        # else: fall back to no trim — segment too short
     r_v = detrend(v)                              # residuals off least-squares line vs index
     r_s = detrend(s)
     absD = []

@@ -29,8 +29,8 @@ Phase 5 makes a finished recording's three-file bundle (MP4 + IMU CSV + metadata
 
 - **D-04:** Owner directive — **push all anti-fraud to §v2**. FRAUD-05 (per-account daily upload-rate cap) and FRAUD-06 (pre-payout fraud monitoring dashboard) move to REQUIREMENTS.md §v2 alongside the already-deferred FRAUD-03/04. MVP anti-fraud stays exactly what `idea-brief.md §11` already names: Play Integrity at sign-in + the on-device one-shot hand gate. Nothing new.
 - **D-04a:** **No per-account upload-rate cap of any kind at MVP** — not a fraud cap, not a "generous safety cap". The upload path is fully uncapped per account. (S3 day-zero lifecycle + the hash-verify worker's queue-depth autoscaling already bound cost/compute; a runaway client is a §v2 problem.) No server-side rejection-on-cap logic, no client-side "retry tomorrow" path.
-- **D-04b:** **No fraud dashboard** — no web UI, no admin API route, no scheduled export job, no SQL-views deliverable. (Bull-Board for the worker queue is a separate Phase-7 observability item, unaffected.)
-- **D-04c:** The `recordings.flavor` column stays (it's also build-cohort analysis for Phase 7 observability). The `recordings.liveness_score` column stays (harmless; stays NULL at MVP — it was always going to). No schema changes needed for the descope.
+- **D-04b:** **No fraud dashboard** — no web UI, no admin API route, no scheduled export job, no SQL-views deliverable. (Bull-Board for the worker queue is a separate Phase-8 observability item, unaffected.)
+- **D-04c:** The `recordings.flavor` column stays (it's also build-cohort analysis for Phase 8 observability). The `recordings.liveness_score` column stays (harmless; stays NULL at MVP — it was always going to). No schema changes needed for the descope.
 - **D-04d:** Roadmap/requirements housekeeping the planner should fold in: re-title the phase (see banner above); move FRAUD-05/06 to §v2 in REQUIREMENTS.md with a dated note; update the §v2 "Anti-fraud" group; trim the Phase 5 ROADMAP success criterion #5 (the fraud-surface bullet) and the requirements list (drop FRAUD-05, FRAUD-06).
 
 ### Crash-recovered segments — discard, never upload

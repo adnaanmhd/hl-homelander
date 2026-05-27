@@ -51,6 +51,20 @@ data class SidecarPayload(
      * `"landscape_left"` (the safe default; see [SidecarManager.read]).
      */
     val recordedRotation: String = "landscape_left",
+    /**
+     * Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — live-Camera2
+     * camera intrinsics + cam-IMU extrinsics captured at segment open from
+     * the ultrawide physical sub-camera's CameraCharacteristics
+     * ([CameraCalibrationReader.read]). Threaded into the canonical
+     * `video_metadata.json`'s top-level `calibration` block by
+     * [MetadataComposer.compose].
+     *
+     * Nullable + default-null for backward compat: older sidecars on disk
+     * (pre-2026-05-22) without the key deserialize to null, and
+     * [MetadataComposer.compose] emits the full uncalibrated-fallback
+     * calibration block when it is null (the block is ALWAYS present).
+     */
+    val calibration: CameraCalibration? = null,
 )
 
 data class TaskInfoPartial(
@@ -152,6 +166,17 @@ object SidecarManager {
             // compatible: older sidecars without this key read as
             // "landscape_left" via SidecarManager.read's optString fallback.
             .put("recorded_rotation", payload.recordedRotation)
+            // Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — live-Camera2
+            // calibration captured at segment open. Serialized via the shared
+            // CalibrationJson shape so the sidecar + the canonical
+            // video_metadata.json never drift. Null (no calibration captured)
+            // serializes as JSON null; SidecarManager.read maps it back to a
+            // null CameraCalibration → MetadataComposer.compose stamps the
+            // uncalibrated fallback.
+            .put(
+                "calibration",
+                payload.calibration?.let { CalibrationJson.toJson(it) } ?: JSONObject.NULL,
+            )
 
         // WR-11 fix — sidecar write uses the same `.partial → ATOMIC_MOVE`
         // pattern as MetadataComposer.writeAtomic. The previous direct
@@ -247,6 +272,16 @@ object SidecarManager {
                     json.getString("recorded_rotation")
                 } else {
                     "landscape_left"
+                },
+                // Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 —
+                // backward-compatible: older sidecars (pre-2026-05-22) without
+                // this key, or a JSON-null value, deserialize to a null
+                // CameraCalibration; MetadataComposer.compose then stamps the
+                // always-present uncalibrated-fallback calibration block.
+                calibration = if (json.has("calibration") && !json.isNull("calibration")) {
+                    CalibrationJson.fromJson(json.optJSONObject("calibration"))
+                } else {
+                    null
                 },
             )
         } catch (e: JSONException) {

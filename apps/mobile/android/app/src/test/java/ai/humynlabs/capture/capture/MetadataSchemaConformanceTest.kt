@@ -88,7 +88,7 @@ class MetadataSchemaConformanceTest {
         csvSha = "3c7e1f8b6a5d4c2e90b7a3c1d5e4f8a692bc34d56e78f90a1b2c3d4e5f6a792ab",
         mp4SizeBytes = 4_402_341_478L,
         csvSizeBytes = 218_914L,
-        drift = MetadataComposer.Drift(maxMs = 0.7, meanMs = 0.18, p99Ms = 0.5),
+        drift = MetadataComposer.Drift(maxMs = 0.7, meanMs = 0.18, p99Ms = 0.5, warmupFramesSkipped = 150),
         imuFloorHz = 95.5,
         gyroRateHz = 416,
         accelRateHz = 416,
@@ -125,8 +125,8 @@ class MetadataSchemaConformanceTest {
 
     private fun loadTemplate(): JSONObject {
         val stream = javaClass.classLoader!!
-            .getResourceAsStream("video_metadata_v1_1_0_template.json")
-            ?: error("video_metadata_v1_1_0_template.json fixture not on classpath")
+            .getResourceAsStream("video_metadata_v1_3_0_template.json")
+            ?: error("video_metadata_v1_3_0_template.json fixture not on classpath")
         return JSONObject(stream.bufferedReader().use { it.readText() })
     }
 
@@ -143,9 +143,9 @@ class MetadataSchemaConformanceTest {
     }
 
     @Test
-    fun `composer output schema_version is 1_1_0`() {
+    fun `composer output schema_version is 1_3_0`() {
         val out = MetadataComposer.compose(fixtureSidecar(), fixtureMetrics())
-        assertEquals("1.1.0", out.getString("schema_version"))
+        assertEquals("1.3.0", out.getString("schema_version"))
     }
 
     @Test
@@ -153,11 +153,93 @@ class MetadataSchemaConformanceTest {
         val out = MetadataComposer.compose(fixtureSidecar(), fixtureMetrics())
         val template = loadTemplate()
         assertEquals(
-            "Composer key set must equal the schema-1.1.0 template key set " +
-                "(T-3.5-01: schema-creep guard).",
+            "Composer key set must equal the schema-1.3.0 template key set " +
+                "(T-3.5-01: schema-creep guard). Includes the additive top-level " +
+                "`calibration` block (camera + cam_imu_extrinsics) — quick 260522-elm.",
             keySet(template),
             keySet(out),
         )
+    }
+
+    @Test
+    fun `composer ALWAYS emits a top-level calibration block (uncalibrated fallback when null)`() {
+        // Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — the fixture
+        // sidecar carries no calibration (null), so compose() must stamp the
+        // always-present uncalibrated fallback with the full key structure.
+        val out = MetadataComposer.compose(fixtureSidecar(), fixtureMetrics())
+        val cal = out.getJSONObject("calibration")
+        val cam = cal.getJSONObject("camera")
+        val ext = cal.getJSONObject("cam_imu_extrinsics")
+        // (a) full key structure present.
+        assertEquals("pinhole", cam.getString("model"))
+        assertTrue(cam.has("params"))
+        assertTrue(cam.isNull("resolution"))
+        assertTrue(cam.isNull("distortion_coeffs"))
+        assertTrue(ext.has("T_cam_imu"))
+        assertTrue(ext.has("T_imu_cam"))
+        assertTrue(ext.has("T_cam_imu_translation_mm"))
+        // (b) null-fallback path stamps the uncalibrated sources + null params.
+        assertEquals("camera2_uncalibrated", cam.getString("intrinsics_source"))
+        assertEquals("camera2_no_imu_reference", ext.getString("extrinsics_source"))
+        val params = cam.getJSONObject("params")
+        assertTrue(params.isNull("fx"))
+        assertTrue(params.isNull("fy"))
+        assertTrue(params.isNull("cx"))
+        assertTrue(params.isNull("cy"))
+        assertTrue(params.isNull("skew"))
+        assertEquals(0.0, ext.getDouble("timeshift_cam_imu_sec"), 0.0)
+        assertEquals("t_imu = t_cam + timeshift", ext.getString("timeshift_meaning"))
+        // (c) drift fields untouched — calibration is additive telemetry.
+        val md = out.getJSONObject("metadata")
+        assertTrue(md.has("imu_video_drift_max_ms"))
+        assertTrue(md.has("imu_video_drift_mean_ms"))
+        assertTrue(md.has("imu_video_drift_p99_ms"))
+    }
+
+    @Test
+    fun `composer emits captured calibration values when the sidecar carries them`() {
+        // Quick task 260522-elm — a calibrated sidecar flows real intrinsics +
+        // extrinsics through to the calibration block (intrinsics_source/
+        // extrinsics_source = "camera2").
+        val calibrated = CameraCalibration(
+            camera = CameraIntrinsics(
+                model = "pinhole",
+                resolutionWidth = 1920,
+                resolutionHeight = 1080,
+                fx = 725.58,
+                fy = 725.26,
+                cx = 1006.06,
+                cy = 506.90,
+                skew = 0.0,
+                distortionCoeffs = listOf(0.027, 0.017, -0.011, 0.002),
+                intrinsicsSource = "camera2",
+            ),
+            camImuExtrinsics = CamImuExtrinsics(
+                tCamImu = listOf(
+                    listOf(1.0, 0.0, 0.0, 0.01),
+                    listOf(0.0, 1.0, 0.0, -0.08),
+                    listOf(0.0, 0.0, 1.0, -0.05),
+                    listOf(0.0, 0.0, 0.0, 1.0),
+                ),
+                tImuCam = null,
+                tCamImuTranslationMm = listOf(10.0, -80.0, -50.0),
+                timeshiftCamImuSec = 0.0,
+                timeshiftMeaning = "t_imu = t_cam + timeshift",
+                clockSyncNote = "camera + imu share the boottime (elapsedRealtimeNanos) clock",
+                extrinsicsSource = "camera2",
+            ),
+        )
+        val out = MetadataComposer.compose(
+            fixtureSidecar().copy(calibration = calibrated),
+            fixtureMetrics(),
+        )
+        val cam = out.getJSONObject("calibration").getJSONObject("camera")
+        assertEquals("camera2", cam.getString("intrinsics_source"))
+        assertEquals(725.58, cam.getJSONObject("params").getDouble("fx"), 0.0001)
+        assertEquals(1920, cam.getJSONArray("resolution").getInt(0))
+        val ext = out.getJSONObject("calibration").getJSONObject("cam_imu_extrinsics")
+        assertEquals("camera2", ext.getString("extrinsics_source"))
+        assertEquals(0.01, ext.getJSONArray("T_cam_imu").getJSONArray(0).getDouble(3), 0.0001)
     }
 
     @Test
@@ -285,8 +367,9 @@ class MetadataSchemaConformanceTest {
         assertFalse(".partial residue must NOT exist after a clean write", partial.exists())
         // Round-trip parse — file is valid JSON with the bumped schema_version.
         val reloaded = JSONObject(target.readText())
-        assertEquals("1.1.0", reloaded.getString("schema_version"))
+        assertEquals("1.3.0", reloaded.getString("schema_version"))
         assertNotNull(reloaded.getJSONObject("metadata"))
+        assertNotNull(reloaded.getJSONObject("calibration"))
     }
 
     @Test
@@ -297,6 +380,7 @@ class MetadataSchemaConformanceTest {
         assertTrue(md.isNull("imu_video_drift_max_ms"))
         assertTrue(md.isNull("imu_video_drift_mean_ms"))
         assertTrue(md.isNull("imu_video_drift_p99_ms"))
+        assertTrue(md.isNull("imu_video_drift_warmup_frames_skipped"))
         assertTrue(md.isNull("imu_min_rate_hz_observed_p1"))
     }
 }

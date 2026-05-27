@@ -74,10 +74,10 @@ Two load-bearing facts surfaced during research that the planner MUST address:
 ### Deferred Ideas (OUT OF SCOPE)
 
 - Server-side semantic / pgvector + RRF hybrid surfaced on the client — §v2 SEARCH-V2-01.
-- Async thaw flow for Deep-Archive (>90 d) recordings — §v2 / Phase 7.
+- Async thaw flow for Deep-Archive (>90 d) recordings — §v2 / Phase 8.
 - iOS player parity (`HumynPlayerIOS` / AVPlayer / iOS native module) — §v2 IOS-01..07.
-- OEM battery-optimization device sweep — Phase 7.
-- Per-OEM SoundPool / Vibrator routing nuances beyond Pixel 10a / Android 16 — Phase 7.
+- OEM battery-optimization device sweep — Phase 8.
+- Per-OEM SoundPool / Vibrator routing nuances beyond Pixel 10a / Android 16 — Phase 8.
 - Auto-retry for streaming a `pending` row — §v2 polish.
 - History row deletion / re-record / sharing — locked OUT by HIST-07/HIST-10.
 - Search results sort options — §v2.

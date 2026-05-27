@@ -97,10 +97,26 @@ vi.mock('react-native', () => {
   function makeComponent(name: string) {
     return React.forwardRef<
       HTMLDivElement,
-      Record<string, unknown> & { children?: React.ReactNode }
+      Record<string, unknown> & { children?: React.ReactNode; testID?: string }
     >(function HostComponent(props, ref) {
-      const { children, accessibilityLabel, accessibilityRole, onPress, style, ...rest } = props;
-      const dom: Record<string, unknown> = { ref, 'data-testid': name, ...rest };
+      const {
+        children,
+        accessibilityLabel,
+        accessibilityRole,
+        onPress,
+        style,
+        // Plan 07-16 Task 4c (G-22 / WARNING 12): React Native maps `testID`
+        // to `data-testid` on Android/iOS — mirror that in jsdom so tests can
+        // query by `getByTestId(...)` and the component-level testID
+        // overrides the primitive's default `name` testID.
+        testID,
+        ...rest
+      } = props;
+      const dom: Record<string, unknown> = {
+        ref,
+        'data-testid': typeof testID === 'string' && testID.length > 0 ? testID : name,
+        ...rest,
+      };
       if (typeof accessibilityLabel === 'string') {
         dom['aria-label'] = accessibilityLabel;
       }
@@ -972,6 +988,18 @@ vi.mock('@react-native-firebase/remote-config', () => {
 });
 
 // ---------------------------------------------------------------------------
+// @react-native-firebase/crashlytics — Plan 07-05 Task 2 (D-35 breadcrumb).
+// services/api.ts now imports crashlytics for the surfaceApiError() helper;
+// the package's native-codegen module isn't transformable under jsdom. Stub
+// the singleton-factory surface the helper uses: `crashlytics().log(json)`.
+// Per-test files override via `vi.mock('@react-native-firebase/crashlytics',
+// …)` (api.errorToast.test.ts spies on the log call).
+// ---------------------------------------------------------------------------
+vi.mock('@react-native-firebase/crashlytics', () => ({
+  default: () => ({ log: vi.fn() }),
+}));
+
+// ---------------------------------------------------------------------------
 // @react-native-community/datetimepicker — Plan 06-12 follow-on (Finding 5).
 // The package ships TS source with `import type` syntax that Vite/Rollup
 // can't transform in this test env. The stub renders a hidden `<input>`
@@ -1001,3 +1029,16 @@ vi.mock('@react-native-community/datetimepicker', async () => {
   }
   return { default: DateTimePickerStub };
 });
+
+// ---------------------------------------------------------------------------
+// i18n bootstrap (Plan 07-05) — Phase-7 screens use `useTranslation()` from
+// react-i18next. The `i18n` singleton is initialized as a side-effect of
+// importing `apps/mobile/src/i18n`. Tests that render screens directly
+// (without going through App.tsx) won't pull this module in transitively, so
+// `t('key')` returns the raw key instead of the English copy. Top-level
+// await on a static import forces the same init path App.tsx triggers;
+// `initImmediate:false` (set in src/i18n/index.ts) makes the bootstrap
+// synchronous so `t()` resolves to the English value on the very first
+// render of every test.
+// ---------------------------------------------------------------------------
+await import('./src/i18n');

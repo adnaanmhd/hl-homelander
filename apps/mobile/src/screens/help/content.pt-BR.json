@@ -1,0 +1,216 @@
+{
+  "accordions": [
+    {
+      "id": "instructions-guide",
+      "title": "Guia de Instruções",
+      "items": [
+        {
+          "kind": "subsection",
+          "heading": "Antes de gravar",
+          "body": "- Encaixe o celular no suporte de cabeça. Ele precisa ficar bem firme — se balançar ou sair do lugar quando você se mexer, a gravação não serve.\n- Mantenha a lente da câmera desobstruída.\n- Escolha um lugar bem iluminado. Tanto luz natural do dia quanto luz interna forte funcionam.\n- Feche todos os outros aplicativos. Apps em segundo plano podem atrapalhar a gravação.\n- Escolha uma tarefa na aba **Tarefas** que combine com o que você vai fazer."
+        },
+        {
+          "kind": "subsection",
+          "heading": "Começando uma gravação",
+          "body": "1. Abra a tarefa e toque em **Iniciar Gravação**. A tela gira para o modo paisagem e trava.\n2. Coloque as duas mãos no enquadramento da câmera e segure assim. O anel de progresso vai enchendo conforme suas mãos são detectadas — quando completar, a gravação começa sozinha e você ouve _\"Recording started.\"_\n3. Você também pode tocar em **Pular** embaixo do botão de gravar para começar manualmente."
+        },
+        {
+          "kind": "subsection",
+          "heading": "Durante a gravação",
+          "body": "- Mantenha as mãos no enquadramento o máximo possível.\n- Siga as instruções de cada tarefa que aparecem na tela (direção do olhar, ritmo, no que focar).\n- A tela escurece para economizar bateria e diminuir o aquecimento. Isso é normal.\n- A duração mínima de cada clipe é de **60 segundos**. Qualquer coisa menor é descartada."
+        },
+        {
+          "kind": "subsection",
+          "heading": "Parando uma gravação",
+          "body": "- Toque no botão de parar. Você vai ouvir _\"Recording stopped\"_ e ver o tempo da sua contribuição somado.\n- Você continua na tela de gravação — toque em gravar de novo para começar um novo clipe da mesma tarefa.\n- Para trocar de tarefa, saia da tela de gravação e escolha outra."
+        },
+        {
+          "kind": "subsection",
+          "heading": "Sua primeira gravação (Treino)",
+          "body": "Sua primeira tentativa é um treino de 60 segundos. Ela não é enviada, não aparece no Histórico e não conta para a sua contribuição. Depois disso, toda gravação conta."
+        },
+        {
+          "kind": "subsection",
+          "heading": "Envios",
+          "body": "- As gravações são enviadas automaticamente assim que terminam.\n- Acompanhe o progresso pelo quadrinho **Envios pendentes** na tela inicial.\n- Os envios continuam mesmo com o app em segundo plano."
+        },
+        {
+          "kind": "subsection",
+          "heading": "Pagamentos",
+          "body": "Os pagamentos são feitos fora do app. Seus ganhos vão começar a aparecer no app em breve. Continue gravando — seus dados estão seguros e seus pagamentos estão garantidos.\n\n---"
+        }
+      ]
+    },
+    {
+      "id": "faqs",
+      "title": "Perguntas Frequentes",
+      "items": [
+        {
+          "kind": "qa",
+          "question": "Que tipo de celular eu preciso?",
+          "answer": "Um celular com câmera traseira ultra grande angular em 1080p (campo de visão ≥ 110°), sensores de giroscópio e acelerômetro, e desempenho estável sob uso pesado. A gente faz uma verificação única de compatibilidade na primeira vez que você abre o app — se o seu celular passar, está tudo certo."
+        },
+        {
+          "kind": "qa",
+          "question": "Por que meu celular não passou na verificação de compatibilidade?",
+          "answer": "A verificação olha a resolução da câmera, o campo de visão da ultra grande angular, a disponibilidade dos sensores e a taxa de amostragem constante, o microfone, e se o aparelho tem acesso root. A tela mostra exatamente quais checagens falharam."
+        },
+        {
+          "kind": "qa",
+          "question": "Por que a verificação rodou de novo no meu celular?",
+          "answer": "A verificação de compatibilidade roda de novo a cada atualização do app ou do sistema, e na primeira vez que você entra em um aparelho novo. Isso pega mudanças que podem afetar a qualidade da captura."
+        },
+        {
+          "kind": "qa",
+          "question": "Posso usar o celular de outra pessoa para gravar?",
+          "answer": "Pode. Desde que o celular passe na verificação de compatibilidade e você entre com a sua própria conta Google, pode usar."
+        },
+        {
+          "kind": "qa",
+          "question": "Posso gravar crianças?",
+          "answer": "Não. Ao se cadastrar, você confirma que todo mundo que você grava tem 18 anos ou mais. Gravações de menores de idade não são permitidas."
+        },
+        {
+          "kind": "qa",
+          "question": "Posso gravar dentro e fora de casa?",
+          "answer": "Pode. Combine a tarefa com o ambiente — algumas tarefas são naturalmente em ambiente fechado (cozinhar, limpar, lavar roupa); outras servem para os dois."
+        },
+        {
+          "kind": "qa",
+          "question": "Por que o app precisa da minha localização?",
+          "answer": "A localização aproximada ajuda a gente a entender a diversidade das gravações no nosso conjunto de dados. A gente usa só localização aproximada — nunca GPS preciso."
+        },
+        {
+          "kind": "qa",
+          "question": "Como eu recebo o pagamento?",
+          "answer": "No começo, os pagamentos são feitos fora do app. Pode ficar tranquilo, suas contribuições estão sendo registradas — a gente te avisa quando os pagamentos começarem a aparecer no app."
+        },
+        {
+          "kind": "qa",
+          "question": "Quanto tempo pode durar uma gravação?",
+          "answer": "Mínimo de 60 segundos. Não tem limite máximo. A gente quer que você grave as tarefas relevantes pelo maior tempo que conseguir."
+        },
+        {
+          "kind": "qa",
+          "question": "Para que serve a gravação de treino?",
+          "answer": "É uma tentativa única, de 60 segundos, para você se familiarizar com o jeito de gravar. Ela não é enviada e não conta para a sua contribuição."
+        },
+        {
+          "kind": "qa",
+          "question": "Posso apagar uma gravação?",
+          "answer": "Não. Depois de gravados, os clipes ficam no seu Histórico e são enviados automaticamente."
+        },
+        {
+          "kind": "qa",
+          "question": "Posso cancelar um envio?",
+          "answer": "Não. Os envios acontecem automaticamente e retomam depois de interrupções. Você pode ver o progresso pelo quadrinho **Envios pendentes** na tela inicial."
+        },
+        {
+          "kind": "qa",
+          "question": "Posso ver minhas gravações?",
+          "answer": "Pode — toque numa miniatura no Histórico para assistir. Depois que o clipe é enviado com segurança e a cópia local é apagada, a miniatura continua lá, mas não dá mais para reproduzir."
+        },
+        {
+          "kind": "qa",
+          "question": "O app usa dados móveis?",
+          "answer": "Usa, por padrão. Os envios funcionam tanto pelo Wi-Fi quanto pela rede móvel."
+        },
+        {
+          "kind": "qa",
+          "question": "Por que minha gravação parou sozinha?",
+          "answer": "Algumas coisas podem parar uma gravação no meio:\n\n- O celular saiu do modo paisagem\n- Uma ligação foi atendida ou um alarme tocou\n- O celular esquentou demais\n- A bateria caiu para 5% ou menos\n\nO app te avisa o que aconteceu com uma mensagem ou aviso de voz."
+        },
+        {
+          "kind": "qa",
+          "question": "Por que eu não acho uma gravação que acabei de fazer?",
+          "answer": "Se ela parou com menos de 60 segundos, foi descartada. Senão, dá uma olhada na aba **Histórico** — os clipes aparecem lá mesmo enquanto os envios ainda estão rolando."
+        },
+        {
+          "kind": "qa",
+          "question": "Como eu apago minha conta?",
+          "answer": "Perfil → Apagar conta, e depois digite **DELETE** para confirmar. Sua conta fica desativada por **30 dias** — entre nesse prazo para recuperá-la. Depois de 30 dias, a exclusão é permanente. As gravações que já foram enviadas continuam nos nossos servidores."
+        },
+        {
+          "kind": "qa",
+          "question": "O que acontece se eu desinstalar o app?",
+          "answer": "As gravações locais que ainda não foram enviadas são perdidas. As que já foram enviadas continuam nos nossos servidores e sua conta não é afetada."
+        },
+        {
+          "kind": "qa",
+          "question": "Pedi uma nova tarefa — quando ela vai aparecer?",
+          "answer": "Os pedidos de tarefas passam pela revisão da nossa equipe. A gente te responde assim que possível.\n\n---"
+        }
+      ]
+    },
+    {
+      "id": "troubleshooting",
+      "title": "Solução de Problemas",
+      "items": [
+        {
+          "kind": "issue",
+          "heading": "A gravação não começa",
+          "resolution": "- _\"Phone is too warm\"_ — deixe o celular esfriar por uns minutos. Tire capinhas apertadas que prendem o calor.\n- A bateria está abaixo de 5% — coloque para carregar. Você pode fazer novas gravações quando voltar para acima de 15%.\n- A detecção das mãos não está passando — veja abaixo."
+        },
+        {
+          "kind": "issue",
+          "heading": "A detecção das mãos fica reiniciando",
+          "resolution": "- As duas mãos precisam aparecer ao mesmo tempo por uns 2 segundos.\n- Vá para perto de uma fonte de luz — pouca luz deixa a detecção das mãos meio falha.\n- Tire luvas ou qualquer coisa cobrindo as mãos.\n- Toque em **Pular** embaixo do botão de gravar para começar manualmente."
+        },
+        {
+          "kind": "issue",
+          "heading": "A pré-visualização da câmera está preta",
+          "resolution": "- Veja se a permissão da câmera está liberada. Configurações → Apps → Humyn Labs → Permissões.\n- Feche qualquer outro app que esteja usando a câmera (chamadas de vídeo, outros apps de câmera).\n- Reinicie o app."
+        },
+        {
+          "kind": "issue",
+          "heading": "A gravação parou no meio",
+          "resolution": "- O celular saiu do modo paisagem — mantenha ele travado em paisagem no suporte.\n- Uma ligação foi atendida ou um alarme disparou — não dá para evitar isso.\n- O celular superaqueceu — deixe esfriar e tente de novo.\n- A bateria caiu para 5% — carregue antes de continuar."
+        },
+        {
+          "kind": "issue",
+          "heading": "\"Gravação muito curta — descartada\"",
+          "resolution": "Clipes com menos de 60 segundos não são salvos. Tente fazer pelo menos um minuto por tarefa."
+        },
+        {
+          "kind": "issue",
+          "heading": "A verificação de compatibilidade falhou",
+          "resolution": "A tela mostra quais checagens falharam. A maioria das falhas é por causa do hardware e não dá para resolver via software. Se você está usando um celular emprestado, tente outro aparelho compatível. Confira se o celular não tem acesso root e se foi instalado pela Play Store."
+        },
+        {
+          "kind": "issue",
+          "heading": "Falha ao entrar na conta",
+          "resolution": "- Verifique sua conexão com a internet.\n- O app bloqueia celulares com root, emuladores e versões instaladas fora da loja. Se for esse o caso, instale pela Play Store em um celular sem root.\n- Tente de novo — o login com Google às vezes dá tempo esgotado."
+        },
+        {
+          "kind": "issue",
+          "heading": "Os envios não estão progredindo",
+          "resolution": "- Verifique sua conexão com a internet.\n- Em celulares Xiaomi, Oppo, Vivo ou Samsung, o sistema às vezes pausa envios em segundo plano. Permita a isenção da otimização de bateria quando aparecer o pedido, ou simplesmente abra o app de novo para retomar.\n- Os envios ficam pausados enquanto você grava. Eles retomam depois que você para."
+        },
+        {
+          "kind": "issue",
+          "heading": "Aviso de armazenamento na verificação de compatibilidade",
+          "resolution": "Libere pelo menos 5 GB antes de gravar. Um clipe de 10 minutos tem mais ou menos 600 MB."
+        },
+        {
+          "kind": "issue",
+          "heading": "O celular esquenta durante a gravação",
+          "resolution": "- Esquentar um pouco é normal, mas o superaquecimento constante encerra as gravações mais cedo.\n- Tire capinhas apertadas e evite gravar sob sol direto.\n- Carregar enquanto grava pode aumentar o calor — sempre que der, grave usando só a bateria."
+        },
+        {
+          "kind": "issue",
+          "heading": "Troquei de celular — o que preciso fazer?",
+          "resolution": "Entre com a mesma conta Google. A verificação de compatibilidade vai rodar de novo no aparelho novo. As gravações que já foram enviadas do celular antigo continuam nos nossos servidores; os clipes locais que ainda não tinham sido enviados estão ligados à instalação antiga e não vão aparecer no celular novo."
+        },
+        {
+          "kind": "issue",
+          "heading": "Acabei de apagar minha conta sem querer",
+          "resolution": "Entre com a mesma conta Google dentro de 30 dias. Sua conta, perfil e Histórico vão ser recuperados. Depois de 30 dias, a exclusão é permanente.\n\n---"
+        }
+      ]
+    }
+  ],
+  "contactSupport": {
+    "headline": "Precisa de mais ajuda?",
+    "body": "Ainda travado? Toque em **Falar com o Suporte** abaixo para mandar um e-mail para a gente em `support@humynlabs.ai`. Conta o modelo do seu celular, o que você estava tentando fazer e mais ou menos quando aconteceu — geralmente já dá para a gente te ajudar."
+  }
+}

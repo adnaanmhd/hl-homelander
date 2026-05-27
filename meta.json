@@ -1,0 +1,151 @@
+{
+  "session_id": "spc2_2026-05-15_12-44-21",
+  "merged_chunk_range": [0, 113],
+  "chunk_count": 114,
+  "first_au_boottime_ns": 616531418000,
+  "last_au_boottime_ns": 4148959320000,
+  "access_units": 106020,
+  "imu_rows": 2018600,
+  "boottime_span_ns": 3532427902000,
+  "duration_ms": 3532428,
+  "observed_video_fps": 30.01335,
+  "imu_timestamp_column": "boottime_ns",
+  "sync_note": "video frame PTS + first_au_boottime_ns = absolute boottime; imu.csv boottime_ns shares that clock",
+  "device": "Headspace SPC2 CDC",
+  "calibration": {
+    "schema_version": "1.0",
+    "device": "SPC2",
+    "device_unit_id": null,
+    "calibration_date": "2026-05-14",
+    "calibration_version": "may14_a2_6x6_pupilobs_thr090_camera_sensor_timestamps",
+    "calibration_status": "candidate_passes_visual_and_imu_residual_metrics",
+    "calibration_note": "May 14 Headspace Recorder USB capture. Intrinsics solved with OpenCV fisheye from pupil_apriltags detections on the measured A2 6x6 tag36h11 board. Cam-IMU extrinsics solved in Kalibr using injected pupil AprilGrid observations on 2x images. Camera sensor timestamps were present, so timeshift was fixed at 0.0 s.",
+    "source_recordings": {
+      "intrinsics": "runs/raw/spc2_2026-05-14_04-40-58",
+      "extrinsics": "runs/raw/spc2_2026-05-14_04-43-40"
+    },
+    "calibration_bundles": {
+      "intrinsics": "runs/processed/intrinsics_spc2_2026-05-14_04-40-58/opencv_fisheye_6x6",
+      "imu_noise": "target/imu_icm20948_571hz.yaml",
+      "extrinsics": "runs/processed/extrinsics_spc2_2026-05-14_04-43-40/bags/spc2_2026-05-14_04-43-40_1hz_2x_imu-results-imucam.txt",
+      "pupil_observation_eval": "runs/processed/extrinsics_spc2_2026-05-14_04-43-40/pupil_pnp_1hz_thr_0.90.json",
+      "kalibr_camchain": "runs/processed/extrinsics_spc2_2026-05-14_04-43-40/bags/spc2_2026-05-14_04-43-40_1hz_2x_imu-camchain-imucam.yaml",
+      "kalibr_report_pdf": "runs/processed/extrinsics_spc2_2026-05-14_04-43-40/bags/spc2_2026-05-14_04-43-40_1hz_2x_imu-report-imucam.pdf",
+      "kalibr_log": "results/may14_thr090/kalibr_thr090.log"
+    },
+    "camera": {
+      "model": "pinhole_equidistant",
+      "model_alias": "Kannala-Brandt / OpenCV fisheye / Kalibr pinhole-equi",
+      "resolution": [1920, 1080],
+      "params": {
+        "fx": 725.5838897692018,
+        "fy": 725.2638790487214,
+        "cx": 1006.0591003810644,
+        "cy": 506.90436636820203,
+        "k1": 0.027173339588857662,
+        "k2": 0.017013792966342648,
+        "k3": -0.011324800888810039,
+        "k4": 0.002365597620940665
+      },
+      "params_array_kalibr_order": [
+        725.5838897692018, 725.2638790487214, 1006.0591003810644, 506.90436636820203
+      ],
+      "distortion_coeffs": [
+        0.027173339588857662, 0.017013792966342648, -0.011324800888810039, 0.002365597620940665
+      ],
+      "intrinsics_qa": {
+        "rms_reprojection_px": 0.7987798819654895,
+        "mean_reprojection_px": 0.6459930158118059,
+        "median_reprojection_px": 0.5570632559944886,
+        "std_reprojection_px": 0.46983222894472515,
+        "p95_reprojection_px": 1.4371902087706372,
+        "max_reprojection_px": 13.481987245361307,
+        "frames_used": 183,
+        "corner_observations": 24448
+      }
+    },
+    "target": {
+      "type": "aprilgrid_6x6_tag36h11",
+      "print_type": "A2 print using AprilRobotics tag36h11 PNGs, not Kalibr-native two-black-border PDF",
+      "tagRows": 6,
+      "tagCols": 6,
+      "tagSize_m": 0.044,
+      "tagSpacing_ratio": 0.613636,
+      "gap_m": 0.026999984,
+      "active_grid_m": [0.399, 0.399],
+      "physical_board_m": [0.594, 0.42],
+      "measurement_note": "Measured black tag square about 44 mm and inter-tag gap about 27 mm."
+    },
+    "imu": {
+      "chip": "InvenSense ICM-20948",
+      "rate_hz": 571.6,
+      "observed_rate_hz": {
+        "intrinsics_session": 571.6748678337403,
+        "extrinsics_session": 571.5798872879487
+      },
+      "source_samples": {
+        "intrinsics_meta": 69726,
+        "extrinsics_meta": 118390
+      },
+      "noise_model": {
+        "accelerometer_noise_density": 0.015,
+        "accelerometer_random_walk": 0.003,
+        "gyroscope_noise_density": 0.0005,
+        "gyroscope_random_walk": 0.00013
+      },
+      "noise_model_units": {
+        "accelerometer_noise_density": "m/s/sqrt(s)",
+        "accelerometer_random_walk": "m/s^2/sqrt(s)",
+        "gyroscope_noise_density": "rad/sqrt(s)",
+        "gyroscope_random_walk": "rad/s/sqrt(s)"
+      },
+      "decoder_scale": {
+        "ACCEL_FS_SEL": "+/-8g -> 4096 LSB/g",
+        "GYRO_FS_SEL": "+/-1000 dps -> 32.8 LSB/dps"
+      },
+      "noise_model_source": "Headspace Lite/SPC2 ICM-20948 Allan-variance model reused from prior validated calibration artifacts; update_rate set to this run's observed stream rate."
+    },
+    "cam_imu_extrinsics": {
+      "T_cam_imu": [
+        [0.004600624562517953, -0.9985674700444199, 0.05330893004668602, 0.010237507660361187],
+        [0.709834283040066, 0.0408102083799479, 0.7031854787415492, -0.08717520226647689],
+        [-0.7043536930226401, 0.03460541375381804, 0.7090051766131872, -0.05223229872281685],
+        [0, 0, 0, 1]
+      ],
+      "T_imu_cam": [
+        [0.00460062, 0.70983428, -0.70435369, 0.02504284],
+        [-0.99856747, 0.04081021, 0.03460541, 0.015588],
+        [0.05330893, 0.70318548, 0.70900518, 0.09778756],
+        [0, 0, 0, 1]
+      ],
+      "T_cam_imu_translation_mm": [10.23751, -87.1752, -52.2323],
+      "T_cam_imu_translation_meaning": "translation from imu0 to cam0, expressed in cam0 frame",
+      "timeshift_cam_imu_sec": 0,
+      "timeshift_meaning": "t_imu = t_cam + timeshift",
+      "qa": {
+        "reprojection_error_px_2x": {
+          "mean": 1.3570696091916996,
+          "median": 1.1975892954066696,
+          "std": 0.9167732001732279
+        },
+        "reprojection_error_px_native_approx": {
+          "mean": 0.6785348045958498,
+          "median": 0.5987946477033348,
+          "std": 0.45838660008661397
+        },
+        "gyro_residual_rad_s": {
+          "mean": 0.004482734525601686,
+          "median": 0.0040969952185432295,
+          "std": 0.005778563728596765
+        },
+        "accel_residual_m_s2": {
+          "mean": 0.05096513012524762,
+          "median": 0.04725273586455155,
+          "std": 0.0541273173228268
+        },
+        "gravity_target_coords_m_s2": [0.18837498, -9.8047177, -0.02117926],
+        "gravity_magnitude_m_s2": 9.806552
+      }
+    }
+  }
+}

@@ -162,8 +162,11 @@ vi.mock('@react-navigation/native', () => ({
   }),
 }));
 
-// react-native-tts speakCue/pickAndSetEnInVoice — keep them inert.
+// react-native-tts speakCue/pickAndSet*Voice — keep them inert.
+// Plan 07-06: RecordingScreen now imports pickAndSetLocaleVoice (the new
+// public entry point); both surfaces are stubbed here.
 vi.mock('../../../src/lib/ttsVoice', () => ({
+  pickAndSetLocaleVoice: vi.fn().mockResolvedValue(undefined),
   pickAndSetEnInVoice: vi.fn().mockResolvedValue(undefined),
   speakCue: vi.fn(),
 }));

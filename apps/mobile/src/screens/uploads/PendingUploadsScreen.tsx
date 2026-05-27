@@ -41,6 +41,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
 import { Text } from '../../ui/primitives/Text';
 import { TopBar } from '../../components/TopBar';
@@ -87,6 +88,11 @@ function chipVariantFor(row: UploadQueueRow, offline: boolean): UploadStatusChip
     case 'awaiting-verify':
       return 'verifying';
     case 'dead-letter':
+    case 'needs-attention':
+      // Debug session `.planning/debug/upload-queue-hol-finalizing.md`
+      // (Fix C item 4) — both terminal-blocking states render the same
+      // chip-failed visual; the retry handler dispatches different native
+      // methods (reupload vs retryNeedsAttention) per `onRetry`.
       return 'failed';
     case 'verified':
       return 'success';
@@ -110,6 +116,7 @@ export default function PendingUploadsScreen({
   const jwt = useAppStore((s) => s.jwt);
   const currentSub = useMemo(() => decodeGoogleSubFromJwt(jwt), [jwt]);
   const offline = __test_offlineOverride === true;
+  const { t } = useTranslation();
 
   // Quick task 260517-p5g CAPTURE-QA-05 — defensive filter: skip any row
   // whose `cancelReason` is set. This should never happen at runtime
@@ -157,9 +164,20 @@ export default function PendingUploadsScreen({
     };
   }, [mine, __test_rows]);
 
-  const onRetry = useCallback((recordingId: string) => {
-    // UP-16 — flip the row's re-upload state natively; the coordinator then
-    // re-PUTs from the still-present local copy via POST /recordings/:id/reupload.
+  const onRetry = useCallback((recordingId: string, deviceState: UploadQueueRow['state']) => {
+    // Dispatch by current device state:
+    //   - 'needs-attention' (debug session
+    //     `.planning/debug/upload-queue-hol-finalizing.md` Fix C item 4):
+    //     reset attemptCount + transition to UPLOADING/PENDING via
+    //     HumynUpload.retryNeedsAttention. The coordinator's automatic
+    //     drain loop picks the row up again.
+    //   - 'dead-letter' OR anything else: UP-16 — flip the row's re-upload
+    //     state natively; the coordinator re-PUTs from the still-present
+    //     local copy via POST /recordings/:id/reupload.
+    if (deviceState === 'needs-attention') {
+      void HumynUpload.retryNeedsAttentionSafe(recordingId);
+      return;
+    }
     HumynUpload.reupload(recordingId).catch(() => undefined);
   }, []);
 
@@ -189,10 +207,10 @@ export default function PendingUploadsScreen({
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="pending-upload-retry"
-                  onPress={() => onRetry(item.recordingId)}
+                  onPress={() => onRetry(item.recordingId, item.state)}
                   style={styles.retry}
                 >
-                  <Text style={styles.retryLabel}>Retry</Text>
+                  <Text style={styles.retryLabel}>{t('pendingUploads.retry')}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -216,6 +234,17 @@ export default function PendingUploadsScreen({
               <Text style={styles.deadReason} accessibilityLabel="pending-upload-deadletter-reason">
                 {item.deadLetterReason}
               </Text>
+            ) : item.state === 'needs-attention' && item.lastFailureReason ? (
+              // Debug session `.planning/debug/upload-queue-hol-finalizing.md`
+              // (Fix C item 4) — surface the failure reason on NEEDS_ATTENTION
+              // rows, mirroring the dead-letter reason copy. Reuses the same
+              // muted styling so layout stays identical between the two.
+              <Text
+                style={styles.deadReason}
+                accessibilityLabel="pending-upload-needs-attention-reason"
+              >
+                {item.lastFailureReason}
+              </Text>
             ) : null}
           </View>
         </View>
@@ -226,7 +255,7 @@ export default function PendingUploadsScreen({
 
   return (
     <ScreenContainer accessibilityLabel="Pending uploads screen" padding={0}>
-      <TopBar {...topBarProps} title="Pending uploads" />
+      <TopBar {...topBarProps} title={t('pendingUploads.title')} />
       {rows.length === 0 ? (
         <Text
           variant="body"
@@ -234,7 +263,7 @@ export default function PendingUploadsScreen({
           accessibilityLabel="pending-uploads-empty"
           style={styles.empty}
         >
-          No uploads pending — your recordings are safely uploaded.
+          {t('pendingUploads.empty')}
         </Text>
       ) : (
         <ScrollView accessibilityLabel="pending-uploads-list" contentContainerStyle={styles.list}>

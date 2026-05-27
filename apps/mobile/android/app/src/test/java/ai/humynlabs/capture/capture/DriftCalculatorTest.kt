@@ -1,6 +1,7 @@
 package ai.humynlabs.capture.capture
 
 import android.app.Application
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -33,7 +34,8 @@ class DriftCalculatorTest {
         val period = 33_333_333L  // 30 FPS in ns
         val v = LongArray(30) { i -> i * period }
         val s = LongArray(180) { i -> i * (period / 6) }  // 6× rate (~180 Hz)
-        val d = DriftCalculator.compute(v, s)
+        // skip=0 — short synthetic; exercises pure methodology.
+        val d = DriftCalculator.compute(v, s, skipFirstVideoFrames = 0)
         assertTrue("max < 0.01 ms; was ${d.maxMs}", d.maxMs < 0.01)
         assertTrue("mean < 0.01 ms; was ${d.meanMs}", d.meanMs < 0.01)
         assertTrue("p99 < 0.01 ms; was ${d.p99Ms}", d.p99Ms < 0.01)
@@ -45,7 +47,7 @@ class DriftCalculatorTest {
         val offsetNs = 5_000_000L
         val v = LongArray(30) { i -> i * period + offsetNs }
         val s = LongArray(180) { i -> i * (period / 6) }
-        val d = DriftCalculator.compute(v, s)
+        val d = DriftCalculator.compute(v, s, skipFirstVideoFrames = 0)
         // Residual subtraction folds the constant offset into the
         // least-squares baseline (intercept absorbs it). Drift remains
         // small — this is the methodology working as specified.
@@ -73,8 +75,76 @@ class DriftCalculatorTest {
         // Video frames carry a quadratic-in-i offset relative to IMU.
         val v = LongArray(nFrames) { i -> i * period + (i.toLong() * i.toLong() * 20_000L) }
         val s = LongArray(nFrames * 6) { i -> i * (period / 6) }
-        val d = DriftCalculator.compute(v, s)
+        val d = DriftCalculator.compute(v, s, skipFirstVideoFrames = 0)
         assertTrue("max should report nonzero drift (>= 2.5 ms); was ${d.maxMs}", d.maxMs >= 2.5)
+    }
+
+    @Test
+    fun `warm-up trim drops first-N video frames + matching IMU samples before the fit`() {
+        // Models a cold-start segment: first 150 frames carry a quadratic
+        // ramp (~ultrawide HAL warm-up settling), then 1000 clean frames at
+        // a steady 30 FPS cadence. The least-squares fit through ALL 1150
+        // frames is corrupted by the warm-up prefix → smeared residuals.
+        // skip=150 trims the prefix; the fit on the clean 1000 frames is
+        // exactly correct → residuals collapse.
+        val period = 33_333_333L
+        val nWarmup = 150
+        val nClean = 1000
+        val v = LongArray(nWarmup + nClean) { i ->
+            if (i < nWarmup) {
+                // Quadratic ramp: frame i offset by i² * 50 µs (peaks at
+                // ~1.1 s for i=149). Mirrors real HAL warm-up signature.
+                i * period + (i.toLong() * i.toLong() * 50_000L)
+            } else {
+                // Clean steady state — the warm-up's cumulative offset is
+                // folded into the start time so the clean phase continues
+                // smoothly from where the ramp ended.
+                val warmupTail = (nWarmup - 1).toLong() * (nWarmup - 1).toLong() * 50_000L
+                i * period + warmupTail
+            }
+        }
+        // IMU stream spans the whole segment, clean cadence (~6× video).
+        val s = LongArray((nWarmup + nClean) * 6) { i -> i * (period / 6) }
+
+        val withoutTrim = DriftCalculator.compute(v, s, skipFirstVideoFrames = 0)
+        val withTrim = DriftCalculator.compute(v, s, skipFirstVideoFrames = nWarmup)
+
+        // Skip=0: the warm-up smears across the segment — drift dominated
+        // by the prefix's non-affine residuals.
+        assertTrue(
+            "without trim max should be >> with trim; was without=${withoutTrim.maxMs} with=${withTrim.maxMs}",
+            withoutTrim.maxMs > withTrim.maxMs * 10.0,
+        )
+        // Skip=150: the trimmed segment is a clean ramp → drift ~0.
+        assertTrue(
+            "with trim max should collapse to near-zero; was ${withTrim.maxMs}",
+            withTrim.maxMs < 0.01,
+        )
+        // The applied skip count is surfaced — recomputers downstream
+        // can reproduce the metric exactly from the raw timestamps.
+        assertEquals(0, withoutTrim.warmupFramesSkipped)
+        assertEquals(nWarmup, withTrim.warmupFramesSkipped)
+    }
+
+    @Test
+    fun `warm-up trim falls back gracefully when segment is shorter than skip count`() {
+        // A 30-frame segment with skip=150 (production default) — the trim
+        // can't apply without leaving < 2 frames, so the calculator falls
+        // back to skip=0 silently rather than throwing. Guards real
+        // short-segment edge cases (eg the resolution/fps cancel-gate
+        // catching a very short crash-truncated segment). The
+        // warmupFramesSkipped field MUST reflect the fallback (0), not
+        // the requested skip — otherwise downstream recomputers will
+        // trim phantom frames and mismatch the metric.
+        val period = 33_333_333L
+        val v = LongArray(30) { i -> i * period }
+        val s = LongArray(180) { i -> i * (period / 6) }
+        val d = DriftCalculator.compute(v, s)  // default skip = 150
+        assertTrue("fallback should still produce a sane result; was max=${d.maxMs}", d.maxMs < 0.01)
+        assertEquals(
+            "fallback path MUST surface skip=0 so downstream recomputers don't trim phantom frames",
+            0, d.warmupFramesSkipped,
+        )
     }
 
     @Test

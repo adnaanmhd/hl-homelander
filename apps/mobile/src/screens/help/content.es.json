@@ -1,0 +1,216 @@
+{
+  "accordions": [
+    {
+      "id": "instructions-guide",
+      "title": "Guía de instrucciones",
+      "items": [
+        {
+          "kind": "subsection",
+          "heading": "Antes de grabar",
+          "body": "- Monta tu celular en el arnés de cabeza. Tiene que quedar bien firme — si se mueve o se sacude mientras caminas, la grabación no sirve.\n- Mantén el lente de la cámara despejado.\n- Elige un lugar con buena luz. La luz natural del día o una buena luz de interior funcionan bien.\n- Cierra todas las demás aplicaciones. Las que quedan abiertas en segundo plano pueden cortar la grabación.\n- Elige una tarea de la pestaña **Tareas** que coincida con lo que vas a hacer."
+        },
+        {
+          "kind": "subsection",
+          "heading": "Empezar una grabación",
+          "body": "1. Abre la tarea y toca **Iniciar grabación**. La pantalla gira a horizontal y se bloquea.\n2. Pon ambas manos dentro del cuadro de la cámara y mantenlas ahí. El anillo de progreso se va llenando a medida que detecta tus manos — cuando se completa, la grabación arranca sola y vas a escuchar _\"Recording started.\"_\n3. También puedes tocar **Omitir** debajo del botón de grabar para empezar manualmente."
+        },
+        {
+          "kind": "subsection",
+          "heading": "Mientras grabas",
+          "body": "- Trata de mantener las manos dentro del cuadro lo más posible.\n- Sigue las instrucciones específicas de cada tarea en la pantalla (hacia dónde mirar, qué ritmo llevar, en qué fijarte).\n- La pantalla se oscurece para ahorrar batería y reducir el calor. Eso es normal.\n- La duración mínima de cada clip es de **60 segundos**. Lo que sea más corto se descarta."
+        },
+        {
+          "kind": "subsection",
+          "heading": "Detener una grabación",
+          "body": "- Toca el botón de detener. Vas a escuchar _\"Recording stopped\"_ y verás cómo se suma tu tiempo de contribución.\n- Te quedas en la pantalla de grabación — vuelve a tocar grabar para arrancar otro clip de la misma tarea.\n- Para cambiar de tarea, sal de la pantalla de grabación y elige otra."
+        },
+        {
+          "kind": "subsection",
+          "heading": "Tu primera grabación (práctica)",
+          "body": "La primera vez es una práctica de 60 segundos. No se sube, no aparece en el Historial y no cuenta para tu contribución. Después de esa, cada grabación sí cuenta."
+        },
+        {
+          "kind": "subsection",
+          "heading": "Subidas",
+          "body": "- Las grabaciones se suben automáticamente apenas terminan.\n- Mira el progreso en el bloque de **Subidas pendientes** en la pantalla de inicio.\n- Las subidas siguen aunque la aplicación esté en segundo plano."
+        },
+        {
+          "kind": "subsection",
+          "heading": "Pagos",
+          "body": "Los pagos se procesan fuera de la aplicación. Tus ganancias van a empezar a aparecer pronto. Sigue grabando — tus datos están seguros y tus pagos están garantizados.\n\n---"
+        }
+      ]
+    },
+    {
+      "id": "faqs",
+      "title": "Preguntas frecuentes",
+      "items": [
+        {
+          "kind": "qa",
+          "question": "¿Qué tipo de celular necesito?",
+          "answer": "Un celular con cámara trasera ultra gran angular de 1080p (≥ 110° de campo de visión), sensores de giroscopio y acelerómetro, y buen rendimiento sostenido. Hacemos una prueba de compatibilidad una sola vez al abrir la aplicación por primera vez — si tu celular la pasa, todo bien."
+        },
+        {
+          "kind": "qa",
+          "question": "¿Por qué mi celular no pasó la prueba de compatibilidad?",
+          "answer": "La prueba revisa la resolución de la cámara, el campo de visión ultra gran angular, la disponibilidad de los sensores y su tasa de muestreo sostenida, el micrófono, y si tu dispositivo está rooteado. La pantalla te muestra exactamente qué pruebas fallaron."
+        },
+        {
+          "kind": "qa",
+          "question": "¿Por qué volvió a correr la prueba en mi celular?",
+          "answer": "La prueba de compatibilidad se vuelve a correr después de cada actualización de la aplicación o del sistema operativo, y la primera vez que inicias sesión en un dispositivo nuevo. Así detectamos cambios que puedan afectar la calidad de la captura."
+        },
+        {
+          "kind": "qa",
+          "question": "¿Puedo usar el celular de otra persona para grabar?",
+          "answer": "Sí. Mientras el celular pase la prueba de compatibilidad e inicies sesión con tu propia cuenta de Google, puedes usarlo."
+        },
+        {
+          "kind": "qa",
+          "question": "¿Puedo grabar a niños?",
+          "answer": "No. Al registrarte confirmas que todas las personas que grabas tienen 18 años o más. No se permiten grabaciones de menores."
+        },
+        {
+          "kind": "qa",
+          "question": "¿Puedo grabar adentro y afuera?",
+          "answer": "Sí. Combina la tarea con el lugar — algunas tareas son naturalmente de interior (cocinar, limpiar, lavar ropa); otras funcionan en cualquiera de los dos."
+        },
+        {
+          "kind": "qa",
+          "question": "¿Por qué la aplicación necesita mi ubicación?",
+          "answer": "La ubicación aproximada nos ayuda a entender la diversidad de las grabaciones en nuestro conjunto de datos. Solo usamos ubicación aproximada — nunca GPS preciso."
+        },
+        {
+          "kind": "qa",
+          "question": "¿Cómo me pagan?",
+          "answer": "Al principio los pagos se hacen fuera de la aplicación. Tranquilo, tus contribuciones se están registrando — te avisaremos cuando los pagos empiecen a aparecer en la aplicación."
+        },
+        {
+          "kind": "qa",
+          "question": "¿Cuánto puede durar una grabación?",
+          "answer": "Mínimo 60 segundos. No hay límite máximo. Nos gustaría que grabaras las tareas todo el tiempo que puedas."
+        },
+        {
+          "kind": "qa",
+          "question": "¿Para qué sirve la grabación de práctica?",
+          "answer": "Es un recorrido único de 60 segundos para que te familiarices con el flujo de grabación. No se sube y no cuenta para tu contribución."
+        },
+        {
+          "kind": "qa",
+          "question": "¿Puedo borrar una grabación?",
+          "answer": "No. Una vez grabados, los clips quedan en tu Historial y se suben automáticamente."
+        },
+        {
+          "kind": "qa",
+          "question": "¿Puedo cancelar una subida?",
+          "answer": "No. Las subidas corren automáticamente y se reanudan después de cualquier interrupción. Puedes ver el progreso en el bloque de **Subidas pendientes** en la pantalla de inicio."
+        },
+        {
+          "kind": "qa",
+          "question": "¿Puedo ver mis grabaciones?",
+          "answer": "Sí — toca una miniatura en el Historial para reproducirla. Una vez que un clip se sube de forma segura y se borra la copia local, la miniatura se queda pero ya no se puede reproducir."
+        },
+        {
+          "kind": "qa",
+          "question": "¿La aplicación usa datos móviles?",
+          "answer": "Sí, por defecto. Las subidas funcionan tanto con Wi-Fi como con datos móviles."
+        },
+        {
+          "kind": "qa",
+          "question": "¿Por qué se detuvo mi grabación sola?",
+          "answer": "Hay varias cosas que pueden detener una grabación en pleno proceso:\n\n- El celular se salió de la posición horizontal\n- Contestaste una llamada o sonó una alarma\n- El celular se calentó demasiado\n- La batería bajó al 5% o menos\n\nLa aplicación te avisa qué pasó con un mensaje o una indicación de voz."
+        },
+        {
+          "kind": "qa",
+          "question": "¿Por qué no encuentro una grabación que acabo de hacer?",
+          "answer": "Si se detuvo antes de los 60 segundos, se descartó. Si no, revisa la pestaña de **Historial** — los clips aparecen ahí aunque las subidas todavía estén en curso."
+        },
+        {
+          "kind": "qa",
+          "question": "¿Cómo elimino mi cuenta?",
+          "answer": "Perfil → Eliminar cuenta, y escribe **DELETE** para confirmar. Tu cuenta queda desactivada por **30 días** — inicia sesión dentro de ese plazo para recuperarla. Pasados los 30 días, la eliminación es definitiva. Las grabaciones que ya se subieron se quedan en nuestros servidores."
+        },
+        {
+          "kind": "qa",
+          "question": "¿Qué pasa si desinstalo la aplicación?",
+          "answer": "Las grabaciones locales que todavía no se hayan subido se pierden. Las grabaciones que ya se subieron se quedan en nuestros servidores y tu cuenta no se ve afectada."
+        },
+        {
+          "kind": "qa",
+          "question": "Pedí una tarea nueva — ¿cuándo va a aparecer?",
+          "answer": "Las solicitudes de tareas las revisa nuestro equipo. Te responderemos lo antes posible.\n\n---"
+        }
+      ]
+    },
+    {
+      "id": "troubleshooting",
+      "title": "Solución de problemas",
+      "items": [
+        {
+          "kind": "issue",
+          "heading": "La grabación no inicia",
+          "resolution": "- _\"Phone is too warm\"_ — deja que tu celular se enfríe unos minutos. Quítale las fundas apretadas que retienen el calor.\n- La batería está por debajo del 5% — conéctalo a cargar. Podrás grabar de nuevo cuando suba por encima del 15%.\n- La detección de manos no termina de pasar — mira más abajo."
+        },
+        {
+          "kind": "issue",
+          "heading": "La detección de manos se reinicia todo el tiempo",
+          "resolution": "- Las dos manos tienen que estar visibles al mismo tiempo por unos 2 segundos.\n- Acércate a una fuente de luz — con poca luz la detección de manos falla.\n- Quítate los guantes o cualquier cosa que tape tus manos.\n- Toca **Omitir** debajo del botón de grabar para iniciar la grabación manualmente."
+        },
+        {
+          "kind": "issue",
+          "heading": "La vista previa de la cámara está en negro",
+          "resolution": "- Revisa que le hayas dado permiso a la cámara. Ajustes → Aplicaciones → Humyn Labs → Permisos.\n- Cierra cualquier otra aplicación que esté usando la cámara (videollamadas, otras aplicaciones de cámara).\n- Reinicia la aplicación."
+        },
+        {
+          "kind": "issue",
+          "heading": "La grabación se cortó a mitad de sesión",
+          "resolution": "- El celular se salió de la posición horizontal — déjalo bien fijo en horizontal sobre el arnés.\n- Contestaste una llamada o sonó una alarma — esas no se pueden bloquear.\n- El celular se sobrecalentó — déjalo enfriar e inténtalo de nuevo.\n- La batería bajó al 5% — pon a cargar antes de continuar."
+        },
+        {
+          "kind": "issue",
+          "heading": "\"Grabación demasiado corta — descartada\"",
+          "resolution": "Los clips de menos de 60 segundos no se guardan. Apunta a por lo menos un minuto por tarea."
+        },
+        {
+          "kind": "issue",
+          "heading": "Falló la prueba de compatibilidad",
+          "resolution": "La pantalla te muestra qué pruebas fallaron. La mayoría de los fallos son de hardware y no se pueden arreglar por software. Si estás usando un celular prestado, prueba con otro dispositivo que cumpla los requisitos. Asegúrate de que el celular no esté rooteado y que la aplicación se haya instalado desde la Play Store."
+        },
+        {
+          "kind": "issue",
+          "heading": "No se pudo iniciar sesión",
+          "resolution": "- Revisa tu conexión a internet.\n- La aplicación bloquea celulares rooteados, emuladores e instalaciones por fuera de la tienda. Si esa es la causa, instala desde la Play Store en un celular no rooteado.\n- Inténtalo de nuevo — a veces el inicio de sesión con Google se demora."
+        },
+        {
+          "kind": "issue",
+          "heading": "Las subidas no avanzan",
+          "resolution": "- Revisa tu conexión a internet.\n- En celulares Xiaomi, Oppo, Vivo o Samsung, a veces el sistema pausa las subidas en segundo plano. Acepta la excepción de optimización de batería cuando te lo pida, o simplemente vuelve a abrir la aplicación para que continúen.\n- Las subidas se pausan mientras estás grabando. Se reanudan cuando paras."
+        },
+        {
+          "kind": "issue",
+          "heading": "Aviso de almacenamiento en la prueba de compatibilidad",
+          "resolution": "Libera al menos 5 GB antes de grabar. Un clip de 10 minutos pesa más o menos 600 MB."
+        },
+        {
+          "kind": "issue",
+          "heading": "El celular se calienta mientras grabo",
+          "resolution": "- Es normal que se caliente un poco, pero si se sobrecalienta mucho las grabaciones se cortan antes.\n- Quítale las fundas apretadas y evita grabar bajo el sol directo.\n- Cargar mientras grabas suma calor — cuando puedas, graba solo con la batería."
+        },
+        {
+          "kind": "issue",
+          "heading": "Cambié de celular — ¿qué tengo que hacer?",
+          "resolution": "Inicia sesión con la misma cuenta de Google. La prueba de compatibilidad se va a correr otra vez en el nuevo dispositivo. Las grabaciones que ya se habían subido desde tu celular anterior se quedan en nuestros servidores; los clips locales que todavía no se habían subido están ligados a la instalación anterior y no van a aparecer en el nuevo celular."
+        },
+        {
+          "kind": "issue",
+          "heading": "Borré mi cuenta por error",
+          "resolution": "Inicia sesión con la misma cuenta de Google dentro de los 30 días. Tu cuenta, tu perfil y tu Historial se van a restaurar. Pasados los 30 días, la eliminación es definitiva.\n\n---"
+        }
+      ]
+    }
+  ],
+  "contactSupport": {
+    "headline": "¿Necesitas más ayuda?",
+    "body": "¿Sigues atascado? Toca **Contactar a soporte** abajo para escribirnos a `support@humynlabs.ai`. Cuéntanos el modelo de tu celular, qué estabas intentando hacer y más o menos cuándo te pasó — con eso normalmente nos alcanza para ayudarte."
+  }
+}

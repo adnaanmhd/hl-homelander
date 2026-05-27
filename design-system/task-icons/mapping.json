@@ -79,6 +79,34 @@
       "setting": "indoor",
       "icon": "Container"
     },
+    {
+      "id": "brewing-drip-coffee",
+      "name": "Brewing drip coffee",
+      "category": "Cooking",
+      "setting": "indoor",
+      "icon": "Coffee"
+    },
+    {
+      "id": "brewing-pod-coffee",
+      "name": "Brewing single-cup coffee (pod machine)",
+      "category": "Cooking",
+      "setting": "indoor",
+      "icon": "Bean"
+    },
+    {
+      "id": "grilling-bbq",
+      "name": "Grilling on a BBQ",
+      "category": "Cooking",
+      "setting": "outdoor",
+      "icon": "Beef"
+    },
+    {
+      "id": "baking-sheet-pan",
+      "name": "Baking on a sheet pan",
+      "category": "Cooking",
+      "setting": "indoor",
+      "icon": "Cookie"
+    },
 
     {
       "id": "washing-dishes",
@@ -90,6 +118,20 @@
     {
       "id": "drying-dishes",
       "name": "Drying or wiping dishes",
+      "category": "Dishwashing",
+      "setting": "indoor",
+      "icon": "Sparkles"
+    },
+    {
+      "id": "loading-dishwasher",
+      "name": "Loading a dishwasher",
+      "category": "Dishwashing",
+      "setting": "indoor",
+      "icon": "Soup"
+    },
+    {
+      "id": "unloading-dishwasher",
+      "name": "Unloading a dishwasher",
       "category": "Dishwashing",
       "setting": "indoor",
       "icon": "Sparkles"
@@ -136,6 +178,13 @@
       "category": "Kitchen",
       "setting": "indoor",
       "icon": "ShoppingBasket"
+    },
+    {
+      "id": "using-garbage-disposal",
+      "name": "Using a garbage disposal",
+      "category": "Kitchen",
+      "setting": "indoor",
+      "icon": "Cog"
     },
 
     {
@@ -222,6 +271,20 @@
       "setting": "outdoor",
       "icon": "Leaf"
     },
+    {
+      "id": "sorting-recyclables",
+      "name": "Sorting recyclables",
+      "category": "Cleaning",
+      "setting": "indoor",
+      "icon": "Recycle"
+    },
+    {
+      "id": "shoveling-snow",
+      "name": "Shoveling snow",
+      "category": "Cleaning",
+      "setting": "outdoor",
+      "icon": "Snowflake"
+    },
 
     {
       "id": "organizing-desk",
@@ -250,6 +313,13 @@
       "category": "Tidying",
       "setting": "indoor",
       "icon": "Bed"
+    },
+    {
+      "id": "making-bed",
+      "name": "Making a bed",
+      "category": "Tidying",
+      "setting": "indoor",
+      "icon": "BedSingle"
     },
 
     {
@@ -308,6 +378,27 @@
       "setting": "indoor",
       "icon": "Archive"
     },
+    {
+      "id": "loading-dryer",
+      "name": "Loading or unloading clothes dryer",
+      "category": "Laundry",
+      "setting": "indoor",
+      "icon": "RotateCw"
+    },
+    {
+      "id": "cleaning-lint-trap",
+      "name": "Cleaning the dryer lint trap",
+      "category": "Laundry",
+      "setting": "indoor",
+      "icon": "Filter"
+    },
+    {
+      "id": "folding-fitted-sheet",
+      "name": "Folding a fitted sheet",
+      "category": "Laundry",
+      "setting": "indoor",
+      "icon": "RectangleHorizontal"
+    },
 
     {
       "id": "watering-plants",
@@ -365,6 +456,20 @@
       "setting": "outdoor",
       "icon": "Cable"
     },
+    {
+      "id": "bagging-leaves",
+      "name": "Bagging leaves",
+      "category": "Gardening",
+      "setting": "outdoor",
+      "icon": "Package"
+    },
+    {
+      "id": "pulling-weeds",
+      "name": "Pulling weeds by hand",
+      "category": "Gardening",
+      "setting": "outdoor",
+      "icon": "Grab"
+    },
 
     {
       "id": "filling-feeding-bowl",
@@ -415,6 +520,20 @@
       "setting": "outdoor",
       "icon": "Dog"
     },
+    {
+      "id": "filling-bird-feeder",
+      "name": "Filling a bird feeder",
+      "category": "Pet Care",
+      "setting": "outdoor",
+      "icon": "Bird"
+    },
+    {
+      "id": "picking-up-after-dog",
+      "name": "Picking up after a dog",
+      "category": "Pet Care",
+      "setting": "outdoor",
+      "icon": "Footprints"
+    },
 
     {
       "id": "assembling-furniture",
@@ -451,6 +570,27 @@
       "setting": "outdoor",
       "icon": "Car"
     },
+    {
+      "id": "replacing-air-filter",
+      "name": "Replacing an air filter",
+      "category": "Home Maintenance",
+      "setting": "indoor",
+      "icon": "AirVent"
+    },
+    {
+      "id": "replacing-smoke-detector-battery",
+      "name": "Replacing a smoke detector battery",
+      "category": "Home Maintenance",
+      "setting": "indoor",
+      "icon": "Battery"
+    },
+    {
+      "id": "changing-light-bulb",
+      "name": "Changing a light bulb",
+      "category": "Home Maintenance",
+      "setting": "indoor",
+      "icon": "Lightbulb"
+    },
 
     {
       "id": "sewing",
@@ -479,6 +619,13 @@
       "category": "Hobby",
       "setting": "indoor",
       "icon": "Gift"
+    },
+    {
+      "id": "hanging-string-lights",
+      "name": "Hanging holiday string lights",
+      "category": "Hobby",
+      "setting": "outdoor",
+      "icon": "PartyPopper"
     }
   ]
 }

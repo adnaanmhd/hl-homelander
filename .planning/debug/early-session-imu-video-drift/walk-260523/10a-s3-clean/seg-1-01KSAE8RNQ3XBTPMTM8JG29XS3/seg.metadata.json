@@ -1,0 +1,104 @@
+{
+  "schema_version": "1.2.0",
+  "recording_id": "01KSAE8RNQ3XBTPMTM8JG29XS3",
+  "contributor_info": {
+    "name": "Adnaan Mohammed",
+    "email": "adnaan@kgen.io",
+    "age": null,
+    "gender": null,
+    "consent": true
+  },
+  "task_info": {
+    "task_id": "01KS72XRB4HZD2X325ZVT3CTYJ",
+    "task_name": "Unpacking or sorting groceries",
+    "task_category": "Kitchen",
+    "environment": "residential",
+    "setting": "indoor",
+    "time_of_day": "day"
+  },
+  "capture_device_info": {
+    "type": "phone",
+    "model": "Pixel 10a",
+    "os": "android",
+    "os_version": "16",
+    "app_version": "0.1.0-apk",
+    "dfov_degrees": 115.41429901123047,
+    "ip_address": null,
+    "location": null
+  },
+  "metadata": {
+    "footage_type": "egocentric_head",
+    "filename": "01KSAE8RNQ3XBTPMTM8JG29XS3_20260523_182154_003.mp4",
+    "file_size_bytes": 573062566,
+    "file_sha256": "d5142b3fdfc3a5203e54196b089e1a60d7a4c1d6e5737ab83f4a940acc23ec0f",
+    "imu_filename": "01KSAE8RNQ3XBTPMTM8JG29XS3_20260523_182154_003.csv",
+    "imu_size_bytes": 27712435,
+    "imu_sha256": "c606c292f57c6e80a70edd30f4eeaa83f5c041779e11a70e3915767cd4dfe1dd",
+    "imu_gyro_rate_hz": 416,
+    "imu_accel_rate_hz": 416,
+    "imu_video_drift_max_ms": 0.8909020625,
+    "imu_video_drift_mean_ms": 0.519592257055775,
+    "imu_video_drift_p99_ms": 0.5495355625,
+    "imu_min_rate_hz_observed_p1": 798,
+    "audio_sample_rate_hz": null,
+    "audio_codec": null,
+    "audio_bitrate_bps": null,
+    "audio_channels": null,
+    "start_timestamp": "2026-05-23T18:21:54.169227+05:30",
+    "end_timestamp": "2026-05-23T18:31:56.004466+05:30",
+    "imu_start_timestamp": "2026-05-23T18:21:54.169227+05:30",
+    "imu_end_timestamp": "2026-05-23T18:31:56.004466+05:30",
+    "container_format": "mp4",
+    "duration_seconds": 600.600031096,
+    "orientation": "landscape_left",
+    "resolution": "1920x1080",
+    "fps": 29.737033556921297,
+    "video_codec": "hevc",
+    "video_profile": "main",
+    "bitrate_bps": 8000000,
+    "bitrate_source": "configured",
+    "bitrate_mode": "cbr",
+    "gop": 30,
+    "color_depth_bits": 8,
+    "color_space": "bt709",
+    "hdr": false,
+    "b_frames": false,
+    "image_stabilization": false,
+    "start_gate": {
+      "type": "hand_detection",
+      "passed": false,
+      "skipped": true,
+      "bypassed": false,
+      "duration_ms": 2074,
+      "consecutive_hits_required": 2,
+      "platform_cadence_ms": 250
+    }
+  },
+  "calibration": {
+    "camera": {
+      "model": "pinhole",
+      "resolution": [4208, 3120],
+      "params": {
+        "fx": 1643.843505859375,
+        "fy": 1643.843505859375,
+        "cx": 2103.2646484375,
+        "cy": 1552.5687255859375,
+        "skew": 0
+      },
+      "distortion_coeffs": [
+        0.02099538967013359, -0.03029988519847393, 0.013103961013257504, 5.622192402370274e-4,
+        2.2985076066106558e-4
+      ],
+      "intrinsics_source": "camera2"
+    },
+    "cam_imu_extrinsics": {
+      "T_cam_imu": null,
+      "T_imu_cam": null,
+      "T_cam_imu_translation_mm": null,
+      "timeshift_cam_imu_sec": 0,
+      "timeshift_meaning": "t_imu = t_cam + timeshift",
+      "clock_sync_note": "camera + imu share the boottime (elapsedRealtimeNanos) clock",
+      "extrinsics_source": "camera2_no_imu_reference"
+    }
+  }
+}

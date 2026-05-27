@@ -26,6 +26,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Image, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const ORANGE_LOGO = require('../../assets/logos/orange_logo.png');
 
@@ -54,6 +55,7 @@ interface NavigationLike {
 
 export default function SplashScreen() {
   const navigation = useNavigation() as unknown as NavigationLike;
+  const { t } = useTranslation();
 
   const logoScale = useRef(new Animated.Value(0.6)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
@@ -188,9 +190,9 @@ export default function SplashScreen() {
         <View style={{ height: spacing.l }} />
         <Animated.View style={{ opacity: taglineOpacity }}>
           <Text variant="caption" tone="primary" accessibilityLabel="splash tagline">
-            Real Humyns.{' '}
+            {t('splash.taglinePrefix')}
             <Text variant="caption" style={{ color: colors.accent }}>
-              Real Intelligence.
+              {t('splash.taglineAccent')}
             </Text>
           </Text>
         </Animated.View>

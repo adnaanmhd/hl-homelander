@@ -68,3 +68,16 @@ models/
 
 # DSR access/portability export bundles (ops CLI output; per-user PII — never commit)
 apps/api/dsr-exports/
+
+# Phase 7: tools workspace secrets — never commit
+tools/.env
+tools/node_modules/
+
+# Hardware walk artifacts (driven by WALK.md). Screencaps, logcat slices, recording
+# clips, and intermediate logs stay local. Only the curated REPORT.md per walk is
+# tracked. Git can't re-include children of a fully-ignored parent, so we ignore
+# walks/**/ (files) and explicitly un-ignore the dirs + REPORT.md.
+/walks/**
+!/walks/
+!/walks/*/
+!/walks/*/REPORT.md

@@ -74,7 +74,10 @@ export function TaskIcon({
     }
     return null;
   }
-  return <Icon size={size} strokeWidth={strokeWidth} color={color} />;
+  // Spread `color` conditionally: with `exactOptionalPropertyTypes: true` we
+  // can't pass `color={undefined}` to an optional `color?: string` prop, and
+  // the doc above intentionally lets `undefined` mean "inherit currentColor".
+  return <Icon size={size} strokeWidth={strokeWidth} {...(color !== undefined ? { color } : {})} />;
 }
 
 export default TaskIcon;

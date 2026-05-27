@@ -87,7 +87,7 @@ recordings/`).
   handling, no upload-pause coordination beyond emitting
   `onSessionStart` / `onSessionStop`. All **Phase 5**.
 - No iOS analogue (`AVCaptureSession` + `AVAssetWriter` +
-  `CMMotionManager` + `AVAudioRecorder`). **Phase 7**.
+  `CMMotionManager` + `AVAudioRecorder`). **Phase 8**.
 - No debug "Capture Test" RN screen. The 10-min real-device
   verification is deferred to Phase 4's smoke walk against the real
   `RecordingScreen`. Phase 3 acceptance is module-ready + unit tests
@@ -491,7 +491,7 @@ and unconditionally apply:
   Phase 5.
 - **SHA-256 of MP4 + CSV at finalize**, stamped into metadata JSON
   as `file_sha256` / `imu_sha256` (CAP-15).
-- **iOS deferred to Phase 7.** Phase 3 is Android-only.
+- **iOS deferred to Phase 8.** Phase 3 is Android-only.
 - **Phase 4 owns** recording-surface UX, hand-detection gate, §10
   lifecycle edges, practice-recording flow. Phase 3 ships the
   bytes-on-disk module + JS bridge contract.
@@ -984,7 +984,7 @@ Areas where the user did not specify and the planner has flexibility:
 - **Upload pipeline (UP-01..19)** — Phase 5. Phase 3 emits the
   artefact triple + the FGS seam; Phase 5 wires uploads.
 - **Hash-verify worker + IMU-liveness backend check** — Phase 5.
-- **iOS analogue (`HumynCapture` Swift)** — Phase 7.
+- **iOS analogue (`HumynCapture` Swift)** — Phase 8.
 - **TTS voice line wiring for thermal abort** — Phase 4. Phase 3
   emits `onThermalAbort`; Phase 4 fires the voice cue.
 - **Battery alert + low-battery refuse + ≤5% segment-end** —
@@ -995,7 +995,7 @@ Areas where the user did not specify and the planner has flexibility:
   but the prevention path is Phase 4.
 - **Tasks browsing / Home tiles / History list / Player** — Phase 6.
   Phase 3 metadata JSON is the input to Phase 6's History row.
-- **Observability / iOS parity / staged rollout** — Phase 7.
+- **Observability / iOS parity / staged rollout** — Phase 8.
 - **Wave 1 plan layout** — one bundled plan vs split, snapshot-test
   framework choice, navigator-changing-items grouping. Deferred
   to plan-phase against the frozen `02-COSMETIC-GAPS.md`.

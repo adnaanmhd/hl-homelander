@@ -32,6 +32,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { Text } from '../../ui/primitives/Text';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
 import { colors, spacing } from '../../ui/tokens';
@@ -146,6 +147,7 @@ function deriveRowStates(
 export default function CompatRunningScreen() {
   const navigation = useNavigation<NavigationLike>();
   const setCompatResult = useAppStore((s) => s.setCompatResult);
+  const { t } = useTranslation();
 
   const [percent, setPercent] = useState(PERCENT_INITIAL);
   const [rowStates, setRowStates] = useState<Record<DisplayRowKey, RowState>>(initialRowStates);
@@ -266,11 +268,30 @@ export default function CompatRunningScreen() {
       <View style={styles.ringWrap}>
         <CompatRing percent={percent} />
       </View>
-      <Text variant="compatTitle" style={styles.title}>
-        Checking your phone
+      {/* Plan 07-17 re-walk 2026-05-27 (Bug C-1): the title + subtitle here
+          are full headers — the prior `alignSelf: 'center'` made them
+          content-hug horizontally so the hi-IN value
+          "आपका फ़ोन जाँच रहे हैं" clipped the trailing `हैं`. Now the Text
+          stretches across the screen and `adjustsFontSizeToFit` can shrink
+          if the string is too long at the variant's base size. */}
+      <Text
+        variant="compatTitle"
+        style={styles.title}
+        numberOfLines={2}
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
+      >
+        {t('compat.running.title')}
       </Text>
-      <Text variant="caption" tone="secondary" style={styles.sub}>
-        Takes around 30 secs
+      <Text
+        variant="caption"
+        tone="secondary"
+        style={styles.sub}
+        numberOfLines={2}
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
+      >
+        {t('compat.running.subtitle')}
       </Text>
       <View style={styles.checks}>
         {DISPLAY_ROWS.map((row) => (
@@ -280,8 +301,18 @@ export default function CompatRunningScreen() {
                 {glyphFor(rowStates[row.key])}
               </Text>
             </View>
-            <Text variant="body" style={styles.label}>
-              {row.label}
+            {/* G-14 (Plan 07-16): allow long localized labels to wrap to 2 lines
+                + auto-shrink so Devanagari / Bengali / Tamil / Telugu / Marathi
+                strings ("सेंसर का सही ढंग से काम करना") render complete instead
+                of being truncated at the right edge. */}
+            <Text
+              variant="body"
+              style={styles.label}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+            >
+              {t(row.labelKey)}
             </Text>
           </View>
         ))}
@@ -292,8 +323,11 @@ export default function CompatRunningScreen() {
 
 const styles = StyleSheet.create({
   ringWrap: { alignItems: 'center', marginTop: spacing.hh },
-  title: { marginTop: spacing.xxxl, alignSelf: 'center' },
-  sub: { marginTop: spacing.s, alignSelf: 'center' },
+  // Plan 07-17 re-walk 2026-05-27 — was `alignSelf: 'center'` which
+  // content-hugs the Text and defeats shrink-to-fit; now stretches across
+  // the screen so the title/subtitle can wrap + auto-shrink.
+  title: { marginTop: spacing.xxxl, alignSelf: 'stretch', textAlign: 'center' },
+  sub: { marginTop: spacing.s, alignSelf: 'stretch', textAlign: 'center' },
   checks: { marginTop: spacing.xxxl, alignSelf: 'stretch' },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.s },
   indicator: {
@@ -305,5 +339,8 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
   },
   indicatorGlyph: { color: colors.surface },
-  label: { color: colors.text },
+  // G-14 (Plan 07-16): `flex: 1` + `flexShrink: 1` lets long Devanagari labels
+  // claim the full row width minus the 22 px indicator + 14 px gutter, so the
+  // text can wrap to 2 lines instead of overflowing the row's right edge.
+  label: { color: colors.text, flex: 1, flexShrink: 1 },
 });

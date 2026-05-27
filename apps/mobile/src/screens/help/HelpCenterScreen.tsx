@@ -27,6 +27,7 @@
  */
 import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet, Linking } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Text } from '../../ui/primitives/Text';
 import { Button } from '../../ui/primitives/Button';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
@@ -34,7 +35,7 @@ import { spacing } from '../../ui/tokens';
 import { AccordionItem } from '../../components/AccordionItem';
 import { ReportProblemSheet } from '../../components/ReportProblemSheet';
 import { Markdown } from './markdown';
-import content from './content.json';
+import { loadHelpContent } from './contentLoader';
 
 // Plan 03-02 — OQ-1 resolved: support email is `support@humynlabs.ai`
 // (02-OPEN-QUESTIONS.md OQ-1 resolution path). Constant name kept for
@@ -52,10 +53,14 @@ type AccordionContent = {
   items: AccordionItemPayload[];
 };
 
-const ACCORDIONS: AccordionContent[] = (content as { accordions: AccordionContent[] }).accordions;
-
 export function HelpCenterScreen(): React.JSX.Element {
   const [reportOpen, setReportOpen] = useState(false);
+  const { t, i18n } = useTranslation();
+  // plan 07-13 (G-10): per-locale Help Center body. Falls back to en for
+  // unknown locales or when a sibling content.{loc}.json is still a stub
+  // (accordions: []).
+  const content = loadHelpContent(i18n.language);
+  const ACCORDIONS: AccordionContent[] = (content as { accordions: AccordionContent[] }).accordions;
 
   return (
     <ScreenContainer accessibilityLabel="help-center-screen" padding={0}>
@@ -74,7 +79,7 @@ export function HelpCenterScreen(): React.JSX.Element {
           <Button
             variant="primary"
             accessibilityLabel="help-contact-support-mailto"
-            label="Contact Support"
+            label={t('help.contactSupport')}
             onPress={() =>
               Linking.openURL(
                 `mailto:${SUPPORT_EMAIL_PLACEHOLDER}?subject=${encodeURIComponent(
@@ -89,7 +94,7 @@ export function HelpCenterScreen(): React.JSX.Element {
           <Button
             variant="outline"
             accessibilityLabel="help-report-problem"
-            label="Report a problem"
+            label={t('help.reportProblem')}
             onPress={() => setReportOpen(true)}
           />
         </View>

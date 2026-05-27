@@ -1,20 +1,33 @@
 /**
- * @doc SignupScreen — Phase 2 plan 02-09 implementation of design-spec §2.
+ * @doc SignupScreen — Phase 2 plan 02-09 implementation of design-spec §2;
+ * quick task 260527-hkl — consent UX hardening.
  *
  * Layout (top→bottom): logo + tagline + 3-line pitch (top block); Continue-
- * with-Google CTA + consent row + Terms-of-Use link (bottom block). Tapping
- * the CTA with consent UNchecked fires an Alert; with consent checked, runs
- * the Phase 1 signInWithGoogle() handshake, persists the JWT + consent stamp,
- * and replaces the navigator with 'Permissions'.
+ * with-Google CTA + consent row (bottom block).
+ *
+ * Quick task 260527-hkl (2026-05-27) — consent UX:
+ *   - The Terms-of-Use modal AUTO-OPENS the first time SignupScreen mounts
+ *     when the local MMKV consent record is missing OR carries a stale
+ *     `consentVersion` (FNV-1a hash of TERMS_OF_USE_TEXT). A bump of the
+ *     canonical text changes the hash and re-prompts every user.
+ *   - The modal is non-dismissable (no X, outside-tap no-op, Android back
+ *     blocked); the ONLY exit is the modal's scroll-gated Agree button.
+ *   - On Agree the screen persists `{ acceptedAt, consentVersion }` to MMKV
+ *     via `setConsent` — NOT on sign-in. The server still stamps consent_log
+ *     unconditionally on /auth/google sign-in (Phase 1 LEGAL-02), so no
+ *     client payload change is needed.
+ *   - The Continue-with-Google CTA is DISABLED until the local consent
+ *     record exists AND matches the current CONSENT_VERSION.
+ *   - The consent-row checkbox is a READ-ONLY indicator once consent is
+ *     persisted; tapping it before consent re-opens the modal. The Terms-of-
+ *     Use sub-link is now plain text (no longer pressable) — the modal is
+ *     the entry point.
  *
  * AUTH-01..05 + AUTH-08 (logout helper exported from auth.ts is consumed by
  * plan 02-18). Wraps Phase 1 signInWithGoogle without modifying it.
  *
- * Logo: at MVP we use the wordmark stub ("Humyn Labs" Text node) to keep the
- * accessibilityLabel "Humyn Labs logo" stable for tests + a11y. The real
- * brand SVG lands in plan 02-15 (TopBar already does the same — design hands
- * the SVG late). The 02-21 manual-smoke runbook re-checks the rendered logo
- * against the design-spec §2 reference shot.
+ * Logo: at MVP we use the wordmark image (the brand SVG land late). The
+ * accessibilityLabel "Humyn Labs logo" stays stable for tests + a11y.
  *
  * Consent versioning: the canonical consent text is exported by
  * TermsOfUseModal as TERMS_OF_USE_TEXT. Phase 1 plan 01-11 ships the
@@ -24,9 +37,11 @@
  * flagged in the audit log (server canonical hash is the legal source of
  * truth; client hash is bookkeeping).
  */
-import React, { useCallback, useState } from 'react';
-import { Alert, Image, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Image, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
+import i18nDefault from '../../i18n';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const ORANGE_LOGO = require('../../assets/logos/orange_logo.png');
@@ -45,9 +60,9 @@ interface NavigationLike {
 }
 
 /**
- * FNV-1a 32-bit hash of TERMS_OF_USE_TEXT — Phase 2 client-side bookkeeping
- * stamp. The server-side canonical SHA-256 (Phase 1 D-LEGAL-03) is the
- * authoritative legal hash; this stamp is for local audit-trail only.
+ * FNV-1a 32-bit hash of TERMS_OF_USE_TEXT — client-side bookkeeping stamp.
+ * The server-side canonical SHA-256 (Phase 1 D-LEGAL-03) is the authoritative
+ * legal hash; this stamp is for local audit-trail only.
  */
 function consentVersionFromText(text: string): string {
   let h = 2166136261;
@@ -65,17 +80,38 @@ export default function SignupScreen() {
   const setJwt = useAppStore((s) => s.setJwt);
   const setConsent = useAppStore((s) => s.setConsent);
   const setUser = useAppStore((s) => s.setUser);
+  const consentRecord = useAppStore((s) => s.consent);
+  const { t } = useTranslation();
+  const isEnglish = i18nDefault.language === 'en';
 
-  const [consent, setConsentChecked] = useState(true);
+  // Derived: is consent persisted at the CURRENT canonical text version?
+  const consentPersisted =
+    consentRecord !== null && consentRecord.consentVersion === CONSENT_VERSION;
+
+  // Modal visibility — initialized on mount from the consent slice; later
+  // store updates do NOT re-open the modal automatically (the Agree handler
+  // closes it explicitly, and the checkbox re-opens it on user gesture
+  // before consent is persisted).
   const [termsOpen, setTermsOpen] = useState(false);
+  // Mount-only: read consentPersisted ONCE on mount; later store updates do
+  // NOT re-open the modal automatically. `useEffect(..., [])` is intentional
+  // here — quick-260527-hkl plan Task 2 calls this out explicitly. Reading
+  // `useAppStore.getState()` inside the effect avoids the linter dep-cycle
+  // entirely (no `consentPersisted` reference inside the closure).
+  useEffect(() => {
+    const initial = useAppStore.getState().consent;
+    const persistedAtMount = initial !== null && initial.consentVersion === CONSENT_VERSION;
+    if (!persistedAtMount) setTermsOpen(true);
+  }, []);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSignIn = useCallback(async () => {
-    if (!consent) {
-      Alert.alert('Please accept the Terms of Use to continue.');
-      return;
-    }
+    // Defense in depth — the CTA's `disabled` prop is the primary gate, but
+    // if a stale Pressable click slips through (race during state flush)
+    // we still short-circuit to avoid signing in without consent.
+    if (!consentPersisted) return;
     setLoading(true);
     setError(null);
     logEvent('signup_google_started');
@@ -88,10 +124,8 @@ export default function SignupScreen() {
         name: coalesceDisplayName(result.user.name, result.user.email),
         avatarUrl: result.user.avatarUrl,
       });
-      setConsent({
-        acceptedAt: new Date().toISOString(),
-        consentVersion: CONSENT_VERSION,
-      });
+      // Consent is persisted by the modal's Agree handler (NOT here). The
+      // server still stamps consent_log on /auth/google unconditionally.
       logEvent('signup_google_completed');
       navigation.replace('Permissions');
     } catch (err) {
@@ -101,25 +135,25 @@ export default function SignupScreen() {
     } finally {
       setLoading(false);
     }
-  }, [consent, navigation, setConsent, setJwt, setUser]);
+  }, [consentPersisted, navigation, setJwt, setUser]);
 
-  const toggleConsent = useCallback(() => {
-    setConsentChecked((prev) => {
-      const next = !prev;
-      // Analytics — the value reflects the NEW state (post-toggle).
-      logEvent('signup_consent_checked', { value: next ? 'true' : 'false' });
-      return next;
+  const handleAgree = useCallback(() => {
+    setConsent({
+      acceptedAt: new Date().toISOString(),
+      consentVersion: CONSENT_VERSION,
     });
-  }, []);
-
-  const openTerms = useCallback(() => {
-    setTermsOpen(true);
-    logEvent('signup_terms_opened');
-  }, []);
-
-  const closeTerms = useCallback(() => {
     setTermsOpen(false);
-  }, []);
+    logEvent('consent_agreed', { consent_version: CONSENT_VERSION });
+  }, [setConsent]);
+
+  // Checkbox press: BEFORE consent re-opens the modal; AFTER consent the
+  // checkbox is a read-only "✓" indicator — tap is a no-op.
+  const handleCheckboxPress = useCallback(() => {
+    if (!consentPersisted) {
+      setTermsOpen(true);
+      logEvent('signup_terms_opened');
+    }
+  }, [consentPersisted]);
 
   return (
     <ScreenContainer accessibilityLabel="Signup screen" style={styles.container}>
@@ -142,26 +176,19 @@ export default function SignupScreen() {
           style={styles.tagline}
           accessibilityLabel="signup tagline"
         >
-          Real Humyns. Real Intelligence.
+          {t('signup.tagline')}
         </Text>
         <View style={{ height: spacing.hh }} />
-        {/* Plan 03-02 — three value-prop lines render as ONE cohesive block,
-            not three independent paragraphs. `gap: spacing.xs` (4 px between
-            siblings) plus the variant's own line-height (32 px) gives the
-            trio the right amount of breathing without losing the unity. The
-            previous `marginVertical: spacing.xs` on each line doubled the
-            inter-line gap (4 px top + 4 px bottom + 32 px line-height) so
-            the trio read as separate paragraphs (02-COSMETIC-GAPS.md
-            "Reduce vertical spacing between the three value-prop lines"). */}
+        {/* Plan 03-02 — three value-prop lines render as ONE cohesive block. */}
         <View style={styles.valueProps}>
           <Text variant="pitch" tone="primary" style={styles.pitchLine}>
-            Record real moments.
+            {t('signup.pitchLine1')}
           </Text>
           <Text variant="pitch" tone="primary" style={styles.pitchLine}>
-            Train real intelligence.
+            {t('signup.pitchLine2')}
           </Text>
           <Text variant="pitch" style={[styles.pitchLine, { color: colors.accent }]}>
-            Get paid
+            {t('signup.pitchLine3')}
           </Text>
         </View>
       </View>
@@ -169,17 +196,16 @@ export default function SignupScreen() {
       <View style={styles.bottom}>
         {/* Plan 03-02 — CTA stacks immediately under the centered content
             block; alignSelf:'center' + paddingHorizontal makes the
-            button content-driven width (~280-300 dp) instead of full
-            bleed (02-COSMETIC-GAPS.md "CTA position: immediately below
-            content, NOT pinned to the bottom" + "CTA width: adaptive,
-            NOT full-width"). */}
+            button content-driven width (~280-300 dp). Quick 260527-hkl —
+            CTA is disabled until the local consent record matches the
+            current CONSENT_VERSION. */}
         <View style={styles.ctaWrap}>
           <Button
             variant="primary"
-            label={loading ? 'Signing in…' : 'Continue with Google'}
+            label={loading ? t('common.signingIn') : t('signup.ctaSignIn')}
             accessibilityLabel="Continue with Google"
             onPress={handleSignIn}
-            disabled={loading}
+            disabled={loading || !consentPersisted}
           />
         </View>
 
@@ -187,11 +213,11 @@ export default function SignupScreen() {
           <Pressable
             accessibilityRole="checkbox"
             accessibilityLabel="Accept Terms of Use checkbox"
-            accessibilityState={{ checked: consent }}
-            onPress={toggleConsent}
-            style={[styles.checkbox, consent ? styles.checkboxChecked : null]}
+            accessibilityState={{ checked: consentPersisted, disabled: consentPersisted }}
+            onPress={handleCheckboxPress}
+            style={[styles.checkbox, consentPersisted ? styles.checkboxChecked : null]}
           >
-            {consent ? (
+            {consentPersisted ? (
               <Text
                 variant="caption"
                 accessibilityLabel="checkbox checked indicator"
@@ -205,23 +231,43 @@ export default function SignupScreen() {
               </Text>
             ) : null}
           </Pressable>
-          <Text
-            variant="caption"
-            tone="primary"
-            style={{ marginLeft: spacing.m }}
-            accessibilityLabel="Consent label"
-          >
-            I have read and agree to the{' '}
+          {/* Plan 07-14 (COSMETIC-01) — consent paragraph + (formerly Terms-
+              link) line center-aligned. Quick 260527-hkl — the Terms-of-Use
+              sub-link is no longer pressable (modal auto-opens; the link
+              path is dead). Render it as plain text so the design + bilingual
+              underlay are preserved. The bilingual D-32 underlay block
+              (non-en locales) keeps the same centering across both the
+              translated text on top AND the English underlay below. */}
+          <View style={{ marginLeft: spacing.m, flexShrink: 1 }}>
             <Text
               variant="caption"
-              accessibilityRole="link"
-              accessibilityLabel="Terms of Use link"
-              onPress={openTerms}
-              style={{ color: colors.accent, textDecorationLine: 'underline' }}
+              tone="primary"
+              accessibilityLabel="Consent label"
+              style={{ textAlign: 'center' }}
             >
-              Terms of Use
+              {t('signup.consentLabelPrefix')}
+              <Text variant="caption" accessibilityLabel="Terms of Use text">
+                {t('signup.consentLink')}
+              </Text>
             </Text>
-          </Text>
+            {!isEnglish ? (
+              <Text
+                variant="caption"
+                tone="secondary"
+                accessibilityLabel="Consent label English underlay"
+                style={{ opacity: 0.7, marginTop: spacing.xs, textAlign: 'center' }}
+              >
+                {i18nDefault.getFixedT('en')('signup.consentLabelPrefix')}
+                <Text
+                  variant="caption"
+                  style={{ opacity: 0.7 }}
+                  accessibilityLabel="Terms of Use text English underlay"
+                >
+                  {i18nDefault.getFixedT('en')('signup.consentLink')}
+                </Text>
+              </Text>
+            ) : null}
+          </View>
         </View>
 
         {error ? (
@@ -235,19 +281,12 @@ export default function SignupScreen() {
         ) : null}
       </View>
 
-      <TermsOfUseModal visible={termsOpen} onClose={closeTerms} />
+      <TermsOfUseModal visible={termsOpen} onAgree={handleAgree} />
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  // Plan 03-02 — drop the `space-between` body layout. The screen now
-  // renders ONE vertically-centered group: logo + tagline + value-props
-  // (top) directly above CTA + consent + error (bottom). No flex spacer
-  // pushes the CTA to the bottom of the screen (02-COSMETIC-GAPS.md
-  // "CTA position: immediately below content, NOT pinned to the
-  // bottom"). The container uses `justifyContent: 'center'` so the
-  // whole group sits as one centered group.
   container: {
     paddingTop: 60,
     paddingHorizontal: 28,
@@ -265,9 +304,6 @@ const styles = StyleSheet.create({
   tagline: {
     textAlign: 'center',
   },
-  // Plan 03-02 — drop the per-line marginVertical; the parent
-  // `valueProps` container's `gap: spacing.xs` provides the inter-line
-  // spacing (4 px between siblings, no double-stacking).
   pitchLine: {
     textAlign: 'center',
   },
@@ -279,11 +315,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
     gap: spacing.l,
   },
-  // Plan 03-02 — CTA wrapper centers the button at content-driven width.
-  // alignSelf:'center' bounds the wrapper to its child's natural size;
-  // the Button primitive picks up its own paddingHorizontal so the final
-  // visual width is ~280-300 dp on a Pixel-class device (Google logo +
-  // label + horizontal padding) instead of the previous full-bleed.
   ctaWrap: {
     alignSelf: 'center',
   },

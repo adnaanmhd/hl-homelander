@@ -1,0 +1,2877 @@
+[
+  {
+    "recordingId": "01KRX4D8ZKE5NRRG7MG9N5JFJ9",
+    "ownerUserId": "01KRX3WTZ4S2SJCVVGFFRXNRVR",
+    "mp4Path": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_141928_001.mp4",
+    "csvPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_141928_001.csv",
+    "jsonPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_141928_001.json",
+    "taskId": "01KRX2VM2TA5KN3MNNRTSXBAVY",
+    "isPractice": false,
+    "state": "AWAITING_VERIFY",
+    "uploadId": "sNB6CQyKmhlyIA78VZlu8Vu647HepgfrGiO-zrhiEhxASIwPiMWdhLN2MU-EWhoGJxGeYbX8xLdp7AigsZ9FGyfEEXnBm1_5MKUhP4cd6Y48so9tnvIxf70F_aAxuoTi",
+    "imuUploadId": "DzW52sfSqVj7JlVZk5LWj1pAzBG6vTDNWPp3HnyI8Zy4z89te1LBIcbuy-hiTgqNmysG-nHj09UUU1jmOsbvs2LdMlgUEBokOEItzbZqlg5il-QCmP99Fomx2sWVXHUM",
+    "partsCount": 70,
+    "chunkBytes": 8388608,
+    "videoParts": [
+      { "n": 1, "status": "DONE", "etag": "\"89ccc9d24bd8161dd9b456ecffd7a9d8\"", "retryCount": 1 },
+      { "n": 2, "status": "DONE", "etag": "\"1f5c93ee12107a50abeb1ab4d00e8464\"", "retryCount": 1 },
+      { "n": 3, "status": "DONE", "etag": "\"f26a78b11dc2f7b23140039bbb7178da\"", "retryCount": 1 },
+      { "n": 4, "status": "DONE", "etag": "\"bb452ccb3bb3df2991a88380ee27d963\"", "retryCount": 1 },
+      { "n": 5, "status": "DONE", "etag": "\"322cdfc79c9ef96460a0857753cd31ef\"", "retryCount": 1 },
+      { "n": 6, "status": "DONE", "etag": "\"f34efe2e80dcdb1be8a17eb177319293\"", "retryCount": 1 },
+      { "n": 7, "status": "DONE", "etag": "\"a5e7493d0ec8be9ae13c26b478325096\"", "retryCount": 1 },
+      { "n": 8, "status": "DONE", "etag": "\"0811bd3c5322d40284550fff38a39358\"", "retryCount": 1 },
+      { "n": 9, "status": "DONE", "etag": "\"c1669020177c66ab98e8186d08517206\"", "retryCount": 1 },
+      {
+        "n": 10,
+        "status": "DONE",
+        "etag": "\"c38ec74d66e495a18b2646ac45eb3f84\"",
+        "retryCount": 1
+      },
+      {
+        "n": 11,
+        "status": "DONE",
+        "etag": "\"c8620fd6382513d4c9bf4ca14265d2f2\"",
+        "retryCount": 1
+      },
+      {
+        "n": 12,
+        "status": "DONE",
+        "etag": "\"5f88951793084206e1770b9e53531b9c\"",
+        "retryCount": 1
+      },
+      {
+        "n": 13,
+        "status": "DONE",
+        "etag": "\"09cb06e8f02cdfe2f95a3f1edceaba28\"",
+        "retryCount": 1
+      },
+      {
+        "n": 14,
+        "status": "DONE",
+        "etag": "\"d602d4be24dd126c7758b473dbcabae9\"",
+        "retryCount": 1
+      },
+      {
+        "n": 15,
+        "status": "DONE",
+        "etag": "\"0d5adf50dd315dcc88a5123e0626edcf\"",
+        "retryCount": 1
+      },
+      {
+        "n": 16,
+        "status": "DONE",
+        "etag": "\"0e1cd32dd641fdbb926d69b6fbd787b7\"",
+        "retryCount": 1
+      },
+      {
+        "n": 17,
+        "status": "DONE",
+        "etag": "\"779cc15ae2076ae79479ea00e9d7c39b\"",
+        "retryCount": 1
+      },
+      {
+        "n": 18,
+        "status": "DONE",
+        "etag": "\"806b4f1a82a673520ea55fb3b4eb1416\"",
+        "retryCount": 1
+      },
+      {
+        "n": 19,
+        "status": "DONE",
+        "etag": "\"90dab98dccf50982eb6b9adcf1cfc8d8\"",
+        "retryCount": 1
+      },
+      {
+        "n": 20,
+        "status": "DONE",
+        "etag": "\"268e9e118a6bf9b81e293dcd208d49ee\"",
+        "retryCount": 1
+      },
+      {
+        "n": 21,
+        "status": "DONE",
+        "etag": "\"18a7c297c7c0f307a1a9a06432346661\"",
+        "retryCount": 1
+      },
+      {
+        "n": 22,
+        "status": "DONE",
+        "etag": "\"73fa9660ab015d8124010bc57a1ee8ab\"",
+        "retryCount": 1
+      },
+      {
+        "n": 23,
+        "status": "DONE",
+        "etag": "\"c5918526fd40732b5266abbb3f2edd8f\"",
+        "retryCount": 1
+      },
+      {
+        "n": 24,
+        "status": "DONE",
+        "etag": "\"64933f10dfd36e4a11a8a69681a2e4b7\"",
+        "retryCount": 1
+      },
+      {
+        "n": 25,
+        "status": "DONE",
+        "etag": "\"87d18aa11a5618d27439fbbb9cf5fedd\"",
+        "retryCount": 1
+      },
+      {
+        "n": 26,
+        "status": "DONE",
+        "etag": "\"2ef60583d691480a062ef9e558124e79\"",
+        "retryCount": 1
+      },
+      {
+        "n": 27,
+        "status": "DONE",
+        "etag": "\"33741d53bc22bd6e535ec481dd154838\"",
+        "retryCount": 1
+      },
+      {
+        "n": 28,
+        "status": "DONE",
+        "etag": "\"6d2667c8daf506431da7691bbcb46dce\"",
+        "retryCount": 1
+      },
+      {
+        "n": 29,
+        "status": "DONE",
+        "etag": "\"8d6fac105fcc405b28ef0853c4ad16ab\"",
+        "retryCount": 1
+      },
+      {
+        "n": 30,
+        "status": "DONE",
+        "etag": "\"d671998206971298da731c43b8b26fc6\"",
+        "retryCount": 1
+      },
+      {
+        "n": 31,
+        "status": "DONE",
+        "etag": "\"ed46585b6b123c16cd0bd8d6b1391e95\"",
+        "retryCount": 1
+      },
+      {
+        "n": 32,
+        "status": "DONE",
+        "etag": "\"3db21024b6fe694c828f00774d1ee8a9\"",
+        "retryCount": 1
+      },
+      {
+        "n": 33,
+        "status": "DONE",
+        "etag": "\"efe13d83bfc504b856ce86fadb0c247f\"",
+        "retryCount": 1
+      },
+      {
+        "n": 34,
+        "status": "DONE",
+        "etag": "\"9fa7942b334d8ce52af5dfd8ac0fde06\"",
+        "retryCount": 1
+      },
+      {
+        "n": 35,
+        "status": "DONE",
+        "etag": "\"35223bb52022ad26f7f6cbae5df1c36f\"",
+        "retryCount": 1
+      },
+      {
+        "n": 36,
+        "status": "DONE",
+        "etag": "\"a2dded0de145b3b9dbda3c25c861acb4\"",
+        "retryCount": 1
+      },
+      {
+        "n": 37,
+        "status": "DONE",
+        "etag": "\"dd98715ed9c5fd0a9b0aaf400e37c8ce\"",
+        "retryCount": 1
+      },
+      {
+        "n": 38,
+        "status": "DONE",
+        "etag": "\"36f2242604609b8425746378bd458560\"",
+        "retryCount": 1
+      },
+      {
+        "n": 39,
+        "status": "DONE",
+        "etag": "\"82b023c82fdc8c3185293c46e00d0d95\"",
+        "retryCount": 1
+      },
+      {
+        "n": 40,
+        "status": "DONE",
+        "etag": "\"50f272608853d08303ea2b7991d7be23\"",
+        "retryCount": 1
+      },
+      {
+        "n": 41,
+        "status": "DONE",
+        "etag": "\"36d06fc7bd9a772ce93a47f9ad4ac507\"",
+        "retryCount": 1
+      },
+      {
+        "n": 42,
+        "status": "DONE",
+        "etag": "\"a6e53ea90aa9272f14c0347ec85f49ff\"",
+        "retryCount": 1
+      },
+      {
+        "n": 43,
+        "status": "DONE",
+        "etag": "\"f3b05affa2bd30f5cb26c9041e463940\"",
+        "retryCount": 1
+      },
+      {
+        "n": 44,
+        "status": "DONE",
+        "etag": "\"5dd69f3daca0de1d3e61d85547b0ae62\"",
+        "retryCount": 1
+      },
+      {
+        "n": 45,
+        "status": "DONE",
+        "etag": "\"bfbb7e24fef8d6ab0a46bb29356b141b\"",
+        "retryCount": 1
+      },
+      {
+        "n": 46,
+        "status": "DONE",
+        "etag": "\"ce0510ec8e7506266ef6bfaab2a4df4e\"",
+        "retryCount": 1
+      },
+      {
+        "n": 47,
+        "status": "DONE",
+        "etag": "\"5c6ee812c0b9bd5188fea65c48c20b61\"",
+        "retryCount": 1
+      },
+      {
+        "n": 48,
+        "status": "DONE",
+        "etag": "\"9998dbb7bb6c74d552ea93f53f696d2a\"",
+        "retryCount": 1
+      },
+      {
+        "n": 49,
+        "status": "DONE",
+        "etag": "\"e4049c0419bdbcbbde50eca8f85aeff9\"",
+        "retryCount": 1
+      },
+      {
+        "n": 50,
+        "status": "DONE",
+        "etag": "\"e2a27ee8d12be0074dcde7ed32034729\"",
+        "retryCount": 1
+      },
+      {
+        "n": 51,
+        "status": "DONE",
+        "etag": "\"c4dc6e1543c61cc3c446cbc23fab68b4\"",
+        "retryCount": 1
+      },
+      {
+        "n": 52,
+        "status": "DONE",
+        "etag": "\"06718ff0c17e15193fe2adcdc259873a\"",
+        "retryCount": 1
+      },
+      {
+        "n": 53,
+        "status": "DONE",
+        "etag": "\"50645dfcdfd29261b24a71a9018d165f\"",
+        "retryCount": 1
+      },
+      {
+        "n": 54,
+        "status": "DONE",
+        "etag": "\"4da7791ee58f628dcf5a50ab771884b8\"",
+        "retryCount": 1
+      },
+      {
+        "n": 55,
+        "status": "DONE",
+        "etag": "\"f34cc0b035d09c3e6b81506a745fd928\"",
+        "retryCount": 1
+      },
+      {
+        "n": 56,
+        "status": "DONE",
+        "etag": "\"3f2bd7cb7f9dc441c61cb2230b21cd30\"",
+        "retryCount": 1
+      },
+      {
+        "n": 57,
+        "status": "DONE",
+        "etag": "\"a9cf3c101b9f0ce984f16c190252d78f\"",
+        "retryCount": 1
+      },
+      {
+        "n": 58,
+        "status": "DONE",
+        "etag": "\"fbf5fce67a3cdc1507fe1b83477646a8\"",
+        "retryCount": 1
+      },
+      {
+        "n": 59,
+        "status": "DONE",
+        "etag": "\"28156e08b4fcaea07b7231535cf5af43\"",
+        "retryCount": 1
+      },
+      {
+        "n": 60,
+        "status": "DONE",
+        "etag": "\"46d2cd966594a10c3a89961004cbd431\"",
+        "retryCount": 1
+      },
+      {
+        "n": 61,
+        "status": "DONE",
+        "etag": "\"548264246162808375532e76c3b0942b\"",
+        "retryCount": 1
+      },
+      {
+        "n": 62,
+        "status": "DONE",
+        "etag": "\"f752d4cf13bcab30a1423bd30c1cfb7f\"",
+        "retryCount": 1
+      },
+      {
+        "n": 63,
+        "status": "DONE",
+        "etag": "\"e7f563e4eeaf15d21225045e11ebb8da\"",
+        "retryCount": 1
+      },
+      {
+        "n": 64,
+        "status": "DONE",
+        "etag": "\"27b626e95e1d0b57b4fa984ce27eea5c\"",
+        "retryCount": 1
+      },
+      {
+        "n": 65,
+        "status": "DONE",
+        "etag": "\"a1e98b22a56de943765b6ce9f5fc5422\"",
+        "retryCount": 1
+      },
+      {
+        "n": 66,
+        "status": "DONE",
+        "etag": "\"d8fef81a950845e5739d1376c8efeeb1\"",
+        "retryCount": 1
+      },
+      {
+        "n": 67,
+        "status": "DONE",
+        "etag": "\"b7e159abd4929556b74dbfb8acde4620\"",
+        "retryCount": 1
+      },
+      {
+        "n": 68,
+        "status": "DONE",
+        "etag": "\"ed32d64e817bf09f3d10f1edcbed690f\"",
+        "retryCount": 1
+      },
+      {
+        "n": 69,
+        "status": "DONE",
+        "etag": "\"887517d9d3a090652da0819933df21f0\"",
+        "retryCount": 1
+      },
+      { "n": 70, "status": "DONE", "etag": "\"38b9e76f248a7c9c0544fe5ae48f59e7\"", "retryCount": 1 }
+    ],
+    "imuParts": [
+      { "n": 1, "status": "DONE", "etag": "\"21dbc1c31eb0fee5d9d15a00333357fe\"", "retryCount": 1 }
+    ],
+    "metadataPut": "DONE",
+    "enqueuedAt": 1779094770526,
+    "lastProgressAt": 1779101390527,
+    "initIdempotencyKey": "076891a8-25e9-4888-8151-10bc00b9ba4e",
+    "partsIdempotencyKey": "35092cb6-a022-4cba-a766-f398e3f0ec39",
+    "finalizeIdempotencyKey": "49b5a67c-293b-4abc-9523-bc5d800d7386",
+    "reuploadIdempotencyKey": "488eae36-5f3a-43f1-a8f3-0f727be8060b"
+  },
+  {
+    "recordingId": "01KRX4ZKZJWXKDDG7S1WSEES60",
+    "ownerUserId": "01KRX3WTZ4S2SJCVVGFFRXNRVR",
+    "mp4Path": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_142929_002.mp4",
+    "csvPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_142929_002.csv",
+    "jsonPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_142929_002.json",
+    "taskId": "01KRX2VM2TA5KN3MNNRTSXBAVY",
+    "isPractice": false,
+    "state": "AWAITING_VERIFY",
+    "uploadId": "Mt27lr-VeiywK1MK0xYk9ifB2Y4ZE8K7qV3ju_joiz0K7BcXjvVrHECbY2QCKLiK7r-Z34jFA_Fj5TpAnMnGr263UxPPmVw2TIt_gC71uPrtlFNZVqxzzU_3hZIqcAM4",
+    "imuUploadId": "TyxxIckX6_Bn3I3A281Koy_pTxcUiCTxmEl--U7221IQmLk9VlC1rcFy2g6p359llQOFG3B38MyBfQDqiRND_5YSCZ8HImWJiyYPCBfCjgVE2a1k3EXfHL35sG0CNqnA",
+    "partsCount": 70,
+    "chunkBytes": 8388608,
+    "videoParts": [
+      { "n": 1, "status": "DONE", "etag": "\"591b4df2d0f4e2aede1ae181e845c5af\"", "retryCount": 1 },
+      { "n": 2, "status": "DONE", "etag": "\"5152a7373c724423fff6817ce9bdf5e6\"", "retryCount": 1 },
+      { "n": 3, "status": "DONE", "etag": "\"4b7d55739b73bec65c409a1fbfb2e323\"", "retryCount": 1 },
+      { "n": 4, "status": "DONE", "etag": "\"b4032259b3abef6458f99adb65d04947\"", "retryCount": 1 },
+      { "n": 5, "status": "DONE", "etag": "\"bc18ee9da2b1dfe4b401b9ec0ea3f0cf\"", "retryCount": 1 },
+      { "n": 6, "status": "DONE", "etag": "\"9d0cc874ad5242037eccc1e91075fc0c\"", "retryCount": 1 },
+      { "n": 7, "status": "DONE", "etag": "\"5e317de31cd9cd8c3ba637c4d8f75d51\"", "retryCount": 1 },
+      { "n": 8, "status": "DONE", "etag": "\"451d2266c753bff9d482dbb89acfe68a\"", "retryCount": 1 },
+      { "n": 9, "status": "DONE", "etag": "\"e58cd834d38c02dbacfddb96c027b1c8\"", "retryCount": 1 },
+      {
+        "n": 10,
+        "status": "DONE",
+        "etag": "\"db92e16c9c7861da901ed62640676156\"",
+        "retryCount": 1
+      },
+      {
+        "n": 11,
+        "status": "DONE",
+        "etag": "\"26df9e394d34e02640964e845153f425\"",
+        "retryCount": 1
+      },
+      {
+        "n": 12,
+        "status": "DONE",
+        "etag": "\"853cbb8270441b4957129734ac287ea3\"",
+        "retryCount": 1
+      },
+      {
+        "n": 13,
+        "status": "DONE",
+        "etag": "\"75478191f2dd3db847dc6bb98702b819\"",
+        "retryCount": 1
+      },
+      {
+        "n": 14,
+        "status": "DONE",
+        "etag": "\"24afb3ef5da54dcd429d4a214c6ec370\"",
+        "retryCount": 1
+      },
+      {
+        "n": 15,
+        "status": "DONE",
+        "etag": "\"f7aad14deb8cac5a488d1587c34c47c7\"",
+        "retryCount": 1
+      },
+      {
+        "n": 16,
+        "status": "DONE",
+        "etag": "\"f43931ef3ce8af4796b09136dc7b61e1\"",
+        "retryCount": 1
+      },
+      {
+        "n": 17,
+        "status": "DONE",
+        "etag": "\"a7348df62a1cc1bf8500dd3ab27df0c4\"",
+        "retryCount": 1
+      },
+      {
+        "n": 18,
+        "status": "DONE",
+        "etag": "\"be776a63b363a6f4ee0641ce510fd790\"",
+        "retryCount": 1
+      },
+      {
+        "n": 19,
+        "status": "DONE",
+        "etag": "\"aeeb6ba96e9fedd7ed570bed6506f218\"",
+        "retryCount": 1
+      },
+      {
+        "n": 20,
+        "status": "DONE",
+        "etag": "\"bad253812829bca8cd9742671af564f1\"",
+        "retryCount": 1
+      },
+      {
+        "n": 21,
+        "status": "DONE",
+        "etag": "\"c953ca2b011c765eff180dbfc33fb448\"",
+        "retryCount": 1
+      },
+      {
+        "n": 22,
+        "status": "DONE",
+        "etag": "\"4c44e4b0d0514bda82dd8b3da85d9c85\"",
+        "retryCount": 1
+      },
+      {
+        "n": 23,
+        "status": "DONE",
+        "etag": "\"0a6d658b4a89cbd2a9d52080c3c4911f\"",
+        "retryCount": 1
+      },
+      {
+        "n": 24,
+        "status": "DONE",
+        "etag": "\"f20533327b5c68a35bccb7ad82837b3e\"",
+        "retryCount": 1
+      },
+      {
+        "n": 25,
+        "status": "DONE",
+        "etag": "\"031f42f7fee79d5df0cbe8f2414aa8b6\"",
+        "retryCount": 1
+      },
+      {
+        "n": 26,
+        "status": "DONE",
+        "etag": "\"3955ba1ff8a18b658b0cc9d378afd2e0\"",
+        "retryCount": 1
+      },
+      {
+        "n": 27,
+        "status": "DONE",
+        "etag": "\"b487d7021da0e4a42367364186bcc05e\"",
+        "retryCount": 1
+      },
+      {
+        "n": 28,
+        "status": "DONE",
+        "etag": "\"4c07bc7c8405572095b02a5b7f492853\"",
+        "retryCount": 1
+      },
+      {
+        "n": 29,
+        "status": "DONE",
+        "etag": "\"bf0cc291bc2a01a26978ffee3e6a853a\"",
+        "retryCount": 1
+      },
+      {
+        "n": 30,
+        "status": "DONE",
+        "etag": "\"16969bb73e65b135cdc07747c4de6c84\"",
+        "retryCount": 1
+      },
+      {
+        "n": 31,
+        "status": "DONE",
+        "etag": "\"68a0f36d2c5dd644b80d5235db0d0dd2\"",
+        "retryCount": 1
+      },
+      {
+        "n": 32,
+        "status": "DONE",
+        "etag": "\"6b6384a077fcf74dd7d573dcada5b8a4\"",
+        "retryCount": 1
+      },
+      {
+        "n": 33,
+        "status": "DONE",
+        "etag": "\"c30e24eac315004de15a55fce5f70bc5\"",
+        "retryCount": 1
+      },
+      {
+        "n": 34,
+        "status": "DONE",
+        "etag": "\"91c98b09b34cc07020cac184d2164547\"",
+        "retryCount": 1
+      },
+      {
+        "n": 35,
+        "status": "DONE",
+        "etag": "\"0507948bd7db558c522f6b2be9dc0d0d\"",
+        "retryCount": 1
+      },
+      {
+        "n": 36,
+        "status": "DONE",
+        "etag": "\"930ab7090d04c19a0340b008321cf2bd\"",
+        "retryCount": 1
+      },
+      {
+        "n": 37,
+        "status": "DONE",
+        "etag": "\"095d6bdf74fd57be30d735dc6012f0f3\"",
+        "retryCount": 1
+      },
+      {
+        "n": 38,
+        "status": "DONE",
+        "etag": "\"147413b5140c8dfaa1d1621f85015cf7\"",
+        "retryCount": 1
+      },
+      {
+        "n": 39,
+        "status": "DONE",
+        "etag": "\"d38c9f91d455c6c8264a1457ab650a67\"",
+        "retryCount": 1
+      },
+      {
+        "n": 40,
+        "status": "DONE",
+        "etag": "\"ef90c42bfde836259b9f03871d31c69d\"",
+        "retryCount": 1
+      },
+      {
+        "n": 41,
+        "status": "DONE",
+        "etag": "\"15a6fc18a5729b0923255849da3d8846\"",
+        "retryCount": 1
+      },
+      {
+        "n": 42,
+        "status": "DONE",
+        "etag": "\"7e21d1a329601bfc850021b842562e4c\"",
+        "retryCount": 1
+      },
+      {
+        "n": 43,
+        "status": "DONE",
+        "etag": "\"299afa8e6dd6d88e554afff8c4252dae\"",
+        "retryCount": 1
+      },
+      {
+        "n": 44,
+        "status": "DONE",
+        "etag": "\"aafa4c67c2a9c3befdd28cbcf43db402\"",
+        "retryCount": 1
+      },
+      {
+        "n": 45,
+        "status": "DONE",
+        "etag": "\"1edda609f975c7244ce4e76c2b61b337\"",
+        "retryCount": 1
+      },
+      {
+        "n": 46,
+        "status": "DONE",
+        "etag": "\"44e6706a9da3e6c6ca8fe3b57ed567bc\"",
+        "retryCount": 1
+      },
+      {
+        "n": 47,
+        "status": "DONE",
+        "etag": "\"69ffc54dfc19cbee4f879aaa11e3b563\"",
+        "retryCount": 1
+      },
+      {
+        "n": 48,
+        "status": "DONE",
+        "etag": "\"5786895546916504fecb4e7321ca77cf\"",
+        "retryCount": 1
+      },
+      {
+        "n": 49,
+        "status": "DONE",
+        "etag": "\"b84bffd4d1140f7c18800ecbe160a6b2\"",
+        "retryCount": 1
+      },
+      {
+        "n": 50,
+        "status": "DONE",
+        "etag": "\"a08b322fe5c28002e1a667d2b9904142\"",
+        "retryCount": 1
+      },
+      {
+        "n": 51,
+        "status": "DONE",
+        "etag": "\"78a24a649fe1ca45339dadb3172b4f6f\"",
+        "retryCount": 1
+      },
+      {
+        "n": 52,
+        "status": "DONE",
+        "etag": "\"ad01ed281b716dd9af6ef779ca741860\"",
+        "retryCount": 1
+      },
+      {
+        "n": 53,
+        "status": "DONE",
+        "etag": "\"454863ac5d9c45ff1936f617930c021e\"",
+        "retryCount": 1
+      },
+      {
+        "n": 54,
+        "status": "DONE",
+        "etag": "\"f848364dcd2813f724819048d8957628\"",
+        "retryCount": 1
+      },
+      {
+        "n": 55,
+        "status": "DONE",
+        "etag": "\"b7310358966b5aed8fe4e1c25257fd30\"",
+        "retryCount": 1
+      },
+      {
+        "n": 56,
+        "status": "DONE",
+        "etag": "\"59ce5ab04e54d824bbd1057a5c5fa50b\"",
+        "retryCount": 1
+      },
+      {
+        "n": 57,
+        "status": "DONE",
+        "etag": "\"c9df2961abb64661716727af08829179\"",
+        "retryCount": 1
+      },
+      {
+        "n": 58,
+        "status": "DONE",
+        "etag": "\"6ab9a5efa9a5f0a9564674a7d6f28477\"",
+        "retryCount": 1
+      },
+      {
+        "n": 59,
+        "status": "DONE",
+        "etag": "\"3da18a6ba5d1642dae53c28c48368412\"",
+        "retryCount": 1
+      },
+      {
+        "n": 60,
+        "status": "DONE",
+        "etag": "\"68fad38258822402be1a04c2add54e97\"",
+        "retryCount": 1
+      },
+      {
+        "n": 61,
+        "status": "DONE",
+        "etag": "\"2d0aebb17713ac300e3f1c6fbaa3e014\"",
+        "retryCount": 1
+      },
+      {
+        "n": 62,
+        "status": "DONE",
+        "etag": "\"2377054304cb13e0dd12ea5401be75eb\"",
+        "retryCount": 1
+      },
+      {
+        "n": 63,
+        "status": "DONE",
+        "etag": "\"344d649caa9d5e70f0fa56b0c14abb57\"",
+        "retryCount": 1
+      },
+      {
+        "n": 64,
+        "status": "DONE",
+        "etag": "\"c10156156d9e4cd35bbb9cb4ad4ec64b\"",
+        "retryCount": 1
+      },
+      {
+        "n": 65,
+        "status": "DONE",
+        "etag": "\"213f386bce9865a97b7f52eaf5240859\"",
+        "retryCount": 2
+      },
+      {
+        "n": 66,
+        "status": "DONE",
+        "etag": "\"3e7b2b2331b1ad89b4e0f3b6af1f9e83\"",
+        "retryCount": 2
+      },
+      {
+        "n": 67,
+        "status": "DONE",
+        "etag": "\"faa4069388a3fd1850d4b0c1d242cbcb\"",
+        "retryCount": 2
+      },
+      {
+        "n": 68,
+        "status": "DONE",
+        "etag": "\"7b55b0de76e5b18d7cbe9d05e73d3459\"",
+        "retryCount": 2
+      },
+      {
+        "n": 69,
+        "status": "DONE",
+        "etag": "\"bff8de411578f57618e81fa11ffdebc1\"",
+        "retryCount": 2
+      },
+      { "n": 70, "status": "DONE", "etag": "\"29f6fe5c092b92adbe515325b5de6e5f\"", "retryCount": 2 }
+    ],
+    "imuParts": [
+      { "n": 1, "status": "DONE", "etag": "\"50260509a456e032c9b278b505faf917\"", "retryCount": 2 }
+    ],
+    "metadataPut": "DONE",
+    "enqueuedAt": 1779095371426,
+    "lastProgressAt": 1779101390536,
+    "initIdempotencyKey": "75ea7400-f902-472f-9fa3-b4ce7b4022d7",
+    "partsIdempotencyKey": "c364f838-440e-44bf-aea9-33e7afb93281",
+    "finalizeIdempotencyKey": "3f090dc9-8a46-4184-942e-c2f4d5d7d3cb",
+    "reuploadIdempotencyKey": "d9eded3c-3a10-4bf9-9bc8-7532ec0910af"
+  },
+  {
+    "recordingId": "01KRX5HYYMT2BVRZQ1RV1Z787H",
+    "ownerUserId": "01KRX3WTZ4S2SJCVVGFFRXNRVR",
+    "mp4Path": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_143930_003.mp4",
+    "csvPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_143930_003.csv",
+    "jsonPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_143930_003.json",
+    "taskId": "01KRX2VM2TA5KN3MNNRTSXBAVY",
+    "isPractice": false,
+    "state": "AWAITING_VERIFY",
+    "uploadId": "tfpRaC1qScm4ZOrAcfTDFs3Bwbvjs9SOET9vfi0vcZ4HScIzQks3DPIRQmr7MVTHcJ7S6rPy17JtPQlqoTzTZwZaelVtYCxPzSjc4eZN0wYW99cALE1YoqNb2W7zaFD4",
+    "imuUploadId": "VQisUAf8iGzTB2a2WTc3ZY1aMG2qrSGVeN3JO6tPBcBwfx6qWFLbRCtYkcac-bzfsjOkm3NbA_abqiKXeR3_GgEg9NLK5PFSWNQ39Wyt1784mUHITU_X6TuH7es7tyh-",
+    "partsCount": 70,
+    "chunkBytes": 8388608,
+    "videoParts": [
+      { "n": 1, "status": "DONE", "etag": "\"16371d3e3a4b913f851e4d695b8acd58\"", "retryCount": 1 },
+      { "n": 2, "status": "DONE", "etag": "\"8b2c692f4b3466be518597d8e3ae03b0\"", "retryCount": 1 },
+      { "n": 3, "status": "DONE", "etag": "\"b684ea401b92d656f24c0b06d2f37820\"", "retryCount": 1 },
+      { "n": 4, "status": "DONE", "etag": "\"07c873ab889b793694fb946271926e0a\"", "retryCount": 1 },
+      { "n": 5, "status": "DONE", "etag": "\"4e33bda269c0bd8a06261cd5d86af2e2\"", "retryCount": 1 },
+      { "n": 6, "status": "DONE", "etag": "\"d9cf99584f7d1c15416e4ece8f4243a7\"", "retryCount": 1 },
+      { "n": 7, "status": "DONE", "etag": "\"e06f90dd00baa4bd98b839ba0fc6f456\"", "retryCount": 1 },
+      { "n": 8, "status": "DONE", "etag": "\"8a8561e5a3d81c76bd6b43a66944e361\"", "retryCount": 1 },
+      { "n": 9, "status": "DONE", "etag": "\"d4698fda5b9c5fa6a14d814c5589c325\"", "retryCount": 1 },
+      {
+        "n": 10,
+        "status": "DONE",
+        "etag": "\"f9592dbe538bbfa080d01453400cba14\"",
+        "retryCount": 1
+      },
+      {
+        "n": 11,
+        "status": "DONE",
+        "etag": "\"ed076f7d60c0032860337aab351496c9\"",
+        "retryCount": 1
+      },
+      {
+        "n": 12,
+        "status": "DONE",
+        "etag": "\"20dc1affc9a2cf8664d1e79644664574\"",
+        "retryCount": 1
+      },
+      {
+        "n": 13,
+        "status": "DONE",
+        "etag": "\"b00c47291e503d22d9b20c027d990dcc\"",
+        "retryCount": 1
+      },
+      {
+        "n": 14,
+        "status": "DONE",
+        "etag": "\"f192e34e52a2409b4626b0368c9c6edf\"",
+        "retryCount": 1
+      },
+      {
+        "n": 15,
+        "status": "DONE",
+        "etag": "\"9b71c4a36867187f3d077b25f55f191d\"",
+        "retryCount": 1
+      },
+      {
+        "n": 16,
+        "status": "DONE",
+        "etag": "\"5eac9250d8dbc98a33a762708acaf9d1\"",
+        "retryCount": 1
+      },
+      {
+        "n": 17,
+        "status": "DONE",
+        "etag": "\"3d98a2052fb216aedf202763066d9c3f\"",
+        "retryCount": 1
+      },
+      {
+        "n": 18,
+        "status": "DONE",
+        "etag": "\"205bddb478ce21a2873a6394d6eee931\"",
+        "retryCount": 1
+      },
+      {
+        "n": 19,
+        "status": "DONE",
+        "etag": "\"87bed5df174257f2a85d31844ddd01da\"",
+        "retryCount": 1
+      },
+      {
+        "n": 20,
+        "status": "DONE",
+        "etag": "\"da6c5f6ef983f4c7b9a2eb9fce49022e\"",
+        "retryCount": 1
+      },
+      {
+        "n": 21,
+        "status": "DONE",
+        "etag": "\"11cadd78291860cc20336ba4b93be4a9\"",
+        "retryCount": 1
+      },
+      {
+        "n": 22,
+        "status": "DONE",
+        "etag": "\"89dc951fd6dbcc3936e0a4bef3fc040b\"",
+        "retryCount": 1
+      },
+      {
+        "n": 23,
+        "status": "DONE",
+        "etag": "\"5150dc8fc66f112e9a9623b896eb360a\"",
+        "retryCount": 1
+      },
+      {
+        "n": 24,
+        "status": "DONE",
+        "etag": "\"c85143ab81af614c1f0ed710a94eea10\"",
+        "retryCount": 1
+      },
+      {
+        "n": 25,
+        "status": "DONE",
+        "etag": "\"4ea6bb4e54ff79c76469d49541744919\"",
+        "retryCount": 1
+      },
+      {
+        "n": 26,
+        "status": "DONE",
+        "etag": "\"342e38faf246554e2a7711988cd7b120\"",
+        "retryCount": 1
+      },
+      {
+        "n": 27,
+        "status": "DONE",
+        "etag": "\"eca266f0768f85352835407d5ec09bbc\"",
+        "retryCount": 1
+      },
+      {
+        "n": 28,
+        "status": "DONE",
+        "etag": "\"8e7e56964650413161dfbe6d717f1ddf\"",
+        "retryCount": 1
+      },
+      {
+        "n": 29,
+        "status": "DONE",
+        "etag": "\"49e4ddabb62d81ce9d02248885e18e22\"",
+        "retryCount": 1
+      },
+      {
+        "n": 30,
+        "status": "DONE",
+        "etag": "\"a76f83e9e94c66c0e13ab173eb3dcae0\"",
+        "retryCount": 1
+      },
+      {
+        "n": 31,
+        "status": "DONE",
+        "etag": "\"82f0b7d676b0e82b7e1d17968f4cb971\"",
+        "retryCount": 1
+      },
+      {
+        "n": 32,
+        "status": "DONE",
+        "etag": "\"1603ae114e1c3d3d724817324b2de86c\"",
+        "retryCount": 1
+      },
+      {
+        "n": 33,
+        "status": "DONE",
+        "etag": "\"f1e1c7d41c9d990144931973e5c244b9\"",
+        "retryCount": 1
+      },
+      {
+        "n": 34,
+        "status": "DONE",
+        "etag": "\"7346805bb9c1aa3c8a249ad559ab185e\"",
+        "retryCount": 1
+      },
+      {
+        "n": 35,
+        "status": "DONE",
+        "etag": "\"a7fa75bc651bfd065d9974037d4f7742\"",
+        "retryCount": 1
+      },
+      {
+        "n": 36,
+        "status": "DONE",
+        "etag": "\"2e435538d230463dc49c4f0ea01e422d\"",
+        "retryCount": 1
+      },
+      {
+        "n": 37,
+        "status": "DONE",
+        "etag": "\"125138b6324beb0022b761b324464ee6\"",
+        "retryCount": 1
+      },
+      {
+        "n": 38,
+        "status": "DONE",
+        "etag": "\"8f6ceb7f69945e6edd30a0d903eda3d4\"",
+        "retryCount": 1
+      },
+      {
+        "n": 39,
+        "status": "DONE",
+        "etag": "\"741b63fd8a62edb84333af0ba358732a\"",
+        "retryCount": 1
+      },
+      {
+        "n": 40,
+        "status": "DONE",
+        "etag": "\"d2b0316c925f05382c628eb6e14432fe\"",
+        "retryCount": 1
+      },
+      {
+        "n": 41,
+        "status": "DONE",
+        "etag": "\"0b2ff07061c8a42f9929e4ae5970f672\"",
+        "retryCount": 1
+      },
+      {
+        "n": 42,
+        "status": "DONE",
+        "etag": "\"221cb5ea8c64b2daecbb07907bfea400\"",
+        "retryCount": 1
+      },
+      {
+        "n": 43,
+        "status": "DONE",
+        "etag": "\"0a1cacc74d40913e0570798e9364c986\"",
+        "retryCount": 1
+      },
+      {
+        "n": 44,
+        "status": "DONE",
+        "etag": "\"e4afc98d7ca3ddbc574c773345f6e996\"",
+        "retryCount": 1
+      },
+      {
+        "n": 45,
+        "status": "DONE",
+        "etag": "\"a9cb54e4ceaf9a73fa5e44b6e19c6c7e\"",
+        "retryCount": 1
+      },
+      {
+        "n": 46,
+        "status": "DONE",
+        "etag": "\"6a1938e0e1a9b1d8d820cd581af9aee0\"",
+        "retryCount": 1
+      },
+      {
+        "n": 47,
+        "status": "DONE",
+        "etag": "\"53e49aaee6a8dfa17dff140e55929fcd\"",
+        "retryCount": 1
+      },
+      {
+        "n": 48,
+        "status": "DONE",
+        "etag": "\"06acde96c306de293b40ff4abbefd039\"",
+        "retryCount": 1
+      },
+      {
+        "n": 49,
+        "status": "DONE",
+        "etag": "\"a5856dd39eae5cf74348e0b41ccd034f\"",
+        "retryCount": 1
+      },
+      {
+        "n": 50,
+        "status": "DONE",
+        "etag": "\"ce3e07c0b12717999dd8931b83e17c72\"",
+        "retryCount": 1
+      },
+      {
+        "n": 51,
+        "status": "DONE",
+        "etag": "\"5775105dbd72d4b22b49ca940bc5c276\"",
+        "retryCount": 1
+      },
+      {
+        "n": 52,
+        "status": "DONE",
+        "etag": "\"32fac96903c922d25a3af8df527fb065\"",
+        "retryCount": 1
+      },
+      {
+        "n": 53,
+        "status": "DONE",
+        "etag": "\"fafec2a438131894ce412af5998fb773\"",
+        "retryCount": 1
+      },
+      {
+        "n": 54,
+        "status": "DONE",
+        "etag": "\"1e0c7b3c3315c1211d348952e221f66c\"",
+        "retryCount": 1
+      },
+      {
+        "n": 55,
+        "status": "DONE",
+        "etag": "\"1d24f02b66566e98e9f23ff117d4647a\"",
+        "retryCount": 1
+      },
+      {
+        "n": 56,
+        "status": "DONE",
+        "etag": "\"9737667d4073ed878b6854fd5cf62bba\"",
+        "retryCount": 1
+      },
+      {
+        "n": 57,
+        "status": "DONE",
+        "etag": "\"497954546d4420d5c83f14e1fe719baf\"",
+        "retryCount": 1
+      },
+      {
+        "n": 58,
+        "status": "DONE",
+        "etag": "\"f1e9cb5be8f5bfc47c647856f0f952e7\"",
+        "retryCount": 1
+      },
+      {
+        "n": 59,
+        "status": "DONE",
+        "etag": "\"1261219d05266847a2e2a3a421834799\"",
+        "retryCount": 1
+      },
+      {
+        "n": 60,
+        "status": "DONE",
+        "etag": "\"2d78932e90b9241c9f0c1ae1e26cd652\"",
+        "retryCount": 1
+      },
+      {
+        "n": 61,
+        "status": "DONE",
+        "etag": "\"c65ab1e6957ea5b5dc6ab819081c821d\"",
+        "retryCount": 1
+      },
+      {
+        "n": 62,
+        "status": "DONE",
+        "etag": "\"d15e541a354c5dc1f8e6c44fbd22e2f2\"",
+        "retryCount": 1
+      },
+      {
+        "n": 63,
+        "status": "DONE",
+        "etag": "\"43af8910edaf8d901c295bd64b9f75aa\"",
+        "retryCount": 1
+      },
+      {
+        "n": 64,
+        "status": "DONE",
+        "etag": "\"70530b153f75a8439045693278cfc28e\"",
+        "retryCount": 1
+      },
+      {
+        "n": 65,
+        "status": "DONE",
+        "etag": "\"49178fb972e781b467f868565a05806b\"",
+        "retryCount": 1
+      },
+      {
+        "n": 66,
+        "status": "DONE",
+        "etag": "\"028bcd18bae1e8bdcc3040b62c48584b\"",
+        "retryCount": 1
+      },
+      {
+        "n": 67,
+        "status": "DONE",
+        "etag": "\"734fb4ebe98c14cae4e50010c0c65680\"",
+        "retryCount": 1
+      },
+      {
+        "n": 68,
+        "status": "DONE",
+        "etag": "\"9fb314fff15999f3a88ddb3c1f3a1a67\"",
+        "retryCount": 1
+      },
+      {
+        "n": 69,
+        "status": "DONE",
+        "etag": "\"cf2b3b4496bd3d2bdf591867c4b95e1b\"",
+        "retryCount": 1
+      },
+      { "n": 70, "status": "DONE", "etag": "\"34ec82df3b020fc709cf34ff4b99faf7\"", "retryCount": 1 }
+    ],
+    "imuParts": [
+      { "n": 1, "status": "DONE", "etag": "\"54fd672585804315cd59c923b66d2ab7\"", "retryCount": 1 }
+    ],
+    "metadataPut": "DONE",
+    "enqueuedAt": 1779095972556,
+    "lastProgressAt": 1779101412233,
+    "initIdempotencyKey": "57177f32-eebf-4c2c-a57a-13ac1a60633d",
+    "partsIdempotencyKey": "95b7bdf1-6c3b-45b1-92c5-3775aaf4710e",
+    "finalizeIdempotencyKey": "997d9f30-fe20-471b-bb77-089bedee2625",
+    "reuploadIdempotencyKey": "f237dca1-2071-4981-a534-8da2d045a387"
+  },
+  {
+    "recordingId": "01KRX649XPHTG0Z75AM26XE3AG",
+    "ownerUserId": "01KRX3WTZ4S2SJCVVGFFRXNRVR",
+    "mp4Path": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_144931_004.mp4",
+    "csvPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_144931_004.csv",
+    "jsonPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_144931_004.json",
+    "taskId": "01KRX2VM2TA5KN3MNNRTSXBAVY",
+    "isPractice": false,
+    "state": "AWAITING_VERIFY",
+    "uploadId": "RVXrVPLWjjDmixWOa_leVd1jv5nkRoQBrNmxLV3dDTrC8U7fCm_kW6_TKv5wCqMx34pz3KIWG2voVxwXI3W88KWPp7cbfRq42bHYUCCr-XltJKsGhayHhjKpA5VficMo",
+    "imuUploadId": "31LOOJhPGnTkmqmAu0r3-MQuf6ruxGZ_3IMs2ofytW0bv42S6DWMVoIXNm9sOn5j8cQyQJOPpNgXmmeQHzTPBT6qh8e_72nvRbO52c9AtDVc1_W4ArD98hy0iSr1Wqaw",
+    "partsCount": 70,
+    "chunkBytes": 8388608,
+    "videoParts": [
+      { "n": 1, "status": "DONE", "etag": "\"736efed0b3ebcde547e61b4bfa5a367a\"", "retryCount": 1 },
+      { "n": 2, "status": "DONE", "etag": "\"aab1884811c776644c5a8bf5efb650cf\"", "retryCount": 1 },
+      { "n": 3, "status": "DONE", "etag": "\"69565dc79fb5aa8d04aa512f3f924580\"", "retryCount": 1 },
+      { "n": 4, "status": "DONE", "etag": "\"c4d62c74ec94a0b681d40f2ec528af63\"", "retryCount": 1 },
+      { "n": 5, "status": "DONE", "etag": "\"0127a2bbe6f7af293eab97611bcf973d\"", "retryCount": 1 },
+      { "n": 6, "status": "DONE", "etag": "\"e0dccbd03f1d0a8ff1bfac4d909819e8\"", "retryCount": 1 },
+      { "n": 7, "status": "DONE", "etag": "\"86d202acd9ee3b47d0962618c37f4321\"", "retryCount": 1 },
+      { "n": 8, "status": "DONE", "etag": "\"c0176de0f6e53e1acf04cb8d85ce1630\"", "retryCount": 1 },
+      { "n": 9, "status": "DONE", "etag": "\"5d9849e6297d4dd88e5d0db93fab7d3e\"", "retryCount": 1 },
+      {
+        "n": 10,
+        "status": "DONE",
+        "etag": "\"e8c6e64e48195b865ac08ab7c21b460d\"",
+        "retryCount": 1
+      },
+      {
+        "n": 11,
+        "status": "DONE",
+        "etag": "\"226a4658f0d8b3b7af9588370ac16af6\"",
+        "retryCount": 1
+      },
+      {
+        "n": 12,
+        "status": "DONE",
+        "etag": "\"03653d275e0c34d9b36dab4fe806d5e5\"",
+        "retryCount": 1
+      },
+      {
+        "n": 13,
+        "status": "DONE",
+        "etag": "\"d53c04e867adce7494c36b68a61305fb\"",
+        "retryCount": 1
+      },
+      {
+        "n": 14,
+        "status": "DONE",
+        "etag": "\"a2fce0958ab54cc4707ddadd2883f8a0\"",
+        "retryCount": 1
+      },
+      {
+        "n": 15,
+        "status": "DONE",
+        "etag": "\"40459d2a5f93ed567d429af4b66641b5\"",
+        "retryCount": 1
+      },
+      {
+        "n": 16,
+        "status": "DONE",
+        "etag": "\"9301d3e9d0873b369d1e7f92316cea7c\"",
+        "retryCount": 1
+      },
+      {
+        "n": 17,
+        "status": "DONE",
+        "etag": "\"5e73d53b35c823556fbe7452f32e975f\"",
+        "retryCount": 1
+      },
+      {
+        "n": 18,
+        "status": "DONE",
+        "etag": "\"a88a8847499d850ab77a1035858c1bfb\"",
+        "retryCount": 1
+      },
+      {
+        "n": 19,
+        "status": "DONE",
+        "etag": "\"142e9adc7bac9f1942f51823935871b4\"",
+        "retryCount": 1
+      },
+      {
+        "n": 20,
+        "status": "DONE",
+        "etag": "\"506f35afe1529fa20d88f8e53017242e\"",
+        "retryCount": 1
+      },
+      {
+        "n": 21,
+        "status": "DONE",
+        "etag": "\"e7f0d2da23289b9afa8cadbd1ce21db5\"",
+        "retryCount": 1
+      },
+      {
+        "n": 22,
+        "status": "DONE",
+        "etag": "\"0aefcecbee2a9a809ded0657e9d826d4\"",
+        "retryCount": 1
+      },
+      {
+        "n": 23,
+        "status": "DONE",
+        "etag": "\"cbe790f83122016a178de1d8cf75a850\"",
+        "retryCount": 1
+      },
+      {
+        "n": 24,
+        "status": "DONE",
+        "etag": "\"3b4b16cf65224d8e12d4426beaa39dff\"",
+        "retryCount": 1
+      },
+      {
+        "n": 25,
+        "status": "DONE",
+        "etag": "\"fe6b4f816f4c3e5abc29a3336adbe173\"",
+        "retryCount": 1
+      },
+      {
+        "n": 26,
+        "status": "DONE",
+        "etag": "\"da8a80632826bff7f0fc728fdc533208\"",
+        "retryCount": 1
+      },
+      {
+        "n": 27,
+        "status": "DONE",
+        "etag": "\"6bb92fb83ee2b8608bfc95334dbcede1\"",
+        "retryCount": 1
+      },
+      {
+        "n": 28,
+        "status": "DONE",
+        "etag": "\"84ec9a09a9e0b73eeade735c77216dab\"",
+        "retryCount": 1
+      },
+      {
+        "n": 29,
+        "status": "DONE",
+        "etag": "\"31890b67783d8c07187261c5135b1f0d\"",
+        "retryCount": 1
+      },
+      {
+        "n": 30,
+        "status": "DONE",
+        "etag": "\"c8e3bc5101ce576cd906bc6151562b2e\"",
+        "retryCount": 1
+      },
+      {
+        "n": 31,
+        "status": "DONE",
+        "etag": "\"3d40119aaa11e4b5ead0400d83a13abe\"",
+        "retryCount": 1
+      },
+      {
+        "n": 32,
+        "status": "DONE",
+        "etag": "\"2aabe89fe584d07589197d5bd28fa458\"",
+        "retryCount": 1
+      },
+      {
+        "n": 33,
+        "status": "DONE",
+        "etag": "\"781c5c0626483853498abe156ede042a\"",
+        "retryCount": 1
+      },
+      {
+        "n": 34,
+        "status": "DONE",
+        "etag": "\"edd7daf9d60ad7c99ae115283d0a9227\"",
+        "retryCount": 1
+      },
+      {
+        "n": 35,
+        "status": "DONE",
+        "etag": "\"a0e25cecedc2b596a2d66273283add9d\"",
+        "retryCount": 1
+      },
+      {
+        "n": 36,
+        "status": "DONE",
+        "etag": "\"ef9349f5a62436e1827053073ac2002a\"",
+        "retryCount": 1
+      },
+      {
+        "n": 37,
+        "status": "DONE",
+        "etag": "\"a650252029e134f4161b7855b0cef1b5\"",
+        "retryCount": 1
+      },
+      {
+        "n": 38,
+        "status": "DONE",
+        "etag": "\"3113ab466e105f8c2ed86417fd97b0e6\"",
+        "retryCount": 1
+      },
+      {
+        "n": 39,
+        "status": "DONE",
+        "etag": "\"281875fce7d885c086f93f184691ad65\"",
+        "retryCount": 1
+      },
+      {
+        "n": 40,
+        "status": "DONE",
+        "etag": "\"3b86c8174447004c27ed94fb333d4144\"",
+        "retryCount": 1
+      },
+      {
+        "n": 41,
+        "status": "DONE",
+        "etag": "\"e70ad525b65fb84f79d686ccbb6e5ec0\"",
+        "retryCount": 1
+      },
+      {
+        "n": 42,
+        "status": "DONE",
+        "etag": "\"8d2967ea31035f5d7bbf04a08e098928\"",
+        "retryCount": 1
+      },
+      {
+        "n": 43,
+        "status": "DONE",
+        "etag": "\"59927151cea8c5286426df79ecc35f0d\"",
+        "retryCount": 1
+      },
+      {
+        "n": 44,
+        "status": "DONE",
+        "etag": "\"bb36f6aa8e7b5811500b3b58fcd37b14\"",
+        "retryCount": 1
+      },
+      {
+        "n": 45,
+        "status": "DONE",
+        "etag": "\"68875388d9fa559e90158f25fed2a1df\"",
+        "retryCount": 1
+      },
+      {
+        "n": 46,
+        "status": "DONE",
+        "etag": "\"45b7435bff16a168c9c337d1f63c787e\"",
+        "retryCount": 1
+      },
+      {
+        "n": 47,
+        "status": "DONE",
+        "etag": "\"4d9bb5c32ea3caf5359c2e2d0477ebde\"",
+        "retryCount": 1
+      },
+      {
+        "n": 48,
+        "status": "DONE",
+        "etag": "\"1243228c091fd8de78bd01dbddc60044\"",
+        "retryCount": 1
+      },
+      {
+        "n": 49,
+        "status": "DONE",
+        "etag": "\"535a85e01a9beac375c37d36a8dd1a86\"",
+        "retryCount": 1
+      },
+      {
+        "n": 50,
+        "status": "DONE",
+        "etag": "\"81c4e356692691c5750c44ce36b0abab\"",
+        "retryCount": 1
+      },
+      {
+        "n": 51,
+        "status": "DONE",
+        "etag": "\"0552da97153891d878620fad5d9386f4\"",
+        "retryCount": 1
+      },
+      {
+        "n": 52,
+        "status": "DONE",
+        "etag": "\"370d1966e679da2452fc1811b4058443\"",
+        "retryCount": 1
+      },
+      {
+        "n": 53,
+        "status": "DONE",
+        "etag": "\"12b76228b0a357a5182e7362ed21596e\"",
+        "retryCount": 1
+      },
+      {
+        "n": 54,
+        "status": "DONE",
+        "etag": "\"5a209485e93bc35d300828782b0c3147\"",
+        "retryCount": 1
+      },
+      {
+        "n": 55,
+        "status": "DONE",
+        "etag": "\"13d97e3298a683ec26d5635219d4e8d4\"",
+        "retryCount": 1
+      },
+      {
+        "n": 56,
+        "status": "DONE",
+        "etag": "\"cf22a7359faef1d5d32a308b8e372144\"",
+        "retryCount": 1
+      },
+      {
+        "n": 57,
+        "status": "DONE",
+        "etag": "\"14525c2b705e84b57a47ed7a6f20c52c\"",
+        "retryCount": 1
+      },
+      {
+        "n": 58,
+        "status": "DONE",
+        "etag": "\"039dffd795e1ec64fb9d0d24cc5b2394\"",
+        "retryCount": 1
+      },
+      {
+        "n": 59,
+        "status": "DONE",
+        "etag": "\"0ddf2ab677877ddb6fae0c0718a9e541\"",
+        "retryCount": 1
+      },
+      {
+        "n": 60,
+        "status": "DONE",
+        "etag": "\"465420e472d0fc2ebcf14b528a5abeb3\"",
+        "retryCount": 1
+      },
+      {
+        "n": 61,
+        "status": "DONE",
+        "etag": "\"614d413d68efe3310a278c850805e53d\"",
+        "retryCount": 1
+      },
+      {
+        "n": 62,
+        "status": "DONE",
+        "etag": "\"3f7ceeaf4d1217a12dc6f2271a727120\"",
+        "retryCount": 1
+      },
+      {
+        "n": 63,
+        "status": "DONE",
+        "etag": "\"8b4660112bbb5f99821354e6c254793d\"",
+        "retryCount": 1
+      },
+      {
+        "n": 64,
+        "status": "DONE",
+        "etag": "\"b93c30ebc7a35bb9c5f472fa6653eb00\"",
+        "retryCount": 1
+      },
+      {
+        "n": 65,
+        "status": "DONE",
+        "etag": "\"0f8c366097962c9a1a4c8250b052f627\"",
+        "retryCount": 1
+      },
+      {
+        "n": 66,
+        "status": "DONE",
+        "etag": "\"7fb2e78ac09c1fa61d9f0a330c6bdccd\"",
+        "retryCount": 1
+      },
+      {
+        "n": 67,
+        "status": "DONE",
+        "etag": "\"0ef1b412d0f05425835f643b850df48b\"",
+        "retryCount": 1
+      },
+      {
+        "n": 68,
+        "status": "DONE",
+        "etag": "\"02e57c30687b962e3c5bfd30ce5d0db8\"",
+        "retryCount": 1
+      },
+      {
+        "n": 69,
+        "status": "DONE",
+        "etag": "\"cbc49403621b05c7e9348f9ed72bef50\"",
+        "retryCount": 1
+      },
+      { "n": 70, "status": "DONE", "etag": "\"1b9dc135cb59473affb0ed7188f3b662\"", "retryCount": 1 }
+    ],
+    "imuParts": [
+      { "n": 1, "status": "DONE", "etag": "\"be7c1f7320ca80479c8330fbf733f8fc\"", "retryCount": 1 }
+    ],
+    "metadataPut": "DONE",
+    "enqueuedAt": 1779096573470,
+    "lastProgressAt": 1779101427933,
+    "initIdempotencyKey": "b49bdd88-3a3c-4eb7-bf33-44650bbaeba8",
+    "partsIdempotencyKey": "4763d12b-951d-45ad-8bb5-6d26821f4270",
+    "finalizeIdempotencyKey": "e4a166d3-dd41-4bba-9a75-564a4aad9c2c",
+    "reuploadIdempotencyKey": "1a3e2989-9cd2-4aa6-99ed-d022e1b12238"
+  },
+  {
+    "recordingId": "01KRX6PMWB9V0DTCCKA4ZDAE7Q",
+    "ownerUserId": "01KRX3WTZ4S2SJCVVGFFRXNRVR",
+    "mp4Path": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_145932_005.mp4",
+    "csvPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_145932_005.csv",
+    "jsonPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_145932_005.json",
+    "taskId": "01KRX2VM2TA5KN3MNNRTSXBAVY",
+    "isPractice": false,
+    "state": "AWAITING_VERIFY",
+    "uploadId": "ynyQaeLktCdZoI5XJJPyeqVqbS1YjHjiTXibA0edTgBjKvNeav7z4e6i0izqBzO15XsQdeARvmB8V9CFzZBhaa8WYkd-yKUfZLUsgPd7gSk_NuDHez_fw2TPLqcIXKec",
+    "imuUploadId": "HlO3JQ22Dv_ysbBjXmeqXH5MiepnauPmt8uILiHhvlvrRCh6F1YPt6QLceCHf7z9-VOD8pRmKOgfIqoZtgcJI6cKv4Itb4iwEme0sfqERajol-5-9OhTyMhswoUJqqPA",
+    "partsCount": 70,
+    "chunkBytes": 8388608,
+    "videoParts": [
+      { "n": 1, "status": "DONE", "etag": "\"973171db181150c7659b097e08d301c1\"", "retryCount": 1 },
+      { "n": 2, "status": "DONE", "etag": "\"43552b411033f5ec459677a8899ef866\"", "retryCount": 1 },
+      { "n": 3, "status": "DONE", "etag": "\"e27753061a8f6deb037e579dfb8e9b98\"", "retryCount": 1 },
+      { "n": 4, "status": "DONE", "etag": "\"70c206bef1c7374c09ec8fc534ffd0dc\"", "retryCount": 1 },
+      { "n": 5, "status": "DONE", "etag": "\"772a313e04961881064d3c401cb6f972\"", "retryCount": 1 },
+      { "n": 6, "status": "DONE", "etag": "\"f9be748d6e2d4b17ed35b3f18177ae76\"", "retryCount": 1 },
+      { "n": 7, "status": "DONE", "etag": "\"d7f3dce60b674e23872761c58784ff81\"", "retryCount": 1 },
+      { "n": 8, "status": "DONE", "etag": "\"cb351203292a6ed739867b43af9a00fe\"", "retryCount": 1 },
+      { "n": 9, "status": "DONE", "etag": "\"30025ed8ff7a7a4aba4a6be76023c9a9\"", "retryCount": 1 },
+      {
+        "n": 10,
+        "status": "DONE",
+        "etag": "\"e190698cdc11d87787af06d987490906\"",
+        "retryCount": 1
+      },
+      {
+        "n": 11,
+        "status": "DONE",
+        "etag": "\"a09703ca3467b0308e47314804c736d3\"",
+        "retryCount": 1
+      },
+      {
+        "n": 12,
+        "status": "DONE",
+        "etag": "\"35e8431e8c24cc0fc33e1f68d5c48577\"",
+        "retryCount": 1
+      },
+      {
+        "n": 13,
+        "status": "DONE",
+        "etag": "\"a574b28bc77c427321b1bfb957c9638c\"",
+        "retryCount": 1
+      },
+      {
+        "n": 14,
+        "status": "DONE",
+        "etag": "\"633c57bab948498d9e1d7b1b2633bd14\"",
+        "retryCount": 1
+      },
+      {
+        "n": 15,
+        "status": "DONE",
+        "etag": "\"dcc6fcde7280a62c7497fe9fff13176a\"",
+        "retryCount": 1
+      },
+      {
+        "n": 16,
+        "status": "DONE",
+        "etag": "\"65eb05513bdadba27ae45a85530a7218\"",
+        "retryCount": 1
+      },
+      {
+        "n": 17,
+        "status": "DONE",
+        "etag": "\"dd21d973fdcd0cd3e828024539d5c8d8\"",
+        "retryCount": 1
+      },
+      {
+        "n": 18,
+        "status": "DONE",
+        "etag": "\"03532de88e444193b5bafe574d57f21a\"",
+        "retryCount": 1
+      },
+      {
+        "n": 19,
+        "status": "DONE",
+        "etag": "\"941987aaceba624798a3b48810704651\"",
+        "retryCount": 1
+      },
+      {
+        "n": 20,
+        "status": "DONE",
+        "etag": "\"9cd383c3dca466b39d06594962ba062d\"",
+        "retryCount": 1
+      },
+      {
+        "n": 21,
+        "status": "DONE",
+        "etag": "\"8d508ababe5ea55381327cba6632cc59\"",
+        "retryCount": 1
+      },
+      {
+        "n": 22,
+        "status": "DONE",
+        "etag": "\"f6519f43a5199fdf81b069b07264e3b7\"",
+        "retryCount": 1
+      },
+      {
+        "n": 23,
+        "status": "DONE",
+        "etag": "\"d6ab81f7ab75515cfbd1ae4dd8808504\"",
+        "retryCount": 1
+      },
+      {
+        "n": 24,
+        "status": "DONE",
+        "etag": "\"d977281bb4d4bbe8652b859c0f49764a\"",
+        "retryCount": 1
+      },
+      {
+        "n": 25,
+        "status": "DONE",
+        "etag": "\"2f27279eab8d53e802b119f276572a2a\"",
+        "retryCount": 1
+      },
+      {
+        "n": 26,
+        "status": "DONE",
+        "etag": "\"071ef6789a300777ebefd947f860608e\"",
+        "retryCount": 1
+      },
+      {
+        "n": 27,
+        "status": "DONE",
+        "etag": "\"8aee5bf5430f9822c23fb9b13490de81\"",
+        "retryCount": 1
+      },
+      {
+        "n": 28,
+        "status": "DONE",
+        "etag": "\"05e3300536e373b87eb79a811bcafe5b\"",
+        "retryCount": 1
+      },
+      {
+        "n": 29,
+        "status": "DONE",
+        "etag": "\"31318a63f28845d9816c5e433675bf81\"",
+        "retryCount": 1
+      },
+      {
+        "n": 30,
+        "status": "DONE",
+        "etag": "\"425b7a691a856a72d975dda503cefdf0\"",
+        "retryCount": 1
+      },
+      {
+        "n": 31,
+        "status": "DONE",
+        "etag": "\"1bb8a20c7404c4f993d573c52be718e2\"",
+        "retryCount": 1
+      },
+      {
+        "n": 32,
+        "status": "DONE",
+        "etag": "\"4db6817df7e79ae948a132d0f47e6253\"",
+        "retryCount": 1
+      },
+      {
+        "n": 33,
+        "status": "DONE",
+        "etag": "\"98488b86fc73d250cad1886543d725ee\"",
+        "retryCount": 1
+      },
+      {
+        "n": 34,
+        "status": "DONE",
+        "etag": "\"e1539f464b24014aa069bc50b360361f\"",
+        "retryCount": 1
+      },
+      {
+        "n": 35,
+        "status": "DONE",
+        "etag": "\"ff17f7b25ff0c6f9ce512fd4ba54360e\"",
+        "retryCount": 1
+      },
+      {
+        "n": 36,
+        "status": "DONE",
+        "etag": "\"0fec8c21b78de13cd71f213d4988cb0d\"",
+        "retryCount": 1
+      },
+      {
+        "n": 37,
+        "status": "DONE",
+        "etag": "\"692b3714b704adc02653d202f0953c9e\"",
+        "retryCount": 1
+      },
+      {
+        "n": 38,
+        "status": "DONE",
+        "etag": "\"f70461be79705e76fb6336fbe8c63ad0\"",
+        "retryCount": 1
+      },
+      {
+        "n": 39,
+        "status": "DONE",
+        "etag": "\"1dc1cda1397a2a3fdf28ab451d8ff930\"",
+        "retryCount": 1
+      },
+      {
+        "n": 40,
+        "status": "DONE",
+        "etag": "\"4f77568b822b9e1fab897aa9e69f9154\"",
+        "retryCount": 1
+      },
+      {
+        "n": 41,
+        "status": "DONE",
+        "etag": "\"bf939266199b86dbbe3b1df42017405f\"",
+        "retryCount": 1
+      },
+      {
+        "n": 42,
+        "status": "DONE",
+        "etag": "\"fdadc414fd20bd13bf21cbdde0acf271\"",
+        "retryCount": 1
+      },
+      {
+        "n": 43,
+        "status": "DONE",
+        "etag": "\"bc4112cd69de5adc7af8cb1440e6e0c4\"",
+        "retryCount": 1
+      },
+      {
+        "n": 44,
+        "status": "DONE",
+        "etag": "\"f37665afc7d7ffea64efd54702e09da9\"",
+        "retryCount": 1
+      },
+      {
+        "n": 45,
+        "status": "DONE",
+        "etag": "\"25e783fd20ce61d42ca6ba5f8cce3e37\"",
+        "retryCount": 1
+      },
+      {
+        "n": 46,
+        "status": "DONE",
+        "etag": "\"a4bf590cde40fcc5b55f4493d1e8c29b\"",
+        "retryCount": 1
+      },
+      {
+        "n": 47,
+        "status": "DONE",
+        "etag": "\"9321cdef7a2adc346d8c5ae1ed565262\"",
+        "retryCount": 1
+      },
+      {
+        "n": 48,
+        "status": "DONE",
+        "etag": "\"dd5be6932b9523750099b312691a9862\"",
+        "retryCount": 1
+      },
+      {
+        "n": 49,
+        "status": "DONE",
+        "etag": "\"c0970ea10b510bfc46ca245128054a39\"",
+        "retryCount": 1
+      },
+      {
+        "n": 50,
+        "status": "DONE",
+        "etag": "\"65902444472778070533f9463585e84d\"",
+        "retryCount": 1
+      },
+      {
+        "n": 51,
+        "status": "DONE",
+        "etag": "\"2ce92d1c63d5069b346bd664678686cc\"",
+        "retryCount": 1
+      },
+      {
+        "n": 52,
+        "status": "DONE",
+        "etag": "\"3a939de4200128804e2f11d399df9f85\"",
+        "retryCount": 1
+      },
+      {
+        "n": 53,
+        "status": "DONE",
+        "etag": "\"8187efe8ece8198aa5bc0bca8df1f41e\"",
+        "retryCount": 1
+      },
+      {
+        "n": 54,
+        "status": "DONE",
+        "etag": "\"076b5066f3f756e20fd38b15785e3a2f\"",
+        "retryCount": 1
+      },
+      {
+        "n": 55,
+        "status": "DONE",
+        "etag": "\"eedcfa086e5700c28ccbeb90d75b8c82\"",
+        "retryCount": 1
+      },
+      {
+        "n": 56,
+        "status": "DONE",
+        "etag": "\"7357ed9563f375a1e2020a43e385f6cb\"",
+        "retryCount": 1
+      },
+      {
+        "n": 57,
+        "status": "DONE",
+        "etag": "\"60f2b8d7cfcdbf82a2b8e1262e4c692d\"",
+        "retryCount": 1
+      },
+      {
+        "n": 58,
+        "status": "DONE",
+        "etag": "\"b7e240050a4392183effc3100b4689c9\"",
+        "retryCount": 1
+      },
+      {
+        "n": 59,
+        "status": "DONE",
+        "etag": "\"fed8085fc6cab42c27bb094197ff46de\"",
+        "retryCount": 1
+      },
+      {
+        "n": 60,
+        "status": "DONE",
+        "etag": "\"32d283279c24e46b911fa552fdfb870c\"",
+        "retryCount": 1
+      },
+      {
+        "n": 61,
+        "status": "DONE",
+        "etag": "\"3f397f59bf0e23f86c3b70c2808248cd\"",
+        "retryCount": 1
+      },
+      {
+        "n": 62,
+        "status": "DONE",
+        "etag": "\"d90fe366557fead709ea3f4178154f30\"",
+        "retryCount": 1
+      },
+      {
+        "n": 63,
+        "status": "DONE",
+        "etag": "\"054a8a168a1f4300b11a0f8381d8428c\"",
+        "retryCount": 1
+      },
+      {
+        "n": 64,
+        "status": "DONE",
+        "etag": "\"f78af32662866eba1b83191c042e2f97\"",
+        "retryCount": 1
+      },
+      {
+        "n": 65,
+        "status": "DONE",
+        "etag": "\"96e7e84cf0c97acc07a5ddc4955bc7fb\"",
+        "retryCount": 1
+      },
+      {
+        "n": 66,
+        "status": "DONE",
+        "etag": "\"a9a7c19cbbcb639155573126a9ad25dd\"",
+        "retryCount": 1
+      },
+      {
+        "n": 67,
+        "status": "DONE",
+        "etag": "\"0b03c3bb085b3eaaa184face8f5af4d3\"",
+        "retryCount": 1
+      },
+      {
+        "n": 68,
+        "status": "DONE",
+        "etag": "\"aac000c01414034f3188dc7d8b96e5e1\"",
+        "retryCount": 1
+      },
+      {
+        "n": 69,
+        "status": "DONE",
+        "etag": "\"445ebfad76292d0022f249cc66d6249b\"",
+        "retryCount": 1
+      },
+      { "n": 70, "status": "DONE", "etag": "\"1a1856a5dae22736e6f43dde4596c3ae\"", "retryCount": 1 }
+    ],
+    "imuParts": [
+      { "n": 1, "status": "DONE", "etag": "\"f1d9065a048264e963482ca375230f5f\"", "retryCount": 1 }
+    ],
+    "metadataPut": "DONE",
+    "enqueuedAt": 1779097174649,
+    "lastProgressAt": 1779101442977,
+    "initIdempotencyKey": "218e7131-24cc-425c-8e68-f5632b2bdb1f",
+    "partsIdempotencyKey": "aaab9b06-ad65-4abc-9410-8df34f523800",
+    "finalizeIdempotencyKey": "baee7f8c-0306-4f55-b9ec-9863a3de76e9",
+    "reuploadIdempotencyKey": "5ed8e591-6c9f-48d2-8e40-5579d3217e97"
+  },
+  {
+    "recordingId": "01KRX78ZVNSAVSFJBAPTH7N0TF",
+    "ownerUserId": "01KRX3WTZ4S2SJCVVGFFRXNRVR",
+    "mp4Path": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_150933_006.mp4",
+    "csvPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_150933_006.csv",
+    "jsonPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_150933_006.json",
+    "taskId": "01KRX2VM2TA5KN3MNNRTSXBAVY",
+    "isPractice": false,
+    "state": "FINALIZING",
+    "uploadId": "BUOhCAe6Ot4SEIJnYb3K2jsbJenshBZzfo96QcmDXMiYxWcqY-TnQ8bWRj_Rwy7CyWvoXuHWugOizjo47bTvDuc5dvhszKaUbL-lzvZSVauO_8yJyphwImAbkkAhl5-W",
+    "imuUploadId": "UDJtrCzx7DbUpkSzG7Ms0s8LVJy3CnHvmglLOquEEAX-XiiTfIypQLoPHrwkf4WjNfnmcv4KyO6hn1xhNSI4NLHll36iCqfPaTNKSysCsAzDtlpzKhCEjcz3au3v2HWF",
+    "partsCount": 70,
+    "chunkBytes": 8388608,
+    "videoParts": [
+      { "n": 1, "status": "DONE", "etag": "\"5b6655fe82be43c89ad6b7135daf660b\"", "retryCount": 1 },
+      { "n": 2, "status": "DONE", "etag": "\"ebeff9e708e2e2ff6ecde4e33ab0cf37\"", "retryCount": 1 },
+      { "n": 3, "status": "DONE", "etag": "\"46f5ead9a88347cb62daf99cd5b2736c\"", "retryCount": 1 },
+      { "n": 4, "status": "DONE", "etag": "\"8255382ca7b4e0214c5af9e65a6cb133\"", "retryCount": 1 },
+      { "n": 5, "status": "DONE", "etag": "\"8d39b014bef836ed7c2f9e29823685dd\"", "retryCount": 1 },
+      { "n": 6, "status": "DONE", "etag": "\"e2daa8882bace485a7ca0f1b8171da4c\"", "retryCount": 1 },
+      { "n": 7, "status": "DONE", "etag": "\"55dbad3b52f210c8f20a387aa7eeeb8f\"", "retryCount": 1 },
+      { "n": 8, "status": "DONE", "etag": "\"e4b2e1af5f5480039bcb6528049e31fd\"", "retryCount": 1 },
+      { "n": 9, "status": "DONE", "etag": "\"d75268e3c099e3727ff5530b38b721fd\"", "retryCount": 1 },
+      {
+        "n": 10,
+        "status": "DONE",
+        "etag": "\"b270812dea27899a5ea09e2a90740683\"",
+        "retryCount": 1
+      },
+      {
+        "n": 11,
+        "status": "DONE",
+        "etag": "\"3a014903fbaa249aaf82a3770967bf1e\"",
+        "retryCount": 1
+      },
+      {
+        "n": 12,
+        "status": "DONE",
+        "etag": "\"95de7436163650cf8ad8b10981fee678\"",
+        "retryCount": 1
+      },
+      {
+        "n": 13,
+        "status": "DONE",
+        "etag": "\"5ee734501fa31bf0b7488c48697cb611\"",
+        "retryCount": 1
+      },
+      {
+        "n": 14,
+        "status": "DONE",
+        "etag": "\"b2b0c3a9750ef48aa6a849c403015cf5\"",
+        "retryCount": 1
+      },
+      {
+        "n": 15,
+        "status": "DONE",
+        "etag": "\"3dbb3e1c1d6b1e214a73aa16cabb1d79\"",
+        "retryCount": 1
+      },
+      {
+        "n": 16,
+        "status": "DONE",
+        "etag": "\"14f954eb8040e8241c4ea6b552b63e16\"",
+        "retryCount": 1
+      },
+      {
+        "n": 17,
+        "status": "DONE",
+        "etag": "\"ece687efaec061f2a8623cf2ee2f0b96\"",
+        "retryCount": 1
+      },
+      {
+        "n": 18,
+        "status": "DONE",
+        "etag": "\"0a02da9dded8745b8679556100d77d4e\"",
+        "retryCount": 1
+      },
+      {
+        "n": 19,
+        "status": "DONE",
+        "etag": "\"263c1a04b6c32ee0965f57d31c0f828c\"",
+        "retryCount": 1
+      },
+      {
+        "n": 20,
+        "status": "DONE",
+        "etag": "\"cc8f46665fff225bd3665c3db0c410cd\"",
+        "retryCount": 1
+      },
+      {
+        "n": 21,
+        "status": "DONE",
+        "etag": "\"4985eb8f29b911199bc70454ce98c2bf\"",
+        "retryCount": 1
+      },
+      {
+        "n": 22,
+        "status": "DONE",
+        "etag": "\"705d6397e12f28684c2326b3a279b6d6\"",
+        "retryCount": 1
+      },
+      {
+        "n": 23,
+        "status": "DONE",
+        "etag": "\"f810fb49934d2c7dace6122d09ab75c7\"",
+        "retryCount": 1
+      },
+      {
+        "n": 24,
+        "status": "DONE",
+        "etag": "\"8482fa22c052d8a2df17fbeadf5ea9e2\"",
+        "retryCount": 1
+      },
+      {
+        "n": 25,
+        "status": "DONE",
+        "etag": "\"018ba1942d819679d1b237dbff9cc291\"",
+        "retryCount": 1
+      },
+      {
+        "n": 26,
+        "status": "DONE",
+        "etag": "\"569cd566e0c3dc5da896fe63b3e04ee6\"",
+        "retryCount": 1
+      },
+      {
+        "n": 27,
+        "status": "DONE",
+        "etag": "\"20ff024e6288a3a946b1163feb06dab4\"",
+        "retryCount": 1
+      },
+      {
+        "n": 28,
+        "status": "DONE",
+        "etag": "\"83d9840c5af26a3935f875aa74e3acac\"",
+        "retryCount": 1
+      },
+      {
+        "n": 29,
+        "status": "DONE",
+        "etag": "\"a3c277d1c3e306bbdfc36a9fa2b60cef\"",
+        "retryCount": 1
+      },
+      {
+        "n": 30,
+        "status": "DONE",
+        "etag": "\"ea7f344e3b58e1ab84f36e721271fd71\"",
+        "retryCount": 1
+      },
+      {
+        "n": 31,
+        "status": "DONE",
+        "etag": "\"3b695f97c394e48da535fa81dd2cb219\"",
+        "retryCount": 1
+      },
+      {
+        "n": 32,
+        "status": "DONE",
+        "etag": "\"811cb6672847ac019fdbbb4843e7e4b3\"",
+        "retryCount": 1
+      },
+      {
+        "n": 33,
+        "status": "DONE",
+        "etag": "\"be873666bda7ff2485f6b4b594312b7f\"",
+        "retryCount": 1
+      },
+      {
+        "n": 34,
+        "status": "DONE",
+        "etag": "\"c632628187d9aada2077cfed8c9728d6\"",
+        "retryCount": 1
+      },
+      {
+        "n": 35,
+        "status": "DONE",
+        "etag": "\"3f47e9751ceabbebc76fae7b9ad390bf\"",
+        "retryCount": 1
+      },
+      {
+        "n": 36,
+        "status": "DONE",
+        "etag": "\"403bb722be936332348e2de99e93e83e\"",
+        "retryCount": 1
+      },
+      {
+        "n": 37,
+        "status": "DONE",
+        "etag": "\"f78bd3415ffe7dcafb18170011dfd7fb\"",
+        "retryCount": 1
+      },
+      {
+        "n": 38,
+        "status": "DONE",
+        "etag": "\"4dfb03cd4443ab9f5c3f46bf7676d079\"",
+        "retryCount": 1
+      },
+      {
+        "n": 39,
+        "status": "DONE",
+        "etag": "\"0fe6edb1aa56fae3430a873d8ea82a9a\"",
+        "retryCount": 1
+      },
+      {
+        "n": 40,
+        "status": "DONE",
+        "etag": "\"8a4f0cf6696fe50b2775b452afc35a09\"",
+        "retryCount": 1
+      },
+      {
+        "n": 41,
+        "status": "DONE",
+        "etag": "\"c2306e519c0f2317e1a6daa2f9c009a0\"",
+        "retryCount": 1
+      },
+      {
+        "n": 42,
+        "status": "DONE",
+        "etag": "\"61c02803bedb4397534246a744f03a76\"",
+        "retryCount": 1
+      },
+      {
+        "n": 43,
+        "status": "DONE",
+        "etag": "\"009b9553ef94325741ded0a31d38b921\"",
+        "retryCount": 1
+      },
+      {
+        "n": 44,
+        "status": "DONE",
+        "etag": "\"6a6b05249722e8582353e38f60a35852\"",
+        "retryCount": 1
+      },
+      {
+        "n": 45,
+        "status": "DONE",
+        "etag": "\"9b435ad9e7753de2d1fae1ed1a2225fc\"",
+        "retryCount": 1
+      },
+      {
+        "n": 46,
+        "status": "DONE",
+        "etag": "\"38e6943361ec9b303c2abd5b355e3d28\"",
+        "retryCount": 1
+      },
+      {
+        "n": 47,
+        "status": "DONE",
+        "etag": "\"b1e0cbf1bf910f5af02d1cbfcb2024db\"",
+        "retryCount": 1
+      },
+      {
+        "n": 48,
+        "status": "DONE",
+        "etag": "\"a6c5208de77ea1f888f1deb60fabba1b\"",
+        "retryCount": 1
+      },
+      {
+        "n": 49,
+        "status": "DONE",
+        "etag": "\"a6757b3abd539cb28a06d437e29984fd\"",
+        "retryCount": 1
+      },
+      {
+        "n": 50,
+        "status": "DONE",
+        "etag": "\"74c67565d1b1310e0cc9ee1fcd9c802a\"",
+        "retryCount": 1
+      },
+      {
+        "n": 51,
+        "status": "DONE",
+        "etag": "\"664b2bfd8916b074c330bb798e235cea\"",
+        "retryCount": 1
+      },
+      {
+        "n": 52,
+        "status": "DONE",
+        "etag": "\"bd98dd38da91ec9b7b0e4e71e08351b8\"",
+        "retryCount": 1
+      },
+      {
+        "n": 53,
+        "status": "DONE",
+        "etag": "\"b9bff0f72652bd36040d6610e2467aba\"",
+        "retryCount": 1
+      },
+      {
+        "n": 54,
+        "status": "DONE",
+        "etag": "\"1334332e6e2207c4b68e356ce9fccd3b\"",
+        "retryCount": 1
+      },
+      {
+        "n": 55,
+        "status": "DONE",
+        "etag": "\"41787650916fd40b3b85c14c2206b284\"",
+        "retryCount": 1
+      },
+      {
+        "n": 56,
+        "status": "DONE",
+        "etag": "\"398ec48608e98699a80f9230faec608c\"",
+        "retryCount": 1
+      },
+      {
+        "n": 57,
+        "status": "DONE",
+        "etag": "\"8f314cc21442da123efd7b0e9502bc9e\"",
+        "retryCount": 1
+      },
+      {
+        "n": 58,
+        "status": "DONE",
+        "etag": "\"90d445baf99af001922f1778af8371d5\"",
+        "retryCount": 1
+      },
+      {
+        "n": 59,
+        "status": "DONE",
+        "etag": "\"fec00c0b131bce427bfe4704503220f5\"",
+        "retryCount": 1
+      },
+      {
+        "n": 60,
+        "status": "DONE",
+        "etag": "\"bff0dca172bfd6322c473104bdb722ba\"",
+        "retryCount": 1
+      },
+      {
+        "n": 61,
+        "status": "DONE",
+        "etag": "\"b5299e033adae9f4d633a54777425c03\"",
+        "retryCount": 1
+      },
+      {
+        "n": 62,
+        "status": "DONE",
+        "etag": "\"298f49f7fc5bc4a4f4cae0e51f648ce7\"",
+        "retryCount": 1
+      },
+      {
+        "n": 63,
+        "status": "DONE",
+        "etag": "\"9e471cb4e3eb2043c7f4c6f88c30ad31\"",
+        "retryCount": 1
+      },
+      {
+        "n": 64,
+        "status": "DONE",
+        "etag": "\"607b5d4e1b6a711db32d924d5f919473\"",
+        "retryCount": 1
+      },
+      {
+        "n": 65,
+        "status": "DONE",
+        "etag": "\"9455b88dba6cfcf796d1af306b517363\"",
+        "retryCount": 1
+      },
+      {
+        "n": 66,
+        "status": "DONE",
+        "etag": "\"94b5e18fc33b1ef31b81ce14eadadcc0\"",
+        "retryCount": 1
+      },
+      {
+        "n": 67,
+        "status": "DONE",
+        "etag": "\"992f144649470619210c1ee491a6d1b3\"",
+        "retryCount": 1
+      },
+      {
+        "n": 68,
+        "status": "DONE",
+        "etag": "\"708dd65b88ba4694b7b3d7402829badc\"",
+        "retryCount": 1
+      },
+      {
+        "n": 69,
+        "status": "DONE",
+        "etag": "\"3c40710aa9e8db174e5146afe7f480dd\"",
+        "retryCount": 1
+      },
+      { "n": 70, "status": "DONE", "etag": "\"c81ed6c07332cf47edce6f4c74401437\"", "retryCount": 1 }
+    ],
+    "imuParts": [
+      { "n": 1, "status": "DONE", "etag": "\"1326924e02175bf1c38c07fbbdc3d5df\"", "retryCount": 1 }
+    ],
+    "metadataPut": "DONE",
+    "enqueuedAt": 1779097775767,
+    "lastProgressAt": 1779101453993,
+    "initIdempotencyKey": "7c43f918-5235-479d-89fe-b5179db01867",
+    "partsIdempotencyKey": "7bc330eb-9895-42c9-8889-c64eae3fc2de",
+    "finalizeIdempotencyKey": "37f606d2-46e9-492a-aed2-098258d96271",
+    "reuploadIdempotencyKey": "936263ab-83dc-4c51-a871-9e5760cc417d",
+    "attemptCount": 2,
+    "lastFailureAt": 1779101186059,
+    "lastFailureState": "PENDING",
+    "lastFailureReason": "Failed to connect to localhost/127.0.0.1:8080"
+  },
+  {
+    "recordingId": "01KRX7VATCMHPP43YDP88BT2P3",
+    "ownerUserId": "01KRX3WTZ4S2SJCVVGFFRXNRVR",
+    "mp4Path": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_151934_007.mp4",
+    "csvPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_151934_007.csv",
+    "jsonPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_151934_007.json",
+    "taskId": "01KRX2VM2TA5KN3MNNRTSXBAVY",
+    "isPractice": false,
+    "state": "UPLOADING",
+    "uploadId": "LBTnQD7uou3zGrYq4vpiPA60BEELoCgsWoWAk_1LM-LtpT80QK6uL-ngjvvaUGJE18PFiVtKvo_INQ35uOCK6P9jwZESnM9TPSFSHCUgQWFZtDcE5TSe5zyR6n7DDJrW",
+    "imuUploadId": "-nYp3x873tNXU_6LGoVXlCiKYcm7xeGjHxzMQ_oP1ynnU0lkIPkoWIFbp__w7Fq3yAepEzqT8_2u5K06IvRd0997mvYm787prXoWdjrjz5xre4dR3_R9pLz2fwCjPyNE",
+    "partsCount": 70,
+    "chunkBytes": 8388608,
+    "videoParts": [
+      { "n": 1, "status": "DONE", "etag": "\"6fcd5817131c2d0ba15390a3f39fb420\"", "retryCount": 1 },
+      { "n": 2, "status": "DONE", "etag": "\"e462ded251bc1ac6ff156e78df5aafbf\"", "retryCount": 1 },
+      { "n": 3, "status": "DONE", "etag": "\"634fc43ac37afb26a5fe815e2134a9df\"", "retryCount": 1 },
+      { "n": 4, "status": "DONE", "etag": "\"5d68c43c86df28502d525761dc01634e\"", "retryCount": 1 },
+      { "n": 5, "status": "DONE", "etag": "\"0ad15a0f62ac636788bd37695202688a\"", "retryCount": 1 },
+      { "n": 6, "status": "DONE", "etag": "\"fa7402b2067b42a86865f4566d6d52c4\"", "retryCount": 1 },
+      { "n": 7, "status": "DONE", "etag": "\"6d29b8ed760f826ca3c038118f788c43\"", "retryCount": 1 },
+      { "n": 8, "status": "DONE", "etag": "\"4ede4aa8602aeec1bb70b2a00deaf634\"", "retryCount": 1 },
+      { "n": 9, "status": "DONE", "etag": "\"9a4af50c91d8b1ccb032ac37113a9f34\"", "retryCount": 1 },
+      {
+        "n": 10,
+        "status": "DONE",
+        "etag": "\"f478dc028744ff364e1cd8b0f04ae5cb\"",
+        "retryCount": 1
+      },
+      {
+        "n": 11,
+        "status": "DONE",
+        "etag": "\"456611d48394ab9bbca7bfde7f663ce8\"",
+        "retryCount": 1
+      },
+      {
+        "n": 12,
+        "status": "DONE",
+        "etag": "\"575c254b5c59c8836dc848af602cffe5\"",
+        "retryCount": 1
+      },
+      {
+        "n": 13,
+        "status": "DONE",
+        "etag": "\"ece65532a74e52fbd965eb8c2d150528\"",
+        "retryCount": 1
+      },
+      {
+        "n": 14,
+        "status": "DONE",
+        "etag": "\"af48b324c57765f450abde35a1f6e529\"",
+        "retryCount": 1
+      },
+      {
+        "n": 15,
+        "status": "DONE",
+        "etag": "\"518386288dfbd81118c8c557c79506d7\"",
+        "retryCount": 1
+      },
+      {
+        "n": 16,
+        "status": "DONE",
+        "etag": "\"b80c7e0f8dfbc01db77e7181f5b503f4\"",
+        "retryCount": 1
+      },
+      {
+        "n": 17,
+        "status": "DONE",
+        "etag": "\"ecd82a7e1e61423054ee7f849a347a11\"",
+        "retryCount": 1
+      },
+      {
+        "n": 18,
+        "status": "DONE",
+        "etag": "\"a051fbaabc971465fc3dd0da99c9c92f\"",
+        "retryCount": 1
+      },
+      { "n": 19, "status": "PENDING", "retryCount": 1 },
+      { "n": 20, "status": "PENDING", "retryCount": 1 },
+      { "n": 21, "status": "PENDING", "retryCount": 1 },
+      { "n": 22, "status": "PENDING", "retryCount": 1 },
+      { "n": 23, "status": "PENDING", "retryCount": 1 },
+      { "n": 24, "status": "PENDING", "retryCount": 0 },
+      { "n": 25, "status": "PENDING", "retryCount": 0 },
+      { "n": 26, "status": "PENDING", "retryCount": 0 },
+      { "n": 27, "status": "PENDING", "retryCount": 0 },
+      { "n": 28, "status": "PENDING", "retryCount": 0 },
+      { "n": 29, "status": "PENDING", "retryCount": 0 },
+      { "n": 30, "status": "PENDING", "retryCount": 0 },
+      { "n": 31, "status": "PENDING", "retryCount": 0 },
+      { "n": 32, "status": "PENDING", "retryCount": 0 },
+      { "n": 33, "status": "PENDING", "retryCount": 0 },
+      { "n": 34, "status": "PENDING", "retryCount": 0 },
+      { "n": 35, "status": "PENDING", "retryCount": 0 },
+      { "n": 36, "status": "PENDING", "retryCount": 0 },
+      { "n": 37, "status": "PENDING", "retryCount": 0 },
+      { "n": 38, "status": "PENDING", "retryCount": 0 },
+      { "n": 39, "status": "PENDING", "retryCount": 0 },
+      { "n": 40, "status": "PENDING", "retryCount": 0 },
+      { "n": 41, "status": "PENDING", "retryCount": 0 },
+      { "n": 42, "status": "PENDING", "retryCount": 0 },
+      { "n": 43, "status": "PENDING", "retryCount": 0 },
+      { "n": 44, "status": "PENDING", "retryCount": 0 },
+      { "n": 45, "status": "PENDING", "retryCount": 0 },
+      { "n": 46, "status": "PENDING", "retryCount": 0 },
+      { "n": 47, "status": "PENDING", "retryCount": 0 },
+      { "n": 48, "status": "PENDING", "retryCount": 0 },
+      { "n": 49, "status": "PENDING", "retryCount": 0 },
+      { "n": 50, "status": "PENDING", "retryCount": 0 },
+      { "n": 51, "status": "PENDING", "retryCount": 0 },
+      { "n": 52, "status": "PENDING", "retryCount": 0 },
+      { "n": 53, "status": "PENDING", "retryCount": 0 },
+      { "n": 54, "status": "PENDING", "retryCount": 0 },
+      { "n": 55, "status": "PENDING", "retryCount": 0 },
+      { "n": 56, "status": "PENDING", "retryCount": 0 },
+      { "n": 57, "status": "PENDING", "retryCount": 0 },
+      { "n": 58, "status": "PENDING", "retryCount": 0 },
+      { "n": 59, "status": "PENDING", "retryCount": 0 },
+      { "n": 60, "status": "PENDING", "retryCount": 0 },
+      { "n": 61, "status": "PENDING", "retryCount": 0 },
+      { "n": 62, "status": "PENDING", "retryCount": 0 },
+      { "n": 63, "status": "PENDING", "retryCount": 0 },
+      { "n": 64, "status": "PENDING", "retryCount": 0 },
+      { "n": 65, "status": "PENDING", "retryCount": 0 },
+      { "n": 66, "status": "PENDING", "retryCount": 0 },
+      { "n": 67, "status": "PENDING", "retryCount": 0 },
+      { "n": 68, "status": "PENDING", "retryCount": 0 },
+      { "n": 69, "status": "PENDING", "retryCount": 0 },
+      { "n": 70, "status": "PENDING", "retryCount": 0 }
+    ],
+    "imuParts": [{ "n": 1, "status": "PENDING", "retryCount": 0 }],
+    "metadataPut": "DONE",
+    "enqueuedAt": 1779098376747,
+    "lastProgressAt": 1779101456782,
+    "initIdempotencyKey": "d400d6ce-56f2-44fe-a1e0-4450a5066e8f",
+    "partsIdempotencyKey": "49dacfec-d46e-4ffe-89dc-53453c5fda70",
+    "finalizeIdempotencyKey": "2508911a-e248-4bcd-8f9d-e7e1947bed4e",
+    "reuploadIdempotencyKey": "61296786-d7d2-4a45-b991-68c4d4c497bc",
+    "attemptCount": 2,
+    "lastFailureAt": 1779101196806,
+    "lastFailureState": "PENDING",
+    "lastFailureReason": "Failed to connect to localhost/127.0.0.1:8080"
+  },
+  {
+    "recordingId": "01KRX8DNSAFVGMDY417541ZETE",
+    "ownerUserId": "01KRX3WTZ4S2SJCVVGFFRXNRVR",
+    "mp4Path": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_152935_008.mp4",
+    "csvPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_152935_008.csv",
+    "jsonPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_152935_008.json",
+    "taskId": "01KRX2VM2TA5KN3MNNRTSXBAVY",
+    "isPractice": false,
+    "state": "PENDING",
+    "partsCount": 70,
+    "chunkBytes": 8388608,
+    "videoParts": [
+      { "n": 1, "status": "PENDING", "retryCount": 0 },
+      { "n": 2, "status": "PENDING", "retryCount": 0 },
+      { "n": 3, "status": "PENDING", "retryCount": 0 },
+      { "n": 4, "status": "PENDING", "retryCount": 0 },
+      { "n": 5, "status": "PENDING", "retryCount": 0 },
+      { "n": 6, "status": "PENDING", "retryCount": 0 },
+      { "n": 7, "status": "PENDING", "retryCount": 0 },
+      { "n": 8, "status": "PENDING", "retryCount": 0 },
+      { "n": 9, "status": "PENDING", "retryCount": 0 },
+      { "n": 10, "status": "PENDING", "retryCount": 0 },
+      { "n": 11, "status": "PENDING", "retryCount": 0 },
+      { "n": 12, "status": "PENDING", "retryCount": 0 },
+      { "n": 13, "status": "PENDING", "retryCount": 0 },
+      { "n": 14, "status": "PENDING", "retryCount": 0 },
+      { "n": 15, "status": "PENDING", "retryCount": 0 },
+      { "n": 16, "status": "PENDING", "retryCount": 0 },
+      { "n": 17, "status": "PENDING", "retryCount": 0 },
+      { "n": 18, "status": "PENDING", "retryCount": 0 },
+      { "n": 19, "status": "PENDING", "retryCount": 0 },
+      { "n": 20, "status": "PENDING", "retryCount": 0 },
+      { "n": 21, "status": "PENDING", "retryCount": 0 },
+      { "n": 22, "status": "PENDING", "retryCount": 0 },
+      { "n": 23, "status": "PENDING", "retryCount": 0 },
+      { "n": 24, "status": "PENDING", "retryCount": 0 },
+      { "n": 25, "status": "PENDING", "retryCount": 0 },
+      { "n": 26, "status": "PENDING", "retryCount": 0 },
+      { "n": 27, "status": "PENDING", "retryCount": 0 },
+      { "n": 28, "status": "PENDING", "retryCount": 0 },
+      { "n": 29, "status": "PENDING", "retryCount": 0 },
+      { "n": 30, "status": "PENDING", "retryCount": 0 },
+      { "n": 31, "status": "PENDING", "retryCount": 0 },
+      { "n": 32, "status": "PENDING", "retryCount": 0 },
+      { "n": 33, "status": "PENDING", "retryCount": 0 },
+      { "n": 34, "status": "PENDING", "retryCount": 0 },
+      { "n": 35, "status": "PENDING", "retryCount": 0 },
+      { "n": 36, "status": "PENDING", "retryCount": 0 },
+      { "n": 37, "status": "PENDING", "retryCount": 0 },
+      { "n": 38, "status": "PENDING", "retryCount": 0 },
+      { "n": 39, "status": "PENDING", "retryCount": 0 },
+      { "n": 40, "status": "PENDING", "retryCount": 0 },
+      { "n": 41, "status": "PENDING", "retryCount": 0 },
+      { "n": 42, "status": "PENDING", "retryCount": 0 },
+      { "n": 43, "status": "PENDING", "retryCount": 0 },
+      { "n": 44, "status": "PENDING", "retryCount": 0 },
+      { "n": 45, "status": "PENDING", "retryCount": 0 },
+      { "n": 46, "status": "PENDING", "retryCount": 0 },
+      { "n": 47, "status": "PENDING", "retryCount": 0 },
+      { "n": 48, "status": "PENDING", "retryCount": 0 },
+      { "n": 49, "status": "PENDING", "retryCount": 0 },
+      { "n": 50, "status": "PENDING", "retryCount": 0 },
+      { "n": 51, "status": "PENDING", "retryCount": 0 },
+      { "n": 52, "status": "PENDING", "retryCount": 0 },
+      { "n": 53, "status": "PENDING", "retryCount": 0 },
+      { "n": 54, "status": "PENDING", "retryCount": 0 },
+      { "n": 55, "status": "PENDING", "retryCount": 0 },
+      { "n": 56, "status": "PENDING", "retryCount": 0 },
+      { "n": 57, "status": "PENDING", "retryCount": 0 },
+      { "n": 58, "status": "PENDING", "retryCount": 0 },
+      { "n": 59, "status": "PENDING", "retryCount": 0 },
+      { "n": 60, "status": "PENDING", "retryCount": 0 },
+      { "n": 61, "status": "PENDING", "retryCount": 0 },
+      { "n": 62, "status": "PENDING", "retryCount": 0 },
+      { "n": 63, "status": "PENDING", "retryCount": 0 },
+      { "n": 64, "status": "PENDING", "retryCount": 0 },
+      { "n": 65, "status": "PENDING", "retryCount": 0 },
+      { "n": 66, "status": "PENDING", "retryCount": 0 },
+      { "n": 67, "status": "PENDING", "retryCount": 0 },
+      { "n": 68, "status": "PENDING", "retryCount": 0 },
+      { "n": 69, "status": "PENDING", "retryCount": 0 },
+      { "n": 70, "status": "PENDING", "retryCount": 0 }
+    ],
+    "imuParts": [{ "n": 1, "status": "PENDING", "retryCount": 0 }],
+    "metadataPut": "PENDING",
+    "enqueuedAt": 1779098977745,
+    "lastProgressAt": 1779098977745,
+    "initIdempotencyKey": "88b3dadc-ff71-4236-85f0-889b4aa4b28a",
+    "partsIdempotencyKey": "26b3b532-01ac-40fc-99f5-1fa80001c1c4",
+    "finalizeIdempotencyKey": "04d5fd98-04a3-4913-91e2-cb8ef68e3235",
+    "reuploadIdempotencyKey": "25e90744-c036-448a-b521-b43fb36db0d7",
+    "attemptCount": 2,
+    "lastFailureAt": 1779101196832,
+    "lastFailureState": "PENDING",
+    "lastFailureReason": "Failed to connect to localhost/127.0.0.1:8080"
+  },
+  {
+    "recordingId": "01KRX900RP8XCARGVX2QMF7JRG",
+    "ownerUserId": "01KRX3WTZ4S2SJCVVGFFRXNRVR",
+    "mp4Path": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_153937_009.mp4",
+    "csvPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_153937_009.csv",
+    "jsonPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_153937_009.json",
+    "taskId": "01KRX2VM2TA5KN3MNNRTSXBAVY",
+    "isPractice": false,
+    "state": "PENDING",
+    "partsCount": 70,
+    "chunkBytes": 8388608,
+    "videoParts": [
+      { "n": 1, "status": "PENDING", "retryCount": 0 },
+      { "n": 2, "status": "PENDING", "retryCount": 0 },
+      { "n": 3, "status": "PENDING", "retryCount": 0 },
+      { "n": 4, "status": "PENDING", "retryCount": 0 },
+      { "n": 5, "status": "PENDING", "retryCount": 0 },
+      { "n": 6, "status": "PENDING", "retryCount": 0 },
+      { "n": 7, "status": "PENDING", "retryCount": 0 },
+      { "n": 8, "status": "PENDING", "retryCount": 0 },
+      { "n": 9, "status": "PENDING", "retryCount": 0 },
+      { "n": 10, "status": "PENDING", "retryCount": 0 },
+      { "n": 11, "status": "PENDING", "retryCount": 0 },
+      { "n": 12, "status": "PENDING", "retryCount": 0 },
+      { "n": 13, "status": "PENDING", "retryCount": 0 },
+      { "n": 14, "status": "PENDING", "retryCount": 0 },
+      { "n": 15, "status": "PENDING", "retryCount": 0 },
+      { "n": 16, "status": "PENDING", "retryCount": 0 },
+      { "n": 17, "status": "PENDING", "retryCount": 0 },
+      { "n": 18, "status": "PENDING", "retryCount": 0 },
+      { "n": 19, "status": "PENDING", "retryCount": 0 },
+      { "n": 20, "status": "PENDING", "retryCount": 0 },
+      { "n": 21, "status": "PENDING", "retryCount": 0 },
+      { "n": 22, "status": "PENDING", "retryCount": 0 },
+      { "n": 23, "status": "PENDING", "retryCount": 0 },
+      { "n": 24, "status": "PENDING", "retryCount": 0 },
+      { "n": 25, "status": "PENDING", "retryCount": 0 },
+      { "n": 26, "status": "PENDING", "retryCount": 0 },
+      { "n": 27, "status": "PENDING", "retryCount": 0 },
+      { "n": 28, "status": "PENDING", "retryCount": 0 },
+      { "n": 29, "status": "PENDING", "retryCount": 0 },
+      { "n": 30, "status": "PENDING", "retryCount": 0 },
+      { "n": 31, "status": "PENDING", "retryCount": 0 },
+      { "n": 32, "status": "PENDING", "retryCount": 0 },
+      { "n": 33, "status": "PENDING", "retryCount": 0 },
+      { "n": 34, "status": "PENDING", "retryCount": 0 },
+      { "n": 35, "status": "PENDING", "retryCount": 0 },
+      { "n": 36, "status": "PENDING", "retryCount": 0 },
+      { "n": 37, "status": "PENDING", "retryCount": 0 },
+      { "n": 38, "status": "PENDING", "retryCount": 0 },
+      { "n": 39, "status": "PENDING", "retryCount": 0 },
+      { "n": 40, "status": "PENDING", "retryCount": 0 },
+      { "n": 41, "status": "PENDING", "retryCount": 0 },
+      { "n": 42, "status": "PENDING", "retryCount": 0 },
+      { "n": 43, "status": "PENDING", "retryCount": 0 },
+      { "n": 44, "status": "PENDING", "retryCount": 0 },
+      { "n": 45, "status": "PENDING", "retryCount": 0 },
+      { "n": 46, "status": "PENDING", "retryCount": 0 },
+      { "n": 47, "status": "PENDING", "retryCount": 0 },
+      { "n": 48, "status": "PENDING", "retryCount": 0 },
+      { "n": 49, "status": "PENDING", "retryCount": 0 },
+      { "n": 50, "status": "PENDING", "retryCount": 0 },
+      { "n": 51, "status": "PENDING", "retryCount": 0 },
+      { "n": 52, "status": "PENDING", "retryCount": 0 },
+      { "n": 53, "status": "PENDING", "retryCount": 0 },
+      { "n": 54, "status": "PENDING", "retryCount": 0 },
+      { "n": 55, "status": "PENDING", "retryCount": 0 },
+      { "n": 56, "status": "PENDING", "retryCount": 0 },
+      { "n": 57, "status": "PENDING", "retryCount": 0 },
+      { "n": 58, "status": "PENDING", "retryCount": 0 },
+      { "n": 59, "status": "PENDING", "retryCount": 0 },
+      { "n": 60, "status": "PENDING", "retryCount": 0 },
+      { "n": 61, "status": "PENDING", "retryCount": 0 },
+      { "n": 62, "status": "PENDING", "retryCount": 0 },
+      { "n": 63, "status": "PENDING", "retryCount": 0 },
+      { "n": 64, "status": "PENDING", "retryCount": 0 },
+      { "n": 65, "status": "PENDING", "retryCount": 0 },
+      { "n": 66, "status": "PENDING", "retryCount": 0 },
+      { "n": 67, "status": "PENDING", "retryCount": 0 },
+      { "n": 68, "status": "PENDING", "retryCount": 0 },
+      { "n": 69, "status": "PENDING", "retryCount": 0 },
+      { "n": 70, "status": "PENDING", "retryCount": 0 }
+    ],
+    "imuParts": [{ "n": 1, "status": "PENDING", "retryCount": 0 }],
+    "metadataPut": "PENDING",
+    "enqueuedAt": 1779099578780,
+    "lastProgressAt": 1779099578780,
+    "initIdempotencyKey": "6eb914b7-1c0f-4f23-8cee-597890a51784",
+    "partsIdempotencyKey": "0d356f9f-8c61-4bd6-b07a-6a2f217a790c",
+    "finalizeIdempotencyKey": "986330ac-7f98-40bf-833a-bc23f08d9e01",
+    "reuploadIdempotencyKey": "15430368-c3e2-4b1c-bdd8-9e60f7a9990c",
+    "attemptCount": 2,
+    "lastFailureAt": 1779101207537,
+    "lastFailureState": "PENDING",
+    "lastFailureReason": "Failed to connect to localhost/127.0.0.1:8080"
+  },
+  {
+    "recordingId": "01KRX9JBQ4QE70KC202QBN11DW",
+    "ownerUserId": "01KRX3WTZ4S2SJCVVGFFRXNRVR",
+    "mp4Path": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_154938_010.mp4",
+    "csvPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_154938_010.csv",
+    "jsonPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_154938_010.json",
+    "taskId": "01KRX2VM2TA5KN3MNNRTSXBAVY",
+    "isPractice": false,
+    "state": "PENDING",
+    "partsCount": 70,
+    "chunkBytes": 8388608,
+    "videoParts": [
+      { "n": 1, "status": "PENDING", "retryCount": 0 },
+      { "n": 2, "status": "PENDING", "retryCount": 0 },
+      { "n": 3, "status": "PENDING", "retryCount": 0 },
+      { "n": 4, "status": "PENDING", "retryCount": 0 },
+      { "n": 5, "status": "PENDING", "retryCount": 0 },
+      { "n": 6, "status": "PENDING", "retryCount": 0 },
+      { "n": 7, "status": "PENDING", "retryCount": 0 },
+      { "n": 8, "status": "PENDING", "retryCount": 0 },
+      { "n": 9, "status": "PENDING", "retryCount": 0 },
+      { "n": 10, "status": "PENDING", "retryCount": 0 },
+      { "n": 11, "status": "PENDING", "retryCount": 0 },
+      { "n": 12, "status": "PENDING", "retryCount": 0 },
+      { "n": 13, "status": "PENDING", "retryCount": 0 },
+      { "n": 14, "status": "PENDING", "retryCount": 0 },
+      { "n": 15, "status": "PENDING", "retryCount": 0 },
+      { "n": 16, "status": "PENDING", "retryCount": 0 },
+      { "n": 17, "status": "PENDING", "retryCount": 0 },
+      { "n": 18, "status": "PENDING", "retryCount": 0 },
+      { "n": 19, "status": "PENDING", "retryCount": 0 },
+      { "n": 20, "status": "PENDING", "retryCount": 0 },
+      { "n": 21, "status": "PENDING", "retryCount": 0 },
+      { "n": 22, "status": "PENDING", "retryCount": 0 },
+      { "n": 23, "status": "PENDING", "retryCount": 0 },
+      { "n": 24, "status": "PENDING", "retryCount": 0 },
+      { "n": 25, "status": "PENDING", "retryCount": 0 },
+      { "n": 26, "status": "PENDING", "retryCount": 0 },
+      { "n": 27, "status": "PENDING", "retryCount": 0 },
+      { "n": 28, "status": "PENDING", "retryCount": 0 },
+      { "n": 29, "status": "PENDING", "retryCount": 0 },
+      { "n": 30, "status": "PENDING", "retryCount": 0 },
+      { "n": 31, "status": "PENDING", "retryCount": 0 },
+      { "n": 32, "status": "PENDING", "retryCount": 0 },
+      { "n": 33, "status": "PENDING", "retryCount": 0 },
+      { "n": 34, "status": "PENDING", "retryCount": 0 },
+      { "n": 35, "status": "PENDING", "retryCount": 0 },
+      { "n": 36, "status": "PENDING", "retryCount": 0 },
+      { "n": 37, "status": "PENDING", "retryCount": 0 },
+      { "n": 38, "status": "PENDING", "retryCount": 0 },
+      { "n": 39, "status": "PENDING", "retryCount": 0 },
+      { "n": 40, "status": "PENDING", "retryCount": 0 },
+      { "n": 41, "status": "PENDING", "retryCount": 0 },
+      { "n": 42, "status": "PENDING", "retryCount": 0 },
+      { "n": 43, "status": "PENDING", "retryCount": 0 },
+      { "n": 44, "status": "PENDING", "retryCount": 0 },
+      { "n": 45, "status": "PENDING", "retryCount": 0 },
+      { "n": 46, "status": "PENDING", "retryCount": 0 },
+      { "n": 47, "status": "PENDING", "retryCount": 0 },
+      { "n": 48, "status": "PENDING", "retryCount": 0 },
+      { "n": 49, "status": "PENDING", "retryCount": 0 },
+      { "n": 50, "status": "PENDING", "retryCount": 0 },
+      { "n": 51, "status": "PENDING", "retryCount": 0 },
+      { "n": 52, "status": "PENDING", "retryCount": 0 },
+      { "n": 53, "status": "PENDING", "retryCount": 0 },
+      { "n": 54, "status": "PENDING", "retryCount": 0 },
+      { "n": 55, "status": "PENDING", "retryCount": 0 },
+      { "n": 56, "status": "PENDING", "retryCount": 0 },
+      { "n": 57, "status": "PENDING", "retryCount": 0 },
+      { "n": 58, "status": "PENDING", "retryCount": 0 },
+      { "n": 59, "status": "PENDING", "retryCount": 0 },
+      { "n": 60, "status": "PENDING", "retryCount": 0 },
+      { "n": 61, "status": "PENDING", "retryCount": 0 },
+      { "n": 62, "status": "PENDING", "retryCount": 0 },
+      { "n": 63, "status": "PENDING", "retryCount": 0 },
+      { "n": 64, "status": "PENDING", "retryCount": 0 },
+      { "n": 65, "status": "PENDING", "retryCount": 0 },
+      { "n": 66, "status": "PENDING", "retryCount": 0 },
+      { "n": 67, "status": "PENDING", "retryCount": 0 },
+      { "n": 68, "status": "PENDING", "retryCount": 0 },
+      { "n": 69, "status": "PENDING", "retryCount": 0 },
+      { "n": 70, "status": "PENDING", "retryCount": 0 }
+    ],
+    "imuParts": [{ "n": 1, "status": "PENDING", "retryCount": 0 }],
+    "metadataPut": "PENDING",
+    "enqueuedAt": 1779100179847,
+    "lastProgressAt": 1779100179847,
+    "initIdempotencyKey": "ed5cb6ed-7cfb-4000-a98e-7cae3ce5ae65",
+    "partsIdempotencyKey": "3d0f4a04-9b19-4156-8335-65a03f7b8df1",
+    "finalizeIdempotencyKey": "b93c3787-bf4d-422e-b191-0c4386a12789",
+    "reuploadIdempotencyKey": "7f7d2403-e44c-4384-b77d-49626c072965",
+    "attemptCount": 2,
+    "lastFailureAt": 1779101207569,
+    "lastFailureState": "PENDING",
+    "lastFailureReason": "Failed to connect to localhost/127.0.0.1:8080"
+  },
+  {
+    "recordingId": "01KRXA4PNYWWZ53SRT7DRMF0Y5",
+    "ownerUserId": "01KRX3WTZ4S2SJCVVGFFRXNRVR",
+    "mp4Path": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_155939_011.mp4",
+    "csvPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_155939_011.csv",
+    "jsonPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_155939_011.json",
+    "taskId": "01KRX2VM2TA5KN3MNNRTSXBAVY",
+    "isPractice": false,
+    "state": "PENDING",
+    "partsCount": 38,
+    "chunkBytes": 8388608,
+    "videoParts": [
+      { "n": 1, "status": "PENDING", "retryCount": 0 },
+      { "n": 2, "status": "PENDING", "retryCount": 0 },
+      { "n": 3, "status": "PENDING", "retryCount": 0 },
+      { "n": 4, "status": "PENDING", "retryCount": 0 },
+      { "n": 5, "status": "PENDING", "retryCount": 0 },
+      { "n": 6, "status": "PENDING", "retryCount": 0 },
+      { "n": 7, "status": "PENDING", "retryCount": 0 },
+      { "n": 8, "status": "PENDING", "retryCount": 0 },
+      { "n": 9, "status": "PENDING", "retryCount": 0 },
+      { "n": 10, "status": "PENDING", "retryCount": 0 },
+      { "n": 11, "status": "PENDING", "retryCount": 0 },
+      { "n": 12, "status": "PENDING", "retryCount": 0 },
+      { "n": 13, "status": "PENDING", "retryCount": 0 },
+      { "n": 14, "status": "PENDING", "retryCount": 0 },
+      { "n": 15, "status": "PENDING", "retryCount": 0 },
+      { "n": 16, "status": "PENDING", "retryCount": 0 },
+      { "n": 17, "status": "PENDING", "retryCount": 0 },
+      { "n": 18, "status": "PENDING", "retryCount": 0 },
+      { "n": 19, "status": "PENDING", "retryCount": 0 },
+      { "n": 20, "status": "PENDING", "retryCount": 0 },
+      { "n": 21, "status": "PENDING", "retryCount": 0 },
+      { "n": 22, "status": "PENDING", "retryCount": 0 },
+      { "n": 23, "status": "PENDING", "retryCount": 0 },
+      { "n": 24, "status": "PENDING", "retryCount": 0 },
+      { "n": 25, "status": "PENDING", "retryCount": 0 },
+      { "n": 26, "status": "PENDING", "retryCount": 0 },
+      { "n": 27, "status": "PENDING", "retryCount": 0 },
+      { "n": 28, "status": "PENDING", "retryCount": 0 },
+      { "n": 29, "status": "PENDING", "retryCount": 0 },
+      { "n": 30, "status": "PENDING", "retryCount": 0 },
+      { "n": 31, "status": "PENDING", "retryCount": 0 },
+      { "n": 32, "status": "PENDING", "retryCount": 0 },
+      { "n": 33, "status": "PENDING", "retryCount": 0 },
+      { "n": 34, "status": "PENDING", "retryCount": 0 },
+      { "n": 35, "status": "PENDING", "retryCount": 0 },
+      { "n": 36, "status": "PENDING", "retryCount": 0 },
+      { "n": 37, "status": "PENDING", "retryCount": 0 },
+      { "n": 38, "status": "PENDING", "retryCount": 0 }
+    ],
+    "imuParts": [{ "n": 1, "status": "PENDING", "retryCount": 0 }],
+    "metadataPut": "PENDING",
+    "enqueuedAt": 1779100507442,
+    "lastProgressAt": 1779100507442,
+    "initIdempotencyKey": "d204366c-46c2-47f8-8fa8-a89b9dd3baf9",
+    "partsIdempotencyKey": "df4217fe-04fb-4131-bee1-14e3375cb390",
+    "finalizeIdempotencyKey": "0c212542-04bf-4245-a460-2e62dbe59b00",
+    "reuploadIdempotencyKey": "02078e52-4b6f-40cd-a265-1738f295f50f",
+    "attemptCount": 2,
+    "lastFailureAt": 1779101218266,
+    "lastFailureState": "PENDING",
+    "lastFailureReason": "Failed to connect to localhost/127.0.0.1:8080"
+  }
+]

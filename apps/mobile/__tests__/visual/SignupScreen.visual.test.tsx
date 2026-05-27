@@ -24,8 +24,25 @@ vi.mock('../../src/services/auth', () => ({
 vi.mock('../../src/util/analytics', () => ({ logEvent: () => undefined }));
 vi.mock('../../src/state/appStore', () => {
   type Sel<T> = (s: Record<string, unknown>) => T;
+  // Quick 260527-hkl — SignupScreen now reads the `consent` slice on every
+  // render (gates CTA + mount-time modal auto-open). The visual baseline
+  // captures the post-Agree state (consent persisted) so the screenshot
+  // mirrors what a returning user sees: modal NOT auto-open, checkbox
+  // checked, CTA enabled. The pre-consent (modal-open) state is covered by
+  // SignupScreen.test.tsx Test 1 + the visual baseline for the Modal
+  // primitive lives elsewhere.
   const stub = {
     jwt: null,
+    consent: {
+      acceptedAt: '2026-05-27T10:00:00.000Z',
+      // SignupScreen recomputes CONSENT_VERSION at module load from the
+      // canonical TERMS_OF_USE_TEXT — the FNV-1a hash is stable, so we hard-
+      // code it here to keep this stub trivially shaped. The baseline-rebase
+      // command (`vitest -u SignupScreen.visual.test.tsx`) regenerates the
+      // PNG if the canonical text ever bumps and the hash changes; the
+      // visual baseline encodes a single moment in time.
+      consentVersion: '6350b77b',
+    },
     setJwt: () => undefined,
     setConsent: () => undefined,
     setUser: () => undefined,

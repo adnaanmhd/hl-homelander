@@ -46,10 +46,18 @@ vi.mock('react-native', async () => {
   function makeComponent(name: string) {
     return React_.forwardRef<
       HTMLDivElement,
-      Record<string, unknown> & { children?: React.ReactNode }
+      Record<string, unknown> & { children?: React.ReactNode; testID?: string }
     >(function HostComponent(props, ref) {
-      const { children, accessibilityLabel, accessibilityRole, onPress, style, ...rest } = props;
-      const dom: Record<string, unknown> = { ref, 'data-testid': name, ...rest };
+      const { children, accessibilityLabel, accessibilityRole, onPress, style, testID, ...rest } =
+        props;
+      const dom: Record<string, unknown> = {
+        ref,
+        // Plan 07-16 G-22: forward `testID` to `data-testid` when set;
+        // fall back to the component name for the existing "filter by host"
+        // selectors used elsewhere in this test file.
+        'data-testid': typeof testID === 'string' && testID.length > 0 ? testID : name,
+        ...rest,
+      };
       if (typeof accessibilityLabel === 'string') dom['aria-label'] = accessibilityLabel;
       if (typeof accessibilityRole === 'string') dom['role'] = accessibilityRole;
       if (typeof onPress === 'function') dom['onClick'] = onPress;
@@ -141,16 +149,20 @@ afterEach(() => {
 });
 
 describe('ReportProblemSheet', () => {
-  it('renders all 8 FEEDBACK_CATEGORIES as chips', () => {
-    const { getByLabelText } = render(<ReportProblemSheet onClose={() => undefined} />);
-    expect(getByLabelText('category-app-crashed')).toBeTruthy();
-    expect(getByLabelText('category-task-doesnt-start')).toBeTruthy();
-    expect(getByLabelText('category-upload-stuck')).toBeTruthy();
-    expect(getByLabelText('category-login-issue')).toBeTruthy();
-    expect(getByLabelText('category-video-quality-issue')).toBeTruthy();
-    expect(getByLabelText('category-imu-issue')).toBeTruthy();
-    expect(getByLabelText('category-thermal-issue')).toBeTruthy();
-    expect(getByLabelText('category-other')).toBeTruthy();
+  it('renders all 8 FEEDBACK_CATEGORIES as chips (testID stays English; Plan 07-16 G-22 / WARNING 12)', () => {
+    const { getByTestId } = render(<ReportProblemSheet onClose={() => undefined} />);
+    // Plan 07-16 Task 4c moved the `category-{c}` identifier from
+    // accessibilityLabel → testID. The accessibilityLabel now carries the
+    // translated chip text; the testID stays in canonical English so tests
+    // and the server contract stay deterministic.
+    expect(getByTestId('category-app-crashed')).toBeTruthy();
+    expect(getByTestId('category-task-doesnt-start')).toBeTruthy();
+    expect(getByTestId('category-upload-stuck')).toBeTruthy();
+    expect(getByTestId('category-login-issue')).toBeTruthy();
+    expect(getByTestId('category-video-quality-issue')).toBeTruthy();
+    expect(getByTestId('category-imu-issue')).toBeTruthy();
+    expect(getByTestId('category-thermal-issue')).toBeTruthy();
+    expect(getByTestId('category-other')).toBeTruthy();
   });
 
   it('Cancel button calls onClose without submitting', () => {
@@ -171,8 +183,9 @@ describe('ReportProblemSheet', () => {
   it('Pick category + type message + submit → submitFeedback called with trimmed message', async () => {
     mockSubmitFeedback.mockResolvedValue(undefined);
     const onClose = vi.fn();
-    const { getByLabelText } = render(<ReportProblemSheet onClose={onClose} />);
-    fireEvent.click(getByLabelText('category-upload-stuck'));
+    const { getByLabelText, getByTestId } = render(<ReportProblemSheet onClose={onClose} />);
+    // Plan 07-16 G-22: chip is now selected via testID (stable English ID).
+    fireEvent.click(getByTestId('category-upload-stuck'));
     const textarea = getByLabelText('report-problem-message');
     fireEvent.change(textarea, { target: { value: '  My upload is stuck  ' } });
     fireEvent.click(getByLabelText('report-problem-submit'));
@@ -188,8 +201,9 @@ describe('ReportProblemSheet', () => {
   it('submitFeedback rejection surfaces via Alert; sheet stays open (onClose NOT called)', async () => {
     mockSubmitFeedback.mockRejectedValue(new Error('feedback_invalid_category:bad'));
     const onClose = vi.fn();
-    const { getByLabelText } = render(<ReportProblemSheet onClose={onClose} />);
-    fireEvent.click(getByLabelText('category-other'));
+    const { getByLabelText, getByTestId } = render(<ReportProblemSheet onClose={onClose} />);
+    // Plan 07-16 G-22: chip is now selected via testID (stable English ID).
+    fireEvent.click(getByTestId('category-other'));
     const textarea = getByLabelText('report-problem-message');
     fireEvent.change(textarea, { target: { value: 'x' } });
     fireEvent.click(getByLabelText('report-problem-submit'));

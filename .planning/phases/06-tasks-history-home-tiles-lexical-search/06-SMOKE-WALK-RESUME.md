@@ -16,7 +16,7 @@ closed_commit: null
 > check on Pixel 10a green across all 5 surfaces. `06-MANUAL-SMOKE.md`
 > §7 sign-off flipped to **YES**. One new finding (14 — Home YOUR
 > CONTRIBUTION right-tile has no unit label) logged in
-> `06-COSMETIC-GAPS.md`, deferred to Phase 7. Phase 6 closes.
+> `06-COSMETIC-GAPS.md`, deferred to Phase 8. Phase 6 closes.
 >
 > Historical reopen note (2026-05-14): Walk had originally signed at
 > HEAD `40040fe` but the owner reopened §7 to add 4 new cosmetic gaps +
@@ -149,7 +149,7 @@ until then so the next session has one source of truth.**
    needs a new plan + dep add.
 6. **HOME-10 OfflineBanner not wired** — Plan 06-08 Known Stub. JS-local
    `useState<boolean>` isn't fed by the native NetworkMonitor event yet.
-   Banner doesn't appear when airplane mode toggles. Promote to a Phase 7
+   Banner doesn't appear when airplane mode toggles. Promote to a Phase 8
    plan.
 7. **Pending Uploads row tap navigates to History instead of triggering
    drainNowSafe** — Phase 5 D-10 wired a tile-tap retry kick; current
