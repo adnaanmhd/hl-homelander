@@ -33,7 +33,10 @@
     "consentLink": "Términos de Uso",
     "consentRequiredAlert": "Acepta los Términos de Uso para continuar.",
     "consent": {
-      "paragraph": "He leído y acepto los Términos de Uso"
+      "paragraph": "He leído y acepto los Términos de Uso",
+      "agreeButton": "Acepto",
+      "privacyPolicyLink": "Política de Privacidad",
+      "scrollBanner": "Desplázate hasta el final y haz clic en Acepto después de leer."
     }
   },
   "permissions": {
