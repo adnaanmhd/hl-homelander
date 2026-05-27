@@ -12,7 +12,7 @@
  * required for screen-reader and testing-library-by-label assertions.
  */
 import React from 'react';
-import { View, type StyleProp, type ViewStyle } from 'react-native';
+import { type StyleProp, type ViewStyle } from 'react-native';
 import { colors, radii, spacing } from '../tokens';
 import { Pressable } from './Pressable';
 import { Text } from './Text';
@@ -81,23 +81,25 @@ export function Button({
       onPress={disabled ? undefined : onPress}
       style={[computed, style]}
     >
-      <View>
-        {/* G-22 (Plan 07-17): cross-cutting overflow guards on the internal
-            Text. Every Button consumer (~30 call sites incl. ReportProblem
-            Cancel + Submit) inherits these props — handles long Devanagari
-            labels (`रद्द करें` etc.) by auto-shrinking down to 75% of the
-            normal font size rather than truncating. Short en labels stay at
-            full size; this is opt-in via the scale floor. */}
-        <Text
-          variant="btnLabel"
-          style={{ color: v.fg }}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.75}
-        >
-          {label}
-        </Text>
-      </View>
+      {/* G-22 (Plan 07-17, re-walk 2026-05-27): cross-cutting overflow
+          guards on the internal Text. Every Button consumer (~30 call sites
+          incl. ReportProblem Cancel + Submit) inherits these props.
+          The first 07-17 attempt wrapped this Text in a `<View>` which
+          content-hugged on Android and defeated `adjustsFontSizeToFit`
+          (operator 2026-05-27 walk: "मंज़ूरी दें" → "मंज़ूरी", "रिकॉर्डिंग
+          शुरू करें" → "रिकॉर्डिंग शुरू", etc.). The wrapper is removed and
+          the Text gets `flex: 1` + `textAlign: 'center'` so it stretches
+          to the Pressable's full inner width and the shrink-to-fit kicks
+          in on long Devanagari forms. */}
+      <Text
+        variant="btnLabel"
+        style={{ color: v.fg, flex: 1, textAlign: 'center' }}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
