@@ -159,11 +159,14 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
-    width: 40,
-    // Use the canonical bg color as the fade target — keeps the no-hex gate
-    // happy and reads as a soft fade against the screen surface.
+    // Plan 07-17 re-walk 2026-05-27 — shrunk 40 → 28 + lowered opacity 0.6
+    // → 0.3 so the rightmost pill's Devanagari glyphs stay legible
+    // through the UI-SPEC §10 right-edge fade hint (operator 2026-05-27
+    // "text truncated in category pills" — the rightmost pill's text was
+    // washed out under the prior 40px / 0.6-opacity overlay).
+    width: 28,
     backgroundColor: colors.bg,
-    opacity: 0.6,
+    opacity: 0.3,
   },
 });
 
