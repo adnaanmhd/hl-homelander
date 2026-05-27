@@ -59,6 +59,7 @@ import { Pressable } from '../ui/primitives/Pressable';
 import { colors, radii, spacing, typography } from '../ui/tokens';
 import { formatDuration } from '../services/durationFormatter';
 import type { ThumbnailLedgerEntry } from '../services/thumbnailLedger';
+import { localizeTaskName } from '../i18n/taskI18n';
 import { UploadStatusChip, type UploadStatusChipVariant } from './UploadStatusChip';
 
 /**
@@ -316,7 +317,13 @@ export function HistoryRow({
   progressPct,
   needsAttentionReason,
 }: HistoryRowProps): React.JSX.Element {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  // Plan 07-17 re-walk 2026-05-27 (G-28 re-attempt): the recording's task
+  // name is stored canonical-English on the row (it's the server's
+  // `task.name`). Localize at render time so hi-IN/pt-BR/etc. operators see
+  // the row's task in the active locale, mirroring how TasksScreen +
+  // TaskDetailsSheet localize via `localizeTaskName(name, i18n.language)`.
+  const localizedTaskName = localizeTaskName(row.taskName, i18n.language);
   // Quick task 260517-p5g CAPTURE-QA-05 — `row.cancel` overrides the
   // chip/sidecar/retry decisions below. Owner-blessed deviation per
   // CLAUDE.md 2026-05-17 banner — the three copy strings are local
@@ -347,7 +354,7 @@ export function HistoryRow({
   const showInProgress =
     !isCanceled && (variant === 'chip-progress' || variant === 'chip-verifying');
 
-  const firstLetter = (row.taskName || '?').slice(0, 1).toUpperCase();
+  const firstLetter = (localizedTaskName || '?').slice(0, 1).toUpperCase();
 
   // 2026-05-18 — Fix C item 4: pick the Retry copy. needs-attention overrides
   // dead-letter when both apply (the deviceState is the authoritative source).
@@ -395,7 +402,7 @@ export function HistoryRow({
           accessibilityLabel="history-row-name"
           style={styles.name}
         >
-          {row.taskName}
+          {localizedTaskName}
         </Text>
         <Text variant="rowMeta" accessibilityLabel="history-row-meta" style={styles.meta}>
           {meta}
