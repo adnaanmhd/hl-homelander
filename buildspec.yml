@@ -58,7 +58,7 @@ phases:
       - aws s3 cp $APK_PATH s3://humyn-apk-stage/apks/app-apkRollout-staging-${IMAGE_TAG}.apk
       - aws s3 cp $APK_PATH s3://humyn-apk-stage/apks/app-apkRollout-staging-latest.apk
       - echo "Distributing via Firebase App Distribution..."
-      - firebase appdistribution:distribute $APK_PATH --app $FIREBASE_APP_ID --service-credentials-file /tmp/firebase-sa.json --release-notes "Build ${IMAGE_TAG} from stage"
+      - GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa.json firebase appdistribution:distribute $APK_PATH --app $FIREBASE_APP_ID --release-notes "Build ${IMAGE_TAG} from stage"
 
 cache:
   paths:
