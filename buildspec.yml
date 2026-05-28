@@ -4,6 +4,14 @@ env:
   variables:
     ANDROID_HOME: "/usr/local/android-sdk"
     ANDROID_SDK_ROOT: "/usr/local/android-sdk"
+    FIREBASE_APP_ID: "1:215168406627:android:206ded8adc129a383fd456"
+  secrets-manager:
+    GOOGLE_SERVICES_JSON_BASE64: "stage-hl-mobile-build:GOOGLE_SERVICES_JSON_BASE64"
+    APK_ROLLOUT_KEYSTORE_BASE64: "stage-hl-mobile-build:APK_ROLLOUT_KEYSTORE_BASE64"
+    APK_ROLLOUT_KEYSTORE_PASSWORD: "stage-hl-mobile-build:APK_ROLLOUT_KEYSTORE_PASSWORD"
+    APK_ROLLOUT_KEY_ALIAS: "stage-hl-mobile-build:APK_ROLLOUT_KEY_ALIAS"
+    APK_ROLLOUT_KEY_PASSWORD: "stage-hl-mobile-build:APK_ROLLOUT_KEY_PASSWORD"
+    FIREBASE_SERVICE_ACCOUNT_JSON: "stage-hl-mobile-build:FIREBASE_SERVICE_ACCOUNT_JSON"
 
 phases:
   install:
@@ -13,98 +21,44 @@ phases:
     commands:
       - echo "Installing Android SDK Command Line Tools..."
       - mkdir -p ${ANDROID_HOME}/cmdline-tools
-      # Download command-line tools matching Gradle 8.11+ requirements
       - if [ ! -d "${ANDROID_HOME}/cmdline-tools/latest" ]; then curl -sS https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o /tmp/cmdline-tools.zip && unzip -q /tmp/cmdline-tools.zip -d ${ANDROID_HOME}/cmdline-tools && mv ${ANDROID_HOME}/cmdline-tools/cmdline-tools ${ANDROID_HOME}/cmdline-tools/latest; fi
       - export PATH=${PATH}:${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools
-      - echo "Accepting licenses..."
       - yes | sdkmanager --licenses > /dev/null
-      - echo "Installing platforms and build tools (SDK 36)..."
       - sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" > /dev/null
-      - echo "Installing npm packages and building shared types..."
+      - echo "Installing Firebase CLI..."
+      - npm install -g firebase-tools
+      - echo "Installing shared types and mobile deps..."
       - cd $CODEBUILD_SRC_DIR/shared/types && npm install && npm run build
       - cd $CODEBUILD_SRC_DIR/apps/mobile && npm ci
+
   pre_build:
     commands:
-      - echo "Checking Android Release signing configuration..."
-      - touch /tmp/signing-env.sh
-      - |
-        if [ -z "${APK_ROLLOUT_KEYSTORE_PASSWORD}" ]; then
-          echo "No signing keys detected. Generating temporary release keystore for staging build..."
-          keytool -genkey -v -keystore /tmp/temp-signing.keystore -alias temp-alias -keyalg RSA -keysize 2048 -validity 10000 -storepass "temp-password" -keypass "temp-password" -dname "CN=Humyn Labs, O=Humyn Labs, C=US" >/dev/null
-          echo "export PLAY_STORE_KEYSTORE_PATH=/tmp/temp-signing.keystore" >> /tmp/signing-env.sh
-          echo "export PLAY_STORE_KEYSTORE_PASSWORD=temp-password" >> /tmp/signing-env.sh
-          echo "export PLAY_STORE_KEY_ALIAS=temp-alias" >> /tmp/signing-env.sh
-          echo "export PLAY_STORE_KEY_PASSWORD=temp-password" >> /tmp/signing-env.sh
-          echo "export APK_ROLLOUT_KEYSTORE_PATH=/tmp/temp-signing.keystore" >> /tmp/signing-env.sh
-          echo "export APK_ROLLOUT_KEYSTORE_PASSWORD=temp-password" >> /tmp/signing-env.sh
-          echo "export APK_ROLLOUT_KEY_ALIAS=temp-alias" >> /tmp/signing-env.sh
-          echo "export APK_ROLLOUT_KEY_PASSWORD=temp-password" >> /tmp/signing-env.sh
-        else
-          echo "Using pre-configured release signing credentials..."
-        fi
+      - echo "Decoding google-services.json from secret..."
+      - echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > $CODEBUILD_SRC_DIR/apps/mobile/android/app/google-services.json
+      - echo "Decoding APK Rollout keystore from secret..."
+      - echo "$APK_ROLLOUT_KEYSTORE_BASE64" | base64 -d > /tmp/apkrollout.keystore
+      - echo "Writing Firebase service account..."
+      - echo "$FIREBASE_SERVICE_ACCOUNT_JSON" > /tmp/firebase-sa.json
+      - echo "Setting signing env vars..."
+      - export APK_ROLLOUT_KEYSTORE_PATH=/tmp/apkrollout.keystore
+      - export PATH=${PATH}:${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools
+
   build:
     commands:
-      - echo "Creating dummy google-services.json..."
-      - |
-        cat << 'EOF' > $CODEBUILD_SRC_DIR/apps/mobile/android/app/google-services.json
-        {
-          "project_info": {
-            "project_number": "130483521533",
-            "project_id": "humyn-prod",
-            "storage_bucket": "humyn-prod.appspot.com"
-          },
-          "client": [
-            {
-              "client_info": {
-                "mobilesdk_app_id": "1:130483521533:android:dummyclient111111",
-                "android_client_info": {
-                  "package_name": "ai.humynlabs.capture"
-                }
-              },
-              "oauth_client": [],
-              "api_key": [
-                {
-                  "current_key": "dummy_api_key_1111"
-                }
-              ],
-              "services": {
-                "appinvite_service": {
-                  "other_platform_oauth_client": []
-                }
-              }
-            },
-            {
-              "client_info": {
-                "mobilesdk_app_id": "1:130483521533:android:dummyclient222222",
-                "android_client_info": {
-                  "package_name": "ai.humynlabs.capture.apk"
-                }
-              },
-              "oauth_client": [],
-              "api_key": [
-                {
-                  "current_key": "dummy_api_key_2222"
-                }
-              ],
-              "services": {
-                "appinvite_service": {
-                  "other_platform_oauth_client": []
-                }
-              }
-            }
-          ],
-          "configuration_version": "1"
-        }
-        EOF
-      - echo "Running unit tests and assembling playStore APK..."
-      - export PATH=${PATH}:${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools
-      - cd $CODEBUILD_SRC_DIR/apps/mobile/android && . /tmp/signing-env.sh && ./gradlew :app:testPlayStoreReleaseUnitTest assemblePlayStoreRelease
+      - echo "Running unit tests and assembling apkRollout release APK..."
+      - cd $CODEBUILD_SRC_DIR/apps/mobile/android && APK_ROLLOUT_KEYSTORE_PATH=/tmp/apkrollout.keystore ./gradlew :app:testApkRolloutReleaseUnitTest assembleApkRolloutRelease
+
   post_build:
     commands:
       - echo "Verifying merged manifests..."
       - cd $CODEBUILD_SRC_DIR/apps/mobile && bash scripts/verify-merged-manifests.sh Release
-      - echo "Uploading playStore APK to S3..."
-      - aws s3 cp $CODEBUILD_SRC_DIR/apps/mobile/android/app/build/outputs/apk/playStore/release/app-playStore-release.apk s3://humyn-apk-stage/apks/app-playStore-staging.apk
+      - APK_PATH=$CODEBUILD_SRC_DIR/apps/mobile/android/app/build/outputs/apk/apkRollout/release/app-apkRollout-release.apk
+      - IMAGE_TAG=${CODEBUILD_RESOLVED_SOURCE_VERSION:0:8}
+      - echo "Uploading APK to S3..."
+      - aws s3 cp $APK_PATH s3://humyn-apk-stage/apks/app-apkRollout-staging-${IMAGE_TAG}.apk
+      - aws s3 cp $APK_PATH s3://humyn-apk-stage/apks/app-apkRollout-staging-latest.apk
+      - echo "Distributing via Firebase App Distribution..."
+      - firebase appdistribution:distribute $APK_PATH --app $FIREBASE_APP_ID --service-credentials-file /tmp/firebase-sa.json --release-notes "Build ${IMAGE_TAG} from stage"
 
 cache:
   paths:
