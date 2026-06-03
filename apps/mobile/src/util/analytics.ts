@@ -42,6 +42,11 @@ export const EVENT_NAMES = [
   'signup_google_started',
   'signup_google_completed',
   'signup_google_failed',
+  // Quick 260527-hkl — fires when the user taps the modal's Agree button
+  // (post scroll-gate). Payload: `{ consent_version }`. Server-side
+  // consent_log persistence (LEGAL-02) is unchanged and remains the
+  // authoritative legal record.
+  'consent_agreed',
   // Permissions
   'permission_camera_requested',
   'permission_camera_granted',
@@ -108,6 +113,13 @@ export const EVENT_NAMES = [
   'history_filter_changed',
   'history_row_opened',
   'history_row_retry',
+  // Phase 7 — locale telemetry (I18N-12 / D-30). Emission sites land in
+  // plan 07-04: 'locale_chosen' fires on ChooseLanguageScreen Continue
+  // (first-launch); 'locale_changed' fires on LanguageSheet row tap in
+  // Profile (subsequent switches). Both ride on the existing telemetryRing
+  // append path — no schema change to telemetryRing.ts (D-30).
+  'locale_chosen',
+  'locale_changed',
 ] as const;
 
 export type EventName = (typeof EVENT_NAMES)[number];

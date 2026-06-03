@@ -1,0 +1,14 @@
+{
+  "model": "claude-opus-4-7",
+  "generated_at": "2026-05-26T18:52:57.962Z",
+  "brief_version": 1,
+  "en_source_sha": "1f4608a2abdf589b002362fb33b83bf2124231ae8f4b544d9d5cd57166df4960",
+  "manual_overrides": [
+    {
+      "key": "recording.gatePrompt",
+      "reason": "G-27 prose fix (Plan 07-17) — the LLM regen produced an awkward Hindi form; the spec form (2 सेकंड तक अपने हाथ फ़्रेम में रखें) is more natural and matches the design-spec wording. The hardware walk in Task 7 verifies the patch.",
+      "date": "2026-05-26",
+      "plan": "07-17"
+    }
+  ]
+}

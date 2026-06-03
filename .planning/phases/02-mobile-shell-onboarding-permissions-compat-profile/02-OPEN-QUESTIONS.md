@@ -1,6 +1,6 @@
 # Phase 2 — Open Questions
 
-**Status:** Tracked but NOT blocking Phase 2 completion. Resolve before Phase 7 staged Play Store rollout (or earlier if Product / Ops / Writing returns final wording first).
+**Status:** Tracked but NOT blocking Phase 2 completion. Resolve before Phase 8 staged Play Store rollout (or earlier if Product / Ops / Writing returns final wording first).
 
 **Source:** `.planning/STATE.md` § Blockers/Concerns → "Phase 2: Final Help Center support email (`[EMAIL_ADDRESS]` placeholder); compat-fail 'what now' recovery copy needs final wording".
 
@@ -37,7 +37,7 @@
 **Why deferred:** The decision is operational (who owns the inbox, what auto-responder lives there, GDPR / DPDP / LGPD-style record-keeping); it does NOT block Phase 2 functional completeness. The placeholder is visible in the smoke runbook (`apps/mobile/02-MANUAL-SMOKE.md` § 5 / 6 / 9) so the operator confirms the placeholder rendering doesn't break the flow.
 
 **Owner:** Product / Ops.
-**Target:** Before first apkRollout distribution beyond internal smoke devices (and definitely before Phase 7 Play Store launch).
+**Target:** Before first apkRollout distribution beyond internal smoke devices (and definitely before Phase 8 Play Store launch).
 
 ---
 
@@ -68,7 +68,7 @@
 **Why deferred:** The current copy is technically accurate and non-confusing. Wordsmithing is a writer pass, not engineering work; we don't gate Phase 2 on it. The smoke runbook (`apps/mobile/02-MANUAL-SMOKE.md` § 5) confirms the screen renders + the mailto fires; the wording is reviewed downstream.
 
 **Owner:** Product / Writing.
-**Target:** Before staged Play Store rollout (Phase 7).
+**Target:** Before staged Play Store rollout (Phase 8).
 
 ---
 
@@ -78,14 +78,14 @@
 
 **Why deferred:** Not in any Phase 2 requirement (`02-CONTEXT.md` § Deferred); no security regression — the SHA is already in the APK metadata + Play Console + signed cert; users don't need to verify it manually for security. Disclosure is a transparency-narrative consideration, not a correctness one.
 
-**Resolution path** (if revived in Phase 7):
+**Resolution path** (if revived in Phase 8):
 
 1. Decide placement (Profile footer prefix vs. Help Center FAQ entry).
 2. Source the SHA at build time from `apps/mobile/android/app/build/outputs/apk/<flavor>/release/app-<flavor>-release.apk` via `sha256sum` and bake it into a constant via Gradle's `BuildConfig` injection.
 3. Render in the chosen surface; add a copy-on-long-press gesture if going the footer route.
 
 **Owner:** Product / Security.
-**Target:** Phase 7 if the transparency narrative needs it; otherwise dropped permanently.
+**Target:** Phase 8 if the transparency narrative needs it; otherwise dropped permanently.
 
 ---
 
@@ -132,8 +132,8 @@ The 02-22 plan summary's claim that Crashlytics was wired (via the manifest `ass
 **Why deferred** (and not fixed inline during Phase 2 close-out): adding Crashlytics now means a re-soak with only Phase 2 surface coverage, and the same gate must re-fire after Phase 3/Phase 4 land new native modules anyway. Doing it once at Phase 4 last wave consolidates the integration, dashboard provisioning, and soak-with-real-coverage into one operator session.
 
 **Owner:** Engineering (Phase 4 last-wave plan author).
-**Target:** Phase 4 last wave (do NOT slip past it — T-2.21-01 is a threat-register ship gate, MUST land before staged Play Store rollout in Phase 7).
+**Target:** Phase 4 last wave (do NOT slip past it — T-2.21-01 is a threat-register ship gate, MUST land before staged Play Store rollout in Phase 8).
 
 ---
 
-_Reviewed at Phase 2 verify-work; carry forward to Phase 7 entry checklist. Update this file (mark `RESOLVED` + commit hash + date) when each item is closed._
+_Reviewed at Phase 2 verify-work; carry forward to Phase 8 entry checklist. Update this file (mark `RESOLVED` + commit hash + date) when each item is closed._

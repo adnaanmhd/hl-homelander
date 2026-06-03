@@ -72,11 +72,11 @@ android {
             // flavor would normally be auto-attributed once published, but we set it explicitly
             // so the call site is uniform across flavors and Play-Console linkage state cannot
             // silently regress us. Source of the number: GCP Console → Project info → Project
-            // number for project 'humyn-prod' (matches the prefix of GOOGLE_WEB_CLIENT_ID in
+            // number for project 'humynlabs-ai' (matches the prefix of GOOGLE_WEB_CLIENT_ID in
             // .env.playStore). Read via BuildConfig.GOOGLE_CLOUD_PROJECT_NUMBER in
             // io.humyn.app.PlayIntegrityModule. The trailing 'L' makes this a Java long literal
             // (Play Integrity setter signature is setCloudProjectNumber(Long)).
-            buildConfigField 'long', 'GOOGLE_CLOUD_PROJECT_NUMBER', '130483521533L'
+            buildConfigField 'long', 'GOOGLE_CLOUD_PROJECT_NUMBER', '215168406627L'
         }
         apkRollout {
             dimension 'distribution'
@@ -93,7 +93,7 @@ android {
             // attribute the request to and fails with -16 CLOUD_PROJECT_NUMBER_IS_INVALID.
             // Same project number as the playStore flavor (single GCP project hosts both
             // OAuth client + Play Integrity).
-            buildConfigField 'long', 'GOOGLE_CLOUD_PROJECT_NUMBER', '130483521533L'
+            buildConfigField 'long', 'GOOGLE_CLOUD_PROJECT_NUMBER', '215168406627L'
         }
         // NOTE: Two flavors only. DIST-07 (third-flavor recon build) is rescinded per
         // CONTEXT.md D-DIST-01. iOS distribution is an Xcode scheme target, not an Android
@@ -127,6 +127,12 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             productFlavors.playStore.signingConfig signingConfigs.playStoreRelease
             productFlavors.apkRollout.signingConfig signingConfigs.apkRolloutRelease
+
+            // Disable automatic Crashlytics mapping upload to prevent build failures
+            // in CI environments where the Firebase project is not fully configured.
+            firebaseCrashlytics {
+                mappingFileUploadEnabled = false
+            }
         }
     }
 

@@ -26,7 +26,7 @@ Phase 2 turns the Phase 1 sign-in-only mobile scaffold into the entire **non-rec
 - Tasks browsing / search / details / Send Request (Phase 6)
 - History list / player (Phase 6)
 - Upload pipeline (Phase 5)
-- iOS analogues — Phase 7. Phase 2 is **Android-only**.
+- iOS analogues — Phase 8. Phase 2 is **Android-only**.
 
 </domain>
 
@@ -104,7 +104,7 @@ Phase 2 turns the Phase 1 sign-in-only mobile scaffold into the entire **non-rec
 
 - **D-UI-01:** **Tokens via typed-constants** at `apps/mobile/src/ui/tokens.ts`. Exports `colors`, `typography`, `spacing`, `radii`, `motion` as deeply-typed objects sourced verbatim from engineering-handoff §1 + design-spec §0. No theme provider at MVP (light-only per PROJECT.md constraint; the recording surface is the one dark surface and is Phase 4 territory). No runtime theming dep added.
 - **D-UI-02:** **Minimal primitive set** at `apps/mobile/src/ui/`: `Text`, `Button`, `Pressable`, `ScreenContainer`, `Sheet`, `Modal`, `Field`, `Icon`. Each consumes tokens via `StyleSheet.create`. Naming + variant API match design-spec §0.5 universal components. Domain components (TaskCard, Tile, Accordion, ProgressRing, Toast, Confetti) ship per-screen as needed and graduate to primitives only if reused across phases.
-- **D-UI-03:** **Fonts** wired via `react-native-asset`. Brand fonts copied from `design-system/` into `apps/mobile/assets/fonts/`. `react-native.config.js` lists `assets: ['./assets/fonts/']`. `npx react-native-asset` links into Android `app/src/main/assets/fonts/` + iOS `Info.plist UIAppFonts` (iOS wiring exists for Phase 7 — iOS bundle is Android-only-buildable in Phase 2 but font registration is symmetric). `tokens.typography.*.fontFamily` references the registered family names.
+- **D-UI-03:** **Fonts** wired via `react-native-asset`. Brand fonts copied from `design-system/` into `apps/mobile/assets/fonts/`. `react-native.config.js` lists `assets: ['./assets/fonts/']`. `npx react-native-asset` links into Android `app/src/main/assets/fonts/` + iOS `Info.plist UIAppFonts` (iOS wiring exists for Phase 8 — iOS bundle is Android-only-buildable in Phase 2 but font registration is symmetric). `tokens.typography.*.fontFamily` references the registered family names.
 - **D-UI-04:** **Icons** — `lucide-react-native` for general iconography (e.g., `front_hand`, `videocam`, `lightbulb`, `apps`, `SearchX`, profile-related icons). Existing `<TaskIcon task={slug}>` from `design-system/task-icons/TaskIcon.tsx` continues to render task-card icons via the `LucideIconName` taxonomy locked at compile-time. Both render the same Lucide set; the split keeps the task taxonomy constraint intact.
 - **D-UI-05:** **Light-only** at MVP — explicitly no dark-mode tokens, no theme provider. Recording surface (Phase 4) is the lone dark surface and ships its own scoped style overrides; it doesn't consume the global tokens for backgrounds.
 
@@ -269,7 +269,7 @@ Areas where the user did not specify and the planner has flexibility:
 - **Mobile → Backend:** `/auth/google`, `/auth/nonce`, `GET/PATCH/DELETE /me`, `POST /me/restore`, `POST /feedback`, `GET /app/version`, `GET /contributions`. All implemented in Phase 1.
 - **Mobile → Native modules:** `AppFlavor`, `PlayIntegrity` (existing), `HumynCompat` (new in Phase 2).
 - **Mobile → Filesystem:** `cacheDir` for compat-probe clips + APK download files. App-launch sweep cleans both orphan dirs.
-- **Mobile → Firebase:** Analytics primary sink; Crashlytics for native + JVM crashes. Phase 2 wires the Phase 2 event funnel from engineering-handoff §11 (signup*\*, permission*_, compat\__, profile*\*, help*_, upg\__).
+- **Mobile → Firebase:** Analytics primary sink; Crashlytics for native + JVM crashes. Phase 2 wires the Phase 2 event funnel from engineering-handoff §11 (signup*\*, permission*\_, compat\__, profile*\*, help*_, upg\_\_).
 - **Mobile → CI:** the new "Mobile build" job in `.github/workflows/ci.yml` exercises `npm ci` + `gradlew assembleApkRolloutDebug` on every PR after 02-01 lands.
 
 ### Creative options the architecture enables
@@ -308,7 +308,7 @@ Areas where the user did not specify and the planner has flexibility:
 - **Practice recording, hand-gate UX, recording surface** — Phase 4 (depends on Phase 3's HumynCapture).
 - **Tasks browsing, Task details sheet, Send Request form, History list, Player** — Phase 6.
 - **Upload pipeline + diagnostic-snapshot delivery via piggy-backing** — Phase 5. Phase 2's `POST /feedback` body is sized assuming roughly 100 telemetry events × ~200 bytes each ≈ 20 KB; well within HTTP limits.
-- **iOS analogues** — Phase 7. `HumynCompat` Swift analogue, fonts wired into iOS, etc.
+- **iOS analogues** — Phase 8. `HumynCompat` Swift analogue, fonts wired into iOS, etc.
 - **Reanimated motion tuning, fancy transitions** — planner-level details inside each Phase 2 plan.
 - **Profile name validation** (length limits, profanity filtering, etc.) — planner-level; backend already enforces (PATCH /me Zod schema in Phase 1).
 - **Coarse Location permission prompt** — Phase 4 (delayed to first recording).

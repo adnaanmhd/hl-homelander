@@ -25,9 +25,13 @@
 // forwarding stays so callers can attach an Idempotency-Key per request.
 
 import Config from 'react-native-config';
+import crashlytics from '@react-native-firebase/crashlytics';
 import { secureMmkv } from '../state/mmkv';
 import { KEYS } from '../state/keys';
 import { processRecordingEvents } from './recordingEvents';
+import { toastKeyForCode } from '../i18n/errorMap';
+import i18n from '../i18n';
+import { showToast } from '../components/Toast';
 
 const BASE_URL = (): string => {
   const u = Config.API_BASE_URL;
@@ -127,6 +131,45 @@ function buildUrl(path: string, query?: Record<string, string>): string {
  * are unaffected. Wrapped in try/catch so a bad envelope can never break a
  * successful HTTP call.
  */
+/**
+ * Plan 07-05 Task 2 — API error → translated toast pipeline (I18N-08 / D-34 /
+ * D-35). Call this from any catch-block where the server returned an
+ * RFC 7807 problem detail (or a similar `{ code, detail }` payload). Two
+ * side effects:
+ *
+ *  1. **Translated toast** — the server `code` is mapped to an i18n key via
+ *     `toastKeyForCode(code)` and resolved through `i18n.t(...)` so the user
+ *     sees a localized message in their active locale. Unknown / null /
+ *     undefined codes resolve to `errors.generic`.
+ *  2. **Crashlytics breadcrumb** — a structured `{ event: 'api_error', code,
+ *     raw_detail }` entry is logged for triage. The English `detail` field
+ *     NEVER reaches the user; it only goes to Crashlytics (D-35). The call
+ *     is best-effort (try/catch — never throws) so a missing native module
+ *     can't break the error-surface flow.
+ *
+ * Use at any error-surface point where the client currently passes raw
+ * English server text into a toast. Phase 1..6 sites that throw bare
+ * `Error(...)` strings (the `getJson` / `post` paths above) can be migrated
+ * incrementally — the helper itself is pure-additive and accepts the loose
+ * `{ code?, detail? }` shape the RFC 7807 envelope provides.
+ */
+export function surfaceApiError(error: { code?: string | null; detail?: string | null }): void {
+  const code = typeof error?.code === 'string' ? error.code : null;
+  const key = toastKeyForCode(code);
+  showToast(i18n.t(key as never));
+  try {
+    crashlytics().log(
+      JSON.stringify({
+        event: 'api_error',
+        code: code ?? 'UNKNOWN',
+        raw_detail: typeof error?.detail === 'string' ? error.detail : null,
+      }),
+    );
+  } catch {
+    /* best-effort — never let the breadcrumb fail the error-surface flow */
+  }
+}
+
 function interceptEvents<T>(body: T): T {
   try {
     if (body != null && typeof body === 'object') {
@@ -160,8 +203,15 @@ export const apiClient: ApiClient = {
     return interceptEvents((await res.json()) as T);
   },
   async postNoBody<T>(path: string): Promise<T> {
-    const headers: Record<string, string> = { ...bearerHeader() };
-    const res = await fetch(`${BASE_URL()}${path}`, { method: 'POST', headers });
+    const headers: Record<string, string> = {
+      'content-type': 'application/json',
+      ...bearerHeader(),
+    };
+    const res = await fetch(`${BASE_URL()}${path}`, {
+      method: 'POST',
+      headers,
+      body: '{}',
+    });
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`POST ${path} failed: ${res.status} ${text}`);

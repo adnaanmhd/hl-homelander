@@ -60,6 +60,7 @@ class UploadCoordinatorTest {
     private val putCalls = ConcurrentHashMap<String, AtomicInteger>() // path → count
     private val lastFinalizeBody = java.util.concurrent.atomic.AtomicReference<JSONObject?>(null)
     private val lastPartsBody = java.util.concurrent.atomic.AtomicReference<JSONObject?>(null)
+    private val lastInitBody = java.util.concurrent.atomic.AtomicReference<JSONObject?>(null)
     /** Captured Idempotency-Key header per POST path. Set in the dispatcher. Last-write-wins per path. */
     private val idempotencyKeysByPath = java.util.concurrent.ConcurrentHashMap<String, String>()
     @Volatile private var failAllPuts = false
@@ -73,6 +74,14 @@ class UploadCoordinatorTest {
     @Volatile private var partsRawBody: String? = null
     /** Wave-2 #5 — when > 0, the next N `/recordings/init` calls return 503 (transient), then the default 201 takes over. */
     private val flakyInitCount = AtomicInteger(0)
+    /** Fix C item 3 — `qa_status` returned from `GET /recordings/:id`. Null → 404. */
+    @Volatile private var qaStatusFor: (String) -> String? = { _ -> null }
+    /** Fix C item 2/3 — count of `GET /recordings/:id` calls. */
+    private val getRecordingCalls = AtomicInteger(0)
+    /** Fix C item 2 — when > 0, the next N `/finalize` calls park for [finalizeHangMs] ms before returning (simulates a hung server). */
+    private val finalizeHangCount = AtomicInteger(0)
+    /** Fix C item 2 — duration of the hang. Set to > finalizeCallTimeoutMs to force the watchdog to fire. */
+    @Volatile private var finalizeHangMs: Long = 0L
 
     @Before
     fun setUp() {
@@ -89,7 +98,9 @@ class UploadCoordinatorTest {
                     path == "/recordings/init" -> {
                         initCalls.incrementAndGet()
                         request.getHeader("Idempotency-Key")?.let { idempotencyKeysByPath["/recordings/init"] = it }
-                        val partsCount = JSONObject(request.body.readUtf8()).getInt("partsCount")
+                        val initBody = JSONObject(request.body.readUtf8())
+                        lastInitBody.set(initBody)
+                        val partsCount = initBody.getInt("partsCount")
                         val code = initResponseCode
                         val flakyRemaining = flakyInitCount.get()
                         when {
@@ -137,7 +148,31 @@ class UploadCoordinatorTest {
                         finalizeCalls.incrementAndGet()
                         request.getHeader("Idempotency-Key")?.let { idempotencyKeysByPath["/finalize"] = it }
                         lastFinalizeBody.set(JSONObject(request.body.readUtf8()))
-                        MockResponse().setResponseCode(200).setBody("{}")
+                        // Fix C item 2 — simulate a hung /finalize handler. The body
+                        // is parked via `setHeadersDelay` so the OkHttp `Call.timeout`
+                        // (set by executeTrackedWithTimeout) fires.
+                        if (finalizeHangCount.getAndDecrement() > 0) {
+                            MockResponse().setResponseCode(200).setBody("{}").setHeadersDelay(finalizeHangMs, TimeUnit.MILLISECONDS)
+                        } else {
+                            MockResponse().setResponseCode(200).setBody("{}")
+                        }
+                    }
+                    path.startsWith("/recordings/") && request.method == "GET" -> {
+                        // Fix C item 3 — GET /recordings/:id for the FINALIZING
+                        // reconciliation path. Extract the id (between `/recordings/`
+                        // and the next `/` or end-of-path) and return the configured
+                        // qa_status (or 404 if null).
+                        getRecordingCalls.incrementAndGet()
+                        val tail = path.substringAfter("/recordings/")
+                        val id = tail.substringBefore('/').substringBefore('?')
+                        val qa = qaStatusFor(id)
+                        if (qa == null) {
+                            MockResponse().setResponseCode(404).setBody("{}")
+                        } else {
+                            MockResponse().setResponseCode(200).setBody(
+                                JSONObject().put("id", id).put("qa_status", qa).toString(),
+                            )
+                        }
                     }
                     path.startsWith("/s3/") -> {
                         putCalls.computeIfAbsent(path) { AtomicInteger(0) }.incrementAndGet()
@@ -197,14 +232,18 @@ class UploadCoordinatorTest {
         }.toString()
     }
 
-    /** Write a recording bundle (mp4 of [mp4Bytes] size + csv + metadata json) under filesDir/recordings. */
-    private fun writeBundle(recordingId: String, mp4Bytes: Int): Triple<File, File, File> {
+    /**
+     * Write a recording bundle (mp4 of [mp4Bytes] size + csv + metadata json) under filesDir/recordings.
+     * When [calibration] is non-null it is added as the metadata.json top-level `calibration` block
+     * (schema 1.2.0) so a test can assert the uploader forwards it on /recordings/init (260522-elm).
+     */
+    private fun writeBundle(recordingId: String, mp4Bytes: Int, calibration: JSONObject? = null): Triple<File, File, File> {
         val mp4 = File(recDir, "$recordingId.mp4").apply { writeBytes(ByteArray(mp4Bytes) { (it % 251).toByte() }) }
         val csv = File(recDir, "$recordingId.csv").apply { writeText("ts,ax,ay,az\n1,0,0,9.8\n") }
         val json = File(recDir, "$recordingId.json").apply {
             writeText(
                 JSONObject().apply {
-                    put("schema_version", "1.1.0")
+                    put("schema_version", if (calibration != null) "1.2.0" else "1.1.0")
                     put("recording_id", recordingId)
                     put("metadata", JSONObject().apply {
                         put("file_sha256", "a".repeat(64))
@@ -214,14 +253,15 @@ class UploadCoordinatorTest {
                         put("duration_seconds", 12.5)
                         put("start_timestamp", "2026-05-12T10:00:00.000Z")
                     })
+                    if (calibration != null) put("calibration", calibration)
                 }.toString(),
             )
         }
         return Triple(mp4, csv, json)
     }
 
-    private fun row(recordingId: String, ownerUserId: String = "userA"): UploadRow {
-        val (mp4, csv, json) = writeBundle(recordingId, mp4Bytes = 12_000_000) // ~12 MB → 2 parts at 8 MiB
+    private fun row(recordingId: String, ownerUserId: String = "userA", calibration: JSONObject? = null): UploadRow {
+        val (mp4, csv, json) = writeBundle(recordingId, mp4Bytes = 12_000_000, calibration = calibration) // ~12 MB → 2 parts at 8 MiB
         return UploadRow(
             recordingId = recordingId,
             ownerUserId = ownerUserId,
@@ -238,6 +278,15 @@ class UploadCoordinatorTest {
         paused: () -> Boolean = { false },
         bearer: String? = "test-jwt",
         fastBackoffUploader: Boolean = true,
+        // Fix C item 1 — default to 1 so a lot of existing serial-drain
+        // assertions still hold. The dedicated concurrency test passes 2.
+        parallelismCap: Int = 1,
+        // Fix C item 2 — default to a fast 500 ms so a hung-/finalize test
+        // doesn't sleep 60 s.
+        finalizeCallTimeoutMs: Long = 500L,
+        // Fix C item 4 — default to 2 so a NEEDS_ATTENTION test lands in
+        // two iterations instead of six.
+        needsAttentionThreshold: Int = 2,
     ): UploadCoordinator {
         val monitor = NetworkMonitor(app) {}
         val cu = if (fastBackoffUploader) {
@@ -257,6 +306,9 @@ class UploadCoordinatorTest {
             chunkUploader = cu,
             // Wave-2 #5 — 1 ms so the in-loop retry test doesn't sleep 5 s.
             transientRetryDelayMs = 1L,
+            parallelismCap = parallelismCap,
+            finalizeCallTimeoutMs = finalizeCallTimeoutMs,
+            needsAttentionThreshold = needsAttentionThreshold,
         )
     }
 
@@ -288,6 +340,57 @@ class UploadCoordinatorTest {
         assertEquals(UploadState.AWAITING_VERIFY, back[0].state)
         assertEquals(PartStatus.DONE, back[0].metadataPut)
         assertTrue(back[0].videoParts.all { it.status == PartStatus.DONE && it.etag != null })
+    }
+
+    @Test
+    fun `init forwards the metadata calibration block verbatim (260522-elm CAPTURE-QA-08-09)`() {
+        // A schema-1.2.0 metadata.json carries a top-level `calibration` block;
+        // the uploader must forward it verbatim on /recordings/init so the
+        // server can persist the recordings.calibration jsonb mirror.
+        val calibration = JSONObject().apply {
+            put("camera", JSONObject().apply {
+                put("model", "pinhole")
+                put("resolution", org.json.JSONArray().put(4208).put(3120))
+                put("params", JSONObject().apply {
+                    put("fx", 1643.84); put("fy", 1643.84); put("cx", 2103.26); put("cy", 1552.57); put("skew", 0)
+                })
+                put("distortion_coeffs", org.json.JSONArray().put(0.02).put(-0.03).put(0.013).put(0.0005).put(0.0002))
+                put("intrinsics_source", "camera2")
+            })
+            put("cam_imu_extrinsics", JSONObject().apply {
+                put("T_cam_imu", JSONObject.NULL)
+                put("T_imu_cam", JSONObject.NULL)
+                put("T_cam_imu_translation_mm", JSONObject.NULL)
+                put("timeshift_cam_imu_sec", 0)
+                put("timeshift_meaning", "t_imu = t_cam + timeshift")
+                put("clock_sync_note", "camera + imu share the boottime (elapsedRealtimeNanos) clock")
+                put("extrinsics_source", "camera2_no_imu_reference")
+            })
+        }
+        store.enqueue(row("01JCOORDCALIBXXXXXXXXXXXXXX", calibration = calibration))
+        val coord = coordinator()
+        coord.drainNow()
+
+        assertEquals("one /init", 1, initCalls.get())
+        val init = lastInitBody.get()!!
+        assertTrue("init body carries calibration", init.has("calibration"))
+        val cam = init.getJSONObject("calibration").getJSONObject("camera")
+        assertEquals("camera2", cam.getString("intrinsics_source"))
+        assertEquals(1643.84, cam.getJSONObject("params").getDouble("fx"), 1e-6)
+        assertEquals(
+            "camera2_no_imu_reference",
+            init.getJSONObject("calibration").getJSONObject("cam_imu_extrinsics").getString("extrinsics_source"),
+        )
+    }
+
+    @Test
+    fun `init omits calibration for pre-1_2_0 metadata with no calibration block (260522-elm)`() {
+        // Backward-compat: a 1.1.0 bundle has no `calibration` key; the uploader
+        // must NOT invent one — the server's zod field is .nullable().optional().
+        store.enqueue(row("01JCOORDNOCALIBXXXXXXXXXXXX")) // writeBundle with calibration=null
+        coordinator().drainNow()
+        assertEquals("one /init", 1, initCalls.get())
+        assertTrue("init body omits calibration", !lastInitBody.get()!!.has("calibration"))
     }
 
     @Test
@@ -964,6 +1067,213 @@ class UploadCoordinatorTest {
             val perRow = setOf(r.initIdempotencyKey, r.partsIdempotencyKey, r.finalizeIdempotencyKey, r.reuploadIdempotencyKey)
             assertEquals("row ${r.recordingId} has 4 distinct per-route keys", 4, perRow.size)
         }
+    }
+
+    // =========================================================================
+    // Debug session `.planning/debug/upload-queue-hol-finalizing.md` Fix C —
+    // four new behaviors layered on top of the Plan-05-06 drainer.
+    // =========================================================================
+
+    @Test
+    fun `Fix C item 3 — FINALIZING row reconciles when server qa_status is verified, no re-finalize POST`() {
+        // Set up a row that's already in FINALIZING with a known uploadId (i.e. a
+        // process-killed mid-finalize OR a stuck post-/finalize-hang row). The
+        // GET /recordings/:id endpoint will say `qa_status=verified` — the
+        // coordinator should mark the row AWAITING_VERIFY locally and skip the
+        // re-POST entirely.
+        val rec = "01JCOORDREC10XXXXXXXXXXXXX"
+        val stuckRow = row(rec).apply {
+            state = UploadState.FINALIZING
+            uploadId = "VID-UPLOAD-ID"
+            imuUploadId = "IMU-UPLOAD-ID"
+            partsCount = 2
+            chunkBytes = WIFI_CHUNK_BYTES
+            videoParts.addAll((1..2).map { PartState(it, PartStatus.DONE, etag = "etag-${'$'}it") })
+            imuParts.add(PartState(1, PartStatus.DONE, etag = "imu-etag"))
+            metadataPut = PartStatus.DONE
+        }
+        store.upsert(stuckRow)
+        qaStatusFor = { id -> if (id == rec) "verified" else null }
+
+        val coord = coordinator()
+        coord.drainNow()
+
+        // GET fired once; no /finalize POST; row moved to AWAITING_VERIFY.
+        assertEquals("one GET /recordings/:id", 1, getRecordingCalls.get())
+        assertEquals("zero /finalize", 0, finalizeCalls.get())
+        val back = store.read().first { it.recordingId == rec }
+        assertEquals(UploadState.AWAITING_VERIFY, back.state)
+    }
+
+    @Test
+    fun `Fix C item 3 — FINALIZING row falls through to re-finalize when server qa_status is still pending`() {
+        // Same setup as above but the GET reports `qa_status=pending` — the
+        // coordinator should fall through to the normal re-finalize path
+        // (sending a fresh /finalize POST).
+        val rec = "01JCOORDREC11XXXXXXXXXXXXX"
+        val stuckRow = row(rec).apply {
+            state = UploadState.FINALIZING
+            uploadId = "VID-UPLOAD-ID"
+            imuUploadId = "IMU-UPLOAD-ID"
+            partsCount = 2
+            chunkBytes = WIFI_CHUNK_BYTES
+            videoParts.addAll((1..2).map { PartState(it, PartStatus.DONE, etag = "etag-${'$'}it") })
+            imuParts.add(PartState(1, PartStatus.DONE, etag = "imu-etag"))
+            metadataPut = PartStatus.DONE
+        }
+        store.upsert(stuckRow)
+        qaStatusFor = { id -> if (id == rec) "pending" else null }
+
+        val coord = coordinator()
+        coord.drainNow()
+
+        // GET fired, then re-finalize POSTed.
+        assertEquals(1, getRecordingCalls.get())
+        assertEquals(1, finalizeCalls.get())
+        // Row moved through FINALIZING → AWAITING_VERIFY (the re-finalize succeeded).
+        val back = store.read().first { it.recordingId == rec }
+        assertEquals(UploadState.AWAITING_VERIFY, back.state)
+    }
+
+    @Test
+    fun `Fix C item 2 — finalize watchdog fires on a hung server, surfaces as transient`() {
+        // /finalize parks 5s past the watchdog window (500 ms). The OkHttp
+        // per-call timeout should fire, the call surfaces as IOException, the
+        // bounded transient-retry loop fires (3 attempts × 1 ms retry sleep),
+        // then the row is left in FINALIZING for the next drain tick. Without
+        // the watchdog this would hang for the test duration (or forever).
+        val rec = "01JCOORDREC12XXXXXXXXXXXXX"
+        store.enqueue(row(rec))
+        finalizeHangCount.set(99) // every /finalize parks
+        finalizeHangMs = 5_000L // long past the 500ms watchdog
+        // Test seam: GET returns null (404) so the reconciliation path doesn't
+        // short-circuit; we want the /finalize POST to actually fire + hang.
+        qaStatusFor = { _ -> null }
+
+        val coord = coordinator(finalizeCallTimeoutMs = 500L)
+        // Note: this MUST return within reason — the test would hang here if
+        // the watchdog didn't work. The transient-retry loop tries 3 times.
+        val startMs = System.currentTimeMillis()
+        coord.drainNow()
+        val elapsedMs = System.currentTimeMillis() - startMs
+
+        // /finalize was attempted (3 transient retries → 3 hangs at 500 ms each
+        // ≈ 1500–2500 ms total elapsed). MUST be much less than 3 × 5 s = 15s.
+        assertTrue("drain returned within reasonable time (was ${'$'}elapsedMs ms)", elapsedMs < 10_000L)
+        assertTrue("at least one /finalize POST attempted", finalizeCalls.get() >= 1)
+        // Row stayed FINALIZING (not VERIFIED, not DEAD_LETTER) — the watchdog
+        // surfaced as transient, the next drain will retry.
+        val back = store.read().first { it.recordingId == rec }
+        assertEquals(UploadState.FINALIZING, back.state)
+    }
+
+    @Test
+    fun `Fix C item 4 — repeated transient failures transition row to NEEDS_ATTENTION`() {
+        // /finalize parks past the watchdog every time, so every drain tick
+        // exhausts the 3-retry budget + lands a failure. With
+        // needsAttentionThreshold = 2, two such ticks transition the row.
+        val rec = "01JCOORDREC13XXXXXXXXXXXXX"
+        store.enqueue(row(rec))
+        finalizeHangCount.set(99)
+        finalizeHangMs = 5_000L
+        qaStatusFor = { _ -> null }
+
+        val coord = coordinator(finalizeCallTimeoutMs = 200L, needsAttentionThreshold = 2)
+        // First tick — attemptCount=1; no NEEDS_ATTENTION yet.
+        coord.drainNow()
+        var back = store.read().first { it.recordingId == rec }
+        assertEquals("first tick: still FINALIZING with attemptCount=1", UploadState.FINALIZING, back.state)
+        assertEquals(1, back.attemptCount)
+        // The backoff schedule says wait 30s before the next attempt. We can't
+        // wait, so reach into the row and pull `lastFailureAt` back so the
+        // second drain picks up immediately.
+        back.lastFailureAt = 0L
+        store.upsert(back)
+
+        // Second tick — attemptCount=2, threshold reached, NEEDS_ATTENTION lands.
+        coord.drainNow()
+        back = store.read().first { it.recordingId == rec }
+        assertEquals(UploadState.NEEDS_ATTENTION, back.state)
+        assertTrue(back.attemptCount >= 2)
+        assertNotNull("lastFailureState recorded", back.lastFailureState)
+    }
+
+    @Test
+    fun `Fix C item 4 — retryNeedsAttention resets state and counter`() {
+        // Set up a NEEDS_ATTENTION row by hand (the previous test exercises the
+        // transition path).
+        val rec = "01JCOORDREC14XXXXXXXXXXXXX"
+        val pre = row(rec).apply {
+            state = UploadState.NEEDS_ATTENTION
+            uploadId = "VID-UPLOAD-ID"
+            imuUploadId = "IMU-UPLOAD-ID"
+            partsCount = 2
+            chunkBytes = WIFI_CHUNK_BYTES
+            videoParts.addAll((1..2).map { PartState(it, PartStatus.DONE, etag = "etag-${'$'}it") })
+            imuParts.add(PartState(1, PartStatus.DONE, etag = "imu-etag"))
+            metadataPut = PartStatus.DONE
+            attemptCount = 6
+            lastFailureAt = System.currentTimeMillis() - 1000L
+            lastFailureState = "FINALIZING"
+            lastFailureReason = "finalize timed out after 60s"
+        }
+        store.upsert(pre)
+
+        val coord = coordinator()
+        val ok = coord.retryNeedsAttention(rec)
+        assertTrue("retry transitioned the row", ok)
+
+        val back = store.read().first { it.recordingId == rec }
+        // The row was reset: state is UPLOADING (because uploadId is set, the
+        // worker takes the /parts re-presign branch on the next tick), counter
+        // is zero, failure markers cleared.
+        // (After drainNow runs, the row may have advanced further — but the
+        // pre-drain assertion is captured above by the synchronous transition.)
+        // The retry kicks drainNow(), so when we look the row may have already
+        // moved through UPLOADING → FINALIZING → AWAITING_VERIFY. We just check
+        // the failure markers are gone.
+        assertEquals(0, back.attemptCount)
+        assertNull(back.lastFailureState)
+        assertNull(back.lastFailureReason)
+        assertNotEquals(UploadState.NEEDS_ATTENTION, back.state)
+    }
+
+    @Test
+    fun `Fix C item 4 — retryNeedsAttention is a no-op for non-NEEDS_ATTENTION rows`() {
+        val rec = "01JCOORDREC15XXXXXXXXXXXXX"
+        // A row in UPLOADING — must NOT be mutated by retryNeedsAttention.
+        val pre = row(rec).apply { state = UploadState.UPLOADING }
+        store.upsert(pre)
+
+        val coord = coordinator()
+        val ok = coord.retryNeedsAttention(rec)
+        assertEquals("retry refused to mutate a non-NEEDS_ATTENTION row", false, ok)
+        val back = store.read().first { it.recordingId == rec }
+        assertEquals(UploadState.UPLOADING, back.state)
+    }
+
+    @Test
+    fun `Fix C item 1 — drainNow with parallelism=2 dispatches two rows concurrently`() {
+        // Two rows in PENDING; the worker pool runs both in parallel. We can't
+        // easily assert wall-clock overlap on Robolectric (no real network
+        // delay), but we CAN assert that BOTH rows progressed to AWAITING_VERIFY
+        // after a single drainNow() — which proves the loop visited both and
+        // each ran end-to-end without a head-of-line lock.
+        store.enqueue(row("01JCOORDREC16AXXXXXXXXXXXX"))
+        store.enqueue(row("01JCOORDREC16BXXXXXXXXXXXX"))
+        qaStatusFor = { _ -> null }
+
+        val coord = coordinator(parallelismCap = 2)
+        coord.drainNow()
+
+        val all = store.read()
+        assertEquals(2, all.size)
+        all.forEach { r ->
+            assertEquals("row ${'$'}{r.recordingId} drained end-to-end", UploadState.AWAITING_VERIFY, r.state)
+        }
+        // Two /init + two /finalize POSTs — both rows got the full Pattern-1 flow.
+        assertEquals(2, initCalls.get())
+        assertEquals(2, finalizeCalls.get())
     }
 
 }

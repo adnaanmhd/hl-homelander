@@ -78,6 +78,19 @@
     <uses-feature android:name="android.hardware.sensor.gyroscope" android:required="true" />
     <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="true" />
 
+    <!--
+      Debug session `humyncapture-imu-oom-rollover` (2026-05-18) —
+      `android:largeHeap="true"` is defense-in-depth on top of the primitive-
+      buffer refactor in PrimitiveLongBuffer.kt / ImuWriter.kt / CaptureSession.kt
+      that eliminated the per-IMU-sample and per-video-frame autoboxing on the
+      recording hot path. The primary fix (allocation elimination) is what
+      actually keeps the heap quiet across 7+ continuous 10-min segments on
+      Pixel-class hardware; `largeHeap` raises the Dalvik growth limit from
+      ~256 MB to ~512 MB on most Pixel devices so any residual allocation
+      pattern we may not have caught has 2× the headroom before OOM. Granted
+      app-wide because the recording session, Hermes JS heap, RN bridge, and
+      Camera2 image-buffer pool all share the process heap.
+    -->
     <application
         android:name=".MainApplication"
         android:label="Humyn Labs Capture"
@@ -85,6 +98,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/AppTheme"
         android:allowBackup="false"
+        android:largeHeap="true"
         android:usesCleartextTraffic="true"
         android:supportsRtl="true">
         <activity

@@ -31,16 +31,21 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ANDROID_DIR="$ROOT/android"
 cd "$ANDROID_DIR"
 
-echo "[verify-manifests] Building merged manifests for both flavors ..."
-./gradlew :app:processApkRolloutDebugManifest :app:processPlayStoreDebugManifest
+BUILD_TYPE="${1:-Debug}"
+CAP_BUILD_TYPE=$(echo "${BUILD_TYPE}" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
+
+echo "[verify-manifests] Building merged manifests for both flavors (${BUILD_TYPE}) ..."
+./gradlew :app:processApkRollout${CAP_BUILD_TYPE}Manifest :app:processPlayStore${CAP_BUILD_TYPE}Manifest
 
 # AGP places the merged manifest at one of these paths depending on version.
 # Try each in turn; pick whichever exists.
 find_merged() {
   local flavor_build="$1"
+  local capitalized_flavor=$(echo "${flavor_build}" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
   local candidates=(
     "app/build/intermediates/merged_manifest/${flavor_build}/AndroidManifest.xml"
     "app/build/intermediates/merged_manifests/${flavor_build}/processManifest/AndroidManifest.xml"
+    "app/build/intermediates/merged_manifests/${flavor_build}/process${capitalized_flavor}Manifest/AndroidManifest.xml"
     "app/build/intermediates/merged_manifests/${flavor_build}/AndroidManifest.xml"
   )
   for path_template in "${candidates[@]}"; do
@@ -55,8 +60,8 @@ find_merged() {
   exit 1
 }
 
-apk_manifest=$(find_merged apkRolloutDebug)
-ps_manifest=$(find_merged playStoreDebug)
+apk_manifest=$(find_merged apkRollout${CAP_BUILD_TYPE})
+ps_manifest=$(find_merged playStore${CAP_BUILD_TYPE})
 
 echo "[verify-manifests] apkRollout merged: $apk_manifest"
 echo "[verify-manifests] playStore  merged: $ps_manifest"

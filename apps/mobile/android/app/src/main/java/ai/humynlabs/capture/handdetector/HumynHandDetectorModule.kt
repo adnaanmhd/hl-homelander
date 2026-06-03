@@ -178,6 +178,9 @@ class HumynHandDetectorModule(reactContext: ReactApplicationContext) :
             var decoded: Bitmap? = null
             var scaled: Bitmap? = null
             try {
+                if (!java.io.File(path).exists()) {
+                    throw IllegalArgumentException("File does not exist: $path")
+                }
                 // HAND-13 / Pitfall 10 — ARGB_8888 (MediaPipe's BitmapImageBuilder
                 // requires it; RGB_565 is rejected — debug session
                 // handgate-never-passes). The 320×240 downscale below is the
@@ -225,7 +228,7 @@ class HumynHandDetectorModule(reactContext: ReactApplicationContext) :
                 // coords and handedness MediaPipe computes are discarded — the
                 // gate is "are N hands present?", not a tracker.
                 promise.resolve(result.landmarks().size)
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 // JS treats a reject as a "no hands detected this poll".
                 promise.reject("HAND_DETECT_FAILED", e)
             } finally {

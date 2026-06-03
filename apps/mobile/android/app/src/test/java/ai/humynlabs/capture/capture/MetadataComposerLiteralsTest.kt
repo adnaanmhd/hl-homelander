@@ -224,6 +224,99 @@ class MetadataComposerLiteralsTest {
     }
 
     // ----------------------------------------------------------------
+    // Test D — BUG-260518-04: codec priority chain (extractor → encoder → configured).
+    //
+    // The Pixel 8a + 10a apkRollout 22ffec5 walk on 2026-05-18 stamped
+    // every one of 15 verified segments with `video_codec: "unknown"`
+    // even though every other OUTPUT_FORMAT-derived field
+    // (`video_profile = "main"`, `bitrate_bps = 8000000`,
+    //  `bitrate_mode = "cbr"`, `gop = 30`, `b_frames = false`,
+    //  `color_space = "bt709"`, `color_depth_bits = 8`) populated
+    // correctly. Root cause: `encoder.outputFormat.getString(KEY_MIME)`
+    // returns null on those encoders even though the OUTPUT_FORMAT
+    // snapshot otherwise populates. The fix derives codec from the
+    // muxed MP4's MediaExtractor track-header MIME (the spec-compliant
+    // CAPTURE-QA-01 truth source) with the encoder OUTPUT_FORMAT MIME
+    // as a secondary source and `HevcEncoder.MIME` as a last-resort
+    // fallback. These tests lock in the priority chain.
+    // ----------------------------------------------------------------
+
+    @Test
+    fun `chooseCodecToken — extractor MIME wins when present`() {
+        val token = MetadataComposer.chooseCodecToken(
+            extractorMime = "video/hevc",
+            encoderMime = null,
+            configuredMime = "video/hevc",
+        )
+        assertEquals("hevc", token)
+    }
+
+    @Test
+    fun `chooseCodecToken — falls back to encoder MIME when extractor is null (BUG-260518-04 regression)`() {
+        // The Pixel 8a + 10a apkRollout 22ffec5 case: extractor returns
+        // null (e.g. MediaExtractor.setDataSource threw on a still-being-
+        // written MP4 in some race window) AND encoder OUTPUT_FORMAT
+        // populates KEY_MIME correctly. Codec must still resolve to
+        // "hevc" via the encoder source. (In the actual walk both
+        // sources were intermittent — this test exercises the encoder
+        // fallback in isolation.)
+        val token = MetadataComposer.chooseCodecToken(
+            extractorMime = null,
+            encoderMime = "video/hevc",
+            configuredMime = "video/hevc",
+        )
+        assertEquals("hevc", token)
+    }
+
+    @Test
+    fun `chooseCodecToken — falls back to configured MIME when both extractor and encoder are null`() {
+        // The Pixel 8a + 10a apkRollout 22ffec5 ROOT case: extractor
+        // returned null (the MP4 may not have flushed its track header
+        // yet at finalize time on some encoders) AND encoder OUTPUT_FORMAT
+        // KEY_MIME = null. The configured constant (HevcEncoder.MIME =
+        // MediaFormat.MIMETYPE_VIDEO_HEVC) is the last-resort truth — we
+        // literally called `MediaCodec.createEncoderByType(MIME)` so the
+        // encoder cannot have produced any other codec.
+        val token = MetadataComposer.chooseCodecToken(
+            extractorMime = null,
+            encoderMime = null,
+            configuredMime = android.media.MediaFormat.MIMETYPE_VIDEO_HEVC,
+        )
+        assertEquals("hevc", token)
+    }
+
+    @Test
+    fun `chooseCodecToken — returns unknown only when all three sources are null`() {
+        // This path requires the MP4 to be unreadable AND the encoder to
+        // report nothing AND the caller to pass no configured constant —
+        // a case that in production cannot reach compose() because the
+        // upstream resolution gate (width<1920) would have already
+        // canceled the segment. The test exists to prove "unknown" is
+        // not an arbitrary fallback any more.
+        val token = MetadataComposer.chooseCodecToken(
+            extractorMime = null,
+            encoderMime = null,
+            configuredMime = null,
+        )
+        assertEquals("unknown", token)
+    }
+
+    @Test
+    fun `chooseCodecToken — extractor MIME beats a conflicting encoder MIME`() {
+        // If the muxer for some reason committed H.264 (impossible with
+        // HevcEncoder, but the fix must be source-of-truth-faithful), the
+        // metadata reflects what was MUXED, not what the encoder snapshot
+        // claims. CAPTURE-QA-01 principle: metadata reflects measured
+        // reality of the file the training pipeline reads.
+        val token = MetadataComposer.chooseCodecToken(
+            extractorMime = "video/avc",
+            encoderMime = "video/hevc",
+            configuredMime = "video/hevc",
+        )
+        assertEquals("h264", token)
+    }
+
+    // ----------------------------------------------------------------
     // Allowed-literal sanity (hdr + image_stabilization stay literal —
     // they're CAMERA flags verified at compat-check time).
     // ----------------------------------------------------------------
@@ -237,6 +330,42 @@ class MetadataComposerLiteralsTest {
         // inline comment citing the truth-source.
         assertFalse(md.getBoolean("hdr"))
         assertFalse(md.getBoolean("image_stabilization"))
+    }
+
+    // ----------------------------------------------------------------
+    // Test E — quick 260522-elm calibration block (CAPTURE-QA-08/09).
+    //
+    // The calibration block is purely additive and introduces NONE of the
+    // banned spec literals — the grep gate (Test A) stays green unchanged
+    // because the block's `.put(...)` keys (model / params / fx / etc.)
+    // live in CalibrationJson, not the compose() body. These tests confirm
+    // the block is ALWAYS present with the null-fallback contract and that
+    // the drift fields are untouched.
+    // ----------------------------------------------------------------
+
+    @Test
+    fun `compose ALWAYS emits a top-level calibration block with null fallback`() {
+        // fixtureSidecar carries no calibration (null) → uncalibrated fallback.
+        val out = MetadataComposer.compose(fixtureSidecar(), fixtureMetrics())
+        val cal = out.getJSONObject("calibration")
+        val cam = cal.getJSONObject("camera")
+        assertEquals("camera2_uncalibrated", cam.getString("intrinsics_source"))
+        assertTrue(cam.getJSONObject("params").isNull("fx"))
+        assertEquals(
+            "camera2_no_imu_reference",
+            cal.getJSONObject("cam_imu_extrinsics").getString("extrinsics_source"),
+        )
+    }
+
+    @Test
+    fun `calibration is additive — drift fields are unchanged`() {
+        val md = compose(fixtureMetrics().copy(
+            drift = MetadataComposer.Drift(maxMs = 6.16, meanMs = 5.58, p99Ms = 5.63, warmupFramesSkipped = 150),
+        ))
+        assertEquals(6.16, md.getDouble("imu_video_drift_max_ms"), 0.0001)
+        assertEquals(5.58, md.getDouble("imu_video_drift_mean_ms"), 0.0001)
+        assertEquals(5.63, md.getDouble("imu_video_drift_p99_ms"), 0.0001)
+        assertEquals(150, md.getInt("imu_video_drift_warmup_frames_skipped"))
     }
 
     // ----------------------------------------------------------------

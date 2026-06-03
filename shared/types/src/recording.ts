@@ -61,6 +61,33 @@ export const RecordingSchema = RecordingCreateSchema.extend({
 });
 export type Recording = z.infer<typeof RecordingSchema>;
 
+// Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — the metadata.json
+// `calibration` block (schema 1.2.0): camera intrinsics + cam-IMU extrinsics
+// from the device's CameraCalibrationReader. Kept lenient (jsonb tolerates
+// extra keys + null params — the uncalibrated fallback common on Pixels) so a
+// slightly-evolved device block still validates. Not over-constrained.
+const CalibrationCameraSchema = z.object({
+  model: z.string(),
+  resolution: z.array(z.number()).length(2).nullable().optional(),
+  params: z.record(z.string(), z.number().nullable()).nullable().optional(),
+  distortion_coeffs: z.array(z.number()).nullable().optional(),
+  intrinsics_source: z.string(),
+});
+const CalibrationExtrinsicsSchema = z.object({
+  T_cam_imu: z.array(z.array(z.number())).nullable().optional(),
+  T_imu_cam: z.array(z.array(z.number())).nullable().optional(),
+  T_cam_imu_translation_mm: z.array(z.number()).nullable().optional(),
+  timeshift_cam_imu_sec: z.number(),
+  timeshift_meaning: z.string(),
+  clock_sync_note: z.string(),
+  extrinsics_source: z.string(),
+});
+export const CalibrationSchema = z.object({
+  camera: CalibrationCameraSchema,
+  cam_imu_extrinsics: CalibrationExtrinsicsSchema,
+});
+export type Calibration = z.infer<typeof CalibrationSchema>;
+
 // Wire shapes for the multipart lifecycle endpoints (plan 01-07).
 export const RecordingsInitRequestSchema = z.object({
   recordingId: z.string().length(26),
@@ -85,6 +112,11 @@ export const RecordingsInitRequestSchema = z.object({
   // offset (the device emits `+05:30`, etc.), not just `Z`. (Debug session:
   // init-400-capturedat-offset.)
   capturedAt: z.string().datetime({ offset: true }),
+  // Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — the metadata.json
+  // `calibration` block (schema 1.2.0). Optional + nullable: pre-1.2.0 / older
+  // clients send nothing → persisted as null. Persisted on the new-row INSERT
+  // in init.ts as the queryable mirror of the metadata.json calibration.
+  calibration: CalibrationSchema.nullable().optional(),
 });
 export type RecordingsInitRequest = z.infer<typeof RecordingsInitRequestSchema>;
 

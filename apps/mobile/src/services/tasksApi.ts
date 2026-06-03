@@ -21,6 +21,8 @@
 import { useEffect, useState } from 'react';
 import type { TasksListResponse, TasksSearchResponse } from '@humyn/shared-types';
 import { apiClient } from './api';
+import i18n from '../i18n';
+import { reverseSearch } from '../i18n/reverseSearch';
 
 /** Setting filter accepted by the /tasks list + /tasks/search endpoints. */
 export type TasksSettingFilter = 'indoor' | 'outdoor';
@@ -57,12 +59,23 @@ export interface SearchTasksArgs {
  * 06-02). Returns up to `limit` (default 20; server caps at 50) tasks
  * ranked by `lex_score` (the Phase 6 D-01a rename from the legacy
  * `rrf_score`). A 5s timeout caps any server-side regression.
+ *
+ * Plan 07-06 (I18N-10 / D-14 / D-16): the user's input is rewritten from
+ * the active i18n locale to canonical English BEFORE the network call.
+ * The backend route is UNCHANGED — `/tasks/search` continues to consume
+ * English queries; the rewrite is a thin client-side shim per
+ * `apps/mobile/src/i18n/reverseSearch.ts`. For `i18n.language === 'en'`
+ * the rewrite is the identity (no-op).
  */
 export async function searchTasks(
   q: string,
   args: SearchTasksArgs = {},
 ): Promise<TasksSearchResponse> {
-  const query: Record<string, string> = { q };
+  // D-14 reverse-search shim — rewrite locale text to canonical English
+  // before the network call. The backend pg_trgm fallback handles any
+  // Stage-3 passthrough that the reverse map didn't catch.
+  const englishQuery = reverseSearch(q, i18n.language);
+  const query: Record<string, string> = { q: englishQuery };
   if (args.category) query.category = args.category;
   if (args.setting) query.setting = args.setting;
   if (args.limit !== undefined) query.limit = String(args.limit);

@@ -27,6 +27,7 @@
  */
 import React, { useState } from 'react';
 import { View, TextInput, StyleSheet, ScrollView, Modal, Alert } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Text } from '../ui/primitives/Text';
 import { Button } from '../ui/primitives/Button';
 import { Pressable } from '../ui/primitives/Pressable';
@@ -37,6 +38,25 @@ import {
   type FeedbackCategory,
 } from '../services/feedbackService';
 
+/**
+ * Display-label keys for each feedback category enum. The enum STAYS English
+ * (server contract per I18N-10) — only the rendered TEXT + accessibilityLabel
+ * route through i18n. Two enums get UX-simpler labels per checker WARNING 8:
+ *   imu-issue     → "Sensor issue"     (the user-facing word for the IMU sensor)
+ *   thermal-issue → "Device overheating" (clearer than "thermal issue")
+ * The server still receives 'imu-issue' / 'thermal-issue' verbatim.
+ */
+const REPORT_CATEGORY_LABEL_KEY: Record<FeedbackCategory, string> = {
+  'app-crashed': 'report.category.appCrashed',
+  'task-doesnt-start': 'report.category.taskDoesntStart',
+  'upload-stuck': 'report.category.uploadStuck',
+  'login-issue': 'report.category.loginIssue',
+  'video-quality-issue': 'report.category.videoQualityIssue',
+  'imu-issue': 'report.category.imuIssue',
+  'thermal-issue': 'report.category.thermalIssue',
+  other: 'report.category.other',
+};
+
 export interface ReportProblemSheetProps {
   onClose: () => void;
 }
@@ -45,23 +65,27 @@ export function ReportProblemSheet({ onClose }: ReportProblemSheetProps): React.
   const [category, setCategory] = useState<FeedbackCategory | null>(null);
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const { t } = useTranslation();
 
   const submit = async () => {
     if (!category) {
-      Alert.alert('Pick a category', 'Choose what kind of problem you hit.');
+      Alert.alert(t('report.alerts.pickCategory'), t('report.alerts.pickCategoryBody'));
       return;
     }
     if (message.trim().length < 1) {
-      Alert.alert('Add a message', 'Tell us what happened.');
+      Alert.alert(t('report.alerts.addMessage'), t('report.alerts.addMessageBody'));
       return;
     }
     setSubmitting(true);
     try {
       await submitFeedback({ category, message: message.trim() });
-      Alert.alert('Sent', 'Thanks — we got your report.');
+      Alert.alert(t('report.alerts.sentTitle'), t('report.alerts.sentBody'));
       onClose();
     } catch (e) {
-      Alert.alert('Failed', e instanceof Error ? e.message : 'Try again later.');
+      Alert.alert(
+        t('report.alerts.failedTitle'),
+        e instanceof Error ? e.message : t('report.alerts.failedBodyFallback'),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -72,27 +96,42 @@ export function ReportProblemSheet({ onClose }: ReportProblemSheetProps): React.
       <View style={styles.scrim}>
         <View style={styles.sheet} accessibilityLabel="report-problem-sheet">
           <Text variant="bodyLg" style={styles.title}>
-            Report a problem
+            {t('report.title')}
           </Text>
           <ScrollView contentContainerStyle={styles.body}>
             <Text variant="formLabel" style={styles.label}>
-              Category
+              {t('report.labelCategory')}
             </Text>
             <View style={styles.categoryWrap}>
               {FEEDBACK_CATEGORIES.map((c) => {
                 const selected = category === c;
+                // G-22 (Plan 07-16 / WARNING 12): chip text + accessibilityLabel
+                // translate; testID stays English (server contract + test ID).
+                const label = t(REPORT_CATEGORY_LABEL_KEY[c]);
                 return (
                   <Pressable
                     key={c}
                     onPress={() => setCategory(c)}
-                    accessibilityLabel={`category-${c}`}
+                    testID={`category-${c}`}
+                    accessibilityLabel={label}
                     style={selected ? styles.chipSelected : styles.chip}
                   >
+                    {/* Plan 07-17 re-walk 3rd attempt 2026-05-27: same fix
+                        as TaskCategoryPills — KEEP `numberOfLines={1}`,
+                        drop the shrink-to-fit props. RN-Android wraps
+                        the chip Text at the first space and the chip's
+                        content-hug height collapses to line 1
+                        ("ऐप क्रैश हो गया" → "ऐप क्रैश हो"). Forcing
+                        single-line layout lets the chip widen to the
+                        natural single-line text width — the parent's
+                        `flexWrap` row then wraps chips to a new row
+                        when the current row overflows. */}
                     <Text
                       variant="caption"
                       style={selected ? styles.chipTextSelected : styles.chipText}
+                      numberOfLines={1}
                     >
-                      {c}
+                      {label}
                     </Text>
                   </Pressable>
                 );
@@ -100,14 +139,14 @@ export function ReportProblemSheet({ onClose }: ReportProblemSheetProps): React.
             </View>
 
             <Text variant="formLabel" style={[styles.label, styles.labelGap]}>
-              What happened?
+              {t('report.labelWhatHappened')}
             </Text>
             <TextInput
               multiline
               numberOfLines={6}
               value={message}
               onChangeText={setMessage}
-              placeholder="Tell us what you were doing and what went wrong."
+              placeholder={t('report.placeholderMessage')}
               style={styles.textarea}
               accessibilityLabel="report-problem-message"
               placeholderTextColor={colors.text3}
@@ -119,7 +158,7 @@ export function ReportProblemSheet({ onClose }: ReportProblemSheetProps): React.
               <Button
                 variant="outline"
                 accessibilityLabel="report-problem-cancel"
-                label="Cancel"
+                label={t('report.buttonCancel')}
                 onPress={onClose}
               />
             </View>
@@ -127,7 +166,7 @@ export function ReportProblemSheet({ onClose }: ReportProblemSheetProps): React.
               <Button
                 variant="primary"
                 accessibilityLabel="report-problem-submit"
-                label={submitting ? 'Sending…' : 'Send report'}
+                label={submitting ? t('report.sending') : t('report.buttonSend')}
                 onPress={submit}
                 disabled={submitting}
               />

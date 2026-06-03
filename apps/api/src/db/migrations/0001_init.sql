@@ -2,7 +2,8 @@
 -- Sources: RESEARCH.md §1.2; schema.ts (this directory's sibling).
 
 -- 1. Required extension. IF NOT EXISTS makes the migration idempotent.
-CREATE EXTENSION IF NOT EXISTS vector;--> statement-breakpoint
+-- Commented out: extensions must be created out-of-band by the postgres superuser in RDS.
+-- CREATE EXTENSION IF NOT EXISTS vector;--> statement-breakpoint
 
 -- 2. Drizzle-generated CREATE TABLE / TYPE / INDEX / FK statements for all 11 tables.
 --    Generated via `pnpm drizzle-kit generate` from src/db/schema.ts.

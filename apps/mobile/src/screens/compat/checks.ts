@@ -21,15 +21,20 @@ export type DisplayRowKey =
   | 'realtime'
   | 'integrity';
 
-/** Verbatim row order + labels from design-spec §4. */
-export const DISPLAY_ROWS: { key: DisplayRowKey; label: string }[] = [
-  { key: 'ultrawide', label: 'Ultrawide camera' },
-  { key: 'resolutionFps', label: '1080p @ 30 FPS' },
-  { key: 'motionSensors', label: 'Motion sensors' },
-  { key: 'imu', label: 'Stable sensor stream' },
-  { key: 'mic', label: 'Microphone' },
-  { key: 'realtime', label: 'Time sync source' },
-  { key: 'integrity', label: 'Device integrity' },
+/** Verbatim row order from design-spec §4 — labels resolved via `t(labelKey)` at render. */
+// [07-11] Display labels moved to `apps/mobile/src/i18n/locales/en.json` under
+// `compat.checkLabels.*` so the CompatRunningScreen renders translated rows
+// instead of hardcoded English (G-02 closure). The 'imu' row's labelKey maps
+// to `compat.checkLabels.imuStable` (the en.json key tree follows the plan
+// contract, which named that key after its display copy "Stable sensor stream").
+export const DISPLAY_ROWS: { key: DisplayRowKey; labelKey: string }[] = [
+  { key: 'ultrawide', labelKey: 'compat.checkLabels.ultrawide' },
+  { key: 'resolutionFps', labelKey: 'compat.checkLabels.resolutionFps' },
+  { key: 'motionSensors', labelKey: 'compat.checkLabels.motionSensors' },
+  { key: 'imu', labelKey: 'compat.checkLabels.imuStable' },
+  { key: 'mic', labelKey: 'compat.checkLabels.mic' },
+  { key: 'realtime', labelKey: 'compat.checkLabels.realtime' },
+  { key: 'integrity', labelKey: 'compat.checkLabels.integrity' },
 ];
 
 export interface DisplayRow {

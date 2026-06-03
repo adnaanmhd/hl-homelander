@@ -23,6 +23,7 @@ import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import HapticFeedback from 'react-native-haptic-feedback';
+import { useTranslation } from 'react-i18next';
 import { Text } from '../../ui/primitives/Text';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
 import { colors, spacing, radii } from '../../ui/tokens';
@@ -40,6 +41,7 @@ const AUTO_ADVANCE_MS = 1500;
 export default function CompatPassScreen() {
   const navigation = useNavigation<NavigationLike>();
   const compat = useAppStore((s) => s.compatLastResult);
+  const { t } = useTranslation();
 
   useEffect(() => {
     // 40 ms haptic on mount per design-spec §4c. react-native-haptic-feedback
@@ -70,16 +72,17 @@ export default function CompatPassScreen() {
     <ScreenContainer accessibilityLabel="CompatPass screen" padding={spacing.h}>
       <View style={styles.body}>
         <Text variant="title28" style={styles.title}>
-          You&apos;re in.
+          {t('compat.pass.title')}
         </Text>
         <Text variant="body" tone="secondary" style={styles.sub}>
-          All checks passed.
+          {t('compat.pass.subtitle')}
         </Text>
         {showStorageWarning ? (
           <View style={styles.warningBanner} accessibilityLabel="compat-storage-warning">
             <Text variant="caption" style={styles.warningText}>
-              Free up space to avoid recording loss.{' '}
-              {compat!.checks.freeStorageGB.measuredGB.toFixed(1)} GB free.
+              {t('compat.pass.storageWarningPrefix', {
+                gb: compat!.checks.freeStorageGB.measuredGB.toFixed(1),
+              })}
             </Text>
           </View>
         ) : null}

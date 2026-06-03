@@ -18,9 +18,9 @@ Phase 6 lights up the three previously placeholder user surfaces and the data un
 
 - iOS player parity (deferred with the rest of the iOS native modules — §v2 IOS-01..07).
 - pgvector + RRF hybrid search surfaced on the client (§v2 SEARCH-V2-01).
-- Streaming UI for Deep-Archive (>90 d) recordings — disabled-with-message at MVP; the async-thaw flow is a §v2 / Phase-7 question.
+- Streaming UI for Deep-Archive (>90 d) recordings — disabled-with-message at MVP; the async-thaw flow is a §v2 / Phase-8 question.
 - Pre-payout fraud dashboard / IMU-liveness check / FRAUD-05/06 (already in §v2).
-- Per-OEM battery-optimization device sweep (Phase 7 carry-over from Phase 5).
+- Per-OEM battery-optimization device sweep (Phase 8 carry-over from Phase 5).
 
 </domain>
 
@@ -54,7 +54,7 @@ Phase 6 lights up the three previously placeholder user surfaces and the data un
 - **D-06:** **Scope expansion — the player plays ALL non-discarded recordings, not just locally-resident ones.** Local MP4 still on disk → plays from `file://`. Verified-and-deleted-local OR in-flight (`pending` / `uploaded` / `hash-mismatch`) → streams via the new presigned-GET endpoint. Recordings older than 90 days (Deep Archive per the Phase-1 S3 lifecycle) → row visible in History but tap shows the disabled "Archived" message. **REQUIREMENTS rewording required during planning** (HIST-07/08/09 + design-spec §13/§14):
   - HIST-07 reworded: "Tap thumbnail opens the in-app fullscreen player (play / pause / seek only — no download / share / export). Plays from the local MP4 when present; otherwise streams via the server."
   - HIST-08 reworded: "Once the `verified` event clears the local MP4, the thumbnail remains and tap streams from the server. If the recording is in Deep Archive (>90 d), tap shows 'This recording has been archived. Contact support for retrieval.'"
-  - HIST-09 reworded (or removed): "Streaming uploaded recordings back from the server is **in MVP** for Phase 6, via a short-TTL presigned GET. Deep-Archive (>90 d) thawing is §v2 / Phase 7."
+  - HIST-09 reworded (or removed): "Streaming uploaded recordings back from the server is **in MVP** for Phase 6, via a short-TTL presigned GET. Deep-Archive (>90 d) thawing is §v2 / Phase 8."
 - **D-07:** **Hand-rolled `HumynPlayer` Kotlin native module on `androidx.media3:media3-exoplayer:1.10.0`** (same media3 minor we already use in HumynCapture's muxer — single pin to maintain). `<HumynPlayerView>` = TextureView surface; JS bridge methods `prepare(uri)` / `play()` / `pause()` / `seekTo(ms)`; events `onProgress({positionMs,bufferedMs,durationMs})` / `onBuffer({buffering})` / `onEnd()` / `onError({code,msg})`. ~150–200 LOC. Source switches between local `file://` and remote `https://` presigned URL — same code path, ExoPlayer's `DefaultDataSource` handles both natively.
 - **D-07a:** No iOS counterpart this phase (defer with the rest of iOS — §v2 IOS-01..07). The JS bridge stub is wired to Android only.
 - **D-07b:** Player surface respects design-spec §14: portrait-locked screen, black `#000` background, X-close (top-left → History), centered task name, lock badge on top-right (cosmetic — playback is always local-or-streamed-presigned, the badge is iconographic), 64×64 centered play overlay, 4 px scrub bar, mono current/total time. Footer "View only — not downloadable." Owner deviation surface is none — copy is verbatim §14.
@@ -224,10 +224,10 @@ None — no pending-todo matches for Phase 6 scope (the Phase-5 carry-over comes
 ## Deferred Ideas
 
 - **Server-side semantic / pgvector + RRF hybrid search surfaced on the client** — §v2 SEARCH-V2-01. The backend ships the hybrid CTE today; Phase 6 just stops calling it. §v2 flips the client back over and possibly resurfaces.
-- **Async thaw flow for Deep-Archive (>90 d) recordings.** Phase 6 shows the row but disables the tap with the 'Archived' message. The actual `restore-archive` S3 call + the asynchronous wait + the "ready in 12–48 hours, tap to be notified" UX is §v2 / Phase 7 territory.
+- **Async thaw flow for Deep-Archive (>90 d) recordings.** Phase 6 shows the row but disables the tap with the 'Archived' message. The actual `restore-archive` S3 call + the asynchronous wait + the "ready in 12–48 hours, tap to be notified" UX is §v2 / Phase 8 territory.
 - **iOS player parity (`HumynPlayerIOS` / AVPlayer / iOS native module).** Deferred with the rest of iOS native modules — §v2 IOS-01..07.
-- **OEM battery-optimization device sweep** (Xiaomi MIUI / Oppo ColorOS / Vivo FunTouch / Samsung OneUI) — already folded into Phase 7 per Phase 5 close-out.
-- **Per-OEM SoundPool / Vibrator routing nuances** beyond Pixel 10a / Android 16. Phase 6 Wave 1 restores audibility on the test device; broad-fleet OEM-specific fixes (if any) are Phase 7 observability work.
+- **OEM battery-optimization device sweep** (Xiaomi MIUI / Oppo ColorOS / Vivo FunTouch / Samsung OneUI) — already folded into Phase 8 per Phase 5 close-out.
+- **Per-OEM SoundPool / Vibrator routing nuances** beyond Pixel 10a / Android 16. Phase 6 Wave 1 restores audibility on the test device; broad-fleet OEM-specific fixes (if any) are Phase 8 observability work.
 - **A "verifying — try again in a moment" auto-retry for streaming a `pending` row.** Phase 6 just shows the message; auto-retry-on-status-change is §v2 polish.
 - **History row deletion / re-record / sharing.** Locked OUT of MVP by HIST-10/HIST-07 ("View only — not downloadable.").
 - **Search results sort options** (date / popularity / category-weighted). MVP is lex-score DESC only; sort options are §v2.

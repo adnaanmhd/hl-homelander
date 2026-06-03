@@ -21,6 +21,10 @@
  * PUT → /finalize transfer engine (`ChunkUploader` / `UploadCoordinator`) is
  * Plan 05-06; the FGS + OEM-walkthrough are Plan 05-07; the boot reconcile
  * sweep is Plan 05-08.
+ *
+ * 2026-05-18 — debug session `.planning/debug/upload-queue-hol-finalizing.md`
+ * (Fix C) added the `'needs-attention'` row state + the [retryNeedsAttention]
+ * native method (manual retry of a NEEDS_ATTENTION row from the History UI).
  */
 import { NativeEventEmitter, NativeModules, type EmitterSubscription } from 'react-native';
 
@@ -42,7 +46,24 @@ export type UploadQueueRow = {
   jsonPath: string;
   taskId: string;
   isPractice: boolean;
-  state: 'pending' | 'uploading' | 'finalizing' | 'awaiting-verify' | 'verified' | 'dead-letter';
+  /**
+   * The row's lifecycle state. `'needs-attention'` was added 2026-05-18 by
+   * debug session `.planning/debug/upload-queue-hol-finalizing.md` (Fix C
+   * item 4) — terminal-but-recoverable: automatic retries gave up after
+   * [UploadCoordinator.NEEDS_ATTENTION_THRESHOLD] failed attempts; the user
+   * can manually retry via [HumynUpload.retryNeedsAttention]. Distinct from
+   * `'dead-letter'` (permanent server-rejection like 409 / 403 / missing
+   * bundle file): NEEDS_ATTENTION is the "stuck waiting on a flaky server,
+   * ask the user" state.
+   */
+  state:
+    | 'pending'
+    | 'uploading'
+    | 'finalizing'
+    | 'awaiting-verify'
+    | 'verified'
+    | 'dead-letter'
+    | 'needs-attention';
   uploadId?: string;
   imuUploadId?: string;
   partsCount?: number;
@@ -69,6 +90,34 @@ export type UploadQueueRow = {
    * them out as a belt-and-braces backstop (defense-in-depth).
    */
   cancelReason?: 'fps_dropped' | 'resolution_dropped' | 'insufficient_frames';
+  /**
+   * Debug session `.planning/debug/upload-queue-hol-finalizing.md` (Fix C
+   * item 4) — count of automatic recovery attempts the worker has made on
+   * this row. Reaches NEEDS_ATTENTION at threshold; reset to 0 on success
+   * or manual user retry. Optional — absent on healthy rows.
+   */
+  attemptCount?: number;
+  /**
+   * Debug session `upload-queue-hol-finalizing` (Fix C item 4) — wall-clock
+   * ms of the last failed automatic recovery attempt. Used by the
+   * History-UI Retry button to render "Stuck for 12 min — Retry". Absent on
+   * healthy rows.
+   */
+  lastFailureAt?: number;
+  /**
+   * Debug session `upload-queue-hol-finalizing` (Fix C item 4) — the row's
+   * state name at the moment of the most recent failure (e.g.
+   * `"FINALIZING"`). Surfaced for diagnostic display. Absent on healthy
+   * rows.
+   */
+  lastFailureState?: string;
+  /**
+   * Debug session `upload-queue-hol-finalizing` (Fix C item 4) — a short
+   * description of the most recent failure mode (e.g.
+   * `"finalize timed out after 60s"`). Surfaced in the History-UI Retry
+   * label. Absent on healthy rows.
+   */
+  lastFailureReason?: string;
 };
 
 /** Progress tick for one in-flight recording. */
@@ -132,6 +181,17 @@ interface HumynUploadNativeModule {
    * Trail: `.planning/debug/resolved/uploads-stuck-multi-segment.md`.
    */
   reviveDeadLetter(recordingId: string): Promise<void>;
+  /**
+   * Debug session `.planning/debug/upload-queue-hol-finalizing.md` (Fix C
+   * item 4) — manually retry a `NEEDS_ATTENTION` row. Resets `attemptCount`
+   * + the failure markers, transitions back to UPLOADING / PENDING per the
+   * existing `uploadId` shape, and re-kicks the drainer. Resolves `true`
+   * if a row matched + was transitioned; `false` for any non-NEEDS_ATTENTION
+   * row (so a stale UI tap doesn't silently mutate an in-flight or verified
+   * row). Distinct from [reviveDeadLetter] (which targets DEAD_LETTER rows
+   * — permanent server-rejection vs. exhausted auto-retry budget).
+   */
+  retryNeedsAttention(recordingId: string): Promise<boolean>;
   /**
    * Wave-1.5 Item 8 — cold-start drain kick (no unpause). Used by
    * `installUploadReconcile()` on boot: if `getQueueSafe()` returns a row in
@@ -208,6 +268,22 @@ export const HumynUpload = {
       await ensure().reviveDeadLetter(recordingId);
     } catch {
       /* no native module / JSDOM — non-fatal */
+    }
+  },
+  /**
+   * Debug session `.planning/debug/upload-queue-hol-finalizing.md` (Fix C item
+   * 4) — manually retry a NEEDS_ATTENTION row. Throws if the module is absent
+   * (call sites are user-driven taps, so a hard error is the right behavior).
+   * Returns `true` if a row matched + was transitioned; `false` otherwise.
+   */
+  retryNeedsAttention: (recordingId: string): Promise<boolean> =>
+    ensure().retryNeedsAttention(recordingId),
+  /** Boot-safe `retryNeedsAttention()` — never throws; returns `false` when the module is unavailable. */
+  retryNeedsAttentionSafe: async (recordingId: string): Promise<boolean> => {
+    try {
+      return await ensure().retryNeedsAttention(recordingId);
+    } catch {
+      return false;
     }
   },
   /**

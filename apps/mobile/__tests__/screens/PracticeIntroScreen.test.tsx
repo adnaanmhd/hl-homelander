@@ -7,8 +7,9 @@
 // Test 3: practice_intro_shown analytics event fires once on mount.
 // Test 4: Tap "Start practice" → practice_started fires AND navigation
 //         leaves OnboardingStack to 'Recording' with the practice route
-//         params { taskId: '__practice__', taskName: 'Practice — 60 sec',
-//         isPractice: true }. The screen prefers the parent navigator's
+//         params { taskId: '__practice__', isPractice: true }. The
+//         RecordingScreen falls back to t('recording.practiceFallback') when
+//         taskName is absent (Plan 07-17 G-25). The screen prefers the parent navigator's
 //         replace (Recording is a RootNativeStack route, plan 04-07).
 // Test 5: Falls back to the local navigator's replace when getParent() has
 //         no replace.
@@ -49,9 +50,11 @@ vi.mock('../../src/util/analytics', () => ({
 
 import PracticeIntroScreen from '../../src/screens/tutorial/PracticeIntroScreen';
 
+// G-25 (Plan 07-17): taskName intentionally omitted — RecordingScreen.tsx
+// falls back to t('recording.practiceFallback') so the locale switch in
+// Profile re-renders the app-bar.
 const PRACTICE_PARAMS = {
   taskId: '__practice__',
-  taskName: 'Practice — 60 sec',
   isPractice: true,
 };
 

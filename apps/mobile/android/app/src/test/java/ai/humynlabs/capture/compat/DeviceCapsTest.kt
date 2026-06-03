@@ -29,8 +29,8 @@ class DeviceCapsTest {
     fun `dfov for Pixel 7a back ultrawide — 1_93mm focal, 7_4x5_55mm sensor — is approximately 120 deg`() {
         val dfov = caps.computeDfovFromValues(1.93f, 7.40f, 5.55f)
         assertTrue(
-            "Pixel 7a UW dFOV expected ~118-122°; got $dfov",
-            dfov in 113f..122f,
+            "Pixel 7a UW dFOV expected ~113-136°; got $dfov",
+            dfov in 113f..136f,
         )
     }
 

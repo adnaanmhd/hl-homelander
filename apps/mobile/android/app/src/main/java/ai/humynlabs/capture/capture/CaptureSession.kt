@@ -1,23 +1,27 @@
 package ai.humynlabs.capture.capture
 
 import android.content.Context
+import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.params.OutputConfiguration
 import android.media.MediaCodec
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
 import android.util.Log
+import android.util.Size
 import android.view.Surface
 import androidx.annotation.VisibleForTesting
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.WritableMap
 import ai.humynlabs.capture.capture.common.BackUltrawidePicker
 import ai.humynlabs.capture.capture.common.UltrawidePick
+import ai.humynlabs.capture.livepreview.LivePreviewSurfaceRegistry
 import java.io.File
 import java.nio.ByteBuffer
 import java.time.LocalDateTime
@@ -113,6 +117,17 @@ class CaptureSession private constructor(
     private val pumpThreads = mutableListOf<HandlerThread>()
 
     companion object {
+        // Phase 7 plan 07-10 — Option-B Surface lifecycle instrumentation
+        // (G-11 debug). Filter on this in `adb logcat -s CaptureSession:I`
+        // to trace the registry-read at config + the in-session
+        // setRepeatingRequest rebuild callbacks. New tag (no prior collisions:
+        // verified by `grep -rE 'Log\\.[idew]\\("CaptureSession"'` returning
+        // empty on the existing tree). Removed in a follow-on
+        // `DEBUG_REVERT_BEFORE_COMMIT`-style sweep iff the operator's logcat
+        // confirms G-11 closure on Option B and we no longer need the
+        // surface-lifecycle trail in production.
+        private const val TAG = "CaptureSession"
+
         /** Camera2 open timeout — matches EncoderProbe convention. */
         private const val CAMERA_OPEN_TIMEOUT_S = 2L
 
@@ -283,16 +298,40 @@ class CaptureSession private constructor(
         val practiceDir = File(baseDir, "practice").apply { mkdirs() }
         val outDir = if (opts.isPractice) practiceDir else recordingsDir
         val now = LocalDateTime.now()
+        // FilenameGenerator.nextBase still returns the un-prefixed date base
+        // `YYYYMMDD_HHMMSS_NNN` (its ls-scan strips a leading 26-char ULID
+        // prefix before the NNN parse — CAPTURE-QA-07).
         val base = FilenameGenerator.nextBase(now, listOf(recordingsDir, practiceDir))
 
-        val mp4 = File(outDir, "$base.mp4")
-        val csv = File(outDir, "$base.csv")
-        val json = File(outDir, "$base.json")
-        val sidecarFile = File(outDir, "$base.session.json")
+        // Quick task 260522-elm CAPTURE-QA-07 — prefix the on-disk filename
+        // with the segment's 26-char ULID recordingId so every artifact is
+        // self-identifying: `{recordingId}_{YYYYMMDD_HHMMSS_NNN}.{ext}`.
+        // metadata.filename / imu_filename flow this prefixed base through
+        // FinalizeWorker's `"${seg.filenameBase}.mp4"` / `.csv` stamping. The
+        // S3 object keys are UNCHANGED — the upload path PUTs to the fixed
+        // recordingKeys() (video.mp4 / imu.csv / metadata.json under
+        // recordings/{userId}/{recordingId}/); the local filename never
+        // derives the S3 object key (T-elm-03; verified against
+        // apps/api/src/lib/s3-client.ts recordingKeys()).
+        val filenameBase = "${recordingId}_$base"
+
+        val mp4 = File(outDir, "$filenameBase.mp4")
+        val csv = File(outDir, "$filenameBase.csv")
+        val json = File(outDir, "$filenameBase.json")
+        val sidecarFile = File(outDir, "$filenameBase.session.json")
 
         // 2. Per-segment clock stamp (Pattern 1 invariant — elapsedRealtimeNanos).
         val startNs = SystemClock.elapsedRealtimeNanos()
         val wallclockStartIso = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+
+        // Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — capture
+        // live-Camera2 intrinsics (from the ultrawide physical sub-camera, the
+        // lens HumynCapture records on) + cam-IMU extrinsics at segment open.
+        // The reader is null-safe and NEVER throws (T-elm-01); most Pixels
+        // report UNCALIBRATED so the null-fallback block is the typical output.
+        // Stashed on the sidecar → threaded to MetadataComposer.compose's
+        // top-level `calibration` block. Does NOT block or fail capture.
+        val calibration = CameraCalibrationReader.read(pick.ultrawideChars, pick.openableChars)
 
         // 3. Sidecar payload — captures the JS-supplied opts + segment timing
         //    so the app-launch sweep (Plan 03-09) can re-finalize if the
@@ -302,7 +341,7 @@ class CaptureSession private constructor(
             sessionId = sessionId,
             segmentId = UlidGenerator.next(),
             recordingId = recordingId,
-            filenameBase = base,
+            filenameBase = filenameBase,
             startedAtNs = startNs,
             wallclockStartIso = wallclockStartIso,
             isPractice = opts.isPractice,
@@ -347,6 +386,9 @@ class CaptureSession private constructor(
             // "landscape_left" (defensive — should never happen post-lock) with
             // a log warning so the safe default stays non-null.
             recordedRotation = readRecordedRotation(),
+            // Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — calibration
+            // captured above from the ultrawide physical sub-camera.
+            calibration = calibration,
         )
         SidecarManager.write(sidecarFile, sidecar)
 
@@ -414,7 +456,7 @@ class CaptureSession private constructor(
         val seg = Segment(
             segmentId = sidecar.segmentId,
             recordingId = recordingId,
-            filenameBase = base,
+            filenameBase = filenameBase,
             mp4File = mp4,
             csvFile = csv,
             jsonFile = json,
@@ -428,7 +470,7 @@ class CaptureSession private constructor(
             hevc = hevc!!,
             muxer = muxer!!,
             imuWriter = imuWriter!!,
-            videoFrameTimestamps = java.util.concurrent.CopyOnWriteArrayList(),
+            videoFrameTimestamps = PrimitiveLongBuffer(PrimitiveLongBuffer.VIDEO_CAPACITY),
             pumpThread = pumpThread,
             pumpExitLatch = CountDownLatch(1),
         )
@@ -568,79 +610,306 @@ class CaptureSession private constructor(
         var session: CameraCaptureSession? = null
         var sessionError: Throwable? = null
 
+        // === Phase 7 plan 07-10 — Always-two-Surface CaptureSession (H1 close) ===
+        //
+        // The original plan 07-07 read `LivePreviewSurfaceRegistry.currentSurface()`
+        // AT session-config time and conditionally added it as a second output.
+        // The Pixel-10a §7 walk (2026-05-25, debug journal
+        // .planning/debug/07-live-preview-broken-pipe.md) showed the registry
+        // slot was always null at session-config time (`previewSurfaceAtConfig=false
+        // outputs.size=1`) — `HumynLivePreviewView.onSurfaceTextureAvailable`
+        // fires ~109 ms AFTER `openCaptureSession` because the RN view tree
+        // mounts after `HumynCapture.start()` returns. So Option-B's "second
+        // surface if available" branch never engaged. (H1: race-on-config.)
+        //
+        // The fix: ALWAYS open the session with TWO output slots — the encoder
+        // Surface (always target #1, REC-LIVE-07 invariant) AND a deferred
+        // OutputConfiguration for the preview. The deferred config uses
+        // `enableSurfaceSharing()` so we can dynamically add/remove the real
+        // preview Surface via `finalizeOutputConfigurations` (first attach) and
+        // `updateOutputConfiguration` (subsequent swap, API 28+) WITHOUT
+        // reconfiguring the entire session — which would drop frames during the
+        // 100-400 ms HAL stall and trip FinalizeWorker's `mean_fps < 29` cancel
+        // gate (CLAUDE.md "Capture-quality cancel gate added 2026-05-17"
+        // banner).
+        //
+        // The `LivePreviewSurfaceRegistry.onAddTarget` / `onRemoveTarget` slots
+        // are wired UNCONDITIONALLY in onConfigured. Plan 07-10 to the registry
+        // makes `onSurfaceAvailable` / `onSurfaceDestroyed` invoke these
+        // callbacks directly, so the lifecycle becomes:
+        //   1. CaptureSession opens with [encoder, deferredPreview]. No preview
+        //      Surface attached yet.
+        //   2. JS-side `<HumynLivePreviewView>` mounts (~109 ms later).
+        //   3. TextureView's `onSurfaceTextureAvailable` calls
+        //      `LivePreviewSurfaceRegistry.onSurfaceAvailable(realPreview)`.
+        //   4. Registry stores the Surface AND invokes `onAddTarget`.
+        //   5. `onAddTarget` attaches realPreview to deferredPreview's
+        //      OutputConfiguration via `addSurface` + `finalizeOutputConfigurations`
+        //      (first time) or `updateOutputConfiguration` (subsequent swap),
+        //      then rebuilds the CaptureRequest with realPreview as target #2,
+        //      and re-issues `setRepeatingRequest`.
+        //   6. JS-side view unmounts (fade-to-dim, 15s later). TextureView's
+        //      `onSurfaceTextureDestroyed` calls `onSurfaceDestroyed(realPreview)`.
+        //   7. Registry invokes `onRemoveTarget` BEFORE clearing the slot —
+        //      `onRemoveTarget` rebuilds the CaptureRequest WITHOUT the preview
+        //      target and re-issues `setRepeatingRequest`. (This eliminates the
+        //      `Camera3-PreviewFrameSpacer ... Broken pipe(-32)` HAL warning by
+        //      stopping camera writes BEFORE the consumer-side Surface goes
+        //      away.) Then registry removes realPreview from deferredPreview's
+        //      OutputConfiguration via `removeSurface` + `updateOutputConfiguration`.
+        //   8. JS-side view re-mounts (tap-reveal). Steps 3-5 repeat with a
+        //      NEW Surface from a brand-new TextureView. The session never
+        //      reconfigures — only the deferred OutputConfiguration's surface
+        //      set changes via `updateOutputConfiguration`.
+        //
+        // API requirements:
+        //   - `OutputConfiguration(Size, Class<SurfaceTexture>)` deferred ctor: API 26+ (minSdk = 26, OK).
+        //   - `enableSurfaceSharing()`: API 26+.
+        //   - `addSurface` / `removeSurface`: API 26+ / API 26+.
+        //   - `finalizeOutputConfigurations`: API 26+.
+        //   - `createCaptureSessionByOutputConfigurations`: API 26+ (deprecated
+        //     in API 30+ in favor of `SessionConfiguration`).
+        //   - `updateOutputConfiguration`: API 28+. On API 26-27, the first
+        //     mount attaches via `finalizeOutputConfigurations` and subsequent
+        //     remounts are no-ops (first preview wins, silent degradation).
+        //     Pixel 10a smoke target is API 36 — dynamic path always exercised.
+        //
+        // The encoder Surface (target #1) and ultrawide CONTROL_ZOOM_RATIO
+        // routing (in applyRecordingRequestSettings) are UNCHANGED — drift
+        // banner + cancel-gate banner invariants preserved (REC-LIVE-07).
+        val previewSize = Size(1280, 720)
+        val previewOutputConfig = OutputConfiguration(previewSize, SurfaceTexture::class.java).apply {
+            // enableSurfaceSharing() is a no-arg setter that flips a flag. It
+            // MUST be called BEFORE the OutputConfiguration is registered with
+            // a CaptureSession (i.e. before createCaptureSessionByOutputConfigurations);
+            // calling it after throws IllegalStateException per the docs.
+            enableSurfaceSharing()
+        }
+        val encoderOutputConfig = OutputConfiguration(surface)
+
+        // If the registry already has a Surface available at session-config
+        // time (rare on Android — the RN view hierarchy mounts after the
+        // native-module `start` Promise resolves — but possible on a hot
+        // re-record where the previous view didn't fully unmount), attach it
+        // pre-creation. Otherwise the session opens with the deferred slot
+        // empty and `onAddTarget` attaches it when the surface arrives.
+        val initialPreviewSurface: Surface? = LivePreviewSurfaceRegistry.currentSurface()
+        var previewAttached: Boolean = false
+        if (initialPreviewSurface != null) {
+            previewOutputConfig.addSurface(initialPreviewSurface)
+            previewAttached = true
+        }
+        Log.i(
+            TAG,
+            "openCaptureSession previewSurfaceAtConfig=${initialPreviewSurface != null} outputs.size=2",
+        )
+
+        // `createCaptureSessionByOutputConfigurations` is deprecated in API 30+
+        // in favor of `createCaptureSession(SessionConfiguration)`. The new API
+        // requires an Executor instead of a Handler and has the same semantics
+        // for deferred surface output configs. We keep the deprecated path to
+        // mirror the existing `createCaptureSession(List<Surface>, ...)` shape
+        // (consistent with the pre-fix code path) and to avoid pulling an
+        // Executor adapter just for this one call. `@Suppress("DEPRECATION")`
+        // is the same workaround the file uses for the legacy
+        // `createCaptureSession(List<Surface>)` overload in BackUltrawidePicker.
         @Suppress("DEPRECATION")
-        cam.createCaptureSession(
-            listOf(surface),
+        cam.createCaptureSessionByOutputConfigurations(
+            listOf(encoderOutputConfig, previewOutputConfig),
             object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(s: CameraCaptureSession) {
                     try {
+                        Log.i(
+                            TAG,
+                            "onConfigured addingPreviewTarget=$previewAttached",
+                        )
+
+                        // If the deferred OutputConfiguration already has the
+                        // initial Surface attached, finalize it now so the
+                        // session "claims" the deferred slot. This is a one-shot
+                        // — subsequent swaps go through `updateOutputConfiguration`.
+                        if (previewAttached) {
+                            try {
+                                s.finalizeOutputConfigurations(listOf(previewOutputConfig))
+                            } catch (t: Throwable) {
+                                Log.w(TAG, "finalizeOutputConfigurations at config-time threw — treating as deferred", t)
+                                previewAttached = false
+                            }
+                        }
+
+                        // Build the initial CaptureRequest. Encoder is always
+                        // a target. The preview is added only if we attached
+                        // a Surface at config-time AND finalize succeeded.
                         val builder = cam.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
                         builder.addTarget(surface)
-                        builder.set(
-                            CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
-                            CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_OFF,
-                        )
-                        if (Build.VERSION.SDK_INT >= 33) {
-                            try {
-                                builder.set(
-                                    CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
-                                    CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF,
-                                )
-                            } catch (_: Throwable) { /* best-effort */ }
+                        if (previewAttached && initialPreviewSurface != null) {
+                            builder.addTarget(initialPreviewSurface)
                         }
-                        // Route the logical back camera through its ULTRAWIDE
-                        // physical sub-camera by driving the zoom ratio to the
-                        // lower bound of CONTROL_ZOOM_RATIO_RANGE (debug session
-                        // handgate-never-passes — Stage 2). On a logical
-                        // multi-camera whose default physical is the main wide
-                        // (~83° dFOV), a plain createCaptureSession streams that
-                        // main wide — violating the LOCKED ≥110° dFOV spec
-                        // (idea-brief.md §2.1) even though the compat probe and
-                        // the sidecar's dfovDegrees read the ultrawide's
-                        // intrinsics. A sub-1.0 zoom ratio switches the active
-                        // physical to the ultrawide (Pixel 10a logical-back
-                        // range lower bound = 0.556 = the ultrawide), the same
-                        // approach the native gate camera proved on-device.
-                        // API 30+ only (CONTROL_ZOOM_RATIO_RANGE). When the
-                        // device has no sub-1.0 zoom (range lower ≥ 1.0, or the
-                        // openable IS the ultrawide), this is a harmless no-op.
-                        // Additive hardening — the encoder/muxer/IMU core is
-                        // untouched (LOCKED per CLAUDE.md), but re-verify the
-                        // §5b ±1 ms drift afterward since the capture-request
-                        // shape changed.
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                            try {
-                                val zoomLower = mgr.getCameraCharacteristics(cam.id)
-                                    .get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE)
-                                    ?.lower
-                                if (zoomLower != null && zoomLower < 1.0f) {
-                                    builder.set(CaptureRequest.CONTROL_ZOOM_RATIO, zoomLower)
-                                }
-                            } catch (_: Throwable) { /* best-effort — never block the session on zoom */ }
-                        }
-                        // Lock focus for the whole take — no AF hunting on a
-                        // head-mounted rig (debug session handgate-never-passes).
-                        try {
-                            builder.set(
-                                CaptureRequest.CONTROL_AF_MODE,
-                                CaptureRequest.CONTROL_AF_MODE_OFF,
-                            )
-                            val characteristics = mgr.getCameraCharacteristics(cam.id)
-                            val minFocusDistance = characteristics.get(
-                                CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE,
-                            )
-                            // LENS_FOCUS_DISTANCE is in diopters (1/metres);
-                            // 0.0f = focus at infinity (hyperfocal "far"),
-                            // which keeps arm's-length-to-infinity acceptably
-                            // sharp on the ultrawide. Only meaningful on a lens
-                            // that actually supports manual focus (minFocus > 0);
-                            // a fixed-focus lens reports 0 and ignores it.
-                            if (minFocusDistance != null && minFocusDistance > 0f) {
-                                builder.set(CaptureRequest.LENS_FOCUS_DISTANCE, 0.0f)
-                            }
-                        } catch (_: Throwable) { /* best-effort — never block the session on focus-lock */ }
+                        applyRecordingRequestSettings(builder, cam, mgr)
                         s.setRepeatingRequest(builder.build(), null, sessionHandler)
                         session = s
+
+                        // Wire the in-session re-attach / detach callbacks
+                        // (Option B, fixed). These run from the registry's
+                        // `onSurfaceAvailable` / `onSurfaceDestroyed` paths —
+                        // i.e. on the RN UI thread, which is the same thread
+                        // the TextureView lifecycle fires on. The CaptureSession
+                        // operations (addSurface / removeSurface /
+                        // updateOutputConfiguration / setRepeatingRequest) are
+                        // thread-safe at the Camera2 API level; the callbacks
+                        // dispatched by setRepeatingRequest still come back on
+                        // `cameraCbHandler`. Best-effort try/catch each step so
+                        // a transient driver error never propagates to the JS
+                        // bridge and the encoder Surface keeps streaming
+                        // (REC-LIVE-07 invariant: encoder never starves).
+                        //
+                        // `attachedPreviewSurface` tracks the currently-attached
+                        // preview Surface — needed because `removeSurface`
+                        // requires the SAME reference that was passed to
+                        // `addSurface` (Camera2 uses identity comparison).
+                        var attachedPreviewSurface: Surface? =
+                            if (previewAttached) initialPreviewSurface else null
+
+                        LivePreviewSurfaceRegistry.onAddTarget = {
+                            Log.i(TAG, "onAddTarget fired")
+                            // Defer + delay the Camera2 ops on sessionHandler.
+                            // Two-part rationale:
+                            //
+                            // (a) The registry callback fires from
+                            // HumynLivePreviewView.onSurfaceTextureAvailable
+                            // which on a tap-revealed remount runs SYNCHRONOUSLY
+                            // inside `TextureView.draw() -> getTextureLayer()`.
+                            // Posting to sessionHandler defers the attach to
+                            // after the current draw pass so we're not in
+                            // the middle of layer creation when Camera2 ops run.
+                            //
+                            // (b) On second-and-later attaches the code path
+                            // is `previewOutputConfig.removeSurface(old) ->
+                            // addSurface(new) -> s.updateOutputConfiguration`.
+                            // `updateOutputConfiguration`'s IPC path calls
+                            // `writeToParcel -> updateCachedSurfaceSize ->
+                            // SurfaceUtils.getSurfaceSize(newSurface)` BEFORE
+                            // any frames have been produced into the new
+                            // SurfaceTexture's BufferQueue, so the producer's
+                            // size query returns "abandoned". The first attach
+                            // does NOT hit this because it calls
+                            // `finalizeOutputConfigurations`, which doesn't
+                            // introspect size. A 200ms delay before the
+                            // sessionHandler post lets the SurfaceTexture's
+                            // BufferQueue producer settle (the TextureView's
+                            // hardware layer attaches in the very next draw
+                            // frame, ~16ms; 200ms is generous safety margin
+                            // for slower devices). Observed operator log on
+                            // commit cdcada9 with 0ms post-delay (Pixel 10a
+                            // 2026-05-25 22:13:53.295):
+                            //   onAddTarget attach/reissue threw —
+                            //   IllegalArgumentException: Surface was abandoned
+                            //   at SurfaceUtils.getSurfaceSize(:134)
+                            //   at OutputConfiguration.updateCachedSurfaceSize
+                            //   at OutputConfiguration.getConfiguredSize
+                            //   at OutputConfiguration.writeToParcel
+                            //   at CameraDeviceImpl.updateOutputConfiguration
+                            //   at CaptureSession$openCaptureSession$1.onConfigured$lambda$1$lambda$0(:826)
+                            //
+                            // FIFO ordering on sessionHandler also serialises
+                            // attach/detach pairs (every onRemoveTarget post
+                            // runs before any subsequent onAddTarget post).
+                            sessionHandler.postDelayed({
+                                val newPreview = LivePreviewSurfaceRegistry.currentSurface()
+                                if (newPreview != null && newPreview !== attachedPreviewSurface) {
+                                    try {
+                                        // Detach the previously-attached Surface
+                                        // (if any). Required before adding the new
+                                        // one — an OutputConfiguration's surface
+                                        // set is finite (per
+                                        // getMaxSharedSurfaceCount) and we want
+                                        // exactly the current Surface attached, no
+                                        // stale ones.
+                                        val prev = attachedPreviewSurface
+                                        if (prev != null) {
+                                            try {
+                                                previewOutputConfig.removeSurface(prev)
+                                            } catch (_: Throwable) { /* best-effort */ }
+                                        }
+                                        previewOutputConfig.addSurface(newPreview)
+
+                                        // First-time attach uses finalize; subsequent
+                                        // swaps use update (API 28+). On API 26-27
+                                        // a subsequent swap is a no-op (first preview
+                                        // wins; acceptable silent degradation since
+                                        // Pixel 10a smoke target is API 36).
+                                        if (!previewAttached) {
+                                            s.finalizeOutputConfigurations(listOf(previewOutputConfig))
+                                            previewAttached = true
+                                        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                            s.updateOutputConfiguration(previewOutputConfig)
+                                        }
+                                        attachedPreviewSurface = newPreview
+
+                                        // Rebuild + reissue the repeating request
+                                        // with the new preview as target #2.
+                                        val nb = cam.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
+                                        nb.addTarget(surface)
+                                        nb.addTarget(newPreview)
+                                        applyRecordingRequestSettings(nb, cam, mgr)
+                                        s.setRepeatingRequest(nb.build(), null, sessionHandler)
+                                    } catch (t: Throwable) {
+                                        Log.w(TAG, "onAddTarget attach/reissue threw — preview skipped", t)
+                                    }
+                                }
+                            }, 200L)
+                        }
+                        LivePreviewSurfaceRegistry.onRemoveTarget = {
+                            Log.i(TAG, "onRemoveTarget fired")
+                            // Same deferral as onAddTarget above — both
+                            // callbacks run on the UI thread from the
+                            // TextureView's SurfaceTextureListener; posting
+                            // to sessionHandler keeps Camera2 ops off the UI
+                            // thread AND preserves FIFO ordering with the
+                            // matching onAddTarget post when a brightness
+                            // state transition fires destroy-then-available
+                            // in quick succession (fade-to-dim followed by
+                            // an immediate tap-reveal). onRemoveTarget runs
+                            // immediately (no 200ms delay) — detaching a
+                            // doomed Surface should be prompt, and there's
+                            // no equivalent "Surface not ready yet" race on
+                            // the remove path.
+                            sessionHandler.post {
+                                try {
+                                    // Step 1 — reissue the repeating request WITHOUT
+                                    // the preview target so the camera driver stops
+                                    // writing to the doomed Surface. Do this BEFORE
+                                    // detaching the Surface from the OutputConfiguration
+                                    // so there's no window where the request still
+                                    // addresses a Surface that's no longer in the
+                                    // configured output set (would throw IAE).
+                                    val nb = cam.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
+                                    nb.addTarget(surface)
+                                    applyRecordingRequestSettings(nb, cam, mgr)
+                                    s.setRepeatingRequest(nb.build(), null, sessionHandler)
+
+                                    // Step 2 — detach the Surface from the
+                                    // OutputConfiguration so a subsequent
+                                    // `onAddTarget` for a fresh Surface can attach
+                                    // without OutputConfiguration's surface set
+                                    // growing unboundedly.
+                                    val prev = attachedPreviewSurface
+                                    if (prev != null) {
+                                        try {
+                                            previewOutputConfig.removeSurface(prev)
+                                        } catch (_: Throwable) { /* best-effort */ }
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                            try {
+                                                s.updateOutputConfiguration(previewOutputConfig)
+                                            } catch (_: Throwable) { /* best-effort */ }
+                                        }
+                                        attachedPreviewSurface = null
+                                    }
+                                } catch (t: Throwable) {
+                                    Log.w(TAG, "onRemoveTarget reissue/detach threw — encoder unaffected", t)
+                                }
+                            }
+                        }
                     } catch (t: Throwable) {
                         sessionError = t
                     } finally {
@@ -660,6 +929,91 @@ class CaptureSession private constructor(
         }
         sessionError?.let { throw it }
         return session ?: throw IllegalStateException("capture_session_configure_failed")
+    }
+
+    /**
+     * Apply OIS-off / video-stab-off / ultrawide zoom-route / AF-off + fixed
+     * focus to a [CaptureRequest.Builder]. Extracted from `openCaptureSession`
+     * for Phase 7 plan 07-07 (Option B) so the in-session
+     * `setRepeatingRequest` rebuild path can construct a request with the
+     * SAME zoom + AF + OIS settings — these settings are LOCKED per the
+     * Phase 4 debug session handgate-never-passes and CLAUDE.md ultrawide
+     * banner; the rebuilds MUST NOT drift from the original setup or the
+     * recorded stream would briefly hunt focus / lose ultrawide routing.
+     *
+     * Verbatim semantics preserved (see the prior inline block comments):
+     *  - LENS_OPTICAL_STABILIZATION_MODE_OFF
+     *  - CONTROL_VIDEO_STABILIZATION_MODE_OFF (API 33+)
+     *  - CONTROL_ZOOM_RATIO = lower bound when < 1.0 (ultrawide route, API 30+)
+     *  - CONTROL_AF_MODE_OFF
+     *  - LENS_FOCUS_DISTANCE = 0.0f when LENS_INFO_MINIMUM_FOCUS_DISTANCE > 0
+     *
+     * Every setter is wrapped best-effort — never block the session on a
+     * single setter throwing (Pixel-firmware quirks during HAL transitions).
+     */
+    private fun applyRecordingRequestSettings(
+        builder: CaptureRequest.Builder,
+        cam: CameraDevice,
+        mgr: CameraManager,
+    ) {
+        builder.set(
+            CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
+            CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_OFF,
+        )
+        if (Build.VERSION.SDK_INT >= 33) {
+            try {
+                builder.set(
+                    CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
+                    CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF,
+                )
+            } catch (_: Throwable) { /* best-effort */ }
+        }
+        // Route the logical back camera through its ULTRAWIDE physical
+        // sub-camera by driving the zoom ratio to the lower bound of
+        // CONTROL_ZOOM_RATIO_RANGE (debug session handgate-never-passes —
+        // Stage 2). On a logical multi-camera whose default physical is the
+        // main wide (~83° dFOV), a plain createCaptureSession streams that
+        // main wide — violating the LOCKED ≥110° dFOV spec (idea-brief.md
+        // §2.1) even though the compat probe and the sidecar's dfovDegrees
+        // read the ultrawide's intrinsics. A sub-1.0 zoom ratio switches
+        // the active physical to the ultrawide (Pixel 10a logical-back
+        // range lower bound = 0.556 = the ultrawide), the same approach
+        // the native gate camera proved on-device. API 30+ only
+        // (CONTROL_ZOOM_RATIO_RANGE). When the device has no sub-1.0 zoom
+        // (range lower ≥ 1.0, or the openable IS the ultrawide), this is
+        // a harmless no-op. Additive hardening — the encoder/muxer/IMU
+        // core is untouched (LOCKED per CLAUDE.md), but re-verify the
+        // §5b drift afterward since the capture-request shape changed.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val zoomLower = mgr.getCameraCharacteristics(cam.id)
+                    .get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE)
+                    ?.lower
+                if (zoomLower != null && zoomLower < 1.0f) {
+                    builder.set(CaptureRequest.CONTROL_ZOOM_RATIO, zoomLower)
+                }
+            } catch (_: Throwable) { /* best-effort — never block the session on zoom */ }
+        }
+        // Lock focus for the whole take — no AF hunting on a head-mounted
+        // rig (debug session handgate-never-passes).
+        try {
+            builder.set(
+                CaptureRequest.CONTROL_AF_MODE,
+                CaptureRequest.CONTROL_AF_MODE_OFF,
+            )
+            val characteristics = mgr.getCameraCharacteristics(cam.id)
+            val minFocusDistance = characteristics.get(
+                CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE,
+            )
+            // LENS_FOCUS_DISTANCE is in diopters (1/metres); 0.0f = focus
+            // at infinity (hyperfocal "far"), which keeps arm's-length-to-
+            // infinity acceptably sharp on the ultrawide. Only meaningful
+            // on a lens that actually supports manual focus (minFocus > 0);
+            // a fixed-focus lens reports 0 and ignores it.
+            if (minFocusDistance != null && minFocusDistance > 0f) {
+                builder.set(CaptureRequest.LENS_FOCUS_DISTANCE, 0.0f)
+            }
+        } catch (_: Throwable) { /* best-effort — never block the session on focus-lock */ }
     }
 
     /**
@@ -903,6 +1257,15 @@ class CaptureSession private constructor(
         //      calls when the latch fires.
         //   4. quit the pump HandlerThread so it doesn't leak.
         //   5. NOW it's safe to release the encoder / surface / muxer.
+        // Phase 7 plan 07-07 — clear the live-preview re-attach callbacks
+        // BEFORE stopping the capture session. The callbacks closed over the
+        // session reference; once `captureSession.close()` runs, any in-
+        // flight `setRepeatingRequest` from a racy JS-driven add/remove
+        // would throw IllegalStateException. Nulling them first eliminates
+        // the race entirely. Idempotent — nulling already-null fields is a
+        // no-op.
+        LivePreviewSurfaceRegistry.onAddTarget = null
+        LivePreviewSurfaceRegistry.onRemoveTarget = null
         try { seg.captureSession.stopRepeating() } catch (_: Throwable) {}
         try { seg.captureSession.close() } catch (_: Throwable) {}
         try { seg.hevc.signalEndOfInputStream() } catch (_: Throwable) {}
@@ -1043,23 +1406,28 @@ internal data class Segment(
     val muxer: FragmentedMuxerWrapper,
     val imuWriter: ImuWriter,
     /**
-     * CR-01 fix — `CopyOnWriteArrayList` so the encoder pump thread (writer)
-     * and the finalize executor (reader, via `toLongArray()`) see a
-     * memory-model-correct view. The previous `mutableListOf<Long>()`
-     * (an unsynchronized `ArrayList`) admitted ConcurrentModificationException
+     * CR-01 fix — memory-model-correct shared collection between the encoder
+     * pump thread (writer) and the finalize executor (reader, via
+     * `toLongArray()`). The previous `mutableListOf<Long>()` (an
+     * unsynchronized `ArrayList`) admitted ConcurrentModificationException
      * during finalize's snapshot AND silently truncated arrays on partial
      * visibility — both of which corrupt the CAP-08 drift methodology.
      *
-     * Per-frame allocation cost on COW: each `add` copies the underlying
-     * array. At 30 fps × 600 s = 18 000 frames per segment, that is
-     * O(n²) writes — acceptable here because the writes are tiny longs
-     * and the total work is well under a second on a Pixel-class device.
-     * If profiling on a real device shows hot-path pressure, swap to a
-     * pre-allocated `LongArray` + `AtomicInteger` write index (sized for
-     * `max_frames_per_segment` = 21 600 with safety margin); both are
-     * memory-model-correct.
+     * **Debug session `humyncapture-imu-oom-rollover` (2026-05-18).** Was
+     * `CopyOnWriteArrayList<Long>`, which boxed every `add(Long)` AND copied
+     * the entire backing `Object[]` on every `add` (O(n²) garbage generation
+     * for n adds). At 30 fps × 600 s = 18 000 adds per segment, that's
+     * ~162 M intermediate `Object[]` allocations per segment, all young-gen
+     * but a constant GC firehose. Across 7 continuous 10-min segments on the
+     * Pixel 10a manual-smoke walk the cumulative pressure (alongside the
+     * `ImuWriter.timestampList` boxing) saturated the 256 MB growth limit
+     * and the process OOMed. Now a primitive [PrimitiveLongBuffer] —
+     * pre-allocated `LongArray` of [PrimitiveLongBuffer.VIDEO_CAPACITY]
+     * longs (~173 KB), never grows, no boxing, memory-model-correct via the
+     * `AtomicInteger` write-index. Single-writer (encoder pump);
+     * single-reader-snapshot (finalize).
      */
-    val videoFrameTimestamps: java.util.concurrent.CopyOnWriteArrayList<Long>,
+    val videoFrameTimestamps: PrimitiveLongBuffer,
     val pumpThread: HandlerThread,
     /**
      * CR-04 fix — pump-loop exit signal. The pump runnable (runPumpLoop)

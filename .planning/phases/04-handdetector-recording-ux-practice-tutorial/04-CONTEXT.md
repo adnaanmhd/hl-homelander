@@ -84,7 +84,7 @@ HumynCapture native module. Concretely:
   `HumynCapture.stop()` and trusts segments land in `recordings/` /
   `practice/` per Phase 3 D-FS-01..05. Phase 5 picks up.
 - **iOS analogue** (`HumynHandDetector` Swift via MediaPipeTasksVision pod
-  0.10.21, `HumynPhoneState` via CXCallObserver, etc.) — Phase 7.
+  0.10.21, `HumynPhoneState` via CXCallObserver, etc.) — Phase 8.
 - **Hash-verify worker + IMU-liveness backend check** — Phase 5.
 - **Bystander-consent UI** — out of scope at MVP per PROJECT.md.
 
@@ -781,13 +781,13 @@ taskCategory: 'cooking', taskSetting: 'indoor' }`.
 - **iOS analogues** (`HumynHandDetector` Swift via MediaPipeTasksVision
   pod 0.10.21, `HumynPhoneState` via CXCallObserver, AVSpeechSynthesizer
   for TTS, `UIScreen.main.brightness` for brightness control,
-  CoreMotion for orientation) — Phase 7.
+  CoreMotion for orientation) — Phase 8.
 - **Continuous on-device hands-in-frame enforcement during recording
   (cue loop / auto-stop on absence)** — out of MVP per PROJECT.md;
   only the one-shot pre-record gate is in MVP.
 - **Per-locale `recording_gate_skipped` rate telemetry (HAND-14)** —
   Phase 4 wires the Firebase Analytics event emission; the
-  per-locale dashboard cohort lives in Phase 7 (OBS-03).
+  per-locale dashboard cohort lives in Phase 8 (OBS-03).
 - **Hand-gate target hits / cadence / confidence tuning via Firebase
   Remote Config (HAND-11)** — Phase 4 wires the Remote Config reads;
   ongoing tuning post-launch is operational, not a code change.

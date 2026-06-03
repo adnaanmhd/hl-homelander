@@ -28,6 +28,7 @@
 
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Text } from '../ui/primitives/Text';
 import { colors, radii, spacing, typography } from '../ui/tokens';
 
@@ -38,12 +39,16 @@ export type UploadStatusChipVariant =
   | 'success'
   | 'paused-offline';
 
-const COPY: Record<UploadStatusChipVariant, string> = {
-  progress: 'Uploading…',
-  verifying: 'Uploaded — verifying…',
-  failed: 'Upload failed',
-  success: '✓ Uploaded',
-  'paused-offline': 'Paused — no Wi-Fi',
+// 07-11 G-09 closure — variant labels are now i18n keys under `uploadChip.*`.
+// The variant identifiers themselves stay as the existing canonical strings
+// (`progress` / `verifying` / `failed` / `success` / `paused-offline`); only
+// the user-facing display text is translated.
+const LABEL_KEYS: Record<UploadStatusChipVariant, string> = {
+  progress: 'uploadChip.uploading',
+  verifying: 'uploadChip.verifying',
+  failed: 'uploadChip.failed',
+  success: 'uploadChip.success',
+  'paused-offline': 'uploadChip.pausedOffline',
 };
 
 const TOKENS: Record<UploadStatusChipVariant, { bg: string; fg: string }> = {
@@ -62,11 +67,13 @@ export interface UploadStatusChipProps {
 }
 
 export function UploadStatusChip({ variant, percent }: UploadStatusChipProps) {
+  const { t } = useTranslation();
   const { bg, fg } = TOKENS[variant];
+  const baseLabel = t(LABEL_KEYS[variant]);
   const label =
     variant === 'progress' && typeof percent === 'number' && Number.isFinite(percent)
-      ? `${COPY.progress} ${Math.max(0, Math.min(100, Math.round(percent)))}%`
-      : COPY[variant];
+      ? `${baseLabel} ${Math.max(0, Math.min(100, Math.round(percent)))}%`
+      : baseLabel;
   return (
     <View
       accessibilityLabel={`upload-status-chip-${variant}`}

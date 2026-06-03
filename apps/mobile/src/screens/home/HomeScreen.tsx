@@ -43,6 +43,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import ScreenContainer from '../../ui/primitives/ScreenContainer';
 import Text from '../../ui/primitives/Text';
 import { TopBar } from '../../components/TopBar';
@@ -131,6 +132,12 @@ function chipVariantFor(row: UploadQueueRow): UploadStatusChipVariant {
     case 'awaiting-verify':
       return 'verifying';
     case 'dead-letter':
+    case 'needs-attention':
+      // Debug session `.planning/debug/upload-queue-hol-finalizing.md`
+      // (Fix C item 4) — NEEDS_ATTENTION shares the chip-failed visual.
+      // The Home tile's tap handler does NOT auto-revive these (auto-revive
+      // is for DEAD_LETTER rows whose retry exhaustion is fully transient);
+      // users open History and manually tap Retry on the chip-failed row.
       return 'failed';
     case 'verified':
       return 'success';
@@ -139,26 +146,36 @@ function chipVariantFor(row: UploadQueueRow): UploadStatusChipVariant {
   }
 }
 
-/** Build the lowercase chevron-down label per UI-SPEC §Tile filter labels (§9c). */
-function tileLabel(named: NamedRange, custom: { start: string; end: string } | null): string {
+/** Build the lowercase chevron-down label per UI-SPEC §Tile filter labels (§9c).
+ *
+ * G-16 (Plan 07-16): the 6 named-range labels route through i18n.t() instead
+ * of hardcoded English literals; the chevron `▾` stays in the JSX template so
+ * the glyph stays consistent across locales (per checker BLOCKER 1). The
+ * custom-pick date-range branch keeps its Latin month-abbreviation form V1 —
+ * Intl-locale formatting is deferred per the I18N-09 drop. */
+function tileLabel(
+  named: NamedRange,
+  custom: { start: string; end: string } | null,
+  t: (key: string) => string,
+): string {
   switch (named) {
     case 'today':
-      return 'today ▾';
+      return `${t('home.filter.today')} ▾`;
     case 'yesterday':
-      return 'yesterday ▾';
+      return `${t('home.filter.yesterday')} ▾`;
     case 'this-week':
-      return 'this week ▾';
+      return `${t('home.filter.thisWeek')} ▾`;
     case 'this-month':
-      return 'this month ▾';
+      return `${t('home.filter.thisMonth')} ▾`;
     case 'all':
-      return 'all time ▾';
+      return `${t('home.filter.allTime')} ▾`;
     case 'custom': {
-      if (custom == null) return 'custom range ▾';
+      if (custom == null) return `${t('home.filter.customRange')} ▾`;
       // "Apr 30 – May 6 ▾" — en-dash + space padding per UI-SPEC.
       const start = new Date(`${custom.start}T00:00:00`);
       const end = new Date(`${custom.end}T00:00:00`);
       if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
-        return 'custom range ▾';
+        return `${t('home.filter.customRange')} ▾`;
       }
       const startLbl = `${MONTH_ABBR[start.getMonth()]} ${start.getDate()}`;
       const endLbl = `${MONTH_ABBR[end.getMonth()]} ${end.getDate()}`;
@@ -178,6 +195,7 @@ function deviceTz(): string {
 
 export default function HomeScreen(): React.JSX.Element {
   const topBarProps = useTabTopBarProps();
+  const { t } = useTranslation();
   const navigation = useNavigation<{
     navigate: (route: string, params?: Record<string, unknown>) => void;
   }>();
@@ -385,14 +403,14 @@ export default function HomeScreen(): React.JSX.Element {
     navigation.navigate('MainTabs', { screen: 'Tasks' });
   }, [navigation]);
 
-  const rangeChip = tileLabel(homeRange, homeRangeCustom);
+  const rangeChip = tileLabel(homeRange, homeRangeCustom, t);
   const tileDurationText = formatDuration(Math.floor(aggregate.durationMs / 1000));
   // Plan 06-12 Finding 14 — the duration tile self-discloses its unit
   // ("0s" / "47m" / "1h 12m" from formatDuration); the task-count tile
   // used to render as a bare integer with no unit, leaving "0 what?"
   // ambiguous. Suffix it with a pluralized "task"/"tasks" so the unit
-  // is visible inside the tile itself.
-  const tileTaskCountText = aggregate.taskCount === 1 ? '1 task' : `${aggregate.taskCount} tasks`;
+  // is visible inside the tile itself. Pluralization via i18next CLDR (D-08).
+  const tileTaskCountText = t('home.tile.taskCount', { count: aggregate.taskCount });
 
   return (
     <ScreenContainer accessibilityLabel="Home screen" padding={0}>
@@ -431,7 +449,7 @@ export default function HomeScreen(): React.JSX.Element {
           accessibilityLabel="your-contribution-section-header"
           style={styles.sectionHeader}
         >
-          YOUR CONTRIBUTION
+          {t('home.sectionContribution')}
         </Text>
         <View style={styles.tilePair}>
           <ContributionTile
@@ -454,7 +472,7 @@ export default function HomeScreen(): React.JSX.Element {
             accessibilityLabel="home-empty-tip"
             style={styles.emptyTip}
           >
-            Your hours and tasks will track here as you record.
+            {t('home.emptyTip')}
           </Text>
         ) : null}
 
@@ -466,7 +484,7 @@ export default function HomeScreen(): React.JSX.Element {
               accessibilityLabel="pending-uploads-section-header"
               style={styles.sectionHeader}
             >
-              PENDING UPLOADS
+              {t('home.sectionPendingUploads')}
             </Text>
             {offline ? <OfflineBanner /> : null}
             <Pressable
@@ -540,7 +558,7 @@ export default function HomeScreen(): React.JSX.Element {
               })}
               {pendingRows.length > 3 ? (
                 <Text variant="caption" tone="secondary" style={styles.viewAll}>
-                  +{pendingRows.length - 3} more — tap to view all
+                  {t('home.viewAllMore', { count: pendingRows.length - 3 })}
                 </Text>
               ) : null}
             </Pressable>

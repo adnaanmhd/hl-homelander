@@ -9,12 +9,15 @@ import org.json.JSONObject
 import java.io.File
 
 /**
- * Phase 3 Plan 03-06 — composes `video_metadata.json` schema 1.1.0 per
- * segment (CAP-16) and atomically writes it to disk.
+ * Phase 3 Plan 03-06 — composes `video_metadata.json` per segment (CAP-16)
+ * and atomically writes it to disk. Schema is at 1.2.0 (see below).
  *
- * Schema bump 1.0.0 → 1.1.0 adds exactly one field at the metadata block:
- * `imu_min_rate_hz_observed_p1` (D-IMU-02). All other fields stay
- * byte-identical to the canonical `video_metadata.json` template.
+ * Schema bump 1.0.0 → 1.1.0 added exactly one field at the metadata block:
+ * `imu_min_rate_hz_observed_p1` (D-IMU-02). Schema bump 1.1.0 → 1.2.0 (quick
+ * task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09) adds a NEW top-level
+ * `calibration` sibling block (camera intrinsics + cam-IMU extrinsics) —
+ * purely additive, the `metadata` block + its drift fields are unchanged.
+ * All other fields stay byte-identical to the canonical template.
  *
  * All locked spec values from `idea-brief.md §2.1` are hard-coded inside
  * [compose] (resolution `1920x1080`, fps `30`, video_codec `hevc`,
@@ -44,7 +47,14 @@ import java.io.File
  * finalize-worker call site.
  */
 object MetadataComposer {
-    const val CURRENT_SCHEMA_VERSION = "1.1.0"
+    // Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — schema bump
+    // 1.1.0 → 1.2.0 adds a NEW top-level `calibration` sibling block (camera
+    // intrinsics + cam-IMU extrinsics). Purely additive: every existing key
+    // (schema_version / recording_id / contributor_info / task_info /
+    // capture_device_info / metadata, incl. imu_video_drift_{max,mean,p99}_ms)
+    // is unchanged. The block is ALWAYS present with the full key structure +
+    // null fallback (see [compose] + [CalibrationJson]).
+    const val CURRENT_SCHEMA_VERSION = "1.3.0"
 
     /** Sidecar input shape (subset relevant to metadata composition). */
     data class SidecarPayload(
@@ -74,6 +84,16 @@ object MetadataComposer {
          * explicit value via `FinalizeWorker.adaptSidecar`.
          */
         val recordedRotation: String = "landscape_left",
+        /**
+         * Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — live-Camera2
+         * camera intrinsics + cam-IMU extrinsics captured at segment open
+         * (from the ultrawide physical sub-camera). Threaded from
+         * `SidecarManager.SidecarPayload.calibration` via
+         * `FinalizeWorker.adaptSidecar`. Nullable + default-null: when null
+         * (older sidecars on disk, JVM/CI), [compose] stamps the always-present
+         * uncalibrated-fallback `calibration` block.
+         */
+        val calibration: CameraCalibration? = null,
     )
 
     data class TaskInfoPartial(
@@ -112,11 +132,19 @@ object MetadataComposer {
         val platformCadenceMs: Int,
     )
 
-    /** Drift figures `{max, mean, p99}` per `idea-brief.md §6.5`. */
+    /**
+     * Drift figures `{max, mean, p99}` per `idea-brief.md §6.5` + the
+     * `IMU-DRIFT-METHODOLOGY.md` Step 0 trim count (`warmupFramesSkipped`).
+     * The skip count is surfaced in `metadata.json` so anyone recomputing
+     * drift offline from the raw `video.mp4` + `imu.csv` can reproduce the
+     * metric exactly — `0` means no trim was applied (segment too short
+     * for the configured skip; fallback path).
+     */
     data class Drift(
         val maxMs: Double,
         val meanMs: Double,
         val p99Ms: Double,
+        val warmupFramesSkipped: Int,
     )
 
     /**
@@ -194,12 +222,19 @@ object MetadataComposer {
     )
 
     /**
-     * Compose a `video_metadata.json` (schema 1.1.0) JSONObject from the
+     * Compose a `video_metadata.json` (schema 1.2.0) JSONObject from the
      * sidecar carry-over fields and finalize-time metrics. Top-level keys
      * are exactly: `schema_version`, `recording_id`, `contributor_info`,
-     * `task_info`, `capture_device_info`, `metadata`. The `metadata`
-     * block carries 33 fields including `imu_min_rate_hz_observed_p1`
+     * `task_info`, `capture_device_info`, `metadata`, `calibration`. The
+     * `metadata` block carries 33 fields including `imu_min_rate_hz_observed_p1`
      * and the verbatim `start_gate` block.
+     *
+     * Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — the new top-level
+     * `calibration` sibling (camera intrinsics + cam_imu_extrinsics) is ALWAYS
+     * present with the full key structure: when [SidecarPayload.calibration]
+     * is null, the uncalibrated-fallback block ([CalibrationJson.uncalibratedFallback])
+     * is stamped. The block is purely additive — it does NOT alter the
+     * `metadata` block or its `imu_video_drift_{max,mean,p99}_ms` fields.
      */
     fun compose(sidecar: SidecarPayload, m: FinalizeMetrics): JSONObject {
         val contributor = JSONObject()
@@ -267,6 +302,15 @@ object MetadataComposer {
             .put("imu_video_drift_max_ms", m.drift?.maxMs ?: JSONObject.NULL)
             .put("imu_video_drift_mean_ms", m.drift?.meanMs ?: JSONObject.NULL)
             .put("imu_video_drift_p99_ms", m.drift?.p99Ms ?: JSONObject.NULL)
+            // Step 0 warm-up trim applied before the least-squares fit
+            // (`IMU-DRIFT-METHODOLOGY.md` §Step 0). Recomputers who want
+            // to reproduce the {max, mean, p99} figures from the raw
+            // video.mp4 + imu.csv must drop this many leading video
+            // frames + every IMU sample preceding the new first video
+            // frame's timestamp before fitting. `0` = no trim was applied
+            // (the segment was shorter than `DriftCalculator
+            // .DEFAULT_WARMUP_FRAMES_SKIP` so the safety fallback engaged).
+            .put("imu_video_drift_warmup_frames_skipped", m.drift?.warmupFramesSkipped ?: JSONObject.NULL)
             // D-IMU-02 — the only new field at the schema 1.1.0 emit boundary.
             .put("imu_min_rate_hz_observed_p1", m.imuFloorHz ?: JSONObject.NULL)
             // Audio capture disabled per GAP-3 disposition 2026-05-11
@@ -329,6 +373,16 @@ object MetadataComposer {
             .put("image_stabilization", false)
             .put("start_gate", startGate)
 
+        // Quick task 260522-elm CAPTURE-QA-08 / CAPTURE-QA-09 — top-level
+        // `calibration` sibling. ALWAYS present with the full key structure:
+        // the captured calibration when the sidecar carried one, else the
+        // uncalibrated fallback (full keys, null params,
+        // intrinsics_source="camera2_uncalibrated"). Shape is owned by
+        // CalibrationJson so the sidecar + this file never drift.
+        val calibration = sidecar.calibration
+            ?.let { CalibrationJson.toJson(it) }
+            ?: CalibrationJson.uncalibratedFallback()
+
         return JSONObject()
             .put("schema_version", CURRENT_SCHEMA_VERSION)
             .put("recording_id", sidecar.recordingId)
@@ -336,6 +390,7 @@ object MetadataComposer {
             .put("task_info", taskInfo)
             .put("capture_device_info", captureDevice)
             .put("metadata", metadata)
+            .put("calibration", calibration)
     }
 
     /**
@@ -435,6 +490,36 @@ object MetadataComposer {
         else -> mime.removePrefix("video/")
     }
 
+    /**
+     * BUG-260518-04 fix — choose the canonical codec token from up to three
+     * candidate MIME sources in priority order:
+     *
+     *   1. [extractorMime] — what the muxed MP4's first video track header
+     *      actually carries (MediaExtractor KEY_MIME). Highest authority:
+     *      it's what was committed to the file the training pipeline reads.
+     *   2. [encoderMime] — what the encoder's OUTPUT_FORMAT snapshot reports
+     *      (`encoder.outputFormat.getString(KEY_MIME)`). Some Android encoders
+     *      only expose MIME on the INPUT format and leave OUTPUT_FORMAT
+     *      KEY_MIME as `null` (the Pixel 8a / 10a observed behavior on
+     *      apkRollout build 22ffec5).
+     *   3. [configuredMime] — what we configured the encoder with at create
+     *      time (`HevcEncoder.MIME` → `MediaCodec.createEncoderByType(MIME)`).
+     *      The encoder cannot produce a different codec than what
+     *      createEncoderByType demanded; safe last-resort.
+     *
+     * Returns the canonical token (`"hevc"` / `"h264"` / `<mime-stripped>`),
+     * or `"unknown"` only when ALL THREE sources are null. That last case
+     * implies the muxed MP4 is unreadable AND the encoder reported nothing AND
+     * the caller didn't pass a configured constant — at which point the
+     * upstream resolution gate (width<1920 → `resolution_dropped`) would have
+     * already canceled the segment.
+     */
+    internal fun chooseCodecToken(
+        extractorMime: String?,
+        encoderMime: String?,
+        configuredMime: String?,
+    ): String = mimeToCodecToken(extractorMime ?: encoderMime ?: configuredMime)
+
     /** HEVC profile constant → token. Unknown → `"unknown"`. */
     internal fun hevcProfileToToken(p: Int): String = when (p) {
         MediaCodecInfo.CodecProfileLevel.HEVCProfileMain -> "main"
@@ -471,8 +556,15 @@ object MetadataComposer {
      */
     fun buildVideoReport(encoder: MediaCodec?, mp4: File): VideoReport {
         // 1. MediaExtractor — width / height from the muxed first video track.
+        //    BUG-260518-04 — also capture the muxed video track's MIME. This
+        //    is the spec-compliant CAPTURE-QA-01 codec source (it's what was
+        //    actually committed to the MP4 the training pipeline will read),
+        //    and supersedes the encoder OUTPUT_FORMAT snapshot which some
+        //    Android encoders (Pixel 8a / 10a observed on apkRollout 22ffec5)
+        //    leave with KEY_MIME = null even when KEY_PROFILE etc. populate.
         var width = 0
         var height = 0
+        var extractorVideoMime: String? = null
         val extractor = MediaExtractor()
         try {
             extractor.setDataSource(mp4.absolutePath)
@@ -480,6 +572,7 @@ object MetadataComposer {
                 val fmt = extractor.getTrackFormat(i)
                 val mime = fmt.getString(MediaFormat.KEY_MIME) ?: continue
                 if (mime.startsWith("video/")) {
+                    extractorVideoMime = mime
                     if (fmt.containsKey(MediaFormat.KEY_WIDTH)) width = fmt.getInteger(MediaFormat.KEY_WIDTH)
                     if (fmt.containsKey(MediaFormat.KEY_HEIGHT)) height = fmt.getInteger(MediaFormat.KEY_HEIGHT)
                     break
@@ -487,7 +580,9 @@ object MetadataComposer {
             }
         } catch (_: Throwable) {
             // Best-effort — leaves width/height = 0 which the caller's
-            // resolution gate rejects (width<1920 → resolution_dropped).
+            // resolution gate rejects (width<1920 → resolution_dropped). The
+            // codec falls back to encoder OUTPUT_FORMAT MIME → HevcEncoder.MIME
+            // via chooseCodecToken below.
         } finally {
             try { extractor.release() } catch (_: Throwable) {}
         }
@@ -497,7 +592,15 @@ object MetadataComposer {
         //    null-tolerant for tests that exercise compose() without a
         //    real encoder.
         val of = try { encoder?.outputFormat } catch (_: Throwable) { null }
-        val codec = mimeToCodecToken(of?.getString(MediaFormat.KEY_MIME))
+        // BUG-260518-04 — codec priority: muxed-track MIME (CAPTURE-QA-01 truth)
+        // → encoder OUTPUT_FORMAT MIME → configured HevcEncoder.MIME. Only "unknown"
+        // when ALL THREE are null (which implies the MP4 is unreadable, in which
+        // case the upstream resolution gate already canceled the segment).
+        val codec = chooseCodecToken(
+            extractorMime = extractorVideoMime,
+            encoderMime = of?.getString(MediaFormat.KEY_MIME),
+            configuredMime = HevcEncoder.MIME,
+        )
         val profile = if (of != null && of.containsKey(MediaFormat.KEY_PROFILE)) {
             hevcProfileToToken(of.getInteger(MediaFormat.KEY_PROFILE))
         } else "main"

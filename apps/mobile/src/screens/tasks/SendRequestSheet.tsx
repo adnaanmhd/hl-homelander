@@ -29,7 +29,14 @@
 //
 // NO hex literals — every value bound to `../../ui/tokens`.
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, TextInput, ScrollView, Modal, StyleSheet, type GestureResponderEvent } from 'react-native';
+import {
+  View,
+  TextInput,
+  ScrollView,
+  Modal,
+  StyleSheet,
+  type GestureResponderEvent,
+} from 'react-native';
 import { Paperclip } from 'lucide-react-native';
 
 import { Text } from '../../ui/primitives/Text';
@@ -38,6 +45,7 @@ import { Pressable } from '../../ui/primitives/Pressable';
 import { colors, spacing, radii } from '../../ui/tokens';
 import { submitTaskRequest } from '../../services/taskRequestService';
 import { showToast } from '../../components/Toast';
+import { useTranslation } from 'react-i18next';
 
 // Plan 06-12 Task 2 — hide the Upload Sample tile at MVP. Plan 06-07
 // D-sample-video left the picker unwired; owner directive 2026-05-14
@@ -67,6 +75,22 @@ const CATEGORY_OPTIONS = [
 ] as const;
 type CategoryOption = (typeof CATEGORY_OPTIONS)[number];
 
+/** Category enum → i18n key map (G-24 / Plan 07-16). KEEP IN SYNC with
+ *  TaskCategoryPills + taskI18n.ts localizeTaskCategory. */
+const SEND_REQUEST_CATEGORY_KEY: Record<CategoryOption, string> = {
+  Cooking: 'tasks.category.cooking',
+  Dishwashing: 'tasks.category.dishwashing',
+  Kitchen: 'tasks.category.kitchen',
+  Cleaning: 'tasks.category.cleaning',
+  Tidying: 'tasks.category.tidying',
+  Laundry: 'tasks.category.laundry',
+  Gardening: 'tasks.category.gardening',
+  'Pet Care': 'tasks.category.petCare',
+  'Home Maintenance': 'tasks.category.homeMaintenance',
+  Hobby: 'tasks.category.hobby',
+  Other: 'tasks.category.other',
+};
+
 type Setting = 'indoor' | 'outdoor';
 
 interface Banner {
@@ -78,6 +102,7 @@ export function SendRequestSheet({
   visible,
   onDismiss,
 }: SendRequestSheetProps): React.JSX.Element | null {
+  const { t } = useTranslation();
   const [name, setName] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [category, setCategory] = useState<CategoryOption | null>(null);
@@ -144,16 +169,17 @@ export function SendRequestSheet({
         // Sample-video URI is intentionally absent at MVP — the picker is
         // not wired (no document-picker dep). Optional per TASK-08.
       });
-      showToast("Request sent. We'll review and add it to your list.", 2000);
+      showToast(t('sendRequest.toastSent'), 2000);
       // emit task_request_submitted({ category, setting, has_video: false })
       handleClose();
-    } catch (e) {
-      setBanner({ kind: 'error', text: "Couldn't send. Try again." });
-      // emit task_request_failed({ reason: e?.message })
+    } catch {
+      setBanner({ kind: 'error', text: t('sendRequest.errors.submitFailed') });
+      // emit task_request_failed({ reason: e?.message }) — when wiring
+      // analytics, capture the error param above and emit here.
     } finally {
       setSubmitting(false);
     }
-  }, [canSubmit, category, name, description, setting, handleClose]);
+  }, [canSubmit, category, name, description, setting, handleClose, t]);
 
   // Bound to the inline "Retry" link inside the error banner. Same as
   // submit but available even when submit is otherwise disabled by `submitting`.
@@ -182,10 +208,10 @@ export function SendRequestSheet({
             keyboardShouldPersistTaps="handled"
           >
             <Text variant="sheetTitle" tone="primary" style={styles.title}>
-              Request a task
+              {t('sendRequest.title')}
             </Text>
             <Text variant="body" tone="secondary" style={styles.body}>
-              Tell us what you&apos;d like to record. Our team reviews requests regularly.
+              {t('sendRequest.subtitle')}
             </Text>
 
             {banner ? (
@@ -206,32 +232,38 @@ export function SendRequestSheet({
 
             {/* TASK NAME */}
             <Text variant="formLabel" tone="secondary" style={styles.label}>
-              TASK NAME
+              {t('sendRequest.labelTaskName').toUpperCase()}
             </Text>
             <TextInput
               accessibilityLabel="send-request-name"
               value={name}
               onChangeText={setName}
-              placeholder="e.g. Iron clothes"
+              placeholder={t('sendRequest.placeholderTaskName')}
               placeholderTextColor={colors.text3}
               maxLength={80}
               style={styles.input}
             />
             {nameError ? (
-              <Text variant="caption" style={styles.errorText} accessibilityLabel="send-request-name-error">
+              <Text
+                variant="caption"
+                style={styles.errorText}
+                accessibilityLabel="send-request-name-error"
+              >
                 {nameError}
               </Text>
             ) : null}
 
             {/* DESCRIPTION */}
             <Text variant="formLabel" tone="secondary" style={[styles.label, styles.labelGap]}>
-              DESCRIPTION
+              {t('sendRequest.labelDescriptionEyebrow', {
+                defaultValue: 'Description',
+              }).toUpperCase()}
             </Text>
             <TextInput
               accessibilityLabel="send-request-description"
               value={description}
               onChangeText={setDescription}
-              placeholder="A few words on what the task involves."
+              placeholder={t('sendRequest.placeholderDescription')}
               placeholderTextColor={colors.text3}
               maxLength={240}
               multiline
@@ -250,11 +282,16 @@ export function SendRequestSheet({
 
             {/* CATEGORY */}
             <Text variant="formLabel" tone="secondary" style={[styles.label, styles.labelGap]}>
-              CATEGORY
+              {t('sendRequest.labelCategory').toUpperCase()}
             </Text>
             <View style={styles.chipWrap}>
               {CATEGORY_OPTIONS.map((c) => {
                 const active = category === c;
+                // G-24 (Plan 07-16): label translates via tasks.category.*;
+                // the accessibilityLabel stays in canonical English so the
+                // existing test getByLabelText('send-request-category-Cooking')
+                // continues to find the chip.
+                const translated = t(SEND_REQUEST_CATEGORY_KEY[c]);
                 return (
                   <Pressable
                     key={c}
@@ -263,8 +300,11 @@ export function SendRequestSheet({
                     onPress={() => setCategory(c)}
                     style={active ? styles.chipActive : styles.chip}
                   >
-                    <Text variant="caption" style={active ? styles.chipLabelActive : styles.chipLabel}>
-                      {c}
+                    <Text
+                      variant="caption"
+                      style={active ? styles.chipLabelActive : styles.chipLabel}
+                    >
+                      {translated}
                     </Text>
                   </Pressable>
                 );
@@ -282,7 +322,7 @@ export function SendRequestSheet({
 
             {/* SETTING */}
             <Text variant="formLabel" tone="secondary" style={[styles.label, styles.labelGap]}>
-              SETTING
+              {t('sendRequest.labelSetting').toUpperCase()}
             </Text>
             <View style={styles.segmented}>
               <Pressable
@@ -291,11 +331,20 @@ export function SendRequestSheet({
                 onPress={() => setSetting('indoor')}
                 style={setting === 'indoor' ? styles.segmentedActive : styles.segmented_}
               >
+                {/* G-24 (Plan 07-17): overflow guards. The hi-IN values
+                    `घर के अंदर` / `घर के बाहर` share the prefix `घर के`;
+                    without auto-shrink, the truncated tail clipped at the
+                    same point producing a visual "collision" (operator
+                    2026-05-26 8.png). Values ARE distinct; the bug was
+                    truncation, not a key collision. */}
                 <Text
                   variant="pillLabel"
                   style={setting === 'indoor' ? styles.segmentedLabelActive : styles.segmentedLabel}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.75}
                 >
-                  Indoor
+                  {t('tasks.setting.indoor')}
                 </Text>
               </Pressable>
               <Pressable
@@ -306,9 +355,14 @@ export function SendRequestSheet({
               >
                 <Text
                   variant="pillLabel"
-                  style={setting === 'outdoor' ? styles.segmentedLabelActive : styles.segmentedLabel}
+                  style={
+                    setting === 'outdoor' ? styles.segmentedLabelActive : styles.segmentedLabel
+                  }
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.75}
                 >
-                  Outdoor
+                  {t('tasks.setting.outdoor')}
                 </Text>
               </Pressable>
             </View>
@@ -339,7 +393,7 @@ export function SendRequestSheet({
             <View style={styles.footerBtn}>
               <Button
                 variant="outline"
-                label="Cancel"
+                label={t('sendRequest.buttonCancel')}
                 accessibilityLabel="send-request-cancel"
                 onPress={handleClose}
               />
@@ -347,7 +401,7 @@ export function SendRequestSheet({
             <View style={styles.footerBtn}>
               <Button
                 variant="accent"
-                label={submitting ? 'Sending…' : 'Send request'}
+                label={submitting ? t('sendRequest.submitting') : t('sendRequest.buttonSubmit')}
                 accessibilityLabel="send-request-submit"
                 onPress={() => void submit()}
                 disabled={!canSubmit}
@@ -473,11 +527,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.text,
   },
+  // Plan 07-17 re-walk 2026-05-27 (Bug D-1): the segmented pill `_` /
+  // `Active` have `alignItems: 'center'` which content-hugs the label
+  // Text. With Devanagari "घर के अंदर" / "घर के बाहर", the Text expanded
+  // past the pill's flex-1 inner width and clipped to "घर के" / "घर के" —
+  // looked like a key collision (it wasn't — values differ; the
+  // collisionTest is green). `width: '100%' + textAlign: 'center'`
+  // forces a finite width so the existing `numberOfLines={1} +
+  // adjustsFontSizeToFit + minimumFontScale={0.75}` on the Text engages.
   segmentedLabel: {
     color: colors.text,
+    width: '100%',
+    textAlign: 'center',
   },
   segmentedLabelActive: {
     color: colors.surface,
+    width: '100%',
+    textAlign: 'center',
   },
   sampleTile: {
     flexDirection: 'row',

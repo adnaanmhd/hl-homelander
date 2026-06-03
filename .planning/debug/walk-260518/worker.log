@@ -1,0 +1,4478 @@
+
+> @humyn/api@0.1.0 worker:hash-verify:dev /Users/adnaan/Documents/hl-homelander/apps/api
+> tsx watch src/workers/hash-verify.ts
+
+[08:23:38.277] INFO: hash-verify worker started
+    component: "hash-verify-worker"
+    concurrency: 4
+[10:28:25.289] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRX40SFZ2943HJ9RMHH157N7"
+    recordingId: "01KRX40SFZ2943HJ9RMHH157N7"
+[10:28:25.918] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRX4K4GX6383D7CEZ9DJ6WP8"
+    recordingId: "01KRX4K4GX6383D7CEZ9DJ6WP8"
+[10:28:56.631] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRX5QTJPVGHFYZD6P4D6T1RV"
+    recordingId: "01KRX5QTJPVGHFYZD6P4D6T1RV"
+[10:29:03.286] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRX55FJ4YQJ6585YQXZKT9BE"
+    recordingId: "01KRX55FJ4YQJ6585YQXZKT9BE"
+[10:29:16.519] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRX6A5KJ4D00JCB25NF24D8F"
+    recordingId: "01KRX6A5KJ4D00JCB25NF24D8F"
+[10:29:31.154] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRX6WGM2AYF8NXSP9PN1QQHN"
+    recordingId: "01KRX6WGM2AYF8NXSP9PN1QQHN"
+[10:29:44.710] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRX7EVN4VCBVZPM26GH6BH4T"
+    recordingId: "01KRX7EVN4VCBVZPM26GH6BH4T"
+[10:30:00.791] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRX816P8ZRG2RGPC34EQACT2"
+    recordingId: "01KRX816P8ZRG2RGPC34EQACT2"
+[10:30:13.045] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRX8KHPY8ZPKD686N0BD18YC"
+    recordingId: "01KRX8KHPY8ZPKD686N0BD18YC"
+[10:30:27.420] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRX95WQ2J13EVWY7ZATWDMN7"
+    recordingId: "01KRX95WQ2J13EVWY7ZATWDMN7"
+[10:30:28.233] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRX9R7S4R05RR4838AAM2MGZ"
+    recordingId: "01KRX9R7S4R05RR4838AAM2MGZ"
+[10:49:54.417] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRX4ZKZJWXKDDG7S1WSEES60"
+    recordingId: "01KRX4ZKZJWXKDDG7S1WSEES60"
+[10:49:54.626] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRX4D8ZKE5NRRG7MG9N5JFJ9"
+    recordingId: "01KRX4D8ZKE5NRRG7MG9N5JFJ9"
+[10:50:13.992] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRX5HYYMT2BVRZQ1RV1Z787H"
+    recordingId: "01KRX5HYYMT2BVRZQ1RV1Z787H"
+[10:50:29.416] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRX649XPHTG0Z75AM26XE3AG"
+    recordingId: "01KRX649XPHTG0Z75AM26XE3AG"
+[10:50:44.550] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRX6PMWB9V0DTCCKA4ZDAE7Q"
+    recordingId: "01KRX6PMWB9V0DTCCKA4ZDAE7Q"
+[10:50:59.355] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRX78ZVNSAVSFJBAPTH7N0TF"
+    recordingId: "01KRX78ZVNSAVSFJBAPTH7N0TF"
+[10:51:13.920] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRX7VATCMHPP43YDP88BT2P3"
+    recordingId: "01KRX7VATCMHPP43YDP88BT2P3"
+[10:51:28.715] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRX8DNSAFVGMDY417541ZETE"
+    recordingId: "01KRX8DNSAFVGMDY417541ZETE"
+[10:51:43.875] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRX900RP8XCARGVX2QMF7JRG"
+    recordingId: "01KRX900RP8XCARGVX2QMF7JRG"
+[10:51:59.077] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRX9JBQ4QE70KC202QBN11DW"
+    recordingId: "01KRX9JBQ4QE70KC202QBN11DW"
+[10:52:02.597] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRXA4PNYWWZ53SRT7DRMF0Y5"
+    recordingId: "01KRXA4PNYWWZ53SRT7DRMF0Y5"
+[11:45:20.762] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRXE2WPNGJYEH24JMPB8YB15"
+    recordingId: "01KRXE2WPNGJYEH24JMPB8YB15"
+[11:45:20.960] INFO: hash-verify job completed
+    component: "hash-verify-worker"
+    jobId: "01KRXE32GTZTMHC3AR60BYMS0Z"
+    recordingId: "01KRXE32GTZTMHC3AR60BYMS0Z"
+[12:08:25.743] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:25.746] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:25.847] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:25.847] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:26.000] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:26.002] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:26.205] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:26.206] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:26.458] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:26.458] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:26.762] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:26.763] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:27.117] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:27.117] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:27.523] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:27.523] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:27.977] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:27.978] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:28.480] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:28.480] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:29.034] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:29.034] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:29.637] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:29.637] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:30.291] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:30.292] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:30.995] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:30.995] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:31.750] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:31.751] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:32.554] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:32.555] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:33.409] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:33.410] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:34.313] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:34.314] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:35.268] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:35.268] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:36.272] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:36.274] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:37.327] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:37.328] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:38.432] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:38.432] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:39.584] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:39.585] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:40.788] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:40.788] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:42.043] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:42.044] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:43.346] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:43.346] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:44.700] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:44.701] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:46.105] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:46.106] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:47.559] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:47.560] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:49.063] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:49.064] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:50.618] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:50.618] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:52.221] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:52.222] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:53.875] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:53.876] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:55.580] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:55.580] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:57.334] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:57.334] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:59.138] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:08:59.139] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:00.992] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:00.992] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:02.895] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:02.895] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:04.848] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:04.849] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:06.852] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:06.852] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:08.857] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:08.857] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:10.861] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:10.862] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:12.866] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:12.867] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:14.869] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:14.869] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:16.874] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:16.874] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:18.877] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:18.877] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:20.883] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:20.883] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:22.887] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:22.888] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:24.892] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:24.892] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:26.897] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:26.898] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:28.901] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:28.901] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:30.903] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:30.903] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:32.906] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:32.906] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:34.907] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:34.908] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:36.910] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:36.910] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:38.912] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:38.912] ERROR: hash-verify worker error
+    component: "hash-verify-worker"
+    err: {
+      "type": "AggregateError",
+      "message": "",
+      "stack":
+          AggregateError [ECONNREFUSED]: 
+              at internalConnectMultiple (node:net:1142:49)
+              at afterConnectMultiple (node:net:1723:7)
+      "aggregateErrors": [
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED ::1:6379",
+          "stack":
+              Error: connect ECONNREFUSED ::1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "::1",
+          "port": 6379
+        },
+        {
+          "type": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:6379",
+          "stack":
+              Error: connect ECONNREFUSED 127.0.0.1:6379
+                  at createConnectionError (node:net:1686:14)
+                  at afterConnectMultiple (node:net:1716:16)
+          "errno": -61,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 6379
+        }
+      ],
+      "code": "ECONNREFUSED"
+    }
+[12:09:40.612] INFO: hash-verify worker shutting down
+    component: "hash-verify-worker"
+    signal: "SIGTERM"
+[12:09:40.725] INFO: hash-verify worker shutting down
+    component: "hash-verify-worker"
+    signal: "SIGTERM"
+5:39:40 PM [tsx] Previous process hasn't exited yet. Force killing...

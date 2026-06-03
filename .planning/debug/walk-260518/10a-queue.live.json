@@ -1,0 +1,21 @@
+[
+  {
+    "recordingId": "01KRXE2WPNGJYEH24JMPB8YB15",
+    "ownerUserId": "01KRX3WSJ642MQ5CCA9C76DNYH",
+    "mp4Path": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_170834_001.mp4",
+    "csvPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_170834_001.csv",
+    "jsonPath": "/data/user/0/ai.humynlabs.capture.apk/files/recordings/20260518_170834_001.json",
+    "taskId": "01KRX2VM0NN9HW4X6CJK7VTKDE",
+    "isPractice": false,
+    "state": "PENDING",
+    "videoParts": [],
+    "imuParts": [],
+    "metadataPut": "PENDING",
+    "enqueuedAt": 1779104457921,
+    "lastProgressAt": 1779104457921,
+    "initIdempotencyKey": "a000004c-6b3c-4583-806c-70d6d88976a7",
+    "partsIdempotencyKey": "885d0103-347c-4f1f-b0cb-86844c906aca",
+    "finalizeIdempotencyKey": "7e952709-c3ae-466b-a40b-4b3a38db2385",
+    "reuploadIdempotencyKey": "2dd30a9e-0c17-4148-a41c-d7510db9ee2f"
+  }
+]

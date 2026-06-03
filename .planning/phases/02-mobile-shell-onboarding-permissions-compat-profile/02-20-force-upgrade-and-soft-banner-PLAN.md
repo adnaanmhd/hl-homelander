@@ -187,7 +187,7 @@ Soft banner: dismissible; Home only; Update CTA opens upgrade flow
         return;
       }
 
-      // iosAppStore is Phase 7 territory; throw a typed error so the screen can render a clear message.
+      // iosAppStore is Phase 8 territory; throw a typed error so the screen can render a clear message.
       throw new Error(`upgrade_flavor_not_supported_phase2:${payload.flavor}`);
     }
 

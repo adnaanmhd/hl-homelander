@@ -1,0 +1,38 @@
+--------- beginning of main
+05-18 16:05:21.311 23942 24025 W ReactNativeJS: Cannot connect to Metro.
+05-18 16:05:21.311 23942 24025 W ReactNativeJS: 
+05-18 16:05:21.311 23942 24025 W ReactNativeJS: Try the following to fix the issue:
+05-18 16:05:21.311 23942 24025 W ReactNativeJS: - Ensure that Metro is running and available on the same network
+05-18 16:05:21.311 23942 24025 W ReactNativeJS: - Ensure that your device/emulator is connected to your machine and has USB debugging enabled - run 'adb devices' to see a list of connected devices
+05-18 16:05:21.311 23942 24025 W ReactNativeJS: - If you're on a physical device connected to the same machine, run 'adb reverse tcp:8081 tcp:8081' to forward requests from your device
+05-18 16:05:21.311 23942 24025 W ReactNativeJS: - If your device is on the same Wi-Fi network, set 'Debug server host & port for device' in 'Dev settings' to your machine's IP address and the port of the local dev server - e.g. 10.0.1.1:8081
+05-18 16:05:21.311 23942 24025 W ReactNativeJS: 
+05-18 16:05:21.311 23942 24025 W ReactNativeJS: URL: localhost:8081
+05-18 16:05:21.311 23942 24025 W ReactNativeJS: 
+05-18 16:05:21.311 23942 24025 W ReactNativeJS: Error: undefined
+05-18 16:06:11.054 23942 24025 I ReactNativeJS: Running "HumynLabsCapture" with {"rootTag":11,"initialProps":{},"fabric":true}
+05-18 16:15:53.803  5009  5067 I ReactNativeJS: Running "HumynLabsCapture"
+05-18 16:15:53.858  5009  5067 W ReactNativeJS: `new NativeEventEmitter()` was called with a non-null argument without the required `addListener` method.
+05-18 16:15:53.858  5009  5067 W ReactNativeJS: `new NativeEventEmitter()` was called with a non-null argument without the required `removeListeners` method.
+05-18 16:32:13.815  5009  5067 W ReactNativeJS: `new NativeEventEmitter()` was called with a non-null argument without the required `addListener` method.
+05-18 16:32:13.815  5009  5067 W ReactNativeJS: `new NativeEventEmitter()` was called with a non-null argument without the required `removeListeners` method.
+05-18 17:05:52.163  7447  7562 I ReactNativeJS: Running "HumynLabsCapture" with {"rootTag":1,"initialProps":{},"fabric":true}
+05-18 17:05:52.342  7447  7562 W ReactNativeJS: '`new NativeEventEmitter()` was called with a non-null argument without the required `addListener` method.', { [Stack] name: 'Stack' }
+05-18 17:05:52.344  7447  7562 W ReactNativeJS: '`new NativeEventEmitter()` was called with a non-null argument without the required `removeListeners` method.', { [Stack] name: 'Stack' }
+05-18 17:05:52.721  7447  7562 W ReactNativeJS: '`new NativeEventEmitter()` was called with a non-null argument without the required `addListener` method.', { [Stack] name: 'Stack' }
+05-18 17:05:52.722  7447  7562 W ReactNativeJS: '`new NativeEventEmitter()` was called with a non-null argument without the required `removeListeners` method.', { [Stack] name: 'Stack' }
+05-18 17:08:11.155  7820  7894 I ReactNativeJS: Running "HumynLabsCapture" with {"rootTag":1,"initialProps":{},"fabric":true}
+05-18 17:08:11.330  7820  7894 W ReactNativeJS: '`new NativeEventEmitter()` was called with a non-null argument without the required `addListener` method.', { [Stack] name: 'Stack' }
+05-18 17:08:11.332  7820  7894 W ReactNativeJS: '`new NativeEventEmitter()` was called with a non-null argument without the required `removeListeners` method.', { [Stack] name: 'Stack' }
+05-18 17:08:11.711  7820  7894 W ReactNativeJS: '`new NativeEventEmitter()` was called with a non-null argument without the required `addListener` method.', { [Stack] name: 'Stack' }
+05-18 17:08:11.713  7820  7894 W ReactNativeJS: '`new NativeEventEmitter()` was called with a non-null argument without the required `removeListeners` method.', { [Stack] name: 'Stack' }
+05-18 17:08:26.086  7820  7894 W ReactNativeJS: 'This method is deprecated (as well as all React Native Firebase namespaced API) and will be removed in the next major release as part of move to match Firebase Web modular SDK API. Please see migration guide for more details: https://rnfirebase.io/migrating-to-v22 Please use `getApp()` instead.', { [Stack] name: 'Stack' }
+05-18 17:08:26.090  7820  7894 W ReactNativeJS: 'This method is deprecated (as well as all React Native Firebase namespaced API) and will be removed in the next major release as part of move to match Firebase Web modular SDK API. Please see migration guide for more details: https://rnfirebase.io/migrating-to-v22. Method called was `setDefaults`. Please use `setDefaults()` instead.', { [Stack] name: 'Stack' }
+05-18 17:08:26.102  7820  7894 W ReactNativeJS: This method is deprecated (as well as all React Native Firebase namespaced API) and will be removed in the next major release as part of move to match Firebase Web modular SDK API. Please see migration guide for more details: https://rnfirebase.io/migrating-to-v22. Method called was `fetchAndActivate`. Please use `fetchAndActivate()` instead.
+05-18 17:08:26.283  7820  7894 W ReactNativeJS: This method is deprecated (as well as all React Native Firebase namespaced API) and will be removed in the next major release as part of move to match Firebase Web modular SDK API. Please see migration guide for more details: https://rnfirebase.io/migrating-to-v22. Method called was `getValue`. Please use `getValue()` instead.
+05-18 17:08:26.284  7820  7894 W ReactNativeJS: This method is deprecated (as well as all React Native Firebase namespaced API) and will be removed in the next major release as part of move to match Firebase Web modular SDK API. Please see migration guide for more details: https://rnfirebase.io/migrating-to-v22. Method called was `getValue`. Please use `getValue()` instead.
+05-18 17:08:26.285  7820  7894 W ReactNativeJS: This method is deprecated (as well as all React Native Firebase namespaced API) and will be removed in the next major release as part of move to match Firebase Web modular SDK API. Please see migration guide for more details: https://rnfirebase.io/migrating-to-v22. Method called was `getValue`. Please use `getValue()` instead.
+05-18 17:08:38.905  7820  7894 W ReactNativeJS: '`new NativeEventEmitter()` was called with a non-null argument without the required `addListener` method.', { [Stack] name: 'Stack' }
+05-18 17:08:38.906  7820  7894 W ReactNativeJS: '`new NativeEventEmitter()` was called with a non-null argument without the required `removeListeners` method.', { [Stack] name: 'Stack' }
+05-18 17:08:38.908  7820  7894 W ReactNativeJS: '`new NativeEventEmitter()` was called with a non-null argument without the required `addListener` method.', { [Stack] name: 'Stack' }
+05-18 17:08:38.910  7820  7894 W ReactNativeJS: '`new NativeEventEmitter()` was called with a non-null argument without the required `removeListeners` method.', { [Stack] name: 'Stack' }

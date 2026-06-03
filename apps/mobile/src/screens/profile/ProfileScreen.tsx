@@ -14,11 +14,12 @@
 //
 // Inline-edit pattern (D-PROF-01): each editable Field is an InlineEditField.
 // Tap → TextInput → blur fires PATCH /me with optimistic UI; revert via
-// `Alert.alert('Could not update', ...)` on failure.
+// the translated `profile.errors.couldNotUpdate` Alert on failure.
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, ScrollView, StyleSheet, Image, Alert, TextInput } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { Text } from '../../ui/primitives/Text';
 import { Pressable } from '../../ui/primitives/Pressable';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
@@ -34,12 +35,27 @@ import { getFlavorContext } from '../../native/AppFlavor';
 import { useAppStore } from '../../state/appStore';
 import { coalesceDisplayName } from '../../lib/userDisplayName';
 import { InlineEditField } from './InlineEditField';
+// Phase 7 plan 07-04 — LanguageSheet (D-17) + native-name display for the
+// Language row's right-side value (D-19) + formatDate (D-37) for the Joined
+// row so digits stay Latin across all 8 MVP locales (I18N-09).
+import { LanguageSheet } from '../../components/LanguageSheet';
+import { LOCALE_NATIVE_NAMES } from '../../i18n/locale-meta';
+import type { Locale } from '../../i18n/storage';
+import { formatDate } from '../../lib/dates';
 
 // ---------------------------------------------------------------------------
 // PROF-02 — payments card body. Verbatim from idea-brief.md §5.11
-// "Payments coming soon" copy. Drift detector: any change to this string
-// surfaces in code review (the constant is the only call site).
+// "Payments coming soon" copy.
+//
+// Phase 7 plan 07-09: the runtime render site now reads from
+// `t('profile.payments.body')` so this body translates per locale. The
+// constant is RETAINED as a design-canon drift detector — Task 1's
+// byte-parity gate asserts `en.json profile.payments.body` is byte-equal
+// to this literal, so any future edit to either side surfaces in code
+// review. The constant is intentionally unused at runtime; the
+// eslint-disable below documents that fact.
 // prettier-ignore
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const PAYMENTS_BODY =
   'Payouts process offline. Your earnings will reflect in the app soon. Keep recording — your data is safe and your payouts are guaranteed.';
 
@@ -60,6 +76,11 @@ interface ProfileLocal {
 export function ProfileScreen(): React.JSX.Element {
   const nav = useNavigation<{ navigate: (route: string) => void }>();
   const setUser = useAppStore((s) => s.setUser);
+  // Phase 7 plan 07-04 — useTranslation for the Language row label + sheet
+  // title; i18n.language drives both the Native-name right-side value AND
+  // the formatDate locale for the Joined row.
+  const { t, i18n } = useTranslation();
+  const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [me, setMe] = useState<ProfileLocal | null>(null);
   const [lifetime, setLifetime] = useState<{ totalSeconds: number; taskCount: number } | null>(
     null,
@@ -140,7 +161,10 @@ export function ProfileScreen(): React.JSX.Element {
         await patchMe(body);
       } catch {
         setMe(previous);
-        Alert.alert('Could not update', 'Please try again.');
+        Alert.alert(
+          t('profile.errors.couldNotUpdate.title'),
+          t('profile.errors.couldNotUpdate.body'),
+        );
       }
     },
     [me],
@@ -177,11 +201,10 @@ export function ProfileScreen(): React.JSX.Element {
     );
   }
 
-  const joined = new Date(me.createdAt).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+  // Phase 7 plan 07-04 (I18N-09 / D-37) — locale-aware date formatting via
+  // formatDate(), which forces `numberingSystem: 'latn'` so digits stay
+  // Latin (0-9) across all 8 MVP locales.
+  const joined = formatDate(new Date(me.createdAt), i18n.language);
 
   return (
     <ScrollView
@@ -231,7 +254,7 @@ export function ProfileScreen(): React.JSX.Element {
               {me.name}
             </Text>
             <Text variant="caption" tone="tertiary">
-              tap to edit
+              {t('profile.head.tapToEdit')}
             </Text>
           </Pressable>
         )}
@@ -243,10 +266,10 @@ export function ProfileScreen(): React.JSX.Element {
           {formatDuration(lifetime.totalSeconds)}
         </Text>
         <Text variant="caption" tone="secondary">
-          contributed
+          {t('profile.lifetime.contributed')}
         </Text>
         <Text variant="caption" tone="secondary">
-          Across {lifetime.taskCount} tasks
+          {t('profile.lifetime.acrossNTasks', { count: lifetime.taskCount })}
         </Text>
       </View>
 
@@ -254,31 +277,35 @@ export function ProfileScreen(): React.JSX.Element {
       <View style={styles.earningsCard} accessibilityLabel="profile-payments-card">
         <View style={styles.earningsHeader}>
           <Text variant="btnLabel" style={styles.earningsTitle}>
-            Payments & Earnings
+            {t('profile.payments.title')}
           </Text>
           <View style={styles.comingSoonBadge}>
             <Text variant="comingSoonBadge" style={styles.comingSoonText}>
-              COMING SOON
+              {t('profile.payments.comingSoon')}
             </Text>
           </View>
         </View>
         <Text variant="caption" tone="secondary" style={styles.earningsBody}>
-          {PAYMENTS_BODY}
+          {t('profile.payments.body')}
         </Text>
       </View>
 
       {/* Personal info — PROF-01 inline-edit pattern (D-PROF-01) */}
       <View style={styles.section}>
-        <InlineEditField label="Name" value={me.name} onSave={(v) => saveField('name', v)} />
         <InlineEditField
-          label="Age"
+          label={t('profile.fields.name')}
+          value={me.name}
+          onSave={(v) => saveField('name', v)}
+        />
+        <InlineEditField
+          label={t('profile.fields.age')}
           value={me.age == null ? null : String(me.age)}
           keyboardType="numeric"
           nullable
           onSave={(v) => saveField('age', v)}
         />
         <InlineEditField
-          label="Gender"
+          label={t('profile.fields.gender')}
           value={me.gender}
           nullable
           options={GENDER_OPTIONS}
@@ -286,7 +313,7 @@ export function ProfileScreen(): React.JSX.Element {
         />
         <View style={styles.row} accessibilityLabel="profile-joined">
           <Text variant="body" style={styles.fieldLabel}>
-            Joined
+            {t('profile.fields.joined')}
           </Text>
           <Text variant="body" tone="secondary">
             {joined}
@@ -296,13 +323,31 @@ export function ProfileScreen(): React.JSX.Element {
 
       {/* Actions — PROF-04 (modal bodies land in 02-19) */}
       <View style={styles.section}>
+        {/* Phase 7 plan 07-04 (I18N-04) — Language row above Help Center. Tap
+            opens the LanguageSheet (mounted below) which composes the
+            existing Sheet primitive (D-17) + the shared LanguageList. The
+            right-side value shows the current locale's NATIVE name (D-19);
+            falls back to 'English' if i18n.language is somehow outside
+            SUPPORTED_LOCALES. */}
+        <Pressable
+          style={styles.row}
+          onPress={() => setLanguageSheetVisible(true)}
+          accessibilityLabel="profile-action-language"
+        >
+          <Text variant="body" style={styles.fieldLabel}>
+            {t('profile.language.row.label')}
+          </Text>
+          <Text variant="body" tone="tertiary">
+            {LOCALE_NATIVE_NAMES[i18n.language as Locale] ?? 'English'} ›
+          </Text>
+        </Pressable>
         <Pressable
           style={styles.row}
           onPress={() => nav.navigate('HelpCenter')}
           accessibilityLabel="profile-action-help"
         >
           <Text variant="body" style={styles.fieldLabel}>
-            Help Center
+            {t('profile.actions.help')}
           </Text>
           <Text variant="body" tone="tertiary">
             ›
@@ -314,7 +359,7 @@ export function ProfileScreen(): React.JSX.Element {
           accessibilityLabel="profile-action-logout"
         >
           <Text variant="body" style={styles.fieldLabel}>
-            Logout
+            {t('profile.actions.logout')}
           </Text>
           <Text variant="body" tone="tertiary">
             ›
@@ -326,7 +371,7 @@ export function ProfileScreen(): React.JSX.Element {
           accessibilityLabel="profile-action-delete"
         >
           <Text variant="body" style={styles.dangerLabel}>
-            Delete account
+            {t('profile.actions.delete')}
           </Text>
           <Text variant="body" style={styles.dangerLabel}>
             ›
@@ -343,6 +388,15 @@ export function ProfileScreen(): React.JSX.Element {
       >
         v{versionName} ({versionCode}) · {flavor}
       </Text>
+
+      {/* Phase 7 plan 07-04 — Profile language picker (D-02 + D-17 + D-19).
+          Controlled by `languageSheetVisible` state; opens on Language-row
+          tap, commits + dismisses on row tap (tap-to-commit). Mounted at
+          ScrollView root so the scrim overlays the entire surface. */}
+      <LanguageSheet
+        visible={languageSheetVisible}
+        onDismiss={() => setLanguageSheetVisible(false)}
+      />
     </ScrollView>
   );
 }

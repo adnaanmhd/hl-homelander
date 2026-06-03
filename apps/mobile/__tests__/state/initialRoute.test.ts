@@ -16,6 +16,12 @@ import type { AppState } from '../../src/state/appStore';
 import { secureMmkv } from '../../src/state/mmkv';
 import { practiceDoneKey } from '../../src/state/keys';
 import { decodeGoogleSubFromJwt } from '../../src/lib/jwtSub';
+// Phase 7 plan 07-04 — the new D-22 locale gate sits ABOVE every other
+// non-force-upgrade gate. Tests below assume the gate is already satisfied
+// (the user picked a locale at first launch); see `seedLocaleGate()` in the
+// beforeEach. Tests that exercise the locale-gate behavior itself live in
+// `initialRoute.locale.test.ts`.
+import { localeMmkv, LOCALE_KEYS } from '../../src/i18n/storage';
 
 // Build a JWS-shaped token whose payload carries `sub`. Node's base64url
 // encoding is the exact inverse of decodeGoogleSubFromJwt's decode path.
@@ -81,8 +87,22 @@ function clearPracticeFlags() {
   secureMmkv.remove(practiceDoneKey(''));
 }
 
+/**
+ * Phase 7 plan 07-04 — seed the locale gate so the (newly-added) D-22
+ * first-launch picker doesn't catch these legacy gate tests. Without this,
+ * every test below would route to ChooseLanguage. The locale-gate's own
+ * coverage lives in `initialRoute.locale.test.ts`.
+ */
+function seedLocaleGate() {
+  localeMmkv.set(LOCALE_KEYS.CODE, 'en');
+  localeMmkv.set(LOCALE_KEYS.CHOSEN_AT, '2026-05-24T00:00:00.000Z');
+}
+
 describe('computeInitialRoute', () => {
-  beforeEach(clearPracticeFlags);
+  beforeEach(() => {
+    clearPracticeFlags();
+    seedLocaleGate();
+  });
 
   it('Test 6: forceUpgradeBlocked=true → ForceUpgrade', () => {
     const route = computeInitialRoute(baseState({ forceUpgradeBlocked: true }), 'sig-fresh');
