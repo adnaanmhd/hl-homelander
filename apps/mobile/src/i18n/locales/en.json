@@ -183,7 +183,6 @@
   },
   "uploadChip": {
     "uploading": "Uploading…",
-    "verifying": "Uploaded — verifying…",
     "failed": "Upload failed",
     "success": "✓ Uploaded",
     "pausedOffline": "Paused — no Wi-Fi"

@@ -88,8 +88,6 @@ async function seedRec(opts: {
     practice: false,
     qaStatus: opts.qaStatus,
     durationMs: opts.durationMs,
-    fileSha256: 'a'.repeat(64),
-    imuSha256: 'b'.repeat(64),
     fileSizeBytes: 1024,
     imuSizeBytes: 1024,
     s3KeyVideo: 'k1',

@@ -59,11 +59,12 @@ function row(over: Partial<UploadQueueRow>): UploadQueueRow {
   };
 }
 
+// Enh 3 / D1 (2026-06-04): 'awaiting-verify' / 'verified' queue states removed.
 const ALL_VARIANTS: UploadQueueRow[] = [
   row({ recordingId: 'r1', state: 'uploading' }),
-  row({ recordingId: 'r2', state: 'awaiting-verify' }),
+  row({ recordingId: 'r2', state: 'finalizing' }),
   row({ recordingId: 'r3', state: 'dead-letter', deadLetterReason: 'too many retries' }),
-  row({ recordingId: 'r4', state: 'verified' }),
+  row({ recordingId: 'r4', state: 'needs-attention' }),
 ];
 
 describe('PendingUploadsScreen visual (Plan 05-08)', () => {

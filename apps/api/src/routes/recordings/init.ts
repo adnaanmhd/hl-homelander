@@ -341,8 +341,7 @@ export default async function recordingsInitRoute(app: FastifyInstance): Promise
           practice: body.practice,
           qaStatus: 'pending',
           durationMs: body.durationMs,
-          fileSha256: body.fileSha256,
-          imuSha256: body.imuSha256,
+          // (Enh 3 / D1: file_sha256 / imu_sha256 no longer captured or persisted.)
           fileSizeBytes: body.fileSizeBytes,
           imuSizeBytes: body.imuSizeBytes,
           s3KeyVideo: keys.video,

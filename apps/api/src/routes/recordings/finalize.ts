@@ -1,8 +1,8 @@
 // POST /recordings/:id/finalize — calls AWS SDK v3 CompleteMultipartUploadCommand
-// for both the video and IMU multipart uploads, transitions qa_status from
-// 'pending' → 'uploaded', and enqueues the row in recordings_to_verify so the
-// Phase 5 hash-verify worker picks it up. AWS itself reassembles the bytes —
-// the API process never reads file content (CLAUDE.md file-fidelity rule).
+// for both the video and IMU multipart uploads and transitions qa_status from
+// 'pending' → 'uploaded' (the TERMINAL success state after Enh 3 / D1 removed the
+// hash-verify flow). AWS itself reassembles the bytes — the API process never
+// reads file content (CLAUDE.md file-fidelity rule).
 //
 // Retry-safe (WR-01): a /finalize retry where a CompleteMultipartUpload returns
 // NoSuchUpload (the multipart upload was already completed on a prior attempt)
@@ -19,8 +19,8 @@ import { CompleteMultipartUploadCommand, HeadObjectCommand } from '@aws-sdk/clie
 import type { S3Client } from '@aws-sdk/client-s3';
 import { db, schema } from '../../db/index.js';
 import { getS3Client, RECORDINGS_BUCKET, recordingKeys } from '../../lib/s3-client.js';
+import { generatePosterThumbnail } from '../../lib/thumbnail.js';
 import { canTransition } from '../../lib/recording-state.js';
-import { enqueueVerify } from '../../lib/queue.js';
 import { RecordingFinalizeSchema, RecordingSchema } from '@humyn/shared-types';
 import { buildProblemDetail, PROBLEM_SLUGS } from '../../lib/problem-detail.js';
 
@@ -45,8 +45,6 @@ function toRecordingResponse(r: RecordingRow): z.infer<typeof RecordingSchema> {
     practice: r.practice,
     qaStatus: r.qaStatus,
     durationMs: r.durationMs,
-    fileSha256: r.fileSha256,
-    imuSha256: r.imuSha256,
     fileSizeBytes: r.fileSizeBytes,
     imuSizeBytes: r.imuSizeBytes,
     imuVideoDriftMaxMs: r.imuVideoDriftMaxMs,
@@ -60,7 +58,6 @@ function toRecordingResponse(r: RecordingRow): z.infer<typeof RecordingSchema> {
     livenessScore: r.livenessScore,
     uploadStartedAt: r.uploadStartedAt?.toISOString() ?? null,
     uploadCompletedAt: r.uploadCompletedAt?.toISOString() ?? null,
-    verifiedAt: r.verifiedAt?.toISOString() ?? null,
     createdAt: r.createdAt.toISOString(),
     // UP-18 — return the server-populated IP (set on /init), not a hard-coded null.
     ipAddress: r.ipAddress,
@@ -207,16 +204,35 @@ export default async function finalizeRoute(app: FastifyInstance): Promise<void>
       await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: keys.video }));
       await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: keys.imu }));
 
-      // Transition state and enqueue Phase 5 hash-verify worker (queue-stub write).
+      // Bug 6 / D5 — best-effort server-side poster JPEG for cross-device History
+      // thumbnails. Runs AFTER both objects are confirmed present; ANY failure
+      // (ffmpeg missing / unreadable bytes / timeout) is swallowed so it never
+      // blocks the terminal-success flip. NULL → the client falls back to its
+      // local ledger thumb or the gradient placeholder.
+      let thumbKey: string | null = null;
+      try {
+        await generatePosterThumbnail({
+          s3,
+          bucket,
+          videoKey: keys.video,
+          thumbKey: keys.thumbnail,
+        });
+        thumbKey = keys.thumbnail;
+      } catch (err) {
+        req.log.warn(
+          { err, recordingId: rec.id },
+          'poster thumbnail generation failed (non-fatal)',
+        );
+      }
+
+      // Enh 3 / D1 (2026-06-04): `uploaded` is the TERMINAL success state. The
+      // hash-verify worker + recordings_to_verify queue were removed, so finalize
+      // just flips the row to 'uploaded' once both objects are confirmed present.
       const updated = await db.transaction(async (tx) => {
         await tx
           .update(schema.recordings)
-          .set({ qaStatus: 'uploaded', uploadCompletedAt: new Date() })
+          .set({ qaStatus: 'uploaded', uploadCompletedAt: new Date(), s3KeyThumbnail: thumbKey })
           .where(eq(schema.recordings.id, rec.id));
-        await tx
-          .insert(schema.recordingsToVerify)
-          .values({ recordingId: rec.id })
-          .onConflictDoNothing();
         const after = await tx
           .select()
           .from(schema.recordings)
@@ -224,24 +240,6 @@ export default async function finalizeRoute(app: FastifyInstance): Promise<void>
           .limit(1);
         return after[0]!;
       });
-
-      // Dev shim (Pitfall 6): under LocalStack the S3 'Object Created' →
-      // EventBridge rule → SQS → poller leg is flaky, so we enqueue the verify
-      // job directly. In prod (AWS_ENDPOINT_URL unset) that leg IS the trigger
-      // and /finalize does NOT enqueue — but enqueueVerify uses jobId =
-      // recordingId, so even a stray double-enqueue collapses to one job, and
-      // the recordings_to_verify row + the verify-sweep cron are the durable
-      // backstop either way. Fire-and-forget: a Redis hiccup must not block (or
-      // fail) the /finalize response — the verify-sweep cron re-enqueues from
-      // the recordings_to_verify row.
-      if (process.env.AWS_ENDPOINT_URL) {
-        void enqueueVerify(rec.id).catch((err) => {
-          app.log.warn(
-            { err, recordingId: rec.id },
-            'dev-shim enqueueVerify failed — verify-sweep cron will retry',
-          );
-        });
-      }
 
       return reply.send(toRecordingResponse(updated));
     },

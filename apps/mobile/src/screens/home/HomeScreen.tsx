@@ -79,7 +79,8 @@ interface LifetimeSlim {
   durationMs: number;
   recordingCount: number;
   taskCount: number;
-  // Strict count of `practice = false AND qa_status = 'verified'` recordings —
+  // Strict count of non-practice recordings at terminal success — server-side
+  // `practice = false AND qa_status IN ('uploaded','verified')` (Enh 3 / D1) —
   // the trigger for the HomeHero "Hi {first_name}." greeting (Plan 06-12
   // follow-on, owner directive 2026-05-14). Read from /contributions; defaults
   // to 0 for old payloads / cold-mount empty state.
@@ -128,9 +129,9 @@ function rowMeta(row: UploadQueueRow): string {
 }
 
 function chipVariantFor(row: UploadQueueRow): UploadStatusChipVariant {
+  // Enh 3 / D1 (2026-06-04): no 'awaiting-verify' / 'verified' states — a row that
+  // reached terminal success is deleted from the queue on /finalize 200.
   switch (row.state) {
-    case 'awaiting-verify':
-      return 'verifying';
     case 'dead-letter':
     case 'needs-attention':
       // Debug session `.planning/debug/upload-queue-hol-finalizing.md`
@@ -139,8 +140,6 @@ function chipVariantFor(row: UploadQueueRow): UploadStatusChipVariant {
       // is for DEAD_LETTER rows whose retry exhaustion is fully transient);
       // users open History and manually tap Retry on the chip-failed row.
       return 'failed';
-    case 'verified':
-      return 'success';
     default:
       return 'progress';
   }
@@ -290,7 +289,10 @@ export default function HomeScreen(): React.JSX.Element {
     }
   }, []);
 
-  // Wave-2 #6 — verified-event auto-poll while Home is focused.
+  // Reconcile backstop poll while Home is focused. (Enh 3 / D1, 2026-06-04: was
+  // the "verified-event auto-poll"; there are no verified events now —
+  // reconcileOnce() runs the GET /recordings terminal-success backstop that
+  // clears any local queue row the server already has as 'uploaded'.)
   useFocusEffect(
     useCallback(() => {
       const tick = () => {

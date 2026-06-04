@@ -77,16 +77,14 @@ function rowMeta(row: UploadQueueRow): string {
 }
 
 function chipVariantFor(row: UploadQueueRow): UploadStatusChipVariant {
+  // Enh 3 / D1 (2026-06-04): no 'awaiting-verify' / 'verified' states — a row that
+  // reached terminal success is deleted from the queue on /finalize 200.
   switch (row.state) {
-    case 'awaiting-verify':
-      return 'verifying';
     case 'dead-letter':
     case 'needs-attention':
       // Debug session `.planning/debug/upload-queue-hol-finalizing.md`
       // (Fix C item 4) — NEEDS_ATTENTION shares the chip-failed visual.
       return 'failed';
-    case 'verified':
-      return 'success';
     default:
       return 'progress';
   }

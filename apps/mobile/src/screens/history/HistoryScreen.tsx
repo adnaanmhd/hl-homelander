@@ -80,9 +80,13 @@ import {
 import { decodeGoogleSubFromJwt } from '../../lib/jwtSub';
 import { logEvent } from '../../util/analytics';
 
-/** Map the on-device `UploadQueueRow.state` to the HistoryRow device-state type — strip 'verified' (those rows are already cleared from the queue / fully reflected by server qaStatus). */
+/**
+ * Map the on-device `UploadQueueRow.state` to the HistoryRow device-state type.
+ * Enh 3 / D1 (2026-06-04): the unions are now identical (no 'verified' /
+ * 'awaiting-verify') — a row that reached terminal success is deleted from the
+ * queue, so it's fully reflected by the server `qaStatus`.
+ */
 function toDeviceState(s: UploadQueueRow['state']): HistoryRowDeviceState | undefined {
-  if (s === 'verified') return undefined;
   return s;
 }
 
@@ -160,6 +164,9 @@ function toRowItem(r: RecordingsListItem, taskNameById: Record<string, string>):
     durationMs: r.duration_ms,
     createdAt: r.created_at,
     qaStatus: r.qa_status,
+    // Bug 6 / D5 — cross-device server poster JPEG; HistoryRow uses it as the
+    // fallback when this device has no local ledger thumbnail.
+    thumbnailUrl: r.thumbnail_url ?? null,
     verifiedAtIso: null, // server payload doesn't carry verifiedAt; fallback to createdAt at render.
   };
 }
@@ -395,11 +402,11 @@ export function HistoryScreen(): React.JSX.Element {
     const serverIds = new Set(rawRows.map((r) => r.recording_id));
     const deviceRowIdSet = new Set(deviceRows.map((r) => r.recordingId));
     const serverRows = rawRows.map((r) => toRowItem(r, taskNameById) as HistoryRowGroupable);
-    // Synthesize a HistoryRowItem for every device-queue row that isn't on
-    // the server yet AND isn't already in a `verified` end-state (those are
-    // about to be cleared by the verified event; the server row covers them).
+    // Synthesize a HistoryRowItem for every device-queue row that isn't on the
+    // server yet. (Enh 3 / D1: a row that reached terminal success is deleted
+    // from the queue on /finalize 200, so there's no end-state to exclude.)
     const synthesized: HistoryRowGroupable[] = deviceRows
-      .filter((r) => !serverIds.has(r.recordingId) && r.state !== 'verified')
+      .filter((r) => !serverIds.has(r.recordingId))
       .map(
         (r): HistoryRowGroupable => ({
           id: r.recordingId,
@@ -496,12 +503,14 @@ export function HistoryScreen(): React.JSX.Element {
   //     `HumynUpload.retryNeedsAttention` which resets the attempt
   //     counter + transitions back into the automatic drain loop.
   //
-  //   - device state === 'dead-letter' OR no device row (server-only
-  //     qa_status ∈ {hash-mismatch, rejected}): route through
-  //     `HumynUpload.reupload()` which the coordinator dispatches to
-  //     POST /recordings/:id/reupload (server accepts hash-mismatch →
-  //     mints fresh upload ids → device re-PUTs every part → /finalize
-  //     → re-verify). This is the historic Plan 05-08 path.
+  //   - device state === 'dead-letter': route through
+  //     `HumynUpload.reviveDeadLetterSafe()` — the SAFE revival primitive that
+  //     re-enters the drain loop via /parts (preserving DONE part ETags) or the
+  //     idempotent /init self-heal, then /finalize. (Enh 3 / D1, 2026-06-04:
+  //     the old `reupload()` → POST /recordings/:id/reupload path was removed
+  //     with the hash-verify flow; there is no hash-mismatch state anymore, and
+  //     a server-only rejected row has no local bundle to re-PUT — reviveDeadLetter
+  //     is a no-op there, which is correct.)
   // ---------------------------------------------------------------------
   const onRowRetry = useCallback(
     (r: HistoryRowItem) => {
@@ -517,7 +526,7 @@ export function HistoryScreen(): React.JSX.Element {
       if (isNeedsAttention) {
         void HumynUpload.retryNeedsAttentionSafe(r.id);
       } else {
-        void HumynUpload.reupload(r.id).catch(() => undefined);
+        void HumynUpload.reviveDeadLetterSafe(r.id);
       }
     },
     [deviceRowsById],

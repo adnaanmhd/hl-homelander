@@ -54,7 +54,6 @@ class UploadCoordinatorTest {
 
     /** Counters the dispatcher updates so tests can assert call shapes. */
     private val initCalls = AtomicInteger(0)
-    private val reuploadCalls = AtomicInteger(0)
     private val partsCalls = AtomicInteger(0)
     private val finalizeCalls = AtomicInteger(0)
     private val putCalls = ConcurrentHashMap<String, AtomicInteger>() // path → count
@@ -118,12 +117,6 @@ class UploadCoordinatorTest {
                                 }
                             }
                         }
-                    }
-                    path.endsWith("/reupload") -> {
-                        reuploadCalls.incrementAndGet()
-                        request.getHeader("Idempotency-Key")?.let { idempotencyKeysByPath["/reupload"] = it }
-                        val partsCount = JSONObject(request.body.readUtf8()).getInt("partsCount")
-                        MockResponse().setResponseCode(200).setBody(initBody(partsCount))
                     }
                     path.endsWith("/parts") -> {
                         partsCalls.incrementAndGet()
@@ -246,8 +239,6 @@ class UploadCoordinatorTest {
                     put("schema_version", if (calibration != null) "1.2.0" else "1.1.0")
                     put("recording_id", recordingId)
                     put("metadata", JSONObject().apply {
-                        put("file_sha256", "a".repeat(64))
-                        put("imu_sha256", "b".repeat(64))
                         put("file_size_bytes", mp4Bytes.toLong())
                         put("imu_size_bytes", csv.length())
                         put("duration_seconds", 12.5)
@@ -313,13 +304,12 @@ class UploadCoordinatorTest {
     }
 
     @Test
-    fun `drain runs init then metadata PUT then part PUTs then finalize and ends AWAITING_VERIFY`() {
+    fun `drain runs init then metadata PUT then part PUTs then finalize and drops the row`() {
         store.enqueue(row("01JCOORDREC1XXXXXXXXXXXXXX"))
         val coord = coordinator()
         coord.drainNow()
 
         assertEquals("one /init", 1, initCalls.get())
-        assertEquals("zero /reupload", 0, reuploadCalls.get())
         assertEquals("one /finalize", 1, finalizeCalls.get())
         // metadata.json one-shot PUT.
         assertTrue("metadata PUT", (putCalls["/s3/metadata"]?.get() ?: 0) >= 1)
@@ -334,12 +324,12 @@ class UploadCoordinatorTest {
         assertEquals("IMU-UPLOAD-ID", fin.getString("imuUploadId"))
         assertTrue(fin.getJSONArray("videoParts").getJSONObject(0).getString("etag").startsWith("\"etag-"))
 
-        // Row ended AWAITING_VERIFY and is STILL in the queue (cleared only on a verified event).
-        val back = store.read()
-        assertEquals(1, back.size)
-        assertEquals(UploadState.AWAITING_VERIFY, back[0].state)
-        assertEquals(PartStatus.DONE, back[0].metadataPut)
-        assertTrue(back[0].videoParts.all { it.status == PartStatus.DONE && it.etag != null })
+        // Enh 3 / D1 — /finalize 200 is terminal success: the row is dropped from
+        // the queue and the local bundle (mp4/csv/json) is deleted.
+        assertTrue("queue is empty after a successful finalize", store.read().isEmpty())
+        assertTrue("mp4 deleted", !File(recDir, "01JCOORDREC1XXXXXXXXXXXXXX.mp4").exists())
+        assertTrue("csv deleted", !File(recDir, "01JCOORDREC1XXXXXXXXXXXXXX.csv").exists())
+        assertTrue("json deleted", !File(recDir, "01JCOORDREC1XXXXXXXXXXXXXX.json").exists())
     }
 
     @Test
@@ -506,18 +496,17 @@ class UploadCoordinatorTest {
         assertEquals(1, putCalls["/s3/video/1"]?.get())
         assertEquals(1, putCalls["/s3/video/2"]?.get())
         assertEquals(1, putCalls["/s3/imu/1"]?.get())
-        // The queue has exactly one row, in the expected post-drain state — no duplicate row.
-        val back = store.read()
-        assertEquals("one row, not duplicated", 1, back.size)
-        assertEquals(UploadState.AWAITING_VERIFY, back[0].state)
+        // Exactly one drain did the upload work → the row finalized once and was
+        // dropped (Enh 3 / D1 terminal-success cleanup) — no duplicate row.
+        assertTrue("row dropped after the single successful finalize", store.read().isEmpty())
         // The loser of the tryLock() returned promptly — well before the 400 ms /init delay.
         assertTrue("t2 lost the drainLock and returned promptly (was ${t2WallMs.get()}ms)", t2WallMs.get() < 300L)
     }
 
     // -------------------------------------------------------------------------
     // Plan 05-10 — re-drain uses POST /recordings/:id/parts (not re-/init);
-    // row.reupload cleared right after postReupload; 409 from /parts and /init →
-    // dead-letter; parseInitResponse doesn't leak presigned URLs on a non-JSON body.
+    // 409 from /parts and /init → dead-letter; parseInitResponse doesn't leak
+    // presigned URLs on a non-JSON body. (Enh 3 / D1: the /reupload route is gone.)
     // -------------------------------------------------------------------------
 
     @Test
@@ -537,7 +526,6 @@ class UploadCoordinatorTest {
             it.imuUploadId = "IMU-UPLOAD-ID"
             it.partsCount = 2
             it.chunkBytes = WIFI_CHUNK_BYTES
-            it.reupload = false
             it.state = UploadState.UPLOADING
             it.metadataPut = PartStatus.PENDING
             it.videoParts.add(PartState(1, PartStatus.DONE, etag = "\"etag-1\""))
@@ -566,82 +554,10 @@ class UploadCoordinatorTest {
         assertEquals("\"etag-1\"", fin.getJSONArray("videoParts").getJSONObject(0).getString("etag"))
         assertTrue(fin.getJSONArray("videoParts").getJSONObject(1).getString("etag").startsWith("\"etag-"))
         assertEquals("IMU-UPLOAD-ID", fin.getString("imuUploadId"))
-        // Row: uploadId unchanged, ends AWAITING_VERIFY.
-        val back = store.read().first()
-        assertEquals("VID-UPLOAD-ID", back.uploadId)
-        assertEquals("IMU-UPLOAD-ID", back.imuUploadId)
-        assertEquals(UploadState.AWAITING_VERIFY, back.state)
-    }
-
-    @Test
-    fun `reupload drain clears the reupload flag then a re-drain uses parts not reupload (WARNING 4)`() {
-        // First drain of a hash-mismatch re-upload — row.reupload = true, parts all PENDING
-        // (mimicking the post-`reupload`-@ReactMethod state — Plan 05-08).
-        val recId = "01JCOORDRECBXXXXXXXXXXXXXXX"
-        val (mp4, csv, json) = writeBundle(recId, mp4Bytes = 5_000_000) // ~5 MB → 1 part at 8 MiB
-        store.enqueue(
-            UploadRow(
-                recordingId = recId, ownerUserId = "userA",
-                mp4Path = mp4.path, csvPath = csv.path, jsonPath = json.path,
-                taskId = "T".repeat(26), isPractice = false,
-            ),
-        )
-        store.upsert(
-            store.read()[0].also {
-                it.reupload = true
-                it.uploadId = "old-vid"
-                it.imuUploadId = "old-imu"
-                it.partsCount = 1
-                it.chunkBytes = WIFI_CHUNK_BYTES
-                it.state = UploadState.PENDING
-                it.videoParts.add(PartState(1))
-                it.imuParts.add(PartState(1))
-            },
-        )
-
-        val coord = coordinator()
-        coord.drainNow()
-
-        // First drain → /reupload (NOT /parts, NOT /init); after it the flag is cleared.
-        assertEquals("one /reupload", 1, reuploadCalls.get())
-        assertEquals("no /parts on the first re-upload drain", 0, partsCalls.get())
-        assertEquals("no /init on the first re-upload drain", 0, initCalls.get())
-        run {
-            val back = store.read().first()
-            assertEquals("reupload flag cleared right after postReupload", false, back.reupload)
-            assertEquals("VID-UPLOAD-ID", back.uploadId) // the fresh /reupload id was persisted
-            assertEquals(UploadState.AWAITING_VERIFY, back.state)
-        }
-
-        // Now simulate a mid-flight kill of a SECOND re-upload drain: a row with reupload=false,
-        // uploadId set, parts DONE — the next drain must take the /parts branch, NOT /reupload.
-        reuploadCalls.set(0); partsCalls.set(0); initCalls.set(0); finalizeCalls.set(0)
-        putCalls.clear(); lastFinalizeBody.set(null)
-        store.upsert(
-            UploadRow(
-                recordingId = recId, ownerUserId = "userA",
-                mp4Path = mp4.path, csvPath = csv.path, jsonPath = json.path,
-                taskId = "T".repeat(26), isPractice = false,
-                state = UploadState.UPLOADING,
-                uploadId = "new-vid", imuUploadId = "new-imu",
-                partsCount = 1, chunkBytes = WIFI_CHUNK_BYTES,
-                metadataPut = PartStatus.DONE,
-                reupload = false,
-                videoParts = mutableListOf(PartState(1, PartStatus.DONE, etag = "\"e-v\"")),
-                imuParts = mutableListOf(PartState(1, PartStatus.DONE, etag = "\"e-i\"")),
-            ),
-        )
-        coord.drainNow()
-
-        assertEquals("re-drain of a process-killed re-upload uses /parts", 1, partsCalls.get())
-        assertEquals("re-drain of a process-killed re-upload does NOT call /reupload again", 0, reuploadCalls.get())
-        assertEquals(0, initCalls.get())
-        // Nothing re-PUT — both parts are DONE.
-        assertTrue("no part PUT (all DONE)", putCalls.keys.none { it.startsWith("/s3/video/") || it.startsWith("/s3/imu/") })
-        val fin = lastFinalizeBody.get()!!
-        assertEquals("\"e-v\"", fin.getJSONArray("videoParts").getJSONObject(0).getString("etag"))
-        assertEquals("\"e-i\"", fin.getJSONArray("imuParts").getJSONObject(0).getString("etag"))
-        assertEquals(UploadState.AWAITING_VERIFY, store.read().first().state)
+        // Enh 3 / D1 — the re-drain finalized against the SAME upload ids (proven
+        // by the /finalize body above: imuUploadId == "IMU-UPLOAD-ID") and the
+        // row was then dropped from the queue.
+        assertTrue("row dropped after finalize 200", store.read().isEmpty())
     }
 
     @Test
@@ -662,7 +578,6 @@ class UploadCoordinatorTest {
                 it.imuUploadId = "IMU-UPLOAD-ID"
                 it.partsCount = 2
                 it.chunkBytes = WIFI_CHUNK_BYTES
-                it.reupload = false
                 it.state = UploadState.UPLOADING
                 it.videoParts.add(PartState(1))
                 it.videoParts.add(PartState(2))
@@ -710,7 +625,6 @@ class UploadCoordinatorTest {
                 it.imuUploadId = "IMU-UPLOAD-ID"
                 it.partsCount = 2
                 it.chunkBytes = WIFI_CHUNK_BYTES
-                it.reupload = false
                 it.state = UploadState.UPLOADING
                 it.videoParts.add(PartState(1))
                 it.videoParts.add(PartState(2))
@@ -761,8 +675,10 @@ class UploadCoordinatorTest {
 
         // 12_000_000 / (5*1024*1024=5_242_880) = ceil(2.29) = 3 parts.
         assertEquals(3, putCalls.keys.count { it.startsWith("/s3/video/") })
-        assertEquals(CELLULAR_CHUNK_BYTES, store.read()[0].chunkBytes)
-        assertEquals(3, store.read()[0].partsCount)
+        // The row finalized + was dropped (Enh 3 / D1), so assert the cellular 5 MiB
+        // chunking via the /init wire contract (partsCount=3, vs 2 on WiFi's 8 MiB).
+        assertEquals("init body declared 3 parts (cellular 5 MiB chunking)", 3, lastInitBody.get()!!.getInt("partsCount"))
+        assertTrue("row dropped after finalize 200", store.read().isEmpty())
     }
 
     @Test
@@ -782,7 +698,7 @@ class UploadCoordinatorTest {
         store.enqueue(r)
         coordinator().drainNow()
 
-        // /init + /finalize fired on this happy path; /parts and /reupload didn't.
+        // /init + /finalize fired on this happy path; /parts didn't.
         val uuidV4 = Regex("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
         val initKey = idempotencyKeysByPath["/recordings/init"]
         assertNotNull("/recordings/init must send an Idempotency-Key header (server's pre-handler 400s without it)", initKey)
@@ -842,28 +758,27 @@ class UploadCoordinatorTest {
         val initKeyAtConstruction = r.initIdempotencyKey
         val partsKeyAtConstruction = r.partsIdempotencyKey
         store.enqueue(r)
-        val coord = coordinator()
-        coord.drainNow()
-        // First drain captured.
-        val firstInitKey = idempotencyKeysByPath["/recordings/init"]
-        assertEquals("first /init carries the row's initIdempotencyKey", initKeyAtConstruction, firstInitKey)
-        // The row, now on disk after the first drain, still has the same per-route keys
-        // (toJson/fromJson round-trip preserves them — Wave-1.5 Item 1).
+        // The row, freshly persisted to queue.json on enqueue, round-trips its
+        // per-route keys (toJson/fromJson preserves them — Wave-1.5 Item 1).
+        // Captured BEFORE the drain: finalize 200 drops the row (Enh 3 / D1).
         val rowOnDisk = store.read().first()
         assertEquals("initIdempotencyKey survives the round-trip through queue.json", initKeyAtConstruction, rowOnDisk.initIdempotencyKey)
         assertEquals("partsIdempotencyKey survives the round-trip through queue.json", partsKeyAtConstruction, rowOnDisk.partsIdempotencyKey)
+        val coord = coordinator()
+        coord.drainNow()
+        // First drain captured: /init carries the row's initIdempotencyKey.
+        val firstInitKey = idempotencyKeysByPath["/recordings/init"]
+        assertEquals("first /init carries the row's initIdempotencyKey", initKeyAtConstruction, firstInitKey)
     }
 
     @Test
-    fun `LOCAL reset of a client-side DEAD_LETTER row routes to slash parts not slash reupload Wave-1-5 Item 2`() {
-        // Wave-1.5 Item 2: HumynUpload.reupload(recordingId) on a row with
-        // state=DEAD_LETTER && uploadId!=null && !reupload does a LOCAL reset
-        // (state→UPLOADING, deadLetterReason=null, KEEP uploadId/imuUploadId/
-        // parts/etags). The drainer then takes the postRePresign branch (/parts),
-        // NOT /reupload (which would 409 — the server's reupload.ts:125-138
-        // requires qa_status='hash-mismatch'). We assert the drain OUTCOME of a
-        // row in the post-LOCAL-reset state — that's the contract the
-        // HumynUploadModule branching produces.
+    fun `LOCAL reset of a client-side DEAD_LETTER row routes to slash parts (reviveDeadLetter outcome)`() {
+        // reviveDeadLetter(recordingId) on a row with state=DEAD_LETTER &&
+        // uploadId!=null does a LOCAL reset (state→UPLOADING, deadLetterReason=null,
+        // KEEP uploadId/imuUploadId/parts/etags). The drainer then takes the
+        // postRePresign branch (/parts). We assert the drain OUTCOME of a row in the
+        // post-LOCAL-reset state — that's the contract the HumynUploadModule
+        // branching produces. (Enh 3 / D1: the /reupload route is gone.)
         val recId = "01JLOCALRESET01XXXXXXXXXXXX"
         val (mp4, csv, json) = writeBundle(recId, mp4Bytes = 12_000_000) // ~12 MB → 2 parts
         store.enqueue(
@@ -875,14 +790,13 @@ class UploadCoordinatorTest {
         )
         // Post-LOCAL-reset state: state=UPLOADING (was DEAD_LETTER), uploadId
         // preserved, parts preserved with their ETags, metadataPut=DONE
-        // preserved, reupload=false, deadLetterReason=null.
+        // preserved, deadLetterReason=null.
         store.upsert(
             store.read()[0].also {
                 it.uploadId = "VID-UPLOAD-ID"
                 it.imuUploadId = "IMU-UPLOAD-ID"
                 it.partsCount = 2
                 it.chunkBytes = WIFI_CHUNK_BYTES
-                it.reupload = false
                 it.state = UploadState.UPLOADING
                 it.deadLetterReason = null
                 it.metadataPut = PartStatus.DONE
@@ -891,18 +805,19 @@ class UploadCoordinatorTest {
                 it.imuParts.add(PartState(1, PartStatus.DONE, etag = "\"etag-imu-1\""))
             },
         )
+        // Capture the row's partsIdempotencyKey BEFORE the drain — finalize 200 drops
+        // the row (Enh 3 / D1), so it's gone by the time we assert.
+        val expectedPartsKey = store.read().first().partsIdempotencyKey
         val coord = coordinator()
         coord.drainNow()
 
-        // The post-LOCAL-reset drain hit /parts (re-presign), NOT /reupload (no full reset).
+        // The post-LOCAL-reset drain hit /parts (re-presign).
         assertEquals("LOCAL-reset drain takes /parts", 1, partsCalls.get())
-        assertEquals("LOCAL-reset drain does NOT call /reupload", 0, reuploadCalls.get())
         assertEquals("LOCAL-reset drain does NOT call /init", 0, initCalls.get())
         // The /parts Idempotency-Key is the row's partsIdempotencyKey (Wave-1.5 Item 1).
-        val rowAfterUpsert = store.read().first()
         val partsKey = idempotencyKeysByPath["/parts"]
         assertNotNull("/parts must send an Idempotency-Key", partsKey)
-        assertEquals("/parts uses partsIdempotencyKey", rowAfterUpsert.partsIdempotencyKey, partsKey)
+        assertEquals("/parts uses partsIdempotencyKey", expectedPartsKey, partsKey)
         // No part was re-PUT — all were DONE before; the re-presign just re-issues fresh URLs.
         assertTrue("no part PUT (all DONE)", putCalls.keys.none { it.startsWith("/s3/video/") || it.startsWith("/s3/imu/") })
         // /finalize fired with the original ETags preserved (UP-04 guarantee).
@@ -910,11 +825,9 @@ class UploadCoordinatorTest {
         assertEquals("\"etag-vid-1\"", fin.getJSONArray("videoParts").getJSONObject(0).getString("etag"))
         assertEquals("\"etag-vid-2\"", fin.getJSONArray("videoParts").getJSONObject(1).getString("etag"))
         assertEquals("\"etag-imu-1\"", fin.getJSONArray("imuParts").getJSONObject(0).getString("etag"))
-        // Row ends AWAITING_VERIFY; uploadId preserved across the drain.
-        val back = store.read().first()
-        assertEquals(UploadState.AWAITING_VERIFY, back.state)
-        assertEquals("VID-UPLOAD-ID", back.uploadId)
-        assertEquals("IMU-UPLOAD-ID", back.imuUploadId)
+        // Enh 3 / D1 — finalize 200 dropped the row (the /finalize body above proves
+        // the original upload ids were preserved through the /parts re-presign).
+        assertTrue("row dropped after finalize 200", store.read().isEmpty())
     }
 
     @Test
@@ -923,8 +836,8 @@ class UploadCoordinatorTest {
         // throws IOException; not a 4xx DeadLetterException). The drainer's
         // per-row retry loop (Wave-2 #5) sleeps transientRetryDelayMs (1 ms in
         // tests) and re-attempts uploadOne, which re-POSTs /init. Second call
-        // returns the normal 201 → happy-path /finalize → row ends
-        // AWAITING_VERIFY. Without the retry loop the row would sit
+        // returns the normal 201 → happy-path /finalize → row dropped
+        // (terminal success). Without the retry loop the row would sit
         // PENDING/UPLOADING forever and the test would see only 1 /init and 0
         // /finalize.
         flakyInitCount.set(1)
@@ -932,10 +845,9 @@ class UploadCoordinatorTest {
         coordinator().drainNow()
 
         assertEquals("two /init calls (flaky 503 then retried 201)", 2, initCalls.get())
-        assertEquals("zero /reupload", 0, reuploadCalls.get())
         assertEquals("one /finalize after the retry succeeds", 1, finalizeCalls.get())
-        // Row reached AWAITING_VERIFY — proof the retry took the happy path.
-        assertEquals(UploadState.AWAITING_VERIFY, store.read().first().state)
+        // Row was dropped after finalize 200 — proof the retry took the happy path.
+        assertTrue("queue empty after the retried happy path", store.read().isEmpty())
     }
 
     @Test
@@ -990,36 +902,30 @@ class UploadCoordinatorTest {
         )
         coord.drainNow()
 
-        // The captured snapshot states must include the two transitions Wave-2
-        // #7 hinges on, in order, before the terminal AWAITING_VERIFY emit.
+        // Two in-queue transitions Wave-2 #7 hinges on, in order. (Enh 3 / D1: the
+        // terminal emit fires AFTER the row is dropped, so it never appears in `seen`.)
         val uploadingIdx = seen.indexOf(UploadState.UPLOADING)
         val finalizingIdx = seen.indexOf(UploadState.FINALIZING)
-        val awaitingIdx = seen.indexOf(UploadState.AWAITING_VERIFY)
         assertTrue("emitQueueChanged fired with state=UPLOADING (so JS flips isActive=true and renders the progress bar). Seen: $seen", uploadingIdx >= 0)
-        assertTrue("emitQueueChanged fired with state=FINALIZING (so the bar drops cleanly before AWAITING_VERIFY). Seen: $seen", finalizingIdx >= 0)
-        assertTrue("emitQueueChanged fired with state=AWAITING_VERIFY (the row's terminal in-queue state). Seen: $seen", awaitingIdx >= 0)
+        assertTrue("emitQueueChanged fired with state=FINALIZING (so the bar drops cleanly). Seen: $seen", finalizingIdx >= 0)
         assertTrue("UPLOADING emit comes before FINALIZING. Seen: $seen", uploadingIdx < finalizingIdx)
-        assertTrue("FINALIZING emit comes before AWAITING_VERIFY. Seen: $seen", finalizingIdx < awaitingIdx)
+        assertTrue("row dropped after finalize 200 (terminal-success cleanup)", store.read().isEmpty())
     }
 
     @Test
-    fun `four distinct keys across init parts finalize reupload (no cross-route reuse)`() {
-        // Drive a row through /init → /finalize (Wave 1 happy path) and a separate
-        // row through /reupload → /finalize (Wave 1 hash-mismatch path) and a
-        // third row through a re-drain → /parts. Across the three rows, capture
-        // the four route-keyed Idempotency-Keys and assert all 4 captured values
-        // are distinct UUIDv4s and are uniquely matched to ONE route each.
+    fun `three distinct keys across init parts finalize (no cross-route reuse)`() {
+        // Drive a row through /init → /finalize (happy path) and a separate row
+        // through a re-drain → /parts. Capture the three route-keyed Idempotency-
+        // Keys and assert all 3 are distinct UUIDv4s, one per route. (Enh 3 / D1:
+        // the /reupload route is gone.)
         val uuidV4 = Regex("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
 
-        // 1. /init + /finalize via a fresh row (Wave 1 happy path).
         val r1 = row("01JCOORDIDEM4XXXXXXXXXXXXXX")
         store.enqueue(r1)
         coordinator().drainNow()
         val initKey = idempotencyKeysByPath["/recordings/init"]
-        // /finalize captured here; we'll re-capture below for the reupload row to assert distinctness.
-        val finalizeKey1 = idempotencyKeysByPath["/finalize"]
+        val finalizeKey = idempotencyKeysByPath["/finalize"]
 
-        // 2. Re-drain a separate row to drive /parts.
         idempotencyKeysByPath.clear()
         val r2 = row("01JCOORDIDEM5XXXXXXXXXXXXXX").also {
             it.uploadId = "VID-UPLOAD-ID"
@@ -1034,38 +940,17 @@ class UploadCoordinatorTest {
         coordinator().drainNow()
         val partsKey = idempotencyKeysByPath["/parts"]
 
-        // 3. Re-upload a third row to drive /reupload.
-        idempotencyKeysByPath.clear()
-        val r3 = row("01JCOORDIDEM6XXXXXXXXXXXXXX").also {
-            it.reupload = true
-            it.uploadId = "old-vid"
-            it.imuUploadId = "old-imu"
-            it.partsCount = 1
-            it.chunkBytes = WIFI_CHUNK_BYTES
-            it.state = UploadState.PENDING
-            it.videoParts.add(PartState(1))
-            it.imuParts.add(PartState(1))
-        }
-        store.enqueue(r3)
-        coordinator().drainNow()
-        val reuploadKey = idempotencyKeysByPath["/reupload"]
-        val finalizeKey3 = idempotencyKeysByPath["/finalize"]
-
-        // All four captured keys are present + UUIDv4-shaped.
         assertNotNull("/init key captured", initKey)
         assertNotNull("/parts key captured", partsKey)
-        assertNotNull("/finalize key captured (from row 1 OR 3)", finalizeKey1 ?: finalizeKey3)
-        assertNotNull("/reupload key captured", reuploadKey)
-        listOf(initKey, partsKey, finalizeKey1, reuploadKey).forEach {
+        assertNotNull("/finalize key captured", finalizeKey)
+        listOf(initKey, partsKey, finalizeKey).forEach {
             if (it != null) assertTrue("UUIDv4 shape: $it", uuidV4.matches(it))
         }
-        // Cross-route distinctness — no two routes use the same captured key.
-        val captured = listOfNotNull(initKey, partsKey, finalizeKey1, reuploadKey)
-        assertEquals("four distinct keys across the four routes", captured.size, captured.toSet().size)
-        // And specifically: every row was constructed with 4 distinct keys.
-        listOf(r1, r2, r3).forEach { r ->
-            val perRow = setOf(r.initIdempotencyKey, r.partsIdempotencyKey, r.finalizeIdempotencyKey, r.reuploadIdempotencyKey)
-            assertEquals("row ${r.recordingId} has 4 distinct per-route keys", 4, perRow.size)
+        val captured = listOfNotNull(initKey, partsKey, finalizeKey)
+        assertEquals("three distinct keys across the three routes", captured.size, captured.toSet().size)
+        listOf(r1, r2).forEach { r ->
+            val perRow = setOf(r.initIdempotencyKey, r.partsIdempotencyKey, r.finalizeIdempotencyKey)
+            assertEquals("row ${r.recordingId} has 3 distinct per-route keys", 3, perRow.size)
         }
     }
 
@@ -1079,7 +964,7 @@ class UploadCoordinatorTest {
         // Set up a row that's already in FINALIZING with a known uploadId (i.e. a
         // process-killed mid-finalize OR a stuck post-/finalize-hang row). The
         // GET /recordings/:id endpoint will say `qa_status=verified` — the
-        // coordinator should mark the row AWAITING_VERIFY locally and skip the
+        // coordinator should delete the bundle + drop the row (terminal success) and skip the
         // re-POST entirely.
         val rec = "01JCOORDREC10XXXXXXXXXXXXX"
         val stuckRow = row(rec).apply {
@@ -1098,11 +983,10 @@ class UploadCoordinatorTest {
         val coord = coordinator()
         coord.drainNow()
 
-        // GET fired once; no /finalize POST; row moved to AWAITING_VERIFY.
+        // GET fired once; no /finalize POST; row dropped (terminal success).
         assertEquals("one GET /recordings/:id", 1, getRecordingCalls.get())
         assertEquals("zero /finalize", 0, finalizeCalls.get())
-        val back = store.read().first { it.recordingId == rec }
-        assertEquals(UploadState.AWAITING_VERIFY, back.state)
+        assertTrue("row dropped after the FINALIZING reconcile", store.read().none { it.recordingId == rec })
     }
 
     @Test
@@ -1130,9 +1014,8 @@ class UploadCoordinatorTest {
         // GET fired, then re-finalize POSTed.
         assertEquals(1, getRecordingCalls.get())
         assertEquals(1, finalizeCalls.get())
-        // Row moved through FINALIZING → AWAITING_VERIFY (the re-finalize succeeded).
-        val back = store.read().first { it.recordingId == rec }
-        assertEquals(UploadState.AWAITING_VERIFY, back.state)
+        // Row moved FINALIZING → finalize 200 → dropped (the re-finalize succeeded).
+        assertTrue("row dropped after the re-finalize succeeded", store.read().none { it.recordingId == rec })
     }
 
     @Test
@@ -1161,7 +1044,7 @@ class UploadCoordinatorTest {
         // ≈ 1500–2500 ms total elapsed). MUST be much less than 3 × 5 s = 15s.
         assertTrue("drain returned within reasonable time (was ${'$'}elapsedMs ms)", elapsedMs < 10_000L)
         assertTrue("at least one /finalize POST attempted", finalizeCalls.get() >= 1)
-        // Row stayed FINALIZING (not VERIFIED, not DEAD_LETTER) — the watchdog
+        // Row stayed FINALIZING (not dropped, not DEAD_LETTER) — the watchdog
         // surfaced as transient, the next drain will retry.
         val back = store.read().first { it.recordingId == rec }
         assertEquals(UploadState.FINALIZING, back.state)
@@ -1223,19 +1106,19 @@ class UploadCoordinatorTest {
         val ok = coord.retryNeedsAttention(rec)
         assertTrue("retry transitioned the row", ok)
 
-        val back = store.read().first { it.recordingId == rec }
         // The row was reset: state is UPLOADING (because uploadId is set, the
         // worker takes the /parts re-presign branch on the next tick), counter
         // is zero, failure markers cleared.
-        // (After drainNow runs, the row may have advanced further — but the
-        // pre-drain assertion is captured above by the synchronous transition.)
-        // The retry kicks drainNow(), so when we look the row may have already
-        // moved through UPLOADING → FINALIZING → AWAITING_VERIFY. We just check
-        // the failure markers are gone.
-        assertEquals(0, back.attemptCount)
-        assertNull(back.lastFailureState)
-        assertNull(back.lastFailureReason)
-        assertNotEquals(UploadState.NEEDS_ATTENTION, back.state)
+        // retry kicks an async drain(); by now the row may be mid-flight with markers
+        // reset OR already finalized + dropped (Enh 3 / D1). `ok == true` above already
+        // proves the synchronous reset out of NEEDS_ATTENTION.
+        val back = store.read().firstOrNull { it.recordingId == rec }
+        if (back != null) {
+            assertEquals(0, back.attemptCount)
+            assertNull(back.lastFailureState)
+            assertNull(back.lastFailureReason)
+            assertNotEquals(UploadState.NEEDS_ATTENTION, back.state)
+        }
     }
 
     @Test
@@ -1256,7 +1139,7 @@ class UploadCoordinatorTest {
     fun `Fix C item 1 — drainNow with parallelism=2 dispatches two rows concurrently`() {
         // Two rows in PENDING; the worker pool runs both in parallel. We can't
         // easily assert wall-clock overlap on Robolectric (no real network
-        // delay), but we CAN assert that BOTH rows progressed to AWAITING_VERIFY
+        // delay), but we CAN assert that BOTH rows drained + dropped
         // after a single drainNow() — which proves the loop visited both and
         // each ran end-to-end without a head-of-line lock.
         store.enqueue(row("01JCOORDREC16AXXXXXXXXXXXX"))
@@ -1266,11 +1149,8 @@ class UploadCoordinatorTest {
         val coord = coordinator(parallelismCap = 2)
         coord.drainNow()
 
-        val all = store.read()
-        assertEquals(2, all.size)
-        all.forEach { r ->
-            assertEquals("row ${'$'}{r.recordingId} drained end-to-end", UploadState.AWAITING_VERIFY, r.state)
-        }
+        // Both rows finalized 200 and were dropped (terminal success).
+        assertTrue("both rows drained end-to-end and were dropped", store.read().isEmpty())
         // Two /init + two /finalize POSTs — both rows got the full Pattern-1 flow.
         assertEquals(2, initCalls.get())
         assertEquals(2, finalizeCalls.get())

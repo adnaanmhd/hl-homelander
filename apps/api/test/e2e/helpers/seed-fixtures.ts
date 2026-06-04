@@ -16,10 +16,8 @@ import jwt from 'jsonwebtoken';
 import { db, schema } from '../../../src/db/index.js';
 
 export async function truncateTestTables(): Promise<void> {
-  // Order matters — child tables before parents. recordings_to_verify FKs
-  // recordings; recordings/consentLog/profiles FK users; idempotency_keys FKs
-  // users; events/feedback FK users.
-  await db.delete(schema.recordingsToVerify);
+  // Order matters — child tables before parents. recordings/consentLog/profiles
+  // FK users; idempotency_keys FKs users; events/feedback FK users.
   await db.delete(schema.recordings);
   await db.delete(schema.consentLog);
   await db.delete(schema.events);

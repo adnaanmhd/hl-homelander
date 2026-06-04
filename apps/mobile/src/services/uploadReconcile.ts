@@ -1,18 +1,22 @@
 // uploadReconcile — the app-launch / foreground reconciliation sweep (Plan
-// 05-08; VERIFY-06; 05-RESEARCH Pattern 4 + Pitfall 3). The convergent backstop
-// for a `verified` `_events` envelope that never arrived (the response that
-// would have carried it failed / the app was killed between the verify and the
-// next authed call): on cold start AND on each AppState→`active` rehydrate,
-// `GET /recordings/verified-ids?since=<cursor>` → for every verified id that
-// STILL has a local queue row → `HumynUpload.clearVerified([id])` (unlinks the
-// local mp4/csv/json + drops the row — UP-15) + mark the `${id}:verified` key
-// processed (so a later redelivered `_events` is a no-op) → store `next_cursor`
-// in the shared MMKV (D-STATE-01 — no new instance).
+// 05-08; 05-RESEARCH Pattern 4 + Pitfall 3). On cold start AND on each
+// AppState→`active` rehydrate it (1) drains stale queue rows and (2) runs the
+// terminal-success backstop.
+//
+// Enh 3 / D1 (2026-06-04): the hash-verify flow was removed. `uploaded` is the
+// terminal success state; the coordinator deletes the local bundle + drops the
+// queue row on /finalize 200. This sweep is now the convergent BACKSTOP for a
+// /finalize 200 that was applied server-side but never reached the device
+// (dropped response / kill between): `GET /recordings` (first page) → for every
+// recording the server reports at terminal success ('uploaded', or a legacy
+// 'verified') that STILL has a local queue row → `HumynUpload.clearUploaded([id])`
+// (unlinks the local mp4/csv/json + drops the row). (Replaces the removed
+// GET /recordings/verified-ids + `_events`/cursor machinery.)
 //
 // Safety:
-//   - The sweep only `clearVerified`s ids that BOTH appear in the server's
-//     `verified` set AND match a row in the local queue (the intersection) —
-//     a bogus id the app doesn't have is a no-op (T-5-08-06).
+//   - The sweep only `clearUploaded`s ids that BOTH appear in the server's
+//     terminal-success set AND match a row in the local queue (the intersection)
+//     — a bogus id the app doesn't have is a no-op (T-5-08-06).
 //   - The local path is recomputed natively from the recording's known
 //     location — never from the server payload (T-5-08-02).
 //   - Everything is try/catch-wrapped and swallows (next launch retries — like
@@ -32,13 +36,19 @@ import { secureMmkv } from '../state/mmkv';
 import { KEYS } from '../state/keys';
 import { apiClient } from './api';
 import { HumynUpload } from '../native/HumynUpload';
-import { markEventProcessed } from './recordingEvents';
 import { decodeGoogleSubFromJwt } from '../lib/jwtSub';
 import { useAppStore } from '../state/appStore';
 
-interface VerifiedIdsResponse {
-  ids: string[];
-  next_cursor: string | null;
+// Enh 3 / D1 (2026-06-04): the reconcile backstop now reads GET /recordings (the
+// canonical list) instead of the removed GET /recordings/verified-ids. A row the
+// server reports at terminal-success ('uploaded', or a legacy 'verified') that
+// still has a local queue row gets its local bundle cleared.
+interface RecordingsListItemLite {
+  recording_id: string;
+  qa_status: 'pending' | 'uploaded' | 'verified' | 'hash-mismatch' | 'rejected';
+}
+interface RecordingsListResponseLite {
+  items: RecordingsListItemLite[];
 }
 
 /**
@@ -107,12 +117,21 @@ export async function reconcileOnce(): Promise<number> {
     /* boot-safe — never crash the reconcile sweep over a queue read */
   }
   try {
-    const since = secureMmkv.getString(KEYS.UPLOAD_RECONCILE_CURSOR);
-    const resp = await apiClient.get<VerifiedIdsResponse>('/recordings/verified-ids', {
-      ...(since ? { query: { since } } : {}),
+    // Backstop (Enh 3 / D1 §9): the coordinator deletes the local bundle on
+    // /finalize 200, but if that 200 was applied server-side yet never reached
+    // the device (dropped response / kill between), the local row + files can
+    // linger. Read the server's recordings and clear any local row the server
+    // already reports at terminal success ('uploaded', or a legacy 'verified').
+    // First page only (limit 100) — best-effort, no pagination storm. (Replaces
+    // the removed GET /recordings/verified-ids sweep.)
+    const resp = await apiClient.get<RecordingsListResponseLite>('/recordings', {
+      query: { limit: '100' },
     });
-    if (resp == null || !Array.isArray(resp.ids)) return 0;
-    const verifiedIds = resp.ids.filter((v): v is string => typeof v === 'string');
+    if (resp == null || !Array.isArray(resp.items)) return 0;
+    const terminalSuccessIds = resp.items
+      .filter((it) => it.qa_status === 'uploaded' || it.qa_status === 'verified')
+      .map((it) => it.recording_id)
+      .filter((id): id is string => typeof id === 'string');
     // Only act on ids the app actually has queued locally (the intersection).
     let queue: { recordingId: string }[] = [];
     try {
@@ -121,23 +140,13 @@ export async function reconcileOnce(): Promise<number> {
       queue = [];
     }
     const queuedIds = new Set(queue.map((r) => r.recordingId));
-    const stale = verifiedIds.filter((id) => queuedIds.has(id));
+    const stale = terminalSuccessIds.filter((id) => queuedIds.has(id));
     if (stale.length > 0) {
       try {
-        await HumynUpload.clearVerified(stale);
+        await HumynUpload.clearUploaded(stale);
       } catch {
-        /* no native module / transient — the next sweep retries; don't advance cursor below */
+        /* no native module / transient — the next sweep retries */
       }
-      for (const id of stale) {
-        try {
-          markEventProcessed(id, 'verified');
-        } catch {
-          /* MMKV write hiccup — non-fatal */
-        }
-      }
-    }
-    if (resp.next_cursor != null && typeof resp.next_cursor === 'string') {
-      secureMmkv.set(KEYS.UPLOAD_RECONCILE_CURSOR, resp.next_cursor);
     }
     return stale.length;
   } catch {

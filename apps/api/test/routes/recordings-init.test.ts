@@ -45,7 +45,6 @@ beforeAll(async () => {
   );
 });
 afterAll(async () => {
-  await db.delete(schema.recordingsToVerify);
   await db.delete(schema.recordings).where(eq(schema.recordings.userId, TEST_USER_ID));
   await db.delete(schema.idempotencyKeys).where(eq(schema.idempotencyKeys.userId, TEST_USER_ID));
   await db.delete(schema.users).where(eq(schema.users.id, TEST_USER_ID));
@@ -59,8 +58,6 @@ const baseBody = (recordingId: string): Record<string, unknown> => ({
   practice: false,
   partsCount: 2,
   durationMs: 60000,
-  fileSha256: 'a'.repeat(64),
-  imuSha256: 'b'.repeat(64),
   fileSizeBytes: 1024 * 1024,
   imuSizeBytes: 16 * 1024,
   capturedAt: new Date().toISOString(),

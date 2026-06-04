@@ -17,9 +17,10 @@ import java.io.File
  * Plan 03-06 — flips the Wave 0 stub for CAP-16 to GREEN.
  *
  * Tests `MetadataComposer.compose()` output:
- *   1. `schema_version == "1.1.0"` (D-IMU-02 bump from 1.0.0).
+ *   1. `schema_version == "1.4.0"` (Enh 3 / D1 bump from 1.3.0 — drops
+ *      `metadata.file_sha256` / `metadata.imu_sha256`; all upload hashing gone).
  *   2. Top-level + nested key set EQUALS the canonical
- *      `video_metadata_v1_1_0_template.json` fixture (T-3.5-01: schema-creep
+ *      `video_metadata_v1_4_0_template.json` fixture (T-3.5-01: schema-creep
  *      detection — adding a metadata field without bumping schema_version
  *      fails this assertion at PR time).
  *   3. `imu_min_rate_hz_observed_p1` is the only new field vs schema 1.0.0.
@@ -84,8 +85,6 @@ class MetadataSchemaConformanceTest {
     )
 
     private fun fixtureMetrics() = MetadataComposer.FinalizeMetrics(
-        mp4Sha = "9af2b5a1c0d8e7f63b1c4d2a89e0fd71b3a4c5d6e7f80912a3b4c5d6e7f8c1e4",
-        csvSha = "3c7e1f8b6a5d4c2e90b7a3c1d5e4f8a692bc34d56e78f90a1b2c3d4e5f6a792ab",
         mp4SizeBytes = 4_402_341_478L,
         csvSizeBytes = 218_914L,
         drift = MetadataComposer.Drift(maxMs = 0.7, meanMs = 0.18, p99Ms = 0.5, warmupFramesSkipped = 150),
@@ -125,8 +124,8 @@ class MetadataSchemaConformanceTest {
 
     private fun loadTemplate(): JSONObject {
         val stream = javaClass.classLoader!!
-            .getResourceAsStream("video_metadata_v1_3_0_template.json")
-            ?: error("video_metadata_v1_3_0_template.json fixture not on classpath")
+            .getResourceAsStream("video_metadata_v1_4_0_template.json")
+            ?: error("video_metadata_v1_4_0_template.json fixture not on classpath")
         return JSONObject(stream.bufferedReader().use { it.readText() })
     }
 
@@ -143,9 +142,9 @@ class MetadataSchemaConformanceTest {
     }
 
     @Test
-    fun `composer output schema_version is 1_3_0`() {
+    fun `composer output schema_version is 1_4_0`() {
         val out = MetadataComposer.compose(fixtureSidecar(), fixtureMetrics())
-        assertEquals("1.3.0", out.getString("schema_version"))
+        assertEquals("1.4.0", out.getString("schema_version"))
     }
 
     @Test
@@ -153,7 +152,7 @@ class MetadataSchemaConformanceTest {
         val out = MetadataComposer.compose(fixtureSidecar(), fixtureMetrics())
         val template = loadTemplate()
         assertEquals(
-            "Composer key set must equal the schema-1.3.0 template key set " +
+            "Composer key set must equal the schema-1.4.0 template key set " +
                 "(T-3.5-01: schema-creep guard). Includes the additive top-level " +
                 "`calibration` block (camera + cam_imu_extrinsics) — quick 260522-elm.",
             keySet(template),
@@ -367,7 +366,7 @@ class MetadataSchemaConformanceTest {
         assertFalse(".partial residue must NOT exist after a clean write", partial.exists())
         // Round-trip parse — file is valid JSON with the bumped schema_version.
         val reloaded = JSONObject(target.readText())
-        assertEquals("1.3.0", reloaded.getString("schema_version"))
+        assertEquals("1.4.0", reloaded.getString("schema_version"))
         assertNotNull(reloaded.getJSONObject("metadata"))
         assertNotNull(reloaded.getJSONObject("calibration"))
     }

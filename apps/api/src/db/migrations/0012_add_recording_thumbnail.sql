@@ -1,0 +1,11 @@
+-- Bug 6 / D5 (2026-06-04) — cross-device History thumbnails.
+--
+-- The poster JPEG is generated server-side at POST /recordings/:id/finalize
+-- (ffmpeg seeks ~1s into the assembled MP4) and stored at
+-- recordings/{userId}/{recordingId}/thumb.jpg. This column holds that S3 key.
+--
+-- Nullable + best-effort: generation never blocks finalize, so legacy rows and
+-- rows whose ffmpeg extraction failed (unreadable bytes / ffmpeg absent / a
+-- timeout) carry NULL. The client then falls back to its local MMKV thumbnail
+-- ledger entry, and finally to the gradient + first-letter placeholder.
+ALTER TABLE recordings ADD COLUMN IF NOT EXISTS s3_key_thumbnail text;

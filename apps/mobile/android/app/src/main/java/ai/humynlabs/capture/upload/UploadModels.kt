@@ -72,8 +72,6 @@ enum class UploadState {
     PENDING,
     UPLOADING,
     FINALIZING,
-    AWAITING_VERIFY,
-    VERIFIED,
     DEAD_LETTER,
     NEEDS_ATTENTION,
 }
@@ -112,13 +110,13 @@ data class PartState(
 
 /**
  * One upload-queue row — the durable record of "this recording's bundle
- * (MP4 + IMU CSV + metadata JSON) needs to reach S3 and be hash-verified".
+ * (MP4 + IMU CSV + metadata JSON) needs to reach S3".
  *
  * `ownerUserId` is the signed-in `sub` at the time the recording was finalized
  * — `UploadQueueStore.bootstrap(currentSub)` only resumes rows whose
  * `ownerUserId == currentSub` (UP-13 cross-account guard on a shared phone).
  *
- * `{init,parts,finalize,reupload}IdempotencyKey` are four PER-ROUTE stable
+ * `{init,parts,finalize}IdempotencyKey` are three PER-ROUTE stable
  * UUIDv4s minted ONCE at row construction. Each is sent as the
  * `Idempotency-Key` header on every retry of ITS OWN route — the server's
  * global idempotency pre-handler (`apps/api/src/plugins/idempotency.ts`)
@@ -153,14 +151,6 @@ data class UploadRow(
     var lastProgressAt: Long = System.currentTimeMillis(),
     var deadLetterReason: String? = null,
     /**
-     * `true` once a server `hash-mismatch` event (Plan 05-08) flags this row for
-     * a re-upload — `UploadCoordinator` then calls `POST /recordings/:id/reupload`
-     * (re-using the recordings row) instead of `POST /recordings/init`. Cleared
-     * when the re-upload finishes (the row goes `AWAITING_VERIFY` again). At
-     * Plan-05-06 nothing sets it; it's the seam Plan 05-08 wires.
-     */
-    var reupload: Boolean = false,
-    /**
      * Stable UUIDv4 sent as `Idempotency-Key` on every `POST /recordings/init`
      * for this row. Minted once at construction; reused only across retries of
      * THIS route within ONE upload session. Per-route split (not a single
@@ -170,13 +160,6 @@ data class UploadRow(
      * every (key,body) pair stable. Fix surfaces Wave-1.5 Item 1, see
      * 05-COSMETIC-GAPS.md + the 2026-05-13 walk log (recording
      * `01KRFZ91Y3E315AJVG75KXJZE6`).
-     *
-     * Rotated at the hash-mismatch boundary by `HumynUploadModule.reupload()`'s
-     * Path-A `else ->` branch (worker-fired re-upload). A hash-mismatch
-     * re-upload is logically a NEW upload session for /init/parts/finalize even
-     * though it shares the queue row — same key + different (uploadId, parts)
-     * body would 409 in the server's pre-handler. See debug session
-     * `.planning/debug/reupload-finalize-409.md` (2026-05-13).
      */
     var initIdempotencyKey: String = UUID.randomUUID().toString(),
     /**
@@ -191,18 +174,6 @@ data class UploadRow(
      * across retries of THIS route. See [initIdempotencyKey] for the rationale.
      */
     var finalizeIdempotencyKey: String = UUID.randomUUID().toString(),
-    /**
-     * Stable UUIDv4 sent as `Idempotency-Key` on every
-     * `POST /recordings/:id/reupload`. Minted once at construction; reused only
-     * across retries of THIS route. See [initIdempotencyKey] for the rationale.
-     *
-     * Asymmetry vs init/parts/finalize: this key is NOT rotated at the
-     * hash-mismatch boundary. `/reupload` is one-shot per re-upload cycle and
-     * the body is `{partsCount}` only — a replay with the same key + same body
-     * is correct idempotent behavior (the server returns the cached 200 +
-     * presigned URLs). See `HumynUploadModule.reupload()` Path-A.
-     */
-    var reuploadIdempotencyKey: String = UUID.randomUUID().toString(),
     /**
      * Quick task 260517-p5g CAPTURE-QA-04 — when set to a non-null code,
      * marks this row as a CANCELED segment that must NEVER be uploaded.
@@ -305,11 +276,9 @@ data class UploadRow(
         put("enqueuedAt", enqueuedAt)
         put("lastProgressAt", lastProgressAt)
         if (deadLetterReason != null) put("deadLetterReason", deadLetterReason)
-        if (reupload) put("reupload", true)
         put("initIdempotencyKey", initIdempotencyKey)
         put("partsIdempotencyKey", partsIdempotencyKey)
         put("finalizeIdempotencyKey", finalizeIdempotencyKey)
-        put("reuploadIdempotencyKey", reuploadIdempotencyKey)
         // Quick task 260517-p5g CAPTURE-QA-04 — only persist when set; a
         // null cancelReason is the common case and we don't bloat queue.json
         // on every non-canceled row.
@@ -369,7 +338,6 @@ data class UploadRow(
             val initKey = readOrMint("initIdempotencyKey")
             val partsKey = readOrMint("partsIdempotencyKey")
             val finalizeKey = readOrMint("finalizeIdempotencyKey")
-            val reuploadKey = readOrMint("reuploadIdempotencyKey")
             val row = UploadRow(
                 recordingId = recordingId,
                 ownerUserId = o.optString("ownerUserId", ""),
@@ -395,11 +363,9 @@ data class UploadRow(
                 } else {
                     null
                 },
-                reupload = o.optBoolean("reupload", false),
                 initIdempotencyKey = initKey,
                 partsIdempotencyKey = partsKey,
                 finalizeIdempotencyKey = finalizeKey,
-                reuploadIdempotencyKey = reuploadKey,
                 // Quick task 260517-p5g CAPTURE-QA-04 — backward-compatible
                 // load: legacy rows on disk that pre-date this field deserialize
                 // with cancelReason=null (the common case for non-canceled rows).

@@ -28,18 +28,17 @@
 // `reupload` (different transition rules — see HumynUploadModule.kt).
 // This file is render-only; the screen owns the dispatch.
 //
-// Chip-variant mapping (UI-SPEC §13 — five conceptual variants:
-// `chip-success` / `chip-progress` / `chip-failed` / `chip-verifying` /
-// `chip-paused-no-wifi`). The existing Phase 5 `UploadStatusChip.tsx` ships
-// the four base variants plus the `paused-offline` variant added for HOME-10;
-// `chipVariant()` below converts an `RecordingsListItem.qa_status` (+ the
-// device's `offline` signal) to the underlying chip identifier.
+// Chip-variant mapping (UI-SPEC §13). Enh 3 / D1 (2026-06-04) collapsed the
+// verify step, so `chip-verifying` is gone and `uploaded` is terminal success.
+// Conceptual variants now: `chip-success` / `chip-progress` / `chip-failed` /
+// `chip-paused-no-wifi`. `chipVariant()` below converts an
+// `RecordingsListItem.qa_status` (+ the device's `offline` signal) to the chip:
 //
-//   qa_status === 'verified'                                       → chip-success
-//   qa_status === 'hash-mismatch' OR 'rejected'                    → chip-failed
-//   offline === true AND qa_status ∈ {pending,uploaded}            → chip-paused-no-wifi
-//   qa_status === 'pending' OR 'uploaded' (online)                 → chip-progress
-//   default                                                        → chip-progress
+//   qa_status === 'uploaded' (terminal success) OR legacy 'verified' → chip-success
+//   qa_status === 'hash-mismatch' (legacy) OR 'rejected'             → chip-failed
+//   offline === true AND qa_status === 'pending'                     → chip-paused-no-wifi
+//   qa_status === 'pending' (online)                                 → chip-progress
+//   default                                                          → chip-progress
 //
 // The five conceptual identifiers are kept verbatim in this file (a
 // `CHIP_VARIANT_*` constant array) so the plan-level grep validation finds
@@ -68,14 +67,15 @@ import { UploadStatusChip, type UploadStatusChipVariant } from './UploadStatusCh
  * verbatim in this file (`chip-success`, `chip-progress`, etc.).
  *
  * The runtime `<UploadStatusChip>` consumes the BASE variant names
- * (`success` / `progress` / `failed` / `verifying` / `paused-offline`) —
+ * (`success` / `progress` / `failed` / `paused-offline`) —
  * the mapping is done by `toBaseChipVariant()` below.
  */
+// (Enh 3 / D1, 2026-06-04: 'chip-verifying' removed — there is no verify step;
+// 'uploaded' is terminal success → chip-success.)
 export const CHIP_VARIANTS = [
   'chip-success',
   'chip-progress',
   'chip-failed',
-  'chip-verifying',
   'chip-paused-no-wifi',
 ] as const;
 export type HistoryChipVariant = (typeof CHIP_VARIANTS)[number];
@@ -112,6 +112,13 @@ export interface HistoryRowItem {
   createdAt: string;
   /** Server `qa_status` (excluding 'takedown' — filtered out at the DB layer). */
   qaStatus: 'pending' | 'uploaded' | 'verified' | 'hash-mismatch' | 'rejected';
+  /**
+   * Bug 6 / D5 — short-TTL signed URL for the SERVER-generated poster JPEG
+   * (server `thumbnail_url`). The cross-device fallback: used when this device
+   * has no local ledger thumbnail (a recording made on another device, or after
+   * a reinstall). Null/absent → gradient + first-letter placeholder.
+   */
+  thumbnailUrl?: string | null;
   /** Wall-clock at successful verify (server-side, for the "Uploaded at HH:MM" chip label). */
   verifiedAtIso?: string | null;
   /**
@@ -151,7 +158,7 @@ export type HistoryRowDeviceState =
   | 'pending'
   | 'uploading'
   | 'finalizing'
-  | 'awaiting-verify'
+  // (Enh 3 / D1: 'awaiting-verify' removed — the row is deleted on /finalize 200.)
   | 'dead-letter'
   | 'needs-attention';
 
@@ -220,14 +227,15 @@ export function chipVariant(
     // dead-letter (both are "Upload failed" shapes with a Retry affordance);
     // the screen's retry handler dispatches by inspecting the deviceState.
     if (deviceState === 'dead-letter' || deviceState === 'needs-attention') return 'chip-failed';
-    if (deviceState === 'awaiting-verify') return 'chip-verifying';
     if (offline) return 'chip-paused-no-wifi';
     return 'chip-progress'; // pending / uploading / finalizing
   }
-  if (qa === 'verified') return 'chip-success';
+  // Enh 3 / D1 (2026-06-04): 'uploaded' is terminal success now → chip-success
+  // (legacy 'verified' rows are the same success). Only 'pending' is in-flight.
+  if (qa === 'uploaded' || qa === 'verified') return 'chip-success';
   if (qa === 'hash-mismatch' || qa === 'rejected') return 'chip-failed';
-  if (offline && (qa === 'pending' || qa === 'uploaded')) return 'chip-paused-no-wifi';
-  if (qa === 'pending' || qa === 'uploaded') return 'chip-progress';
+  if (offline && qa === 'pending') return 'chip-paused-no-wifi';
+  if (qa === 'pending') return 'chip-progress';
   return 'chip-progress';
 }
 
@@ -256,8 +264,6 @@ function toBaseChipVariant(v: HistoryChipVariant): UploadStatusChipVariant {
       return 'progress';
     case 'chip-failed':
       return 'failed';
-    case 'chip-verifying':
-      return 'verifying';
     case 'chip-paused-no-wifi':
       return 'paused-offline';
   }
@@ -351,8 +357,7 @@ export function HistoryRow({
   const showFailedRetry = !isCanceled && variant === 'chip-failed';
   const showCanceledLabel = isCanceled;
   const showPausedNoWifi = !isCanceled && variant === 'chip-paused-no-wifi';
-  const showInProgress =
-    !isCanceled && (variant === 'chip-progress' || variant === 'chip-verifying');
+  const showInProgress = !isCanceled && variant === 'chip-progress';
 
   const firstLetter = (localizedTaskName || '?').slice(0, 1).toUpperCase();
 
@@ -370,13 +375,21 @@ export function HistoryRow({
       onPress={() => onTap(row)}
       style={styles.row}
     >
-      {/* 64×64 thumbnail — local JPEG when present (D-05), gradient + first-letter
-          fallback when missing (D-04). The `thumbnailPath` field on the ledger
-          entry may be null when the native extractor failed (best-effort). */}
+      {/* 64×64 thumbnail — preference order: (1) local MMKV ledger JPEG (D-05,
+          fastest, this device captured it); (2) Bug 6 / D5 server poster JPEG via
+          signed URL (cross-device — another device / post-reinstall); (3) gradient
+          + first-letter placeholder (D-04). `thumbnailPath` may be null when the
+          native extractor failed (best-effort), in which case we try the remote. */}
       {ledgerEntry?.thumbnailPath ? (
         <Image
           accessibilityLabel="history-row-thumb"
           source={{ uri: `file://${ledgerEntry.thumbnailPath}` }}
+          style={styles.thumb}
+        />
+      ) : row.thumbnailUrl ? (
+        <Image
+          accessibilityLabel="history-row-thumb-remote"
+          source={{ uri: row.thumbnailUrl }}
           style={styles.thumb}
         />
       ) : (

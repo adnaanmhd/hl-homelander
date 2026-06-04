@@ -213,7 +213,7 @@ describe('HomeSkeletonScreen', () => {
   });
 
   it('does NOT render the tile progress bar for non-uploading rows', async () => {
-    mockQueue.rows = [row({ recordingId: 'rec1', state: 'awaiting-verify' })];
+    mockQueue.rows = [row({ recordingId: 'rec1', state: 'finalizing' })];
     const { findByLabelText, queryByLabelText } = render(<HomeSkeletonScreen />);
     await findByLabelText('pending-uploads-tile-row');
     // Even firing a progress event has no effect — the row's state isn't 'uploading'.

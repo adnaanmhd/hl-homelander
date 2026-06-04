@@ -80,22 +80,20 @@ function chipVariantFor(row: UploadQueueRow, offline: boolean): UploadStatusChip
     (row.state === 'pending' || row.state === 'uploading' || row.state === 'finalizing')
   )
     return 'paused-offline';
+  // Enh 3 / D1 (2026-06-04): no 'awaiting-verify' / 'verified' states — a row that
+  // reached terminal success is deleted from the queue on /finalize 200.
   switch (row.state) {
     case 'uploading':
     case 'finalizing':
     case 'pending':
       return 'progress';
-    case 'awaiting-verify':
-      return 'verifying';
     case 'dead-letter':
     case 'needs-attention':
       // Debug session `.planning/debug/upload-queue-hol-finalizing.md`
       // (Fix C item 4) — both terminal-blocking states render the same
       // chip-failed visual; the retry handler dispatches different native
-      // methods (reupload vs retryNeedsAttention) per `onRetry`.
+      // methods (reviveDeadLetter vs retryNeedsAttention) per `onRetry`.
       return 'failed';
-    case 'verified':
-      return 'success';
     default:
       return 'progress';
   }
@@ -171,14 +169,16 @@ export default function PendingUploadsScreen({
     //     reset attemptCount + transition to UPLOADING/PENDING via
     //     HumynUpload.retryNeedsAttention. The coordinator's automatic
     //     drain loop picks the row up again.
-    //   - 'dead-letter' OR anything else: UP-16 — flip the row's re-upload
-    //     state natively; the coordinator re-PUTs from the still-present
-    //     local copy via POST /recordings/:id/reupload.
+    //   - 'dead-letter' OR anything else: re-enter the drain loop via
+    //     HumynUpload.reviveDeadLetterSafe() — re-PUTs from the still-present
+    //     local copy via /parts (preserving DONE ETags) or the idempotent /init
+    //     self-heal, then /finalize. (Enh 3 / D1, 2026-06-04: the old
+    //     reupload() → POST /recordings/:id/reupload path was removed.)
     if (deviceState === 'needs-attention') {
       void HumynUpload.retryNeedsAttentionSafe(recordingId);
       return;
     }
-    HumynUpload.reupload(recordingId).catch(() => undefined);
+    void HumynUpload.reviveDeadLetterSafe(recordingId);
   }, []);
 
   const renderRow = useCallback(

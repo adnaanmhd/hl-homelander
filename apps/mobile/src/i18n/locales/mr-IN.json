@@ -186,7 +186,6 @@
   },
   "uploadChip": {
     "uploading": "अपलोड होतंय…",
-    "verifying": "अपलोड झालं — तपासतोय…",
     "failed": "अपलोड झालं नाही",
     "success": "✓ अपलोड झालं",
     "pausedOffline": "थांबवलंय — वायफाय नाही"

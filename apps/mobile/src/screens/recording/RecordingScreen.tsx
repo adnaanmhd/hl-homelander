@@ -783,14 +783,23 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
     });
     const completeSub = HumynCapture.onSegmentComplete((e) => {
       segMetaRef.current = { ...segMetaRef.current, recordingId: e.recordingId };
-      if (isPractice || taskId === '__practice__') return; // D-08 — practice never uploads
+      // Bug 9 (260604) — bind the upload's task to the SEGMENT, not the render
+      // closure. `e.taskId` is copied from the sidecar at capture-start, so a
+      // late segment-complete (e.g. the final auto-segment finalizing after the
+      // user re-entered the Recording route for a different task) enqueues under
+      // the task it was actually recorded under. Fall back to the closure only
+      // for older native builds that omit the field (empty string).
+      const segmentTaskId = e.taskId || taskId;
+      // D-08 — practice never uploads (guard on the screen mode AND the
+      // segment's own task, so a stray practice segment can't slip through).
+      if (isPractice || segmentTaskId === '__practice__') return;
       try {
         void HumynUpload.enqueue(
           e.recordingId,
           e.mp4Path,
           e.csvPath,
           e.jsonPath,
-          taskId,
+          segmentTaskId,
           /* isPractice= */ false,
           ownerSubRef.current,
         ).catch(() => undefined);
@@ -974,8 +983,21 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
           / onRemoveTarget swap code stays as defense for any edge case where
           the view does remount, but on the common path it now fires exactly
           once. */}
-      {state.substate === 'active' && isLivePreviewAvailable() ? (
+      {/* Bug 2 fix (260604): keep the preview mounted through 'stop-confirm'
+          too. Pressing (x) → 'stop-confirm' (recording is STILL running); the
+          StopConfirmModal renders on top. Previously this gate unmounted the
+          preview on entering 'stop-confirm', so "Keep recording"
+          (STOP_CONFIRM_CANCEL → 'active') remounted a FRESH SurfaceTexture that
+          failed to re-attach to the live Camera2 session ("Surface was
+          abandoned") → black preview. Spanning both substates keeps the one
+          SurfaceTexture attached for the whole recording. Mirrors the Stop-row
+          gate below (`active || stop-confirm`). The modal scrim hides the
+          preview during the confirm, so opacity/brightness behaviour is
+          unchanged. */}
+      {(state.substate === 'active' || state.substate === 'stop-confirm') &&
+      isLivePreviewAvailable() ? (
         <HumynLivePreviewView
+          accessibilityLabel="recording-live-preview"
           style={{
             ...StyleSheet.absoluteFillObject,
             opacity: brightnessState === 'dimmed' ? 0 : 1,

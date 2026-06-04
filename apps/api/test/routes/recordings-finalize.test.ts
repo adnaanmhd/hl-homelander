@@ -11,7 +11,6 @@ import {
   AbortMultipartUploadCommand,
 } from '@aws-sdk/client-s3';
 import { db, schema } from '../../src/db/index.js';
-import { getQueue, getRedisConnection } from '../../src/lib/queue.js';
 import { buildApp } from '../../src/app.js';
 
 const TEST_USER_ID = '01HVTREC3000000000000000US';
@@ -63,24 +62,11 @@ beforeAll(async () => {
   );
 });
 afterAll(async () => {
-  await db.delete(schema.recordingsToVerify);
   await db.delete(schema.recordings).where(eq(schema.recordings.userId, TEST_USER_ID));
   await db.delete(schema.idempotencyKeys).where(eq(schema.idempotencyKeys.userId, TEST_USER_ID));
   await db.delete(schema.users).where(eq(schema.users.id, TEST_USER_ID));
   await db.delete(schema.tasks).where(eq(schema.tasks.id, TEST_TASK_ID));
   await app.close();
-  // /finalize's LocalStack dev shim opens the BullMQ queue + ioredis singleton
-  // (Plan 05-05) — close them so the test process exits cleanly.
-  try {
-    await getQueue().close();
-  } catch {
-    /* not opened */
-  }
-  try {
-    getRedisConnection().disconnect();
-  } catch {
-    /* not opened */
-  }
 });
 
 // --- helpers -------------------------------------------------------------
@@ -119,8 +105,6 @@ async function insertPendingRow(args: {
     practice: false,
     qaStatus: args.qaStatus ?? 'pending',
     durationMs: 1000,
-    fileSha256: 'a'.repeat(64),
-    imuSha256: 'b'.repeat(64),
     fileSizeBytes: 5 * 1024 * 1024,
     imuSizeBytes: 1024,
     s3KeyVideo: args.videoKey,
@@ -137,7 +121,7 @@ const FAKE_PART_BYTES = Buffer.alloc(5 * 1024 * 1024, 'x');
 const FAKE_IMU_BYTES = Buffer.alloc(1024, 'y');
 
 describe('POST /recordings/:id/finalize', () => {
-  it('completes multipart upload + transitions state to uploaded + enqueues for Phase 5', async () => {
+  it('completes multipart upload + transitions state to uploaded (terminal)', async () => {
     const recordingId = ulid();
     const videoKey = `recordings/${TEST_USER_ID}/${recordingId}/video.mp4`;
     const imuKey = `recordings/${TEST_USER_ID}/${recordingId}/imu.csv`;
@@ -161,14 +145,9 @@ describe('POST /recordings/:id/finalize', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().qaStatus).toBe('uploaded');
-    const queued = await db
-      .select()
-      .from(schema.recordingsToVerify)
-      .where(eq(schema.recordingsToVerify.recordingId, recordingId));
-    expect(queued).toHaveLength(1);
   }, 60_000);
 
-  it('retry after the video multipart was already completed → 200 + uploaded + verify-queue row (idempotent)', async () => {
+  it('retry after the video multipart was already completed → 200 + uploaded (idempotent)', async () => {
     const recordingId = ulid();
     const videoKey = `recordings/${TEST_USER_ID}/${recordingId}/video.mp4`;
     const imuKey = `recordings/${TEST_USER_ID}/${recordingId}/imu.csv`;
@@ -203,11 +182,6 @@ describe('POST /recordings/:id/finalize', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().qaStatus).toBe('uploaded');
-    const queued = await db
-      .select()
-      .from(schema.recordingsToVerify)
-      .where(eq(schema.recordingsToVerify.recordingId, recordingId));
-    expect(queued).toHaveLength(1);
   }, 60_000);
 
   it('retry where the video object is also gone (multipart aborted) → propagates, row stays pending', async () => {
@@ -293,8 +267,6 @@ describe('POST /recordings/:id/finalize', () => {
       practice: false,
       qaStatus: 'verified',
       durationMs: 1000,
-      fileSha256: 'a'.repeat(64),
-      imuSha256: 'b'.repeat(64),
       fileSizeBytes: 1024,
       imuSizeBytes: 64,
       s3KeyVideo: videoKey,
@@ -302,7 +274,6 @@ describe('POST /recordings/:id/finalize', () => {
       s3KeyMetadata: `recordings/${TEST_USER_ID}/${recordingId}/metadata.json`,
       capturedAt: new Date(),
       flavor: 'playStore',
-      verifiedAt: new Date(),
       s3UploadId: 'whatever',
       partsCount: 1,
     });

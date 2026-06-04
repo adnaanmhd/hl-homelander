@@ -1,19 +1,19 @@
 // uploadReconcile — the app-launch / foreground reconciliation sweep (Plan
-// 05-08; VERIFY-06).
+// 05-08; Enh 3 / D1 backstop).
 //
 // Coverage:
-//   - GET /recordings/verified-ids returns ids that overlap the local queue →
-//     HumynUpload.clearVerified called with the overlap + the cursor stored +
-//     each id marked processed
+//   - GET /recordings returns rows at terminal success that overlap the local
+//     queue → HumynUpload.clearUploaded called with the overlap (Enh 3 / D1
+//     backstop — replaces the removed GET /recordings/verified-ids sweep)
 //   - an empty result → no-op, cursor unchanged
 //   - a network error → swallowed, cursor unchanged, returns 0
-//   - a verified id NOT in the local queue → no clearVerified (the intersection)
+//   - a verified id NOT in the local queue → no clearUploaded (the intersection)
 //   - the AppState→active re-fire triggers another reconcileOnce
 //   - installUploadReconcile pushes the auth context (setUploadContextSafe) on
 //     boot + resumes on a jwt change
 //
 // Mocking: `../../src/services/api` (the authed GET), `../../src/native/HumynUpload`
-// (getQueueSafe / clearVerified / resume / pause / setUploadContextSafe). The
+// (getQueueSafe / clearUploaded / resume / pause / setUploadContextSafe). The
 // shared MMKV singleton + `react-native-config` + `react-native`'s AppState are
 // the vitest.setup.ts stubs; we capture the AppState listener via a per-test
 // override of `react-native`'s AppState.addEventListener. `appStore` is the real
@@ -27,7 +27,7 @@ const { hooks, appStateListeners } = vi.hoisted(() => ({
   hooks: {
     apiGet: vi.fn(),
     getQueueSafe: vi.fn(),
-    clearVerified: vi.fn().mockResolvedValue(undefined),
+    clearUploaded: vi.fn().mockResolvedValue(undefined),
     resume: vi.fn().mockResolvedValue(undefined),
     pause: vi.fn().mockResolvedValue(undefined),
     setUploadContextSafe: vi.fn().mockResolvedValue(undefined),
@@ -43,7 +43,7 @@ vi.mock('../../src/services/api', () => ({
 vi.mock('../../src/native/HumynUpload', () => ({
   HumynUpload: {
     getQueueSafe: hooks.getQueueSafe,
-    clearVerified: hooks.clearVerified,
+    clearUploaded: hooks.clearUploaded,
     resume: hooks.resume,
     pause: hooks.pause,
     setUploadContextSafe: hooks.setUploadContextSafe,
@@ -73,7 +73,7 @@ describe('uploadReconcile (Plan 05-08 — VERIFY-06)', () => {
     secureMmkv.remove(KEYS.AUTH_JWT);
     appStateListeners.length = 0;
     Object.values(hooks).forEach((h) => h.mockReset());
-    hooks.clearVerified.mockResolvedValue(undefined);
+    hooks.clearUploaded.mockResolvedValue(undefined);
     hooks.resume.mockResolvedValue(undefined);
     hooks.pause.mockResolvedValue(undefined);
     hooks.setUploadContextSafe.mockResolvedValue(undefined);
@@ -93,55 +93,66 @@ describe('uploadReconcile (Plan 05-08 — VERIFY-06)', () => {
     useAppStore.setState({ jwt: null });
   });
 
-  it('clearVerified()s the queue∩verified intersection + stores the next cursor + marks processed', async () => {
+  it('clearUploaded()s the queue ∩ server-terminal-success intersection', async () => {
+    // Enh 3 / D1 (2026-06-04): backstop reads GET /recordings and clears local
+    // rows the server already reports at terminal success ('uploaded' / legacy
+    // 'verified'). R1=uploaded + R3=verified are in the queue → cleared; OTHER is
+    // server-only; R2 is queued but still pending server-side → kept.
     hooks.getQueueSafe.mockResolvedValue([queueRow('R1'), queueRow('R2'), queueRow('R3')]);
-    hooks.apiGet.mockResolvedValue({ ids: ['R1', 'R3', 'OTHER'], next_cursor: 'cursor-42' });
+    hooks.apiGet.mockResolvedValue({
+      items: [
+        { recording_id: 'R1', qa_status: 'uploaded' },
+        { recording_id: 'R2', qa_status: 'pending' },
+        { recording_id: 'R3', qa_status: 'verified' },
+        { recording_id: 'OTHER', qa_status: 'uploaded' },
+      ],
+    });
     const cleared = await reconcileOnce();
     expect(cleared).toBe(2);
-    expect(hooks.clearVerified).toHaveBeenCalledWith(['R1', 'R3']);
-    expect(secureMmkv.getString(KEYS.UPLOAD_RECONCILE_CURSOR)).toBe('cursor-42');
-    const processed = JSON.parse(
-      secureMmkv.getString(KEYS.UPLOAD_PROCESSED_EVENTS) ?? '[]',
-    ) as string[];
-    expect(processed).toEqual(expect.arrayContaining(['R1:verified', 'R3:verified']));
+    expect(hooks.clearUploaded).toHaveBeenCalledWith(['R1', 'R3']);
   });
 
-  it('passes the stored cursor as ?since= on a subsequent sweep', async () => {
-    secureMmkv.set(KEYS.UPLOAD_RECONCILE_CURSOR, 'cursor-prev');
-    hooks.apiGet.mockResolvedValue({ ids: [], next_cursor: null });
+  it('reads GET /recordings (limit 100) for the backstop', async () => {
+    hooks.apiGet.mockResolvedValue({ items: [] });
     await reconcileOnce();
-    expect(hooks.apiGet).toHaveBeenCalledWith('/recordings/verified-ids', {
-      query: { since: 'cursor-prev' },
+    expect(hooks.apiGet).toHaveBeenCalledWith('/recordings', { query: { limit: '100' } });
+  });
+
+  it('an empty server result is a no-op (no clearUploaded)', async () => {
+    hooks.getQueueSafe.mockResolvedValue([queueRow('R1')]);
+    hooks.apiGet.mockResolvedValue({ items: [] });
+    const cleared = await reconcileOnce();
+    expect(cleared).toBe(0);
+    expect(hooks.clearUploaded).not.toHaveBeenCalled();
+  });
+
+  it('a terminal-success id NOT in the local queue is skipped (the intersection)', async () => {
+    hooks.getQueueSafe.mockResolvedValue([queueRow('R1')]);
+    hooks.apiGet.mockResolvedValue({
+      items: [{ recording_id: 'NOT_QUEUED', qa_status: 'uploaded' }],
     });
+    const cleared = await reconcileOnce();
+    expect(cleared).toBe(0);
+    expect(hooks.clearUploaded).not.toHaveBeenCalled();
   });
 
-  it('an empty verified set is a no-op (no clearVerified)', async () => {
+  it('a still-pending queued id is NOT cleared (only terminal success)', async () => {
     hooks.getQueueSafe.mockResolvedValue([queueRow('R1')]);
-    hooks.apiGet.mockResolvedValue({ ids: [], next_cursor: null });
+    hooks.apiGet.mockResolvedValue({ items: [{ recording_id: 'R1', qa_status: 'pending' }] });
     const cleared = await reconcileOnce();
     expect(cleared).toBe(0);
-    expect(hooks.clearVerified).not.toHaveBeenCalled();
+    expect(hooks.clearUploaded).not.toHaveBeenCalled();
   });
 
-  it('a verified id NOT in the local queue is skipped (the intersection)', async () => {
-    hooks.getQueueSafe.mockResolvedValue([queueRow('R1')]);
-    hooks.apiGet.mockResolvedValue({ ids: ['NOT_QUEUED'], next_cursor: null });
+  it('a network error is swallowed; returns 0', async () => {
+    hooks.apiGet.mockRejectedValue(new Error('GET /recordings failed: 503'));
     const cleared = await reconcileOnce();
     expect(cleared).toBe(0);
-    expect(hooks.clearVerified).not.toHaveBeenCalled();
-  });
-
-  it('a network error is swallowed; cursor unchanged; returns 0', async () => {
-    secureMmkv.set(KEYS.UPLOAD_RECONCILE_CURSOR, 'cursor-prev');
-    hooks.apiGet.mockRejectedValue(new Error('GET /recordings/verified-ids failed: 503'));
-    const cleared = await reconcileOnce();
-    expect(cleared).toBe(0);
-    expect(secureMmkv.getString(KEYS.UPLOAD_RECONCILE_CURSOR)).toBe('cursor-prev');
   });
 
   it('pushes the upload auth context (setUploadContextSafe) on every sweep', async () => {
     secureMmkv.set(KEYS.AUTH_JWT, 'jwt-xyz');
-    hooks.apiGet.mockResolvedValue({ ids: [], next_cursor: null });
+    hooks.apiGet.mockResolvedValue({ items: [] });
     await reconcileOnce();
     expect(hooks.setUploadContextSafe).toHaveBeenCalledWith(
       'http://test.example',
@@ -151,7 +162,7 @@ describe('uploadReconcile (Plan 05-08 — VERIFY-06)', () => {
   });
 
   it('installUploadReconcile re-fires reconcileOnce on AppState→active', async () => {
-    hooks.apiGet.mockResolvedValue({ ids: [], next_cursor: null });
+    hooks.apiGet.mockResolvedValue({ items: [] });
     const teardown = installUploadReconcile();
     await flush();
     const callsAfterBoot = hooks.apiGet.mock.calls.length;
@@ -164,7 +175,7 @@ describe('uploadReconcile (Plan 05-08 — VERIFY-06)', () => {
   });
 
   it('installUploadReconcile resumes + re-pushes the auth context on a jwt change (re-login)', async () => {
-    hooks.apiGet.mockResolvedValue({ ids: [], next_cursor: null });
+    hooks.apiGet.mockResolvedValue({ items: [] });
     const teardown = installUploadReconcile();
     await flush();
     hooks.setUploadContextSafe.mockClear();
@@ -178,7 +189,7 @@ describe('uploadReconcile (Plan 05-08 — VERIFY-06)', () => {
   });
 
   it('installUploadReconcile pauses uploads on logout (jwt → null)', async () => {
-    hooks.apiGet.mockResolvedValue({ ids: [], next_cursor: null });
+    hooks.apiGet.mockResolvedValue({ items: [] });
     useAppStore.setState({ jwt: 'jwt-before' });
     const teardown = installUploadReconcile();
     await flush();
@@ -192,38 +203,40 @@ describe('uploadReconcile (Plan 05-08 — VERIFY-06)', () => {
   // Wave-1.5 Item 8 — cold-start drain on stale queue.
   it('reconcileOnce kicks drainNowSafe when a pending row is on disk (Wave-1.5 Item 8)', async () => {
     hooks.getQueueSafe.mockResolvedValue([{ ...queueRow('R1'), state: 'pending' }]);
-    hooks.apiGet.mockResolvedValue({ ids: [], next_cursor: null });
+    hooks.apiGet.mockResolvedValue({ items: [] });
     await reconcileOnce();
     expect(hooks.drainNowSafe).toHaveBeenCalledTimes(1);
   });
 
   it('reconcileOnce kicks drainNowSafe when an uploading row is on disk (Wave-1.5 Item 8)', async () => {
     hooks.getQueueSafe.mockResolvedValue([{ ...queueRow('R1'), state: 'uploading' }]);
-    hooks.apiGet.mockResolvedValue({ ids: [], next_cursor: null });
+    hooks.apiGet.mockResolvedValue({ items: [] });
     await reconcileOnce();
     expect(hooks.drainNowSafe).toHaveBeenCalledTimes(1);
   });
 
-  it('reconcileOnce does NOT kick drainNowSafe when only awaiting-verify/verified rows are queued', async () => {
+  it('reconcileOnce does NOT kick drainNowSafe when only finalizing rows are queued', async () => {
+    // finalizing rows are not 'pending'/'uploading'/'dead-letter', so the drain
+    // kick condition is false. (Enh 3 / D1: 'awaiting-verify'/'verified' removed.)
     hooks.getQueueSafe.mockResolvedValue([
-      { ...queueRow('R1'), state: 'awaiting-verify' },
-      { ...queueRow('R2'), state: 'verified' },
+      { ...queueRow('R1'), state: 'finalizing' },
+      { ...queueRow('R2'), state: 'finalizing' },
     ]);
-    hooks.apiGet.mockResolvedValue({ ids: [], next_cursor: null });
+    hooks.apiGet.mockResolvedValue({ items: [] });
     await reconcileOnce();
     expect(hooks.drainNowSafe).not.toHaveBeenCalled();
   });
 
   it('reconcileOnce does NOT kick drainNowSafe when the queue is empty', async () => {
     hooks.getQueueSafe.mockResolvedValue([]);
-    hooks.apiGet.mockResolvedValue({ ids: [], next_cursor: null });
+    hooks.apiGet.mockResolvedValue({ items: [] });
     await reconcileOnce();
     expect(hooks.drainNowSafe).not.toHaveBeenCalled();
   });
 
   it('reconcileOnce is boot-safe when getQueueSafe throws — does not crash, does not kick drainNowSafe', async () => {
     hooks.getQueueSafe.mockRejectedValue(new Error('native module missing'));
-    hooks.apiGet.mockResolvedValue({ ids: [], next_cursor: null });
+    hooks.apiGet.mockResolvedValue({ items: [] });
     // Must not throw.
     const cleared = await reconcileOnce();
     expect(cleared).toBe(0);

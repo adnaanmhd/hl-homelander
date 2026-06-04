@@ -186,7 +186,6 @@
   },
   "uploadChip": {
     "uploading": "আপলোড হচ্ছে…",
-    "verifying": "আপলোড হলো — যাচাই হচ্ছে…",
     "failed": "আপলোড হলো না",
     "success": "✓ আপলোড হলো",
     "pausedOffline": "থেমে আছে — Wi-Fi নেই"

@@ -17,7 +17,7 @@
  * the listener leaks.
  *
  * Plan 05-04 ships this bridge surface + the native module's enqueue/pause/
- * resume/getQueue/clearVerified + the durable queue store. The actual /init →
+ * resume/getQueue/clearUploaded + the durable queue store. The actual /init →
  * PUT → /finalize transfer engine (`ChunkUploader` / `UploadCoordinator`) is
  * Plan 05-06; the FGS + OEM-walkthrough are Plan 05-07; the boot reconcile
  * sweep is Plan 05-08.
@@ -60,8 +60,10 @@ export type UploadQueueRow = {
     | 'pending'
     | 'uploading'
     | 'finalizing'
-    | 'awaiting-verify'
-    | 'verified'
+    // (Enh 3 / D1, 2026-06-04: 'awaiting-verify' / 'verified' removed. On
+    // /finalize 200 the coordinator deletes the local bundle + drops the row —
+    // 'uploaded' is terminal success server-side; there's no on-device verify
+    // wait state anymore.)
     | 'dead-letter'
     | 'needs-attention';
   uploadId?: string;
@@ -153,16 +155,14 @@ interface HumynUploadNativeModule {
   resume(): Promise<void>;
   /** Read all queue rows (the JS side filters to own-rows). Read-only — no abort (UP-11). */
   getQueue(): Promise<UploadQueueRow[]>;
-  /** Mark each recordingId verified, unlink local files, drop the row (UP-15 / VERIFY-06). */
-  clearVerified(recordingIds: string[]): Promise<void>;
   /**
-   * Flip a queue row into its re-upload state (UP-16) — the coordinator then
-   * re-mints the multipart upload via `POST /recordings/:id/reupload` (not
-   * `/init`) and re-PUTs from the still-present local copy. No-op (resolves)
-   * if the row doesn't exist. Driven by the `re-upload` server event
-   * (services/recordingEvents.ts) and the dead-letter "Retry" affordance.
+   * Local-delete on terminal success: unlink each recording's local bundle
+   * (mp4/csv/json) + drop the queue row. (Enh 3 / D1, 2026-06-04: renamed from
+   * `clearUploaded` — `uploaded` is terminal success now. The coordinator
+   * already does this on /finalize 200; this is the reconcile backstop for ids
+   * the server reports as terminal-success that still have a local row.)
    */
-  reupload(recordingId: string): Promise<void>;
+  clearUploaded(recordingIds: string[]): Promise<void>;
   /**
    * SAFE dead-letter revival primitive — preferred over [reupload] for the
    * cold-start auto-revive sweep + the Home pending-uploads tile tap.
@@ -252,9 +252,8 @@ export const HumynUpload = {
   pause: (): Promise<void> => ensure().pause(),
   resume: (): Promise<void> => ensure().resume(),
   getQueue: (): Promise<UploadQueueRow[]> => ensure().getQueue(),
-  clearVerified: (recordingIds: string[]): Promise<void> => ensure().clearVerified(recordingIds),
-  /** Flip a row into re-upload mode (UP-16). Throws if the module is absent. */
-  reupload: (recordingId: string): Promise<void> => ensure().reupload(recordingId),
+  /** Local-delete on terminal success (renamed from clearUploaded, Enh 3 / D1). */
+  clearUploaded: (recordingIds: string[]): Promise<void> => ensure().clearUploaded(recordingIds),
   /**
    * SAFE dead-letter revival — only mutates DEAD_LETTER rows; no-op otherwise.
    * Preferred over [reupload] for the cold-start sweep + Home tile tap.
@@ -393,7 +392,7 @@ function emitter(): NativeEventEmitter {
 
 /**
  * Subscribe to `onUploadQueueChanged` — fires with the full queue snapshot on
- * every mutation (enqueue / clearVerified / coalesced coordinator updates).
+ * every mutation (enqueue / clearUploaded / coalesced coordinator updates).
  * Caller MUST `.remove()` the returned subscription on unmount or it leaks.
  */
 export function onUploadQueueChanged(

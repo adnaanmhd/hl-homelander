@@ -92,8 +92,8 @@ async function seedRec(opts: {
 }): Promise<string> {
   const id = ulid();
   await db.execute(sql`
-    INSERT INTO recordings (id, user_id, task_id, practice, qa_status, duration_ms, file_sha256, imu_sha256, file_size_bytes, imu_size_bytes, s3_key_video, s3_key_imu, s3_key_metadata, captured_at, created_at, flavor)
-    VALUES (${id}, ${opts.userId}, ${TEST_TASK_ID}, false, ${opts.qaStatus}::qa_status, 1000, ${'a'.repeat(64)}, ${'b'.repeat(64)}, 1024, 1024, 'video.mp4', 'imu.csv', 'metadata.json', now(), now(), 'playStore'::build_flavor)
+    INSERT INTO recordings (id, user_id, task_id, practice, qa_status, duration_ms, file_size_bytes, imu_size_bytes, s3_key_video, s3_key_imu, s3_key_metadata, captured_at, created_at, flavor)
+    VALUES (${id}, ${opts.userId}, ${TEST_TASK_ID}, false, ${opts.qaStatus}::qa_status, 1000, 1024, 1024, 'video.mp4', 'imu.csv', 'metadata.json', now(), now(), 'playStore'::build_flavor)
   `);
   return id;
 }

@@ -51,16 +51,18 @@ export default async function contributionsListRoute(app: FastifyInstance): Prom
       // Lifetime aggregate — direct from recordings (D-LEGAL-04 takedown filter).
       // `verified_non_practice_count` is the stricter count driving the Home
       // hero greeting (Plan 06-12 follow-on, owner directive 2026-05-14): only
-      // non-practice recordings that have been QA-verified count toward it.
-      // Computed in the same SELECT as a FILTER aggregate so we don't pay a
-      // second round-trip.
+      // non-practice recordings that reached terminal success count toward it.
+      // Enh 3 / D1 (2026-06-04): `uploaded` IS terminal success now, so it counts;
+      // legacy `verified` rows (pre-Enh-3, no longer written) remain a success
+      // synonym. Computed as a FILTER aggregate to avoid a second round-trip.
       const totals = await db.execute(sql`
         SELECT
           COALESCE(SUM(duration_ms), 0)::bigint AS duration_ms,
           COALESCE(COUNT(*), 0)::int AS recording_count,
           COALESCE(COUNT(DISTINCT task_id), 0)::int AS task_count,
-          COALESCE(COUNT(*) FILTER (WHERE practice = false AND qa_status = 'verified'), 0)::int
-            AS verified_non_practice_count
+          COALESCE(COUNT(*) FILTER (
+            WHERE practice = false AND qa_status IN ('uploaded', 'verified')
+          ), 0)::int AS verified_non_practice_count
         FROM recordings
         WHERE user_id = ${sub} AND qa_status NOT IN ('takedown', 'rejected')
       `);

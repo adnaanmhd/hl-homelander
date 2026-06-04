@@ -186,7 +186,6 @@
   },
   "uploadChip": {
     "uploading": "Enviando…",
-    "verifying": "Enviado — conferindo…",
     "failed": "Falha no envio",
     "success": "✓ Enviado",
     "pausedOffline": "Pausado — sem Wi-Fi"

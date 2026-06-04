@@ -424,8 +424,6 @@ class MetadataComposerLiteralsTest {
     )
 
     private fun fixtureMetrics() = MetadataComposer.FinalizeMetrics(
-        mp4Sha = "0".repeat(64),
-        csvSha = "1".repeat(64),
         mp4SizeBytes = 1L,
         csvSizeBytes = 1L,
         drift = null,

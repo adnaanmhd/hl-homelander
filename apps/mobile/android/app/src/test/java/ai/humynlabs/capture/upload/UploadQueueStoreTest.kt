@@ -188,10 +188,10 @@ class UploadQueueStoreTest {
     }
 
     @Test
-    fun `markVerifiedAndDeleteLocal removes the row`() {
+    fun `deleteLocalAndRemove removes the row`() {
         val (store, _) = newStore()
         store.enqueue(row("01JABCREC1XXXXXXXXXXXXXXXXX"))
-        store.markVerifiedAndDeleteLocal("01JABCREC1XXXXXXXXXXXXXXXXX")
+        store.deleteLocalAndRemove("01JABCREC1XXXXXXXXXXXXXXXXX")
         assertTrue(store.read().isEmpty())
     }
 
@@ -219,54 +219,36 @@ class UploadQueueStoreTest {
     }
 
     @Test
-    fun `bootstrap drops verified rows whose mp4 is gone`() {
-        val (store, _) = newStore()
-        // A verified row pointing at a non-existent file → housekeeping should drop it.
-        val r = row("01JABCRECVXXXXXXXXXXXXXXXXX").also { it.state = UploadState.VERIFIED }
-        // enqueue won't add a VERIFIED row's verification state, but it's a normal row at enqueue;
-        // simulate by upserting the verified state.
-        store.enqueue(row("01JABCRECVXXXXXXXXXXXXXXXXX"))
-        store.upsert(r)
-        assertEquals(1, store.read().size)
-        store.bootstrap("userA")
-        assertTrue("verified-with-missing-file row should be swept", store.read().isEmpty())
-    }
-
-    @Test
-    fun `mint four distinct per-route UUIDv4 idempotency keys at construction`() {
+    fun `mint three distinct per-route UUIDv4 idempotency keys at construction`() {
         val r = row("01JABCREC1XXXXXXXXXXXXXXXXX")
         // UUIDv4 syntactic check — same regex the server's idempotency plugin enforces.
         val v4 = Regex("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
         assertTrue("row.initIdempotencyKey must be a lowercase UUIDv4; got ${r.initIdempotencyKey}", v4.matches(r.initIdempotencyKey))
         assertTrue("row.partsIdempotencyKey must be a lowercase UUIDv4; got ${r.partsIdempotencyKey}", v4.matches(r.partsIdempotencyKey))
         assertTrue("row.finalizeIdempotencyKey must be a lowercase UUIDv4; got ${r.finalizeIdempotencyKey}", v4.matches(r.finalizeIdempotencyKey))
-        assertTrue("row.reuploadIdempotencyKey must be a lowercase UUIDv4; got ${r.reuploadIdempotencyKey}", v4.matches(r.reuploadIdempotencyKey))
-        // All four per-route keys are pairwise distinct (Wave-1.5 Item 1 — no cross-route reuse).
-        val perRoute = setOf(r.initIdempotencyKey, r.partsIdempotencyKey, r.finalizeIdempotencyKey, r.reuploadIdempotencyKey)
-        assertEquals("row construction mints 4 pairwise-distinct keys", 4, perRoute.size)
+        // All three per-route keys are pairwise distinct (Wave-1.5 Item 1 — no cross-route reuse).
+        val perRoute = setOf(r.initIdempotencyKey, r.partsIdempotencyKey, r.finalizeIdempotencyKey)
+        assertEquals("row construction mints 3 pairwise-distinct keys", 3, perRoute.size)
         // Two fresh rows mint independent keys.
         val r2 = row("01JABCREC2XXXXXXXXXXXXXXXXX")
         assertNotEquals(r.initIdempotencyKey, r2.initIdempotencyKey)
         assertNotEquals(r.partsIdempotencyKey, r2.partsIdempotencyKey)
         assertNotEquals(r.finalizeIdempotencyKey, r2.finalizeIdempotencyKey)
-        assertNotEquals(r.reuploadIdempotencyKey, r2.reuploadIdempotencyKey)
     }
 
     @Test
-    fun `all four per-route idempotency keys survive a round trip through queue json`() {
+    fun `all three per-route idempotency keys survive a round trip through queue json`() {
         val (store, _) = newStore()
         val r = row("01JABCREC1XXXXXXXXXXXXXXXXX")
         val originalInit = r.initIdempotencyKey
         val originalParts = r.partsIdempotencyKey
         val originalFinalize = r.finalizeIdempotencyKey
-        val originalReupload = r.reuploadIdempotencyKey
         store.enqueue(r)
         val back = store.read()
         assertEquals(1, back.size)
         assertEquals("initIdempotencyKey must round-trip", originalInit, back[0].initIdempotencyKey)
         assertEquals("partsIdempotencyKey must round-trip", originalParts, back[0].partsIdempotencyKey)
         assertEquals("finalizeIdempotencyKey must round-trip", originalFinalize, back[0].finalizeIdempotencyKey)
-        assertEquals("reuploadIdempotencyKey must round-trip", originalReupload, back[0].reuploadIdempotencyKey)
     }
 
     @Test
@@ -285,7 +267,7 @@ class UploadQueueStoreTest {
                     put("mp4Path", "/data/files/recordings/$rid.mp4")
                     put("csvPath", "/data/files/recordings/$rid.csv")
                     put("jsonPath", "/data/files/recordings/$rid.json")
-                    put("taskId", "01HVDEVSEEDTASK00000000000")
+                    put("taskId", "01HVTESTTASK00000000000000")
                     put("isPractice", false)
                     put("state", "PENDING")
                     put("videoParts", JSONArray())
@@ -306,9 +288,8 @@ class UploadQueueStoreTest {
         val firstInit = firstRow.initIdempotencyKey
         val firstParts = firstRow.partsIdempotencyKey
         val firstFinalize = firstRow.finalizeIdempotencyKey
-        val firstReupload = firstRow.reuploadIdempotencyKey
         val v4 = Regex("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
-        listOf(firstInit, firstParts, firstFinalize, firstReupload).forEach { k ->
+        listOf(firstInit, firstParts, firstFinalize).forEach { k ->
             assertTrue("must mint a UUIDv4; got $k", v4.matches(k))
         }
         // The on-disk queue.json now contains all 4 fields with the captured values
@@ -319,7 +300,6 @@ class UploadQueueStoreTest {
         assertEquals(firstInit, rowJson.getString("initIdempotencyKey"))
         assertEquals(firstParts, rowJson.getString("partsIdempotencyKey"))
         assertEquals(firstFinalize, rowJson.getString("finalizeIdempotencyKey"))
-        assertEquals(firstReupload, rowJson.getString("reuploadIdempotencyKey"))
 
         // Second read: must return the SAME 4 keys (no fresh mint — persist-back closed the storm).
         val secondRead = store.read()
@@ -328,7 +308,6 @@ class UploadQueueStoreTest {
         assertEquals("init key stable across reads", firstInit, secondRow.initIdempotencyKey)
         assertEquals("parts key stable across reads", firstParts, secondRow.partsIdempotencyKey)
         assertEquals("finalize key stable across reads", firstFinalize, secondRow.finalizeIdempotencyKey)
-        assertEquals("reupload key stable across reads", firstReupload, secondRow.reuploadIdempotencyKey)
         // The row's _migratedOnLoad flag is `false` on the second read (no migration happened).
         assertFalse("row._migratedOnLoad must be false after the persist-back has happened", secondRow._migratedOnLoad)
     }
@@ -346,7 +325,7 @@ class UploadQueueStoreTest {
     }
 
     @Test
-    fun `fromJson mints four fresh UUIDv4s when a pre-Wave-1-5 row on disk has no per-route keys`() {
+    fun `fromJson mints three fresh UUIDv4s when a pre-Wave-1-5 row on disk has no per-route keys`() {
         // Shape (a): the pre-commit-5c0b2d8 row layout — NO `*IdempotencyKey`
         // fields at all (the currently-stuck `01KRFXGAWCMVQ89PJ2PBXSVAKK` from
         // the Phase-5 smoke walk). fromJson must mint a fresh UUIDv4 for each
@@ -358,7 +337,7 @@ class UploadQueueStoreTest {
             put("mp4Path", "/data/files/recordings/x.mp4")
             put("csvPath", "/data/files/recordings/x.csv")
             put("jsonPath", "/data/files/recordings/x.json")
-            put("taskId", "01HVDEVSEEDTASK00000000000")
+            put("taskId", "01HVTESTTASK00000000000000")
             put("isPractice", false)
             put("state", "PENDING")
             put("videoParts", JSONArray())
@@ -373,15 +352,13 @@ class UploadQueueStoreTest {
         assertNotNull("fromJson must mint initIdempotencyKey", migratedA.initIdempotencyKey)
         assertNotNull("fromJson must mint partsIdempotencyKey", migratedA.partsIdempotencyKey)
         assertNotNull("fromJson must mint finalizeIdempotencyKey", migratedA.finalizeIdempotencyKey)
-        assertNotNull("fromJson must mint reuploadIdempotencyKey", migratedA.reuploadIdempotencyKey)
         assertTrue("init key UUIDv4-shaped; got ${migratedA.initIdempotencyKey}", v4.matches(migratedA.initIdempotencyKey))
         assertTrue("parts key UUIDv4-shaped; got ${migratedA.partsIdempotencyKey}", v4.matches(migratedA.partsIdempotencyKey))
         assertTrue("finalize key UUIDv4-shaped; got ${migratedA.finalizeIdempotencyKey}", v4.matches(migratedA.finalizeIdempotencyKey))
-        assertTrue("reupload key UUIDv4-shaped; got ${migratedA.reuploadIdempotencyKey}", v4.matches(migratedA.reuploadIdempotencyKey))
         assertEquals(
-            "the four minted per-route keys are pairwise distinct (Wave-1.5 Item 1 — no cross-route reuse)",
-            4,
-            setOf(migratedA.initIdempotencyKey, migratedA.partsIdempotencyKey, migratedA.finalizeIdempotencyKey, migratedA.reuploadIdempotencyKey).size,
+            "the three minted per-route keys are pairwise distinct (Wave-1.5 Item 1 — no cross-route reuse)",
+            3,
+            setOf(migratedA.initIdempotencyKey, migratedA.partsIdempotencyKey, migratedA.finalizeIdempotencyKey).size,
         )
         assertEquals("01KRFXGAWCMVQ89PJ2PBXSVAKK", migratedA.recordingId)
 
@@ -396,7 +373,7 @@ class UploadQueueStoreTest {
             put("mp4Path", "/data/files/recordings/y.mp4")
             put("csvPath", "/data/files/recordings/y.csv")
             put("jsonPath", "/data/files/recordings/y.json")
-            put("taskId", "01HVDEVSEEDTASK00000000000")
+            put("taskId", "01HVTESTTASK00000000000000")
             put("isPractice", false)
             put("state", "PENDING")
             put("videoParts", JSONArray())
@@ -411,15 +388,13 @@ class UploadQueueStoreTest {
         assertNotEquals("init key MUST NOT inherit the legacy single idempotencyKey", legacySingleKey, migratedB.initIdempotencyKey)
         assertNotEquals("parts key MUST NOT inherit the legacy single idempotencyKey", legacySingleKey, migratedB.partsIdempotencyKey)
         assertNotEquals("finalize key MUST NOT inherit the legacy single idempotencyKey", legacySingleKey, migratedB.finalizeIdempotencyKey)
-        assertNotEquals("reupload key MUST NOT inherit the legacy single idempotencyKey", legacySingleKey, migratedB.reuploadIdempotencyKey)
         assertTrue("init UUIDv4", v4.matches(migratedB.initIdempotencyKey))
         assertTrue("parts UUIDv4", v4.matches(migratedB.partsIdempotencyKey))
         assertTrue("finalize UUIDv4", v4.matches(migratedB.finalizeIdempotencyKey))
-        assertTrue("reupload UUIDv4", v4.matches(migratedB.reuploadIdempotencyKey))
         assertEquals(
-            "the four minted per-route keys are pairwise distinct on shape (b) too",
-            4,
-            setOf(migratedB.initIdempotencyKey, migratedB.partsIdempotencyKey, migratedB.finalizeIdempotencyKey, migratedB.reuploadIdempotencyKey).size,
+            "the three minted per-route keys are pairwise distinct on shape (b) too",
+            3,
+            setOf(migratedB.initIdempotencyKey, migratedB.partsIdempotencyKey, migratedB.finalizeIdempotencyKey).size,
         )
     }
 

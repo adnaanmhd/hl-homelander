@@ -186,7 +186,6 @@
   },
   "uploadChip": {
     "uploading": "Subiendo…",
-    "verifying": "Subido — verificando…",
     "failed": "Falló la subida",
     "success": "✓ Subido",
     "pausedOffline": "En pausa — sin Wi-Fi"

@@ -28,7 +28,6 @@ import Config from 'react-native-config';
 import crashlytics from '@react-native-firebase/crashlytics';
 import { secureMmkv } from '../state/mmkv';
 import { KEYS } from '../state/keys';
-import { processRecordingEvents } from './recordingEvents';
 import { toastKeyForCode } from '../i18n/errorMap';
 import i18n from '../i18n';
 import { showToast } from '../components/Toast';
@@ -122,16 +121,6 @@ function buildUrl(path: string, query?: Record<string, string>): string {
 }
 
 /**
- * Plan 05-08 — the `_events`-envelope interceptor. Every authenticated JSON
- * object response MAY carry `_events: [{ recording_id, event_type }]` (drained
- * server-side by the events-outbox onSend hook, Plan 05-05). Hand it to
- * `processRecordingEvents` (which is idempotent + payload-shape-validated +
- * swallows its own errors). The `_events` key is left on the body — it's an
- * optional key in the Pattern-22 carrier schemas, so callers that don't read it
- * are unaffected. Wrapped in try/catch so a bad envelope can never break a
- * successful HTTP call.
- */
-/**
  * Plan 07-05 Task 2 — API error → translated toast pipeline (I18N-08 / D-34 /
  * D-35). Call this from any catch-block where the server returned an
  * RFC 7807 problem detail (or a similar `{ code, detail }` payload). Two
@@ -170,18 +159,6 @@ export function surfaceApiError(error: { code?: string | null; detail?: string |
   }
 }
 
-function interceptEvents<T>(body: T): T {
-  try {
-    if (body != null && typeof body === 'object') {
-      const ev = (body as { _events?: unknown })._events;
-      if (Array.isArray(ev)) processRecordingEvents(ev);
-    }
-  } catch {
-    /* never let the events side-channel break the response */
-  }
-  return body;
-}
-
 export const apiClient: ApiClient = {
   async post<T>(path: string, body: object, opts?: { idempotencyKey?: string }): Promise<T> {
     const headers: Record<string, string> = {
@@ -200,7 +177,7 @@ export const apiClient: ApiClient = {
       const text = await res.text();
       throw new Error(`POST ${path} failed: ${res.status} ${text}`);
     }
-    return interceptEvents((await res.json()) as T);
+    return (await res.json()) as T;
   },
   async postNoBody<T>(path: string): Promise<T> {
     const headers: Record<string, string> = {
@@ -216,7 +193,7 @@ export const apiClient: ApiClient = {
       const text = await res.text();
       throw new Error(`POST ${path} failed: ${res.status} ${text}`);
     }
-    return interceptEvents((await res.json()) as T);
+    return (await res.json()) as T;
   },
   async getJson<T>(path: string, opts?: GetJsonOptions): Promise<T> {
     const url = buildUrl(path, opts?.query);
@@ -256,7 +233,7 @@ export const apiClient: ApiClient = {
         }
         throw new Error(`GET ${path} failed: ${res.status} ${body}`);
       }
-      return interceptEvents((await res.json()) as T);
+      return (await res.json()) as T;
     } finally {
       clearTimeout(timer);
     }
@@ -297,7 +274,7 @@ export const apiClient: ApiClient = {
         }
         throw new Error(`PATCH ${path} failed: ${res.status} ${bodyText}`);
       }
-      return interceptEvents((await res.json()) as T);
+      return (await res.json()) as T;
     } finally {
       clearTimeout(timer);
     }
@@ -305,8 +282,15 @@ export const apiClient: ApiClient = {
   async delete<T>(path: string, opts?: DeleteOptions): Promise<T> {
     // Mirror patch/post header forwarding semantics — lower-case names on the
     // wire so Fastify plugins (e.g. @fastify/idempotency) read them
-    // case-uniformly. NO content-type set: DELETE has no body.
-    const headers: Record<string, string> = { ...bearerHeader() };
+    // case-uniformly.
+    //
+    // content-type: text/plain (Bug 1 fix, 260604) — DELETE carries no body, but
+    // RN's Android networking layer (OkHttp) attaches a DEFAULT content-type when
+    // we leave it unset, and Fastify has no parser registered for that default →
+    // FST_ERR_CTP_INVALID_MEDIA_TYPE (415) before the handler ever runs. We pin a
+    // content-type Fastify's built-in parsers DO understand. NOT application/json
+    // like postNoBody — an empty JSON body yields 400; text/plain with no body → 200.
+    const headers: Record<string, string> = { 'content-type': 'text/plain', ...bearerHeader() };
     if (opts?.headers) {
       for (const [k, v] of Object.entries(opts.headers)) {
         headers[k.toLowerCase()] = v;
@@ -336,7 +320,7 @@ export const apiClient: ApiClient = {
       const text = await res.text();
       if (!text) return undefined as T;
       try {
-        return interceptEvents(JSON.parse(text) as T);
+        return JSON.parse(text) as T;
       } catch {
         return undefined as T;
       }
@@ -384,7 +368,7 @@ export const apiClient: ApiClient = {
       const text = await res.text();
       if (!text) return undefined as T;
       try {
-        return interceptEvents(JSON.parse(text) as T);
+        return JSON.parse(text) as T;
       } catch {
         return undefined as T;
       }

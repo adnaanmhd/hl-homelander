@@ -56,8 +56,8 @@ describe('POST /recordings/:id/parts/:n/complete', () => {
   it('returns 200 ok when state is pending', async () => {
     const id = ulid();
     await db.execute(sql`
-      INSERT INTO recordings (id, user_id, task_id, practice, qa_status, duration_ms, file_sha256, imu_sha256, file_size_bytes, imu_size_bytes, s3_key_video, s3_key_imu, s3_key_metadata, captured_at, flavor)
-      VALUES (${id}, ${TEST_USER_ID}, ${TEST_TASK_ID}, false, 'pending'::qa_status, 1000, ${'a'.repeat(64)}, ${'b'.repeat(64)}, 1024, 1024, 'k1', 'k2', 'k3', now(), 'playStore'::build_flavor)
+      INSERT INTO recordings (id, user_id, task_id, practice, qa_status, duration_ms, file_size_bytes, imu_size_bytes, s3_key_video, s3_key_imu, s3_key_metadata, captured_at, flavor)
+      VALUES (${id}, ${TEST_USER_ID}, ${TEST_TASK_ID}, false, 'pending'::qa_status, 1000, 1024, 1024, 'k1', 'k2', 'k3', now(), 'playStore'::build_flavor)
     `);
     const res = await app.inject({
       method: 'POST',
@@ -74,8 +74,8 @@ describe('POST /recordings/:id/parts/:n/complete', () => {
   it('returns 409 when state is rejected', async () => {
     const id = ulid();
     await db.execute(sql`
-      INSERT INTO recordings (id, user_id, task_id, practice, qa_status, duration_ms, file_sha256, imu_sha256, file_size_bytes, imu_size_bytes, s3_key_video, s3_key_imu, s3_key_metadata, captured_at, flavor)
-      VALUES (${id}, ${TEST_USER_ID}, ${TEST_TASK_ID}, false, 'rejected'::qa_status, 1000, ${'a'.repeat(64)}, ${'b'.repeat(64)}, 1024, 1024, 'k1', 'k2', 'k3', now(), 'playStore'::build_flavor)
+      INSERT INTO recordings (id, user_id, task_id, practice, qa_status, duration_ms, file_size_bytes, imu_size_bytes, s3_key_video, s3_key_imu, s3_key_metadata, captured_at, flavor)
+      VALUES (${id}, ${TEST_USER_ID}, ${TEST_TASK_ID}, false, 'rejected'::qa_status, 1000, 1024, 1024, 'k1', 'k2', 'k3', now(), 'playStore'::build_flavor)
     `);
     const res = await app.inject({
       method: 'POST',

@@ -17,14 +17,7 @@ export const RecordingCreateSchema = z.object({
   taskId: z.string().length(26),
   practice: z.boolean(),
   durationMs: z.number().int().min(0),
-  fileSha256: z
-    .string()
-    .length(64)
-    .regex(/^[0-9a-f]{64}$/),
-  imuSha256: z
-    .string()
-    .length(64)
-    .regex(/^[0-9a-f]{64}$/),
+  // (Enh 3 / D1, 2026-06-04: fileSha256 / imuSha256 removed — all upload hashing dropped.)
   fileSizeBytes: z.number().int().min(0),
   imuSizeBytes: z.number().int().min(0),
   imuVideoDriftMaxMs: z.number().int().nullable().optional(),
@@ -52,7 +45,7 @@ export const RecordingSchema = RecordingCreateSchema.extend({
   livenessScore: z.number().int().min(0).max(100).nullable(),
   uploadStartedAt: z.string().datetime().nullable(),
   uploadCompletedAt: z.string().datetime().nullable(),
-  verifiedAt: z.string().datetime().nullable(),
+  // (Enh 3 / D1: verifiedAt removed — no verify step.)
   createdAt: z.string().datetime(),
   // On the RESPONSE the server returns the value it populated on /init (UP-18) —
   // a string IP (or null if it was somehow never set). The CREATE request still
@@ -96,16 +89,9 @@ export const RecordingsInitRequestSchema = z.object({
   partsCount: z.number().int().min(1).max(1000),
   // Capture-spec headline values — let the server log + persist immediately so
   // we can detect malformed clients (mismatch with bytes-on-disk reported at
-  // finalize time).
+  // finalize time). (Enh 3 / D1, 2026-06-04: fileSha256 / imuSha256 removed —
+  // all upload hashing dropped; /recordings/init no longer accepts them.)
   durationMs: z.number().int().min(0),
-  fileSha256: z
-    .string()
-    .length(64)
-    .regex(/^[0-9a-f]{64}$/),
-  imuSha256: z
-    .string()
-    .length(64)
-    .regex(/^[0-9a-f]{64}$/),
   fileSizeBytes: z.number().int().min(0),
   imuSizeBytes: z.number().int().min(0),
   // Match RecordingCreateSchema.capturedAt — allow ISO 8601 with a numeric
@@ -154,39 +140,10 @@ export const RecordingFinalizeSchema = z.object({
 });
 export type RecordingFinalize = z.infer<typeof RecordingFinalizeSchema>;
 
-// Server→client recording-status event (Plan 05-03). The hash-verify worker
-// emits one of these per recording: 'verified' (hashes matched) or 're-upload'
-// (hash-mismatch). Delivered via the `events-outbox` onSend hook (Plan 05-05) —
-// the `_events` envelope key + the /reupload + /verified-ids request/response
-// schemas are added there; this is the wire shape the worker side needs.
-// The client de-dups on (recording_id, event_type).
-export const RecordingServerEventSchema = z.object({
-  recording_id: z.string().length(26),
-  event_type: z.enum(['verified', 're-upload']),
-});
-export type RecordingServerEvent = z.infer<typeof RecordingServerEventSchema>;
-
-// The `_events` envelope (Plan 05-05). The `events-outbox` onSend hook adds this
-// optional key to every authenticated JSON object response. Strict response
-// schemas on authed carrier routes must `.extend(EventsEnvelopeSchema.shape)`
-// (Pattern 22) so the serializer accepts the key.
-export const EventsEnvelopeSchema = z.object({
-  _events: z.array(RecordingServerEventSchema).optional(),
-});
-export type EventsEnvelope = z.infer<typeof EventsEnvelopeSchema>;
-
-// POST /recordings/:id/reupload (UP-16) — re-issue presigned multipart URLs for
-// a hash-mismatch row. Body mirrors the relevant slice of RecordingsInitRequest
-// (the row + the deterministic keys already exist; only partsCount can change).
-export const RecordingReuploadRequestSchema = z.object({
-  partsCount: z.number().int().min(1).max(1000),
-});
-export type RecordingReuploadRequest = z.infer<typeof RecordingReuploadRequestSchema>;
-
-// The re-upload response is the same shape as /recordings/init's — fresh
-// uploadIds + per-part presigned URLs + the metadata PUT.
-export const RecordingReuploadResponseSchema = RecordingsInitResponseSchema;
-export type RecordingReuploadResponse = z.infer<typeof RecordingReuploadResponseSchema>;
+// (Enh 3 / D1, 2026-06-04: RecordingServerEventSchema, the `_events` EventsEnvelope,
+// and the /recordings/:id/reupload request/response schemas were removed with the
+// hash-verify flow. `uploaded` is terminal success; there are no server→client
+// recording-status events and no hash-mismatch re-upload path.)
 
 // POST /recordings/:id/parts (UP-04) — re-presign part URLs against the EXISTING
 // video + IMU multipart uploads (no CreateMultipartUpload of any kind). The client
@@ -205,21 +162,9 @@ export type RecordingRePresignRequest = z.infer<typeof RecordingRePresignRequest
 export const RecordingRePresignResponseSchema = RecordingsInitResponseSchema;
 export type RecordingRePresignResponse = z.infer<typeof RecordingRePresignResponseSchema>;
 
-// GET /recordings/verified-ids?since=<cursor> (VERIFY-06) — the app-launch
-// reconciliation sweep surface. `since` is an opaque cursor = the last-seen
-// recording_id (its (verified_at, id) tuple is resolved server-side).
-export const VerifiedIdsQuerySchema = z.object({
-  since: z.string().length(26).optional(),
-});
-export type VerifiedIdsQuery = z.infer<typeof VerifiedIdsQuerySchema>;
-
-export const VerifiedIdsResponseSchema = z
-  .object({
-    ids: z.array(z.string().length(26)),
-    next_cursor: z.string().length(26).nullable(),
-  })
-  .extend(EventsEnvelopeSchema.shape); // also an `_events` carrier
-export type VerifiedIdsResponse = z.infer<typeof VerifiedIdsResponseSchema>;
+// (Enh 3 / D1, 2026-06-04: GET /recordings/verified-ids + its query/response
+// schemas were removed with the hash-verify flow — there is no verified-ids
+// reconciliation sweep; the device deletes local files on /finalize 200.)
 
 // GET /recordings — paginated list shape (API-08). Promoted from the
 // backend's apps/api/src/routes/recordings/schemas.ts so the mobile
@@ -250,15 +195,18 @@ export const RecordingsListItemSchema = z.object({
   qa_status: z.enum(['pending', 'uploaded', 'verified', 'hash-mismatch', 'rejected']),
   duration_ms: z.number().int(),
   created_at: z.string().datetime(),
+  // Bug 6 / D5 (2026-06-04) — short-TTL signed URL for the server-generated poster
+  // JPEG; null when the row has no server thumbnail. The client prefers its local
+  // MMKV ledger thumb and falls back to this, then to the gradient placeholder.
+  thumbnail_url: z.string().url().nullable(),
 });
 export type RecordingsListItem = z.infer<typeof RecordingsListItemSchema>;
 
-export const RecordingsListResponseSchema = z
-  .object({
-    items: z.array(RecordingsListItemSchema),
-    next_cursor: z.string().length(26).nullable(),
-  })
-  .extend(EventsEnvelopeSchema.shape); // authenticated → `_events` carrier
+export const RecordingsListResponseSchema = z.object({
+  items: z.array(RecordingsListItemSchema),
+  next_cursor: z.string().length(26).nullable(),
+  // (Enh 3 / D1 — no `_events` envelope anymore.)
+});
 export type RecordingsListResponse = z.infer<typeof RecordingsListResponseSchema>;
 
 // D-08 (Phase 6 plan 06-03) — archive state envelope for
@@ -276,11 +224,10 @@ export type ArchiveState = z.infer<typeof ArchiveStateSchema>;
 export const RecordingsStreamUrlParamsSchema = z.object({ id: z.string().length(26) });
 export type RecordingsStreamUrlParams = z.infer<typeof RecordingsStreamUrlParamsSchema>;
 
-export const RecordingsStreamUrlResponseSchema = z
-  .object({
-    presignedUrl: z.string().url().nullable(),
-    expiresAt: z.string().datetime(),
-    archiveState: ArchiveStateSchema,
-  })
-  .extend(EventsEnvelopeSchema.shape); // authenticated → `_events` carrier
+export const RecordingsStreamUrlResponseSchema = z.object({
+  presignedUrl: z.string().url().nullable(),
+  expiresAt: z.string().datetime(),
+  archiveState: ArchiveStateSchema,
+  // (Enh 3 / D1 — no `_events` envelope anymore.)
+});
 export type RecordingsStreamUrlResponse = z.infer<typeof RecordingsStreamUrlResponseSchema>;

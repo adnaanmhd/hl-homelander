@@ -60,9 +60,26 @@ const {
   mockParentNavigate,
   mockParentReset,
   lifecycleCallbacksRef,
+  mockOnSegmentComplete,
+  segmentCompleteCbRef,
+  mockUploadEnqueue,
+  mockUploadPause,
+  mockUploadResume,
 } = vi.hoisted(() => {
   const deviceOrientationListeners: Array<(o: string) => void> = [];
+  // Bug 9 (260604) — capture the onSegmentComplete handler the screen
+  // subscribes so a test can fire a synthetic SegmentCompleteEvent and assert
+  // the auto-enqueue keys the upload on `e.taskId`, not the route closure.
+  const segmentCompleteCbRef = { current: null as null | ((e: unknown) => void) };
   return {
+    mockOnSegmentComplete: vi.fn((cb: (e: unknown) => void) => {
+      segmentCompleteCbRef.current = cb;
+      return { remove: vi.fn() };
+    }),
+    segmentCompleteCbRef,
+    mockUploadEnqueue: vi.fn().mockResolvedValue(undefined),
+    mockUploadPause: vi.fn().mockResolvedValue(undefined),
+    mockUploadResume: vi.fn().mockResolvedValue(undefined),
     mockLogEvent: vi.fn(),
     mockSpeakCue: vi.fn(),
     mockPickVoice: vi.fn().mockResolvedValue(undefined),
@@ -122,11 +139,30 @@ vi.mock('../../../src/lib/ttsVoice', () => ({
 
 vi.mock('../../../src/native/HumynScreenBrightness', () => ({ set: mockBrightnessSet }));
 
+// Bug 2 (260604) — force the live-preview to be "available" so the mount-gate
+// `(active || stop-confirm) && isLivePreviewAvailable()` is exercisable. We keep
+// the REAL `HumynLivePreviewView` component (the global RN shim renders it as a
+// div that maps accessibilityLabel → aria-label, so it's queryable) and only
+// override `isLivePreviewAvailable`, which is otherwise false in the unit-test
+// env (native module absent).
+vi.mock('../../../src/native/HumynLivePreviewView', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/native/HumynLivePreviewView')>();
+  return { ...actual, isLivePreviewAvailable: () => true };
+});
+
+vi.mock('../../../src/native/HumynUpload', () => ({
+  HumynUpload: {
+    enqueue: mockUploadEnqueue,
+    pause: mockUploadPause,
+    resume: mockUploadResume,
+  },
+}));
+
 vi.mock('../../../src/native/HumynCapture', () => ({
   start: mockHcStart,
   stop: mockHcStop,
   onSegmentStart: mockHcEvtSub,
-  onSegmentComplete: mockHcEvtSub,
+  onSegmentComplete: mockOnSegmentComplete,
   // Quick task 260517-p5g CAPTURE-QA-04 — RecordingScreen now subscribes
   // to onSegmentCanceled (see RecordingScreen.tsx). The mock returns the
   // same removable-subscription shape as the other helpers.
@@ -292,6 +328,16 @@ beforeEach(() => {
     if (i >= 0) deviceOrientationListeners.splice(i, 1);
   });
   deviceOrientationListeners.length = 0;
+  // Bug 9 — re-prime the capturing onSegmentComplete + upload mocks (clearAllMocks
+  // drops implementations, same as the orientation mocks above).
+  mockOnSegmentComplete.mockImplementation((cb: (e: unknown) => void) => {
+    segmentCompleteCbRef.current = cb;
+    return { remove: vi.fn() };
+  });
+  mockUploadEnqueue.mockResolvedValue(undefined);
+  mockUploadPause.mockResolvedValue(undefined);
+  mockUploadResume.mockResolvedValue(undefined);
+  segmentCompleteCbRef.current = null;
   _routeParams = { taskId: '__practice__', taskName: 'Practice — 60 sec', isPractice: true };
   __test_resetUploadToastBus();
 });
@@ -471,6 +517,43 @@ describe('RecordingScreen — orientation + brightness lifecycle (REC-01 / REC-0
     expect(screen.queryByLabelText('stop-confirm-modal')).toBeNull();
     fireEvent.click(screen.getByLabelText('recording-close'));
     expect(screen.getByLabelText('stop-confirm-modal')).toBeTruthy();
+  });
+});
+
+describe('Bug 2 (260604) — live preview stays mounted across stop-confirm', () => {
+  it('preview present in active, stays mounted through X_PRESSED → stop-confirm → Keep recording', async () => {
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('active', { startedAt: 0, durationMs: 5000 })}
+        />,
+      );
+    });
+    // Mounted during active.
+    expect(screen.getByLabelText('recording-live-preview')).toBeTruthy();
+
+    // (x) → X_PRESSED → stop-confirm: the recording is STILL running, so the
+    // preview MUST stay mounted (unmount → fresh SurfaceTexture → "Surface was
+    // abandoned" on re-attach → black preview = the reported bug).
+    fireEvent.click(screen.getByLabelText('recording-close'));
+    expect(screen.getByLabelText('stop-confirm-modal')).toBeTruthy();
+    expect(screen.getByLabelText('recording-live-preview')).toBeTruthy();
+
+    // "Keep recording" → STOP_CONFIRM_CANCEL → active: preview never unmounted.
+    fireEvent.click(screen.getByLabelText('stop-confirm-keep'));
+    expect(screen.queryByLabelText('stop-confirm-modal')).toBeNull();
+    expect(screen.getByLabelText('recording-live-preview')).toBeTruthy();
+  });
+
+  it('preview is mounted when rendered directly in the stop-confirm substate', async () => {
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('stop-confirm', { startedAt: 0, durationMs: 5000 })}
+        />,
+      );
+    });
+    expect(screen.getByLabelText('recording-live-preview')).toBeTruthy();
   });
 });
 
@@ -734,5 +817,89 @@ describe('RecordingScreen — start guards (REC-16)', () => {
       render(<RecordingScreen __test_initialState={stateIn('pre-flight')} />);
     });
     await waitFor(() => expect(screen.getByLabelText('gate-ring')).toBeTruthy());
+  });
+});
+
+describe('Bug 9 (260604) — segment-complete enqueues under the segment’s own taskId', () => {
+  // enqueue signature: (recordingId, mp4, csv, json, taskId, isPractice, ownerSub)
+  const TASK_ARG_INDEX = 4;
+  const fireSegmentComplete = (taskId: string): Promise<void> =>
+    act(async () => {
+      segmentCompleteCbRef.current?.({
+        segmentId: 'seg1',
+        recordingId: 'rec1',
+        taskId,
+        mp4Path: '/cache/rec1.mp4',
+        csvPath: '/cache/rec1.csv',
+        jsonPath: '/cache/rec1.json',
+        durationMs: 200_000,
+        drift: { max: 1, mean: 1, p99: 1 },
+        imuMinRateHzObservedP1: 200,
+        thumbnailPath: null,
+      });
+    });
+
+  it('uses the event taskId (the session task), NOT the route closure', async () => {
+    _routeParams = {
+      taskId: 'cooking_chop',
+      taskName: 'Chop vegetables',
+      taskCategory: 'cooking',
+      taskSetting: 'indoor',
+      isPractice: false,
+    };
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('active', { startedAt: 0, durationMs: 200_000 })}
+        />,
+      );
+    });
+    expect(segmentCompleteCbRef.current).toBeTruthy();
+    // The route shows cooking_chop, but the finalized segment belongs to a
+    // DIFFERENT task (e.g. a late finalize after the route was reused).
+    await fireSegmentComplete('laundry_fold');
+    expect(mockUploadEnqueue).toHaveBeenCalledTimes(1);
+    const args = mockUploadEnqueue.mock.calls[0]!;
+    expect(args[0]).toBe('rec1');
+    expect(args[TASK_ARG_INDEX]).toBe('laundry_fold');
+  });
+
+  it('falls back to the route taskId when the native payload omits it (older build)', async () => {
+    _routeParams = {
+      taskId: 'cooking_chop',
+      taskName: 'Chop vegetables',
+      taskCategory: 'cooking',
+      taskSetting: 'indoor',
+      isPractice: false,
+    };
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('active', { startedAt: 0, durationMs: 200_000 })}
+        />,
+      );
+    });
+    await fireSegmentComplete(''); // empty → `e.taskId || taskId` falls back
+    expect(mockUploadEnqueue).toHaveBeenCalledTimes(1);
+    expect(mockUploadEnqueue.mock.calls[0]![TASK_ARG_INDEX]).toBe('cooking_chop');
+  });
+
+  it('never enqueues when the segment’s own task is practice', async () => {
+    _routeParams = {
+      taskId: 'cooking_chop',
+      taskName: 'Chop vegetables',
+      taskCategory: 'cooking',
+      taskSetting: 'indoor',
+      isPractice: false,
+    };
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('active', { startedAt: 0, durationMs: 200_000 })}
+        />,
+      );
+    });
+    await fireSegmentComplete('__practice__');
+    expect(mockUploadEnqueue).not.toHaveBeenCalled();
   });
 });

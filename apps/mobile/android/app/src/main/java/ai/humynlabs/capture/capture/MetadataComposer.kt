@@ -54,7 +54,12 @@ object MetadataComposer {
     // capture_device_info / metadata, incl. imu_video_drift_{max,mean,p99}_ms)
     // is unchanged. The block is ALWAYS present with the full key structure +
     // null fallback (see [compose] + [CalibrationJson]).
-    const val CURRENT_SCHEMA_VERSION = "1.3.0"
+    //
+    // Enh 3 / D1 (2026-06-04) — schema bump 1.3.0 → 1.4.0 REMOVES the
+    // `metadata.file_sha256` / `metadata.imu_sha256` fields: all upload hashing
+    // is gone (the server verify worker AND the device-side SHA-256). No other
+    // field changes. (Bug 3 later bumps 1.4.0 → 1.5.0 to add `metadata.location`.)
+    const val CURRENT_SCHEMA_VERSION = "1.4.0"
 
     /** Sidecar input shape (subset relevant to metadata composition). */
     data class SidecarPayload(
@@ -186,8 +191,6 @@ object MetadataComposer {
 
     /** Native-derived metrics gathered at finalize time. */
     data class FinalizeMetrics(
-        val mp4Sha: String,
-        val csvSha: String,
         val mp4SizeBytes: Long,
         val csvSizeBytes: Long,
         val drift: Drift?,
@@ -293,10 +296,8 @@ object MetadataComposer {
             .put("footage_type", "egocentric_head")
             .put("filename", m.mp4Filename)
             .put("file_size_bytes", m.mp4SizeBytes)
-            .put("file_sha256", m.mp4Sha)
             .put("imu_filename", m.csvFilename)
             .put("imu_size_bytes", m.csvSizeBytes)
-            .put("imu_sha256", m.csvSha)
             .put("imu_gyro_rate_hz", m.gyroRateHz)
             .put("imu_accel_rate_hz", m.accelRateHz)
             .put("imu_video_drift_max_ms", m.drift?.maxMs ?: JSONObject.NULL)

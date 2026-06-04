@@ -2,8 +2,10 @@
 // signed playback URL minted via @aws-sdk/cloudfront-signer when qa_status is
 // 'uploaded' (API-09). 5-min TTL. Cross-user lookups, missing rows, and
 // takedown rows all collapse to 404 recording-not-found so existence isn't
-// leaked (T-1.7-10). Intermediate states (pending / verified / rejected /
-// hash-mismatch) return 404 recording-not-playable.
+// leaked (T-1.7-10). Non-success states (pending = still uploading; rejected;
+// takedown) return 404 recording-not-playable. ('uploaded' is the terminal
+// success state after Enh 3 / D1 removed the hash-verify flow; legacy 'verified'
+// rows, if any, play via GET /recordings/:id/stream-url.)
 //
 // Env contract: CLOUDFRONT_RECORDINGS_PRIVATE_KEY (PEM) +
 // CLOUDFRONT_RECORDINGS_KEY_PAIR_ID + CLOUDFRONT_RECORDINGS_BASE_URL.
@@ -14,8 +16,11 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { getSignedUrl as getCloudFrontSignedUrl } from '@aws-sdk/cloudfront-signer';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl as getS3SignedUrl } from '@aws-sdk/s3-request-presigner';
 import { db, schema } from '../../db/index.js';
 import { buildProblemDetail, PROBLEM_SLUGS } from '../../lib/problem-detail.js';
+import { getS3Client, RECORDINGS_BUCKET, PRESIGNED_TTL_SECONDS } from '../../lib/s3-client.js';
 import { RecordingsGetParamsSchema, RecordingsGetResponseSchema } from './schemas.js';
 
 type RecordingsGetResponse = z.infer<typeof RecordingsGetResponseSchema>;
@@ -72,9 +77,9 @@ export default async function recordingsGetRoute(app: FastifyInstance): Promise<
 
       const rec = rows[0]!;
 
-      // Anything other than 'uploaded' means there is no playable artifact
-      // yet (or already gone — verified/rejected/hash-mismatch are deferred
-      // states; Phase 5 may add re-played verified URLs in a later plan).
+      // 'uploaded' is the terminal success state (Enh 3 / D1). Anything else
+      // means there's no playable artifact: pending = still uploading;
+      // rejected/takedown = gone. (Legacy 'verified' rows play via /stream-url.)
       if (rec.qaStatus !== 'uploaded') {
         const pd = buildProblemDetail({
           slug: PROBLEM_SLUGS.recordingNotPlayable,
@@ -94,6 +99,17 @@ export default async function recordingsGetRoute(app: FastifyInstance): Promise<
         dateLessThan: expiresAt.toISOString(),
       });
 
+      // Bug 6 / D5 — short-TTL presigned GET for the server poster JPEG (null when
+      // the row has no server thumbnail). S3-presigned (not CloudFront) so it works
+      // identically in dev/LocalStack and prod.
+      const thumbnailUrl = rec.s3KeyThumbnail
+        ? await getS3SignedUrl(
+            getS3Client(),
+            new GetObjectCommand({ Bucket: RECORDINGS_BUCKET(), Key: rec.s3KeyThumbnail }),
+            { expiresIn: PRESIGNED_TTL_SECONDS },
+          )
+        : null;
+
       const body: RecordingsGetResponse = {
         recording_id: rec.id,
         task_id: rec.taskId,
@@ -102,6 +118,7 @@ export default async function recordingsGetRoute(app: FastifyInstance): Promise<
         created_at: rec.createdAt.toISOString(),
         playback_url: playbackUrl,
         playback_url_expires_at: expiresAt.toISOString(),
+        thumbnail_url: thumbnailUrl,
       };
       return reply.send(body);
     },

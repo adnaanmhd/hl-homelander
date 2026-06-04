@@ -81,8 +81,6 @@ describe('POST /recordings/:id/reject', () => {
       practice: false,
       qaStatus: 'pending',
       durationMs: 1000,
-      fileSha256: 'a'.repeat(64),
-      imuSha256: 'b'.repeat(64),
       fileSizeBytes: 1024,
       imuSizeBytes: 1024,
       s3KeyVideo: videoKey,
@@ -119,8 +117,6 @@ describe('POST /recordings/:id/reject', () => {
       practice: false,
       qaStatus: 'verified',
       durationMs: 1000,
-      fileSha256: 'a'.repeat(64),
-      imuSha256: 'b'.repeat(64),
       fileSizeBytes: 1024,
       imuSizeBytes: 1024,
       s3KeyVideo: 'k',
@@ -128,7 +124,6 @@ describe('POST /recordings/:id/reject', () => {
       s3KeyMetadata: 'k',
       capturedAt: new Date(),
       flavor: 'playStore',
-      verifiedAt: new Date(),
     });
     const res = await app.inject({
       method: 'POST',

@@ -50,7 +50,10 @@ const { mockQueue, mockState, hooks } = vi.hoisted(() => ({
   hooks: {
     queueChangedRemove: vi.fn(),
     progressRemove: vi.fn(),
-    reupload: vi.fn().mockResolvedValue(undefined),
+    // Enh 3 / D1 (2026-06-04): dead-letter Retry routes through reviveDeadLetterSafe
+    // (was reupload — the /reupload endpoint + method were removed).
+    reviveDeadLetterSafe: vi.fn().mockResolvedValue(undefined),
+    retryNeedsAttentionSafe: vi.fn().mockResolvedValue(false),
     // Wave-1.5 Item 4 — capture the onUploadProgress listener so tests can fire it.
     progressListener: null as
       | ((e: { recordingId: string; bytesUploaded: number; bytesTotal: number }) => void)
@@ -61,7 +64,8 @@ const { mockQueue, mockState, hooks } = vi.hoisted(() => ({
 vi.mock('../../../src/native/HumynUpload', () => ({
   HumynUpload: {
     getQueueSafe: vi.fn(async () => mockQueue.rows),
-    reupload: hooks.reupload,
+    reviveDeadLetterSafe: hooks.reviveDeadLetterSafe,
+    retryNeedsAttentionSafe: hooks.retryNeedsAttentionSafe,
   },
   onUploadQueueChanged: vi.fn(() => ({ remove: hooks.queueChangedRemove })),
   onUploadProgress: vi.fn(
@@ -89,8 +93,10 @@ describe('PendingUploadsScreen (Plan 05-08)', () => {
     mockState.jwt = 'jwt-token';
     hooks.queueChangedRemove.mockReset();
     hooks.progressRemove.mockReset();
-    hooks.reupload.mockReset();
-    hooks.reupload.mockResolvedValue(undefined);
+    hooks.reviveDeadLetterSafe.mockReset();
+    hooks.reviveDeadLetterSafe.mockResolvedValue(undefined);
+    hooks.retryNeedsAttentionSafe.mockReset();
+    hooks.retryNeedsAttentionSafe.mockResolvedValue(false);
     hooks.progressListener = null;
   });
 
@@ -110,15 +116,11 @@ describe('PendingUploadsScreen (Plan 05-08)', () => {
     expect(getByLabelText('upload-status-chip-progress')).toBeTruthy();
   });
 
-  it('maps awaiting-verify → "Uploaded — verifying…" (distinct label)', () => {
-    const { getByLabelText, getByText } = render(
-      <PendingUploadsScreen __test_rows={[row({ state: 'awaiting-verify' })]} />,
-    );
-    expect(getByLabelText('upload-status-chip-verifying')).toBeTruthy();
-    expect(getByText('Uploaded — verifying…')).toBeTruthy();
-  });
+  // (Enh 3 / D1, 2026-06-04: 'awaiting-verify' / 'verified' queue states +
+  // the 'verifying' chip were removed — a row that reaches terminal success is
+  // deleted from the queue on /finalize 200.)
 
-  it('maps dead-letter → "Upload failed" + a Retry button that calls HumynUpload.reupload', () => {
+  it('maps dead-letter → "Upload failed" + a Retry button that calls reviveDeadLetterSafe', () => {
     const { getByLabelText } = render(
       <PendingUploadsScreen
         __test_rows={[
@@ -128,15 +130,7 @@ describe('PendingUploadsScreen (Plan 05-08)', () => {
     );
     expect(getByLabelText('upload-status-chip-failed')).toBeTruthy();
     fireEvent.click(getByLabelText('pending-upload-retry'));
-    expect(hooks.reupload).toHaveBeenCalledWith('recX');
-  });
-
-  it('maps verified → "✓ Uploaded" (transient success chip)', () => {
-    const { getByLabelText, getByText } = render(
-      <PendingUploadsScreen __test_rows={[row({ state: 'verified' })]} />,
-    );
-    expect(getByLabelText('upload-status-chip-success')).toBeTruthy();
-    expect(getByText('✓ Uploaded')).toBeTruthy();
+    expect(hooks.reviveDeadLetterSafe).toHaveBeenCalledWith('recX');
   });
 
   it('renders "Paused — no Wi-Fi" on in-flight rows when offline (the one new variant)', () => {
@@ -207,12 +201,12 @@ describe('PendingUploadsScreen (Plan 05-08)', () => {
     expect(inline).toMatch(/width:\s*47%/);
   });
 
-  it('progress bar does NOT render for awaiting-verify / verified / dead-letter rows', async () => {
+  it('progress bar does NOT render for finalizing / dead-letter / needs-attention rows', async () => {
     const { queryByLabelText } = render(
       <PendingUploadsScreen
         __test_rows={[
-          row({ recordingId: 'r1', state: 'awaiting-verify' }),
-          row({ recordingId: 'r2', state: 'verified' }),
+          row({ recordingId: 'r1', state: 'finalizing' }),
+          row({ recordingId: 'r2', state: 'needs-attention' }),
           row({ recordingId: 'r3', state: 'dead-letter' }),
         ]}
       />,

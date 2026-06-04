@@ -10,12 +10,13 @@ import java.io.FileOutputStream
  * Phase 6 D-05 — best-effort first-I-frame thumbnail extraction for the
  * History tile (HIST-06 underlying infrastructure).
  *
- * Sibling of `HashStreamer` — called from `FinalizeWorker.finalize()` step 7.5
- * after the sidecar delete (orphan-sidecar contract) and BEFORE the
- * onSegmentComplete emit. Output JPEG (80% quality) lives at
+ * Called from `FinalizeWorker.finalize()` step 7.5 after the sidecar delete
+ * (orphan-sidecar contract) and BEFORE the onSegmentComplete emit. Output JPEG
+ * (80% quality) lives at
  * `${thumbsDir}/${mp4File.nameWithoutExtension}.thumb.jpg`. The thumbsDir is
- * `filesDir/thumbs/` — a SIBLING of `filesDir/recordings/`, NOT inside it,
- * so the thumbnail survives the post-`verified` MP4 delete (CONTEXT D-04).
+ * `filesDir/thumbs/` — a SIBLING of `filesDir/recordings/`, NOT inside it, so
+ * the thumbnail survives the post-upload MP4 delete (the /finalize-200 bundle
+ * cleanup, Enh 3 / D1; CONTEXT D-04).
  *
  * **HEVC GOP=30, no B-frames (CAP-01)** — frame 0 IS a key frame, so
  * `OPTION_CLOSEST_SYNC` at `timeUs=0` returns it directly with no decode

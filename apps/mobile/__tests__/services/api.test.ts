@@ -116,7 +116,11 @@ describe('apiClient — Authorization Bearer attachment', () => {
     expect(headers['idempotency-key']).toBe('k2');
   });
 
-  it('Test 5: DELETE /me with JWT in MMKV → authorization attached', async () => {
+  it('Test 5: DELETE /me with JWT in MMKV → authorization + text/plain content-type attached', async () => {
+    // Bug 1 (260604): DELETE must pin an explicit content-type Fastify can parse.
+    // Without it, RN/OkHttp attaches a default content-type Fastify has no parser
+    // for → 415 before the handler runs. text/plain (not application/json — an
+    // empty JSON body 400s) lets the built-in parser accept the bodiless request.
     secureMmkv.set(KEYS.AUTH_JWT, TEST_JWT);
     const spy = vi
       .spyOn(globalThis, 'fetch')
@@ -124,7 +128,10 @@ describe('apiClient — Authorization Bearer attachment', () => {
 
     await apiClient.delete('/me', { query: { confirm: 'DELETE' } });
 
-    const headers = headersToObject(fetchInitOf(spy));
+    const init = fetchInitOf(spy);
+    const headers = headersToObject(init);
     expect(headers.authorization).toBe(`Bearer ${TEST_JWT}`);
+    expect(headers['content-type']).toBe('text/plain');
+    expect(init.method).toBe('DELETE');
   });
 });

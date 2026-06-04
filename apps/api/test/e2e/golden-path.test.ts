@@ -157,8 +157,6 @@ describe('Golden path — every Phase 1 endpoint in sequence', () => {
         practice: false,
         partsCount: 1,
         durationMs: 60000,
-        fileSha256: 'a'.repeat(64),
-        imuSha256: 'b'.repeat(64),
         fileSizeBytes: 5 * 1024 * 1024,
         imuSizeBytes: 1024,
         capturedAt: new Date().toISOString(),

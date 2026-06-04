@@ -72,6 +72,9 @@ export async function isLivePreviewSurfacePublished(): Promise<boolean> {
  * during the 'initial-preview' and 'tap-revealed' brightness substates of
  * the active recording state.
  */
-export const HumynLivePreviewView = requireNativeComponent<{ style?: ViewStyle }>(
-  'HumynLivePreviewView',
-);
+export const HumynLivePreviewView = requireNativeComponent<{
+  style?: ViewStyle;
+  /** Standard RN view prop — forwarded to the native TextureView for a11y +
+   *  testability (RecordingScreen tags it "recording-live-preview"). */
+  accessibilityLabel?: string;
+}>('HumynLivePreviewView');

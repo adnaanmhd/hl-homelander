@@ -7,7 +7,6 @@ import errorHandlerPlugin from './plugins/error-handler.js';
 import authPlugin from './plugins/auth.js';
 import rateLimitPlugin from './plugins/rate-limit.js';
 import idempotencyPlugin from './plugins/idempotency.js';
-import eventsOutboxPlugin from './plugins/events-outbox.js';
 import healthzRoutes from './routes/healthz.js';
 import readyzRoutes from './routes/readyz.js';
 import authRoutes from './routes/auth/index.js';
@@ -19,7 +18,6 @@ import eventsPostRoute from './routes/events/post.js';
 import feedbackPostRoute from './routes/feedback/post.js';
 import appVersionGetRoute from './routes/app-version/get.js';
 import { startDsrCron } from './cron/dsr-hard-delete.js';
-import { startVerifySweep } from './cron/verify-sweep.js';
 import { verifyConsentTextHash } from './legal/boot-guard.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
@@ -29,6 +27,17 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   const app = Fastify({ logger: loggerOptions, disableRequestLogging: false });
 
+  // Bug 1 hardening (260604) — a permissive catch-all content-type parser so no
+  // bodiless verb (DELETE /me, future POST-no-body, etc.) can 415 when a native
+  // HTTP layer (RN/OkHttp) attaches a content-type Fastify has no parser for.
+  // Built-in parsers (application/json, text/plain) and @fastify/multipart's
+  // multipart/form-data parser are MORE specific and still take precedence; '*'
+  // only catches otherwise-unregistered types, draining + discarding the body.
+  // Must be registered before routes.
+  app.addContentTypeParser('*', { parseAs: 'string' }, (_req, _body, done) =>
+    done(null, undefined),
+  );
+
   // Order matters:
   await app.register(requestIdPlugin); // 1. populate req.id first
   await app.register(zodPlugin); // 2. validator/serializer
@@ -36,7 +45,6 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(rateLimitPlugin); // 4. anonymous-tier IP rate limit (pre-auth)
   await app.register(authPlugin); // 5. JWT verifier + requireAuth decorator
   await app.register(idempotencyPlugin); // 6. depends on auth — pulls user.sub
-  await app.register(eventsOutboxPlugin); // 7. depends on auth — drains recording_events_outbox onto authed responses
 
   // Routes
   await app.register(healthzRoutes);
@@ -58,12 +66,9 @@ export async function buildApp(): Promise<FastifyInstance> {
     startDsrCron(app.log);
   }
 
-  // verify-sweep cron (Plan 05-03) — re-enqueues stale recordings_to_verify
-  // rows so nothing is lost if the EventBridge→SQS leg dropped a message.
-  // Skipped in tests (avoids opening a Redis connection under the singleFork pool).
-  if (process.env.NODE_ENV !== 'test') {
-    startVerifySweep(app.log);
-  }
+  // (Enh 3 / D1, 2026-06-04: the hash-verify worker, its BullMQ/Redis queue, the
+  // SQS poller, the events-outbox plugin, and the verify-sweep cron were all
+  // removed. `uploaded` is now terminal success — there is nothing to sweep.)
 
   return app;
 }
