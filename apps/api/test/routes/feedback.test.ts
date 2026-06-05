@@ -82,6 +82,51 @@ describe('POST /feedback (multipart)', () => {
     expect(r.json().diagnosticS3Key).toMatch(/^feedback\//);
   });
 
+  it('S3 diagnostic upload failure → still 201 + null key, feedback NOT lost', async () => {
+    // Simulate a misconfigured / unreachable feedback bucket: PutObject to a
+    // non-existent bucket throws NoSuchBucket. The report must still land (the
+    // category + message + inline diagnostic are the real signal). Regression
+    // for the "report a problem → 500" bug.
+    const originalBucket = process.env.FEEDBACK_BUCKET;
+    process.env.FEEDBACK_BUCKET = 'humyn-feedback-does-not-exist-regression';
+    try {
+      const form = new FormData();
+      form.append('category', 'app-crashed');
+      form.append('message', 'crash report while the feedback bucket is down');
+      form.append(
+        'diagnostic',
+        Buffer.from(JSON.stringify({ os: 'Android 14', model: 'Pixel 7a' })),
+        {
+          filename: 'diag.json',
+          contentType: 'application/json',
+        },
+      );
+      const r = await app.inject({
+        method: 'POST',
+        url: '/feedback',
+        headers: {
+          authorization: `Bearer ${tok()}`,
+          'idempotency-key': '4f7e8f5c-8d2a-4b7f-9c1d-8e3a2b1c4dc5',
+          ...form.getHeaders(),
+        },
+        payload: form.getBuffer(),
+      });
+      expect(r.statusCode).toBe(201);
+      expect(r.json().diagnosticS3Key).toBeNull();
+      // The feedback row persisted with the inline diagnostic and a null S3 key.
+      const rows = await db
+        .select()
+        .from(schema.feedback)
+        .where(eq(schema.feedback.id, r.json().id as string));
+      expect(rows).toHaveLength(1);
+      const diag = rows[0]!.diagnostic as Record<string, unknown>;
+      expect(diag.os).toBe('Android 14');
+      expect(diag._s3_key).toBeNull();
+    } finally {
+      process.env.FEEDBACK_BUCKET = originalBucket;
+    }
+  });
+
   it('rejects non-application/json diagnostic (text/plain) → 400 (T-1.8-04)', async () => {
     const form = new FormData();
     form.append('category', 'app-crashed');

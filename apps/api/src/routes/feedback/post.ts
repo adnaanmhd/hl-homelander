@@ -2,7 +2,10 @@
 // an OPTIONAL `diagnostic` file part (application/json only, ≤5 MB). The
 // diagnostic file goes to S3 (humyn-feedback-{env}/feedback/{userId}/{id}/diagnostic.json)
 // and the first 100 KB also persists inline on the feedback row so support staff
-// can read it without an S3 hop.
+// can read it without an S3 hop. The S3 archive is BEST-EFFORT — if the upload
+// fails (bucket misconfig / S3 down) the feedback row is still written with the
+// inline diagnostic and the request returns 201 (diagnosticS3Key: null); a
+// support-attachment hiccup must never lose the user's bug report.
 //
 // Multipart limits:
 //   - fileSize: FEEDBACK_MAX_BYTES (5 MB)
@@ -149,14 +152,10 @@ export default async function feedbackPostRoute(app: FastifyInstance): Promise<v
       let diagnosticS3Key: string | null = null;
       let diagnosticInline: Record<string, unknown> | null = null;
       if (diagnosticBytes) {
-        diagnosticS3Key = await uploadDiagnostic({
-          feedbackId: id,
-          userId: sub,
-          bytes: diagnosticBytes,
-          contentType: 'application/json',
-        });
         // Truncate inline to 100 KB so the DB row stays small but support staff
-        // can still read it without an S3 hop.
+        // can still read it without an S3 hop. Computed FIRST + unconditionally:
+        // the user's bug report (category + message + this inline snapshot) must
+        // never be lost because the S3 attachment upload failed.
         const truncated = diagnosticBytes.subarray(0, FEEDBACK_INLINE_MAX_BYTES).toString('utf8');
         try {
           const parsed = JSON.parse(truncated) as unknown;
@@ -166,6 +165,25 @@ export default async function feedbackPostRoute(app: FastifyInstance): Promise<v
               : { _raw: parsed };
         } catch {
           diagnosticInline = { _raw_truncated: truncated.slice(0, 1024) };
+        }
+        // Best-effort archive of the full diagnostic blob to S3. A failure here
+        // (FEEDBACK_BUCKET unset, bucket missing, S3 unreachable) must NOT 500
+        // the whole report — degrade to "feedback stored, diagnostic-in-S3
+        // skipped". The inline copy above is already on the row; _s3_key stays
+        // null. Surfaced as a warn so a misconfigured bucket is still visible
+        // in the logs without taking the endpoint down.
+        try {
+          diagnosticS3Key = await uploadDiagnostic({
+            feedbackId: id,
+            userId: sub,
+            bytes: diagnosticBytes,
+            contentType: 'application/json',
+          });
+        } catch (err) {
+          req.log.warn(
+            { err, feedbackId: id },
+            'feedback diagnostic S3 upload failed — storing feedback with inline diagnostic only',
+          );
         }
       }
       await db.insert(schema.feedback).values({
