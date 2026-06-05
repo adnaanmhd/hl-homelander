@@ -75,7 +75,12 @@ export interface SegmentCompleteEvent {
  * entry then deletes the MP4 + CSV + metadata JSON bundle files from
  * cacheDir (write-then-delete).
  */
-export type SegmentCancelReason = 'fps_dropped' | 'resolution_dropped' | 'insufficient_frames';
+export type SegmentCancelReason =
+  | 'fps_dropped'
+  | 'resolution_dropped'
+  | 'insufficient_frames'
+  // Bug 8 + Enh 1 / D6 (2026-06-04): non-practice segment under the 3-min floor.
+  | 'too_short';
 
 export interface SegmentCanceledEvent {
   /** ULID for the canceled segment. */

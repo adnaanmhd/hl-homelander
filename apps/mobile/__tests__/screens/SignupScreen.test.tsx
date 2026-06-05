@@ -44,7 +44,9 @@ const {
   mockReplace,
   mockLogEvent,
   mockAlert,
+  mockClearDeviceEvicted,
   consentRef,
+  deviceEvictedRef,
   capturedOnAgreeRef,
 } = vi.hoisted(() => ({
   mockSignInWithGoogle: vi.fn(),
@@ -54,8 +56,11 @@ const {
   mockReplace: vi.fn(),
   mockLogEvent: vi.fn(),
   mockAlert: vi.fn(),
+  mockClearDeviceEvicted: vi.fn(),
   // Mutable holder so each test can seed the consent slice BEFORE rendering.
   consentRef: { current: null as null | { acceptedAt: string; consentVersion: string } },
+  // Bug 4 / D2 — mutable holder so a test can seed the eviction flag before render.
+  deviceEvictedRef: { current: false as boolean },
   // Captured onAgree prop from the (mocked) TermsOfUseModal — tests fire it
   // directly to drive the Agree-button user gesture without going through
   // the real modal's scroll-gate.
@@ -155,6 +160,8 @@ vi.mock('../../src/state/appStore', () => {
       setConsent: mockSetConsent,
       setUser: mockSetUser,
       consent: consentRef.current,
+      deviceEvicted: deviceEvictedRef.current,
+      clearDeviceEvicted: mockClearDeviceEvicted,
     };
   }
   function useAppStore<T>(selector: (s: ReturnType<typeof buildState>) => T): T {
@@ -253,6 +260,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   // Fresh-install default: no consent record on disk → modal auto-opens.
   consentRef.current = null;
+  deviceEvictedRef.current = false;
   capturedOnAgreeRef.current = () => undefined;
 });
 
@@ -280,6 +288,34 @@ describe('SignupScreen (quick 260527-hkl Task 2 — auto-open + CTA-disabled-unt
     consentRef.current = null;
     const { getByLabelText } = render(<SignupScreen />);
     expect(getByLabelText('Terms of Use modal')).toBeTruthy();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Bug 4 / D2 — device-evicted notice (newest-login-wins eviction lands here)
+  // ---------------------------------------------------------------------------
+  it('Bug 4 / D2: deviceEvicted flag on mount → shows the eviction notice + clears the flag', () => {
+    consentRef.current = {
+      acceptedAt: '2026-05-27T10:00:00.000Z',
+      consentVersion: CURRENT_CONSENT_VERSION,
+    };
+    deviceEvictedRef.current = true;
+    const { getByLabelText } = render(<SignupScreen />);
+    const notice = getByLabelText('device-evicted notice');
+    expect(notice).toBeTruthy();
+    expect(notice.textContent).toContain('another device');
+    // One-shot: cleared on mount so it does not re-show on a later Signup visit.
+    expect(mockClearDeviceEvicted).toHaveBeenCalledTimes(1);
+  });
+
+  it('Bug 4 / D2: no eviction notice on a normal Signup mount', () => {
+    consentRef.current = {
+      acceptedAt: '2026-05-27T10:00:00.000Z',
+      consentVersion: CURRENT_CONSENT_VERSION,
+    };
+    deviceEvictedRef.current = false;
+    const { queryByLabelText } = render(<SignupScreen />);
+    expect(queryByLabelText('device-evicted notice')).toBeNull();
+    expect(mockClearDeviceEvicted).not.toHaveBeenCalled();
   });
 
   // ---------------------------------------------------------------------------

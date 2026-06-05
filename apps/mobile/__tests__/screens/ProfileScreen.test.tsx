@@ -9,9 +9,20 @@ import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/re
 import React from 'react';
 
 const navigateFn = vi.fn();
-vi.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({ navigate: navigateFn }),
-}));
+vi.mock('@react-navigation/native', async () => {
+  // Bug 10 — ProfileScreen now loads via useFocusEffect (refetch-on-focus so a
+  // transient /contributions failure self-heals). The real useFocusEffect runs
+  // its callback in a POST-render effect; mirror that with React.useEffect so a
+  // callback that setState synchronously (loadLifetime → setLifetimeStatus)
+  // doesn't loop. `cb` is useCallback-stable, so it runs once per focus.
+  const ReactM = await import('react');
+  return {
+    useNavigation: () => ({ navigate: navigateFn }),
+    useFocusEffect: (cb: () => void | (() => void)) => {
+      ReactM.useEffect(() => cb(), [cb]);
+    },
+  };
+});
 
 // AppFlavor native module — supply a known (versionName, versionCode, flavor)
 // triple so the PROF-05 footer string is deterministic.
@@ -103,5 +114,90 @@ describe('ProfileScreen', () => {
     await waitFor(() => screen.getByLabelText('profile-action-delete'));
     fireEvent.click(screen.getByLabelText('profile-action-delete'));
     expect(navigateFn).toHaveBeenCalledWith('DeleteAccountModal');
+  });
+
+  // ---------------------------------------------------------------------
+  // Bug 10 — profile no longer all-or-nothing: `/me` renders the screen
+  // immediately; the lifetime block loads independently with a deadline.
+  // ---------------------------------------------------------------------
+
+  it('renders off /me immediately while /contributions is still loading — spinner, not a whole-screen stall (Bug 10)', async () => {
+    fetchMeMock.mockResolvedValue(ME_FIXTURE);
+    // /contributions never resolves during the test.
+    fetchContribMock.mockReturnValue(new Promise<never>(() => {}));
+    render(<ProfileScreen />);
+    // The full screen renders off /me (the Payments card only exists past the
+    // whole-screen loading gate).
+    expect(await screen.findByText('Payments & Earnings')).toBeTruthy();
+    // The lifetime block shows its own spinner...
+    expect(screen.getByLabelText('profile-lifetime-loading')).toBeTruthy();
+    // ...and the whole-screen "Loading…" gate is gone (no infinite stall).
+    expect(screen.queryByLabelText('profile-loading')).toBeNull();
+  });
+
+  it('a /contributions failure shows error + Retry; Retry refetches and renders the numeric (Bug 10)', async () => {
+    fetchMeMock.mockResolvedValue(ME_FIXTURE);
+    fetchContribMock.mockRejectedValueOnce(new Error('boom'));
+    render(<ProfileScreen />);
+    // Error + Retry shown in the lifetime block (never an infinite spinner).
+    expect(await screen.findByLabelText('profile-lifetime-error')).toBeTruthy();
+    expect(screen.getByLabelText('profile-lifetime-retry')).toBeTruthy();
+    expect(screen.queryByLabelText('profile-loading')).toBeNull();
+    // Retry with a now-successful fetch → the numeric appears (7440s = 2h 4m).
+    fetchContribMock.mockResolvedValueOnce({ totalSeconds: 7440, taskCount: 12 });
+    fireEvent.click(screen.getByLabelText('profile-lifetime-retry'));
+    expect(await screen.findByText('2h 4m')).toBeTruthy();
+  });
+
+  it('a hanging /contributions hits the 13s deadline → error + Retry (Bug 10)', async () => {
+    vi.useFakeTimers();
+    try {
+      const { act } = await import('@testing-library/react');
+      fetchMeMock.mockResolvedValue(ME_FIXTURE);
+      fetchContribMock.mockReturnValue(new Promise<never>(() => {})); // hangs forever
+      render(<ProfileScreen />);
+      // Flush the /me microtask so the screen renders off /me.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(screen.getByLabelText('profile-lifetime-loading')).toBeTruthy();
+      // Advance past the 13s UX deadline → the block flips to error + Retry.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(13_000);
+      });
+      expect(screen.getByLabelText('profile-lifetime-error')).toBeTruthy();
+      expect(screen.getByLabelText('profile-lifetime-retry')).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('refetches the lifetime block when contributionsVersion bumps (Bug 11)', async () => {
+    vi.useFakeTimers();
+    try {
+      const { act } = await import('@testing-library/react');
+      const { useAppStore } = await import('../../src/state/appStore');
+      fetchMeMock.mockResolvedValue(ME_FIXTURE);
+      fetchContribMock.mockResolvedValue({ totalSeconds: 0, taskCount: 0 });
+      render(<ProfileScreen />);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(fetchContribMock).toHaveBeenCalledTimes(1);
+      // Simulate an upload-queue mutation: bump the version. The debounced
+      // effect (~1.5s) then refetches the lifetime aggregate.
+      fetchContribMock.mockResolvedValue({ totalSeconds: 7440, taskCount: 12 });
+      await act(async () => {
+        useAppStore.getState().bumpContributionsVersion();
+        await vi.advanceTimersByTimeAsync(1500);
+      });
+      expect(fetchContribMock).toHaveBeenCalledTimes(2);
+      expect(screen.getByText('2h 4m')).toBeTruthy();
+    } finally {
+      // Reset the bumped store counter so other tests start clean.
+      const { useAppStore } = await import('../../src/state/appStore');
+      useAppStore.setState({ contributionsVersion: 0 });
+      vi.useRealTimers();
+    }
   });
 });

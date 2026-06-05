@@ -268,6 +268,11 @@ resource "aws_ecs_service" "api" {
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.api.arn
   launch_type     = "FARGATE"
+  # ⚠ desired_count = 1 is ALSO a Bug 4 / D2 auth invariant: the single-device
+  # eviction LRU (apps/api/src/auth/installation-binding.ts) is in-process and
+  # NOT cache-coherent across instances. Scaling this >1 lets a device evicted on
+  # one task stay authorized on another for up to the 60s cache TTL — switch that
+  # lookup to read-through (or a shared invalidation channel) BEFORE raising this.
   desired_count   = 1
 
   network_configuration {

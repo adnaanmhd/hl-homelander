@@ -49,6 +49,7 @@ export async function signInTestUser(
     name: 'E2E Test',
     consentVersion: '1.0.0',
     consentAcceptedAt: new Date(),
+    currentInstallationId: 'inst-test',
     flavor,
     applicationId,
   });
@@ -65,6 +66,7 @@ export async function signInTestUser(
       // production sets one or the other based on evaluateIntegrity()'s verdict.
       integrity_verdict: flavor === 'apkRollout' ? 'bypassed_apk' : 'passed',
       token_version: 1,
+      installationId: 'inst-test',
     },
     secret,
     { algorithm: 'HS256', expiresIn: '24h' },

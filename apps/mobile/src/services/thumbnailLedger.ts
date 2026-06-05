@@ -18,9 +18,11 @@
 //      and the upload enqueue are siblings — not a transaction; a crash between
 //      the two leaves an enqueued-but-unledgered row (which still renders via
 //      the D-04 fallback).
-//   3. The `_events`-envelope outbox-drain hook in `recordingEvents.ts` calls
-//      `clearLocalPath(recordingId)` on `verified` — empties `mp4LocalPath` but
-//      PRESERVES `thumbnailPath` (D-04).
+//   3. (Enh 3 / D1, 2026-06-04) The old `recordingEvents.ts` `_events`-outbox
+//      drain + the `verified` event that used to clear the local path are GONE —
+//      `uploaded` is terminal and the local bundle is deleted on the `/finalize`
+//      200 (uploadReconcile → UploadQueueStore.deleteLocalAndRemove). The
+//      ledger's `thumbnailPath` is PRESERVED across that cleanup (D-04).
 //   4. `cleanupOpportunistic` runs on cold start (D-04a) — best-effort GC of
 //      ledger entries whose `recording_id` is no longer in the server's recent
 //      `/recordings?range=all` set (server-side takedown / rejected / deleted-
@@ -94,14 +96,15 @@ export interface ThumbnailLedgerEntry {
   /**
    * Quick task 260517-p5g CAPTURE-QA-05 — when set, this row is a
    * CANCELED segment (capture-quality gate failed in FinalizeWorker).
-   * Renders the History row's chip-failed visual variant with one of
-   * three reason-specific copy strings (see `HistoryRow.tsx`). The
-   * bundle files have already been deleted from disk (write-then-delete).
-   * Server-side: NO row exists; the cancel is local-only (no
-   * `/cancel-report` endpoint at MVP — see CLAUDE.md 2026-05-17 banner).
+   * Renders the History row's chip-failed visual variant with one of the
+   * reason-specific copy strings (see `HistoryRow.tsx`). The bundle files
+   * have already been deleted from disk (write-then-delete). Server-side:
+   * NO row exists; the cancel is local-only (no `/cancel-report` endpoint
+   * at MVP — see CLAUDE.md 2026-05-17 banner). `too_short` added 2026-06-04
+   * for the Bug 8 + Enh 1 / D6 non-practice 3-min floor.
    */
   cancel?: {
-    reason: 'fps_dropped' | 'resolution_dropped' | 'insufficient_frames';
+    reason: 'fps_dropped' | 'resolution_dropped' | 'insufficient_frames' | 'too_short';
     /** Present only when reason === 'fps_dropped'. */
     meanFps?: number;
     /** Present only when reason === 'resolution_dropped'. */
@@ -140,14 +143,14 @@ export function writeEntry(entry: ThumbnailLedgerEntry): void {
 }
 
 /**
- * D-04 — clear `mp4LocalPath` while preserving `thumbnailPath`. Called
- * from the `_events`-envelope `verified` consumer hook (the existing Phase 5
- * recordingEvents outbox drain in `services/recordingEvents.ts` is extended
- * by Plan 06-08 to invoke this — the History row keeps its thumbnail but
- * the Player path now resolves to the presigned-stream URL).
+ * D-04 — clear `mp4LocalPath` while preserving `thumbnailPath`. (Enh 3 / D1,
+ * 2026-06-04: the `recordingEvents.ts` `_events`/`verified` outbox that used to
+ * invoke this is gone — `uploaded` is terminal and local cleanup is driven by
+ * the `/finalize` 200 reconcile path. The History row keeps its thumbnail; the
+ * Player path resolves to the presigned-stream URL.)
  *
- * No-op on unknown id (a re-installed device may replay a `verified`
- * envelope whose ledger entry was never written / has been GC'd).
+ * No-op on unknown id (a re-installed device whose ledger entry was never
+ * written / has been GC'd).
  */
 export function clearLocalPath(recordingId: string): void {
   const e = readEntry(recordingId);

@@ -15,9 +15,10 @@
 //      REQUEST_INSTALL_PACKAGES — Play Store auto-rejects APKs that do.
 //      The overlay is permitted to be absent (= no playStore-specific
 //      adds), in which case the assertion is a no-op.
-//   4. main manifest declares CAMERA + RECORD_AUDIO + ACCESS_COARSE_LOCATION
-//      (PERM-04 from plan 02-10 + PERM-03 from plan 02-14). PROJECT.md
-//      hard rule: coarse only — never declare ACCESS_FINE_LOCATION.
+//   4. main manifest declares CAMERA + RECORD_AUDIO + ACCESS_FINE_LOCATION +
+//      ACCESS_COARSE_LOCATION (PERM-04 from plan 02-10 + Bug 3 / D3 from
+//      2026-06-04 — precise GPS overrides the formerly-LOCKED coarse-only rule,
+//      owner sign-off D3; gated in onboarding via PermissionsScreen, D4).
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
@@ -55,15 +56,18 @@ describe('Phase 2 source-manifest invariants (D-UPG-03 / PERM-04 / PERM-03)', ()
     expect(strip(playStorePath)).not.toMatch(/REQUEST_INSTALL_PACKAGES/);
   });
 
-  it('main manifest declares CAMERA + RECORD_AUDIO + ACCESS_COARSE_LOCATION (PERM-04 / PERM-03)', () => {
+  it('main manifest declares CAMERA + RECORD_AUDIO + ACCESS_FINE/COARSE_LOCATION (PERM-04 / Bug 3)', () => {
     const base = strip(basePath);
     expect(base).toMatch(/android\.permission\.CAMERA/);
     expect(base).toMatch(/android\.permission\.RECORD_AUDIO/);
     expect(base).toMatch(/android\.permission\.ACCESS_COARSE_LOCATION/);
   });
 
-  it('main manifest does NOT declare ACCESS_FINE_LOCATION (PROJECT.md coarse-only hard rule)', () => {
-    expect(strip(basePath)).not.toMatch(/android\.permission\.ACCESS_FINE_LOCATION/);
+  it('main manifest DOES declare ACCESS_FINE_LOCATION (Bug 3 / D3 — precise GPS overrides the former coarse-only rule)', () => {
+    // The formerly-LOCKED coarse-only constraint was overridden 2026-06-04
+    // (owner sign-off D3). Precise GPS now ships; the FINE declaration is
+    // required for the HumynLocation FusedLocationProvider acquisition.
+    expect(strip(basePath)).toMatch(/android\.permission\.ACCESS_FINE_LOCATION/);
   });
 
   it('main manifest does NOT declare POST_NOTIFICATIONS (PROJECT.md no-notifications hard rule)', () => {

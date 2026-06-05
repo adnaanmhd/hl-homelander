@@ -136,7 +136,7 @@ export interface HistoryRowItem {
    * shape — short noun-phrase preceded by "Canceled — ").
    */
   cancel?: {
-    reason: 'fps_dropped' | 'resolution_dropped' | 'insufficient_frames';
+    reason: 'fps_dropped' | 'resolution_dropped' | 'insufficient_frames' | 'too_short';
   };
 }
 
@@ -251,6 +251,11 @@ export function cancelReasonLabel(reason: NonNullable<HistoryRowItem['cancel']>[
     case 'resolution_dropped':
       return 'Canceled — resolution dropped';
     case 'insufficient_frames':
+      return 'Canceled — recording too short';
+    // Bug 8 + Enh 1 / D6 — non-practice segment under the 3-min floor. Shares
+    // the "recording too short" copy with insufficient_frames (both read as
+    // "too short" to the user; the distinct reason code is for telemetry).
+    case 'too_short':
       return 'Canceled — recording too short';
   }
 }

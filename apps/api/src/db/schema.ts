@@ -90,6 +90,18 @@ export const users = pgTable(
     // Tracking
     flavor: flavorEnum('flavor').notNull(),
     applicationId: text('application_id').notNull(),
+    // Bug 4 / D2 (2026-06-04) — single-device newest-login-wins. The most-recent
+    // sign-in's installationId; requireAuth 401s any JWT whose installationId
+    // diverges. Nullable: pre-Bug-4 rows carry NULL until the next sign-in
+    // (their legacy JWTs lack the claim and are forced to re-sign-in). Overrides
+    // LOCKED D-AUTH-03 (stateless 30-day JWT, no denylist).
+    currentInstallationId: text('current_installation_id'),
+    // Bug 5 / D7 (2026-06-04) — practice-tutorial completion, server-side. Set
+    // once (idempotent) when the user reaches PracticeComplete; surfaced on
+    // GET /me so a fresh install / new device skips the tutorial forever
+    // (the client seeds its local ONB-08 flag from this). Nullable: pre-Bug-5
+    // rows + users who haven't finished practice carry NULL.
+    practiceCompletedAt: timestamp('practice_completed_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -181,6 +193,13 @@ export const recordings = pgTable(
     // pre-1.2.0 segments send nothing. Non-indexed telemetry — not
     // authorization-bearing (T-elm-02).
     calibration: jsonb('calibration'),
+    // Bug 3 / D3 (2026-06-04) — precise GPS block { lat, lng, accuracy_m,
+    // provider, captured_at, label } mirrored from metadata.json's
+    // `capture_device_info.location` (schema 1.5.0) as queryable jsonb.
+    // Nullable: a segment with no fix, or a pre-1.5.0 client, sends null.
+    // Overrides the formerly-LOCKED coarse-only constraint (sign-off D3;
+    // consent + DPIA is a ship gate). Non-indexed; sibling to ip_address.
+    location: jsonb('location'),
     // Storage references
     s3KeyVideo: text('s3_key_video').notNull(),
     s3KeyImu: text('s3_key_imu').notNull(),
@@ -210,6 +229,12 @@ export const recordings = pgTable(
     userCapturedIdx: index('recordings_user_captured_idx').on(t.userId, t.capturedAt),
     qaStatusIdx: index('recordings_qa_status_idx').on(t.qaStatus),
     taskIdx: index('recordings_task_idx').on(t.taskId),
+    // Bug 10 (2026-06-04) — covering index for the two /contributions per-user
+    // scans (WHERE user_id = ? AND qa_status …, aggregating duration_ms + task_id).
+    // The INCLUDE (duration_ms, task_id) payload is expressed in migration 0016
+    // only — drizzle-orm 0.45 has no `.include()` builder — so this declaration
+    // is the (user_id, qa_status) prefix; the migration is the source of truth.
+    userQaIdx: index('recordings_user_qa_idx').on(t.userId, t.qaStatus),
   }),
 );
 

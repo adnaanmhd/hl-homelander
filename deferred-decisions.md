@@ -25,6 +25,7 @@ Detects same task being recorded multiple times, screen-recordings of TV/YouTube
 Prevents account farming where one operator runs N accounts on a phone bank.
 
 - **When to revisit:** when we see >5% of accounts sharing device fingerprints.
+- **Partially adjacent — single-device enforcement SHIPPED 2026-06-04 (Bug 4 / D2, newest-login-wins).** That work binds an _account_ to its most-recent _device_ (`installationId` on the JWT + `users.current_installation_id`; `requireAuth` 401s a diverged token — see `IMPLEMENTATION-PLAN-260604.md` §4 and the `D-AUTH-03` override). It does **not** close this item: D2 stops the same account being live on multiple devices, but it does **not** stop N _different_ accounts sharing one device (the phone-bank threat above), nor does it use a hardware fingerprint. Revisit criteria unchanged.
 
 ### Liveness gestures (randomized in-frame action per recording)
 

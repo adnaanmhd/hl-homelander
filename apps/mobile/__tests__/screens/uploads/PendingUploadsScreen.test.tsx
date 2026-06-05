@@ -46,7 +46,14 @@ function row(over: Partial<UploadQueueRow>): UploadQueueRow {
 
 const { mockQueue, mockState, hooks } = vi.hoisted(() => ({
   mockQueue: { rows: [] as UploadQueueRow[] },
-  mockState: { jwt: 'jwt-token' as string | null },
+  // Bug 7 — PendingUploads now reads rows + progress from the store slice (fed
+  // by the boot installer) instead of a local subscription. `uploadQueue` seeds
+  // the live path; `uploadProgressById` seeds per-recording upload percent.
+  mockState: {
+    jwt: 'jwt-token' as string | null,
+    uploadQueue: [] as UploadQueueRow[],
+    uploadProgressById: {} as Record<string, number>,
+  },
   hooks: {
     queueChangedRemove: vi.fn(),
     progressRemove: vi.fn(),
@@ -91,6 +98,8 @@ describe('PendingUploadsScreen (Plan 05-08)', () => {
     cleanup();
     mockQueue.rows = [];
     mockState.jwt = 'jwt-token';
+    mockState.uploadQueue = [];
+    mockState.uploadProgressById = {};
     hooks.queueChangedRemove.mockReset();
     hooks.progressRemove.mockReset();
     hooks.reviveDeadLetterSafe.mockReset();
@@ -154,8 +163,8 @@ describe('PendingUploadsScreen (Plan 05-08)', () => {
     expect(getByLabelText('pending-upload-name').textContent).toBe('20260512_101500_001.mp4');
   });
 
-  it('reflects only own-sub rows from the live getQueueSafe() path', async () => {
-    mockQueue.rows = [
+  it('reflects only own-sub rows from the store queue (UP-13 owner-pin)', async () => {
+    mockState.uploadQueue = [
       row({ recordingId: 'mine', ownerUserId: SUB }),
       row({ recordingId: 'theirs', ownerUserId: 'sub-bob' }),
     ];
@@ -177,24 +186,20 @@ describe('PendingUploadsScreen (Plan 05-08)', () => {
     expect(queryByText(/cancel/i)).toBeNull();
   });
 
-  it('.remove()s the onUploadQueueChanged / onUploadProgress subscriptions on unmount', () => {
-    const { unmount } = render(<PendingUploadsScreen />);
-    unmount();
-    expect(hooks.queueChangedRemove).toHaveBeenCalledTimes(1);
-    expect(hooks.progressRemove).toHaveBeenCalledTimes(1);
-  });
+  // Bug 7 (2026-06-04) — the screen no longer subscribes to
+  // onUploadQueueChanged / onUploadProgress directly (the single boot installer
+  // does, covered by `__tests__/services/uploadQueueStore.test.ts`). The former
+  // ".remove() on unmount" leak-contract test moved with the subscription.
 
-  // Wave-1.5 Item 4 — live progress bar.
+  // Wave-1.5 Item 4 — live progress bar (now fed by the store's progress map).
 
-  it('renders the sibling progress bar when an uploading row gets a progress event', async () => {
-    const { act } = await import('@testing-library/react');
+  it('renders the sibling progress bar at the stored percent for an uploading row', () => {
+    // Bug 7 — progress comes from the store slice (set by the boot installer's
+    // onUploadProgress handler), keyed by recordingId. 47 → width: 47%.
+    mockState.uploadProgressById = { rec1: 47 };
     const { getByLabelText } = render(
       <PendingUploadsScreen __test_rows={[row({ state: 'uploading', recordingId: 'rec1' })]} />,
     );
-    // Fire a synthetic onUploadProgress event at 47%.
-    act(() => {
-      hooks.progressListener?.({ recordingId: 'rec1', bytesUploaded: 47, bytesTotal: 100 });
-    });
     const fill = getByLabelText('pending-upload-progress-fill');
     // RN-Web renders style entries as inline CSS; the dynamic width comes through verbatim.
     const inline = (fill as HTMLElement).getAttribute('style') ?? '';
@@ -224,14 +229,11 @@ describe('PendingUploadsScreen (Plan 05-08)', () => {
     expect(queryByLabelText('pending-upload-progress-fill')).toBeNull();
   });
 
-  it('chip percent label reads "Uploading… 47%" when a progress event is fired (47 of 100 bytes)', async () => {
-    const { act } = await import('@testing-library/react');
+  it('chip percent label reads "Uploading… 47%" from the stored progress percent', async () => {
+    mockState.uploadProgressById = { rec1: 47 };
     const { findByText } = render(
       <PendingUploadsScreen __test_rows={[row({ state: 'uploading', recordingId: 'rec1' })]} />,
     );
-    act(() => {
-      hooks.progressListener?.({ recordingId: 'rec1', bytesUploaded: 47, bytesTotal: 100 });
-    });
     expect(await findByText(/Uploading… 47%/)).toBeTruthy();
   });
 });

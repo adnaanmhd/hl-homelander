@@ -127,6 +127,7 @@ describe('Golden path — every Phase 1 endpoint in sequence', () => {
         flavor: 'playStore',
         applicationId: 'ai.humynlabs.capture',
         nonceId,
+        installationId: 'inst-e2e',
       },
     });
     expect(authRes.statusCode).toBe(200);

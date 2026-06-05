@@ -185,6 +185,12 @@ dependencies {
     // NativeModules.PlayIntegrity.requestIntegrityToken(nonce). Server-side decode in plan 05.
     implementation 'com.google.android.play:integrity:1.4.0'
 
+    // Bug 3 / D3 (2026-06-04) — precise GPS acquisition. FusedLocationProviderClient
+    // .getCurrentLocation(PRIORITY_HIGH_ACCURACY) wrapped by HumynLocationModule and
+    // exposed to RN as NativeModules.HumynLocation.getCurrentFix(timeoutMs). Overrides
+    // the formerly-LOCKED coarse-only constraint (sign-off D3; consent + DPIA is a ship gate).
+    implementation 'com.google.android.gms:play-services-location:21.3.0'
+
     // Plan 03-04 — Phase 3 fragmented MP4 muxer (CAP-02).
     // androidx.media3:media3-muxer ships FragmentedMp4Muxer with periodic
     // moov-flush via setFragmentDurationMs(); the stock android.media.MediaMuxer

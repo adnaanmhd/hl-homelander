@@ -48,7 +48,15 @@ const VALID_OPTS = {
     consecutiveHitsRequired: 5,
     platformCadenceMs: 100,
   },
-  location: 'Bangalore, India',
+  // Bug 3 / D3 — precise GPS object (was a coarse string label pre-1.5.0).
+  location: {
+    lat: 12.9716,
+    lng: 77.5946,
+    accuracy_m: 8.5,
+    provider: 'fused',
+    captured_at: '2026-05-05T00:30:19.500+05:30',
+    label: 'Bangalore, India',
+  },
   appVersion: '1.0.0-apk',
   dfovDegrees: 115.2,
 };

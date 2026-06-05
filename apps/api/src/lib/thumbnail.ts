@@ -59,7 +59,17 @@ function runFfmpegPoster(inputUrl: string): Promise<Buffer> {
     // -ss BEFORE -i = fast input seek; one frame; scale the longest edge to
     // <=THUMB_MAX_EDGE keeping aspect (the -2 keeps the other dim even, which
     // mjpeg requires); pipe an mjpeg image to stdout.
+    // Restrict ffmpeg to the protocols needed to fetch OUR server-generated
+    // presigned URL — never file/concat/subfile/data. The MP4 *content* is
+    // user-uploaded, so a crafted HLS/concat/image2-list payload could otherwise
+    // make ffmpeg follow embedded file:// (local-file read) or
+    // http://169.254.169.254/ (IMDS/SSRF) references. The presigned URL is
+    // trusted + server-built, so we allow exactly ITS scheme: prod S3 is `https`
+    // (which also refuses the http://IMDS vector); dev/LocalStack presigns `http`.
+    const fetchScheme = inputUrl.startsWith('https:') ? 'https' : 'http';
     const proc = spawn('ffmpeg', [
+      '-protocol_whitelist',
+      `tcp,tls,${fetchScheme}`,
       '-nostdin',
       '-loglevel',
       'error',

@@ -944,6 +944,16 @@ class UploadCoordinator(
             // are tolerated. Omitted for pre-1.2.0 metadata with no
             // `calibration` key (the server's zod field is .nullable().optional()).
             meta.optJSONObject("calibration")?.let { put("calibration", it) }
+            // Bug 3 / D3 (2026-06-04) — forward the metadata.json precise-GPS
+            // block { lat, lng, accuracy_m, provider, captured_at, label } so the
+            // server persists it as the queryable mirror (recordings.location
+            // jsonb). It lives NESTED under `capture_device_info.location` (not
+            // top-level like calibration). Omitted when the segment had no fix
+            // (the block is JSON null) — the server's zod field is
+            // .nullable().optional(), so a missing key persists as null.
+            meta.optJSONObject("capture_device_info")
+                ?.optJSONObject("location")
+                ?.let { put("location", it) }
         }
         executeTracked(authedJsonRequest("$baseUrl/recordings/init", body, row.initIdempotencyKey)).use { resp ->
             // Post-CR-02 (Plan 05-09) `/recordings/init` is idempotent: a re-/init for an existing `pending` row

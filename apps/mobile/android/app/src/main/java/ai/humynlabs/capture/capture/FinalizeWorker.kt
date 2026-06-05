@@ -56,6 +56,18 @@ import java.time.format.DateTimeFormatter
 object FinalizeWorker {
 
     /**
+     * Bug 8 + Enh 1 / D6 (2026-06-04) — per-segment minimum-duration floor.
+     * A NON-practice segment shorter than this is canceled with
+     * [CancelReason.TooShort] (never enqueued; mirrors the existing fps /
+     * resolution cancel-gate model). Practice segments are EXEMPT — they have
+     * their own upstream 60s hard-cap and never upload. 180_000 ms = 3 min.
+     *
+     * `internal` so [FinalizeWorkerGatesTest] can reference the threshold
+     * instead of duplicating the magic number.
+     */
+    internal const val MIN_SEGMENT_MS = 180_000.0
+
+    /**
      * Finalize one segment. Visibility is `internal` because [Segment] is
      * `internal` — keeping the worker package-private avoids exposing
      * the segment data class as part of any public Kotlin API surface.
@@ -69,13 +81,16 @@ object FinalizeWorker {
             // segment that's about to be deleted).
             //
             // Gate ordering — deterministic per scope spec:
-            //   Step 1.5: videoFrameTimestamps.size < 2 → InsufficientFrames
-            //   Step 1.6: meanFps < 29.0                → FpsDropped
-            //   Step 1.7: width < 1920 OR height < 1080 → ResolutionDropped
+            //   Step 1.5: videoFrameTimestamps.size < 2  → InsufficientFrames
+            //   Step 1.55: !practice & durationMs < 3min → TooShort (D6)
+            //   Step 1.6: meanFps < 29.0                 → FpsDropped
+            //   Step 1.7: width < 1920 OR height < 1080  → ResolutionDropped
             //
             // FPS check runs BEFORE resolution check so simultaneous fps+res
             // failure consistently reports "fps_dropped" (the upstream root
-            // cause on an OEM-throttled / thermally-degraded path).
+            // cause on an OEM-throttled / thermally-degraded path). TooShort
+            // runs BEFORE fps/res (Bug 8 + Enh 1 / D6) — a sub-3-min clip's
+            // fps/res is moot; "record ≥3 min" is the user-actionable message.
             // ------------------------------------------------------------
             val videoTimestampsForGate = seg.videoFrameTimestamps.toLongArray()
 
@@ -93,7 +108,16 @@ object FinalizeWorker {
                 readMuxedResolution(seg.mp4File)
             }
 
-            val cancelReason = decideCancelReason(videoTimestampsForGate, videoWidth, videoHeight)
+            // Bug 8 + Enh 1 / D6 — same clock invariant as durationSeconds
+            // below: both stamps are elapsedRealtimeNanos (NOT System.nano).
+            val gateDurationMs = (seg.endedAtNs - seg.startedAtNs).toDouble() / 1_000_000.0
+            val cancelReason = decideCancelReason(
+                videoTimestampsForGate,
+                videoWidth,
+                videoHeight,
+                gateDurationMs,
+                seg.sidecar.isPractice,
+            )
             if (cancelReason != null) {
                 emitCanceled(seg, cancelReason, emit)
                 return
@@ -265,18 +289,30 @@ object FinalizeWorker {
      *
      * Gate ordering — fps wins on simultaneous fps+resolution failure
      * (scope spec: the upstream root cause on an OEM-throttled / thermally-
-     * degraded path is fps, so report that first).
+     * degraded path is fps, so report that first). The 3-min TooShort gate
+     * (Bug 8 + Enh 1 / D6) runs BEFORE fps/res — a sub-3-min clip's fps/res
+     * is moot; "record ≥3 min" is the user-actionable message.
      *
+     * @param durationMs wall-clock segment length (elapsedRealtimeNanos
+     *   delta). Defaults to [Double.MAX_VALUE] so the orthogonal fps/res/
+     *   frame-count test call sites never trip the duration gate.
+     * @param isPractice practice segments are exempt from the 3-min floor
+     *   (their own 60s upstream hard-cap applies and they never upload).
      * @return [CancelReason] when the segment must be canceled; `null`
-     *   when both gates pass.
+     *   when all gates pass.
      */
     internal fun decideCancelReason(
         videoTimestampsNs: LongArray,
         muxedWidth: Int,
         muxedHeight: Int,
+        durationMs: Double = Double.MAX_VALUE,
+        isPractice: Boolean = false,
     ): CancelReason? {
         // Step 1.5: insufficient frames.
         if (videoTimestampsNs.size < 2) return CancelReason.InsufficientFrames
+        // Step 1.55: Bug 8 + Enh 1 / D6 — non-practice 3-min floor. Runs
+        // before fps/res (a too-short clip's fps/res is moot).
+        if (!isPractice && durationMs < MIN_SEGMENT_MS) return CancelReason.TooShort
         // Step 1.6: mean fps < 29.0 (fps wins over resolution). Threshold
         // tightened from 28.0 → 29.0 on 2026-05-17 after the Pixel-10a +
         // Pixel-8a cancel-walk; healthy recordings on those devices
@@ -424,6 +460,11 @@ object FinalizeWorker {
                     putNull("width")
                     putNull("height")
                 }
+                CancelReason.TooShort -> {
+                    putNull("meanFps")
+                    putNull("width")
+                    putNull("height")
+                }
             }
         }
         emit("onSegmentCanceled", payload)
@@ -530,5 +571,15 @@ sealed class CancelReason {
      */
     object InsufficientFrames : CancelReason() {
         override val code: String = "insufficient_frames"
+    }
+
+    /**
+     * A NON-practice segment ran shorter than the 3-min floor
+     * ([FinalizeWorker.MIN_SEGMENT_MS]) — Bug 8 + Enh 1 / D6 (2026-06-04).
+     * Dropped, never enqueued; the History row reads "Canceled — recording
+     * too short". Practice segments are exempt.
+     */
+    object TooShort : CancelReason() {
+        override val code: String = "too_short"
     }
 }

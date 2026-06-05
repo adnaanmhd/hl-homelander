@@ -81,6 +81,30 @@ export const CalibrationSchema = z.object({
 });
 export type Calibration = z.infer<typeof CalibrationSchema>;
 
+// Bug 3 / D3 (2026-06-04) — precise GPS location block. Mirrors the
+// metadata.json `capture_device_info.location` object (schema 1.5.0) and the
+// Kotlin `LocationFix` / `LocationJson` shape. Overrides the formerly-LOCKED
+// coarse-only constraint (owner sign-off D3; consent-text + DPIA is a SHIP
+// gate). snake_case keys match the on-device JSON so the block forwards
+// verbatim from the device into `/recordings/init`.
+export const LocationSchema = z.object({
+  // Bounded to valid WGS84 ranges (Bug 3 / D3 follow-up). Real
+  // FusedLocationProvider fixes are always in range; this keeps a malformed /
+  // garbage client coordinate out of the queryable mirror. (A non-numeric lat
+  // already 400s; this also 400s an out-of-range numeric one.)
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  // Horizontal accuracy radius in metres (audit field — lets us see the
+  // precision actually delivered: a partial COARSE grant yields a larger value).
+  accuracy_m: z.number(),
+  // Fix provider — e.g. "fused" | "gps" | "network" | "fused_last_known".
+  provider: z.string(),
+  captured_at: z.string(),
+  // Optional reverse-geocoded "City, Country" for human readability.
+  label: z.string().nullable(),
+});
+export type Location = z.infer<typeof LocationSchema>;
+
 // Wire shapes for the multipart lifecycle endpoints (plan 01-07).
 export const RecordingsInitRequestSchema = z.object({
   recordingId: z.string().length(26),
@@ -103,6 +127,12 @@ export const RecordingsInitRequestSchema = z.object({
   // clients send nothing → persisted as null. Persisted on the new-row INSERT
   // in init.ts as the queryable mirror of the metadata.json calibration.
   calibration: CalibrationSchema.nullable().optional(),
+  // Bug 3 / D3 (2026-06-04) — the metadata.json `capture_device_info.location`
+  // precise-GPS block (schema 1.5.0). Optional + nullable: a segment with no
+  // fix (unavailable / partial grant) sends null; pre-1.5.0 clients send
+  // nothing. Persisted on the new-row INSERT in init.ts as the queryable mirror
+  // (recordings.location jsonb), sibling to the server-set ip_address.
+  location: LocationSchema.nullable().optional(),
 });
 export type RecordingsInitRequest = z.infer<typeof RecordingsInitRequestSchema>;
 

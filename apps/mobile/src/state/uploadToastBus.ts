@@ -30,7 +30,7 @@ export const DEFAULT_UPLOAD_TOAST_MS = 5_000;
 let pending: PendingUploadToast | null = null;
 
 /**
- * Set the next contribution toast. RecordingScreen calls this in the ≥60s
+ * Set the next contribution toast. RecordingScreen calls this in the ≥3min
  * stop branch BEFORE `navigateToHome(navigation)`; HomeSkeletonScreen drains
  * it on mount and fires the global ToastHost via
  * `showToast(text, durationMs)`. Default duration is 5 s (Wave-1.5 Item 5 —

@@ -69,14 +69,7 @@ import {
   type ThumbnailLedgerEntry,
 } from '../../services/thumbnailLedger';
 import { fetchTasks } from '../../services/tasksApi';
-import {
-  HumynUpload,
-  onConnectivityChanged,
-  onUploadQueueChanged,
-  onUploadProgress,
-  type UploadProgressEvent,
-  type UploadQueueRow,
-} from '../../native/HumynUpload';
+import { HumynUpload, onConnectivityChanged, type UploadQueueRow } from '../../native/HumynUpload';
 import { decodeGoogleSubFromJwt } from '../../lib/jwtSub';
 import { logEvent } from '../../util/analytics';
 
@@ -198,35 +191,27 @@ export function HistoryScreen(): React.JSX.Element {
   // Owner-directive 2026-05-16 — History merges in-flight device-queue rows
   // alongside server rows so the Home tile's "tap to view all" leads here and
   // the user sees uploading segments with live progress bars, not just the
-  // already-verified set. `deviceRows` mirrors HumynUpload.getQueue() filtered
-  // to the current user; `progressById` carries byte-progress percent for the
-  // actively uploading recordingId. Same subscription pattern as HomeScreen
-  // (lines 245-265) — keep them in sync.
+  // already-verified set.
+  //
+  // Bug 7 (2026-06-04) — `deviceRows` / `progressById` now read from the single
+  // app-lifetime store slice (fed by `installUploadQueueStore()` at boot)
+  // instead of a per-screen `onUploadQueueChanged` / `onUploadProgress`
+  // subscription. History is lazy-mounted + frozen-on-blur in the bottom-tab
+  // navigator, so a local listener didn't exist (and MISSED every enqueue) until
+  // the tab was first focused — the boot-installed store survives lazy-mount /
+  // freeze and re-renders this screen on change. The `currentSub === ''` gate
+  // avoids dropping a freshly-enqueued row during a null-`sub` window: the raw
+  // queue persists in the store, so the filter re-derives (rows reappear) the
+  // instant `sub` resolves — nothing is permanently lost (UP-13 owner-pin).
   const jwt = useAppStore((s) => s.jwt);
   const currentSub = useMemo(() => decodeGoogleSubFromJwt(jwt), [jwt]);
-  const [deviceRows, setDeviceRows] = useState<UploadQueueRow[]>([]);
-  const [progressById, setProgressById] = useState<Record<string, number>>({});
-  useEffect(() => {
-    let mounted = true;
-    HumynUpload.getQueueSafe()
-      .then((all) => {
-        if (mounted) setDeviceRows(all.filter((r) => r.ownerUserId === currentSub));
-      })
-      .catch(() => undefined);
-    const sub = onUploadQueueChanged((all) => {
-      if (mounted) setDeviceRows(all.filter((r) => r.ownerUserId === currentSub));
-    });
-    const subProgress = onUploadProgress((e: UploadProgressEvent) => {
-      if (!mounted) return;
-      const pct = e.bytesTotal > 0 ? (e.bytesUploaded / e.bytesTotal) * 100 : 0;
-      setProgressById((prev) => ({ ...prev, [e.recordingId]: pct }));
-    });
-    return () => {
-      mounted = false;
-      sub.remove();
-      subProgress.remove();
-    };
-  }, [currentSub]);
+  const uploadQueue = useAppStore((s) => s.uploadQueue);
+  const progressById = useAppStore((s) => s.uploadProgressById);
+  const contributionsVersion = useAppStore((s) => s.contributionsVersion);
+  const deviceRows = useMemo<UploadQueueRow[]>(
+    () => (currentSub ? uploadQueue.filter((r) => r.ownerUserId === currentSub) : []),
+    [uploadQueue, currentSub],
+  );
 
   // HOME/HIST-10 offline signal — Plan 06-12 follow-on (Finding 6, owner
   // directive 2026-05-14) wires to the native NetworkMonitor's connectivity
@@ -345,6 +330,22 @@ export function HistoryScreen(): React.JSX.Element {
   useEffect(() => {
     void loadFirstPage();
   }, [loadFirstPage]);
+
+  // Bug 7 — refetch the server list when the upload queue mutates (debounced).
+  // A queue mutation that marks a row terminal (uploaded → dropped from the
+  // queue on /finalize 200) means the recording now exists server-side;
+  // refetching `/recordings` promotes the synthesized in-flight device row to
+  // its authoritative server row (correct duration, qaStatus, thumbnail). The
+  // store's `contributionsVersion` bumps on every queue change; debounce ~1.5s
+  // so a burst of progress-driven mutations collapses into a single refetch.
+  // Skip the initial 0 — the focus effect already fetches on cold mount.
+  useEffect(() => {
+    if (contributionsVersion === 0) return undefined;
+    const id = setTimeout(() => {
+      void loadFirstPage();
+    }, 1500);
+    return () => clearTimeout(id);
+  }, [contributionsVersion, loadFirstPage]);
 
   const onPullRefresh = useCallback(async (): Promise<void> => {
     setRefreshing(true);

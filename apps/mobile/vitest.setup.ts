@@ -467,6 +467,19 @@ vi.mock('@react-navigation/native', () => ({
     cb();
   },
   useIsFocused: () => true,
+  // Bug 4 / D2 — navigationRef.ts calls this at module load. Return a stub that
+  // reports NOT ready so resetToOnboarding() safely no-ops in the test env (no
+  // real NavigationContainer is attached); the eviction store side effects are
+  // what tests assert.
+  createNavigationContainerRef: () => ({
+    isReady: () => false,
+    resetRoot: vi.fn(),
+    reset: vi.fn(),
+    navigate: vi.fn(),
+    dispatch: vi.fn(),
+    getRootState: vi.fn(),
+    current: null,
+  }),
 }));
 
 // ---------------------------------------------------------------------------

@@ -25,6 +25,7 @@ const {
   mockGetParent,
   mockLogEvent,
   mockVibrate,
+  mockPostPracticeComplete,
   FAKE_JWT,
 } = vi.hoisted(() => {
   // JWT with sub="practice-sub-99" so decodeGoogleSubFromJwt returns it.
@@ -44,6 +45,11 @@ const {
     mockGetParent: vi.fn(),
     mockLogEvent: vi.fn(),
     mockVibrate: vi.fn(),
+    // Returns a resolved promise so the screen's `void postPracticeComplete()
+    // .catch(...)` has a thenable to chain (Bug 5 / D7).
+    mockPostPracticeComplete: vi.fn(() =>
+      Promise.resolve({ practiceCompletedAt: '2026-06-04T00:00:00.000Z' }),
+    ),
     FAKE_JWT: `header.${b64}.signature`,
   };
 });
@@ -135,6 +141,13 @@ vi.mock('../../src/util/analytics', () => ({
   EVENT_NAMES: ['practice_complete_shown', 'practice_complete_continued'],
 }));
 
+// Bug 5 / D7 — mock profileService so the real api.ts → navigationRef import
+// chain isn't pulled (this file's local @react-navigation/native mock omits
+// createNavigationContainerRef), and so we can assert the server write fires.
+vi.mock('../../src/services/profileService', () => ({
+  postPracticeComplete: mockPostPracticeComplete,
+}));
+
 import PracticeCompleteScreen from '../../src/screens/tutorial/PracticeCompleteScreen';
 
 describe('PracticeCompleteScreen (plan 04-06 — ONB-07 + ONB-08, design-spec §8)', () => {
@@ -169,6 +182,8 @@ describe('PracticeCompleteScreen (plan 04-06 — ONB-07 + ONB-08, design-spec §
     const { getByLabelText } = render(<PracticeCompleteScreen />);
     fireEvent.click(getByLabelText('Continue'));
     expect(mockSetPracticeDone).toHaveBeenCalledWith('practice-sub-99');
+    // Bug 5 / D7 — also persists completion server-side (best-effort).
+    expect(mockPostPracticeComplete).toHaveBeenCalledTimes(1);
     expect(mockLogEvent).toHaveBeenCalledWith('practice_complete_continued');
     expect(mockParentReset).toHaveBeenCalledWith({ index: 0, routes: [{ name: 'MainTabs' }] });
     expect(mockReset).not.toHaveBeenCalled();

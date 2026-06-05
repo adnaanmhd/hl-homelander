@@ -375,7 +375,7 @@ Layered overlay during active recording.
 Triggered when user taps X during active recording.
 
 - Modal title: **"Stop recording?"** (recommended; not in prototype copy — define in prod)
-- Body: **"Recordings under 1 minute are discarded."**
+- Body: **"Recordings under 3 minutes are discarded."** _(OWNER DEVIATION 2026-06-04 — Bug 8 + Enh 1 / D6: minimum-duration floor raised 1 min → 3 min; matches the LOCKED-copy note in `StopConfirmModal.tsx`. Practice's own 60 s hard cap is unchanged.)_
 - Actions: **"Keep recording"** (outline) and **"Stop"** (`btn-coral`).
 
 ### 7h. Substate — Post-stop toasts
@@ -383,8 +383,8 @@ Triggered when user taps X during active recording.
 After `onStop()`:
 
 - **Practice mode** → no toast; navigates to Practice-done screen.
-- **Real mode, < 60 s** → toast **"Recording too short — discarded."**, returns to Ready substate.
-- **Real mode, ≥ 60 s** → toast **"{Hh Mm} added to your contribution."** (e.g., "11m added to your contribution."), updates `contrib`, returns to Home.
+- **Real mode, < 3 min (180 s)** → toast **"Recording too short — discarded."**, returns to Ready substate. _(Floor raised 60 s → 180 s on 2026-06-04 — Bug 8 + Enh 1 / D6.)_
+- **Real mode, ≥ 3 min (180 s)** → toast **"{Hh Mm} added to your contribution."** (e.g., "11m added to your contribution."), updates `contrib`, returns to Home.
 
 **Edge states (production):**
 
@@ -729,7 +729,7 @@ All modals share the same structure: scrim (`rgba(0,0,0,.5)`), centered card, 20
 
 - Title: **"Terms of Use"**
 - Body (14 / 20):
-  > "I consent and agree to upload videos of myself and/or others who consent to be recorded; performing certain daily activities/tasks. This content will be used to develop / train AI models and for research purposes. I confirm that I am 18 years or older and have the necessary permissions to share this content. I confirm that no one being recorded is a minor. I consent to my approximate location and IP address being captured alongside each recording. I understand that my data will be stored securely and used in accordance with Humyn's Privacy Policy."
+  > "I consent and agree to upload videos of myself and/or others who consent to be recorded; performing certain daily activities/tasks. This content will be used to develop / train AI models and for research purposes. I confirm that I am 18 years or older and have the necessary permissions to share this content. I confirm that no one being recorded is a minor. I consent to my precise location (GPS coordinates) and IP address being captured alongside each recording. I understand that my data will be stored securely and used in accordance with Humyn's Privacy Policy."
 - Action: single `btn-primary` **"Got it"** (closes).
 
 ### 18.2 Stop recording confirm
@@ -737,7 +737,7 @@ All modals share the same structure: scrim (`rgba(0,0,0,.5)`), centered card, 20
 Triggered when user taps X on the recording surface during active recording.
 
 - Title: **"Stop recording?"**
-- Body: **"Recordings under 1 minute are discarded."**
+- Body: **"Recordings under 3 minutes are discarded."** _(OWNER DEVIATION 2026-06-04 — Bug 8 + Enh 1 / D6: floor raised 1 min → 3 min; see `StopConfirmModal.tsx`.)_
 - Actions:
   - `btn-outline` **"Keep recording"**
   - `btn-coral` **"Stop"**

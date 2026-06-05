@@ -16,9 +16,10 @@ import Config from 'react-native-config';
 import { getFlavorContext } from '../native/AppFlavor';
 import { requestIntegrityToken } from '../native/PlayIntegrity';
 import { secureMmkv as mmkv } from '../state/mmkv';
-import { KEYS } from '../state/keys';
+import { KEYS, practiceDoneKey } from '../state/keys';
 import { useAppStore } from '../state/appStore';
 import { apiClient } from './api';
+import { getInstallationId } from './installationId';
 
 // MMKV instance + JWT key are now the canonical singletons declared in
 // `../state/mmkv` and `../state/keys` (D-STATE-01). The encryption flag
@@ -53,6 +54,8 @@ interface AuthGoogleResponse {
     flavor: string;
     applicationId: string;
     consentVersion: string;
+    // Bug 5 / D7 — practice-tutorial completion timestamp (or null) from the server.
+    practiceCompletedAt: string | null;
   };
 }
 
@@ -135,13 +138,18 @@ export async function signInWithGoogle(): Promise<AuthSuccess> {
     integrityToken = await requestIntegrityToken(nonceRes.nonce);
   }
 
-  // 4. POST /auth/google.
+  // 4. POST /auth/google. Bug 4 / D2 — send the stable per-install id so the
+  //    server binds the account to THIS device (newest-login-wins) and mints a
+  //    JWT carrying it. A later sign-in on another device evicts this one (the
+  //    next authed request 401s with slug `device-evicted`).
+  const installationId = await getInstallationId();
   const authRes = await apiClient.post<AuthGoogleResponse>('/auth/google', {
     googleIdToken,
     integrityToken,
     flavor,
     applicationId,
     nonceId,
+    installationId,
   });
 
   // 5. Validate JWT payload — D-AUTH-05 requires the JWT to carry the build's
@@ -161,6 +169,21 @@ export async function signInWithGoogle(): Promise<AuthSuccess> {
   // 6. Store JWT — MMKV with encryption flag (instance-level encryptionKey
   //    on the singleton). Key prefix `auth.jwt.v1` is versioned for kill-switch.
   mmkv.set(KEYS.AUTH_JWT, authRes.jwt);
+
+  // 6b. Bug 5 / D7 — seed the local ONB-08 practice-done flag from the server's
+  //     practice_completed_at at sign-in (deterministic; no /me round-trip). A
+  //     returning user whose account already finished practice then skips the
+  //     tutorial on this device's FIRST launch (CompatPass → MainTabs;
+  //     computeInitialRoute reads the same flag on later boots). `payload.sub`
+  //     is the JWT `sub` (user ULID) — identical to the key computeInitialRoute /
+  //     PracticeCompleteScreen derive via decodeGoogleSubFromJwt. Best-effort.
+  if (authRes.user.practiceCompletedAt) {
+    try {
+      mmkv.set(practiceDoneKey(payload.sub), true);
+    } catch {
+      /* best-effort seed — must never break sign-in */
+    }
+  }
 
   // 7. Reserve the Keychain refresh-token slot. Empty at MVP per D-AUTH-03;
   //    Phase 5+ can populate without changing this surface. If Keychain

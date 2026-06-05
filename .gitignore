@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Local scratch — transient working notes / resume prompts, never commit
+new.md
+
 # Build artifacts
 dist/
 *.tsbuildinfo

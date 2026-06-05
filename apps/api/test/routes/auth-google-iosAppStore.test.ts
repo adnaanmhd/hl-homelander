@@ -39,6 +39,7 @@ describe('POST /auth/google — iosAppStore is gated until Phase 7 (W6)', () => 
         flavor: 'iosAppStore',
         applicationId: 'ai.humynlabs.capture',
         nonceId,
+        installationId: 'inst-ios',
       },
     });
     expect(r.statusCode).toBe(501);

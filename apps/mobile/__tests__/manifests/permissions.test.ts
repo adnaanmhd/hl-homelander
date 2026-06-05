@@ -30,14 +30,15 @@ function strip(file: string): string {
 }
 
 /** PERM-04 codifies manifest-only declarations for foreground service, wake
- *  lock, and network state. PERM-01 + PERM-02 add CAMERA + RECORD_AUDIO (the
- *  runtime prompts are gated separately in PermissionsScreen). PERM-03 adds
- *  ACCESS_COARSE_LOCATION as manifest-only in Phase 2 — the runtime prompt
- *  ships in Phase 4 via apps/mobile/src/services/locationPermission.ts. */
+ *  lock, and network state. PERM-01 + PERM-02 add CAMERA + RECORD_AUDIO. Bug 3 /
+ *  D3 + D4 (2026-06-04) adds ACCESS_FINE_LOCATION + ACCESS_COARSE_LOCATION —
+ *  precise GPS overrides the formerly-LOCKED coarse-only rule (sign-off D3); the
+ *  runtime prompts are gated in PermissionsScreen (D4 — block-until-granted). */
 const REQUIRED_BASE_PERMISSIONS = [
   'android.permission.CAMERA', // PERM-01 (runtime prompt + manifest)
   'android.permission.RECORD_AUDIO', // PERM-02
-  'android.permission.ACCESS_COARSE_LOCATION', // PERM-03 (manifest-only at Phase 2)
+  'android.permission.ACCESS_FINE_LOCATION', // Bug 3 / D3 (precise GPS; gated in onboarding)
+  'android.permission.ACCESS_COARSE_LOCATION', // Bug 3 / D3 (Approximate-grant fallback)
   'android.permission.FOREGROUND_SERVICE', // PERM-04
   'android.permission.FOREGROUND_SERVICE_CAMERA', // PERM-04 (Phase 3 capture FGS)
   'android.permission.FOREGROUND_SERVICE_MICROPHONE', // PERM-04

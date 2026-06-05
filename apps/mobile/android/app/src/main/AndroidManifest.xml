@@ -8,14 +8,19 @@
       EXPLICITLY DO NOT ADD (PROJECT.md hard rules):
         - The in-app install-source permission (apkRollout-only; flavor-scoped)
         - The post-notifications runtime permission (no notifications channel at MVP)
-        - The fine-location runtime permission (coarse-only; PROJECT.md hard rule)
       The CI gate `apps/mobile/scripts/verify-merged-manifests.sh` enforces these
       absences on the merged manifest output of every flavor.
 
-      ACCESS_COARSE_LOCATION (PERM-03) IS DECLARED below per plan 02-14. The
-      runtime PROMPT is still deferred to Phase 4 (first-recording flow), but
-      the manifest declaration must ship now so the helper at
-      apps/mobile/src/services/locationPermission.ts has a permission to query.
+      ACCESS_FINE_LOCATION + ACCESS_COARSE_LOCATION are BOTH declared below.
+      ⚠ Bug 3 / D3 (2026-06-04) — ACCESS_FINE_LOCATION OVERRIDES the formerly-
+      LOCKED "coarse-only — no precise GPS" PROJECT.md hard rule (owner sign-off
+      `.planning/260604-locked-override-signoff.md` D3). Precise lat/lng is now
+      captured per recording, gated in onboarding (PermissionsScreen, D4) and
+      acquired via the HumynLocation native module. The consent-text + DPIA
+      review gate was WAIVED by the owner 2026-06-04 (consent text updated +
+      consent version bumped 1.0.0 → 1.1.0 — precise GPS now ships). The
+      verify-merged-manifests.sh FINE ban was lifted
+      the same day.
     -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -62,11 +67,16 @@
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <!--
-      Phase 2 (PERM-03 — plan 02-14) — coarse location declaration ONLY.
-      Runtime prompt is deferred to Phase 4's first-recording flow via
-      apps/mobile/src/services/locationPermission.ts (requestCoarseLocation).
-      PROJECT.md hard rule: coarse only — never declare ACCESS_FINE_LOCATION.
+      Bug 3 / D3 + D4 (2026-06-04) — precise GPS location for each recording.
+      ACCESS_FINE_LOCATION OVERRIDES the formerly-LOCKED coarse-only constraint
+      (sign-off D3; consent text updated + version bumped 2026-06-04, owner
+      waived the DPIA gate). COARSE stays declared so
+      an "Approximate"-only grant on Android 12+ still yields a (coarser) fix
+      rather than blocking (D3 partial-grant handling). Gated in onboarding
+      (PermissionsScreen, D4 — block-until-granted) and acquired via the
+      HumynLocation native module (FusedLocationProviderClient).
     -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <!--

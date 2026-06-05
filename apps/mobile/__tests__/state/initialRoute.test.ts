@@ -44,7 +44,12 @@ function baseState(overrides: Partial<AppState> = {}): AppState {
   return {
     jwt: JWT_SUB_A,
     consent: { acceptedAt: '2026-05-09T07:00:00.000Z', consentVersion: 'v1' },
-    permsGranted: { camera: true, mic: true, grantedAt: '2026-05-09T07:01:00.000Z' },
+    permsGranted: {
+      camera: true,
+      mic: true,
+      location: true,
+      grantedAt: '2026-05-09T07:01:00.000Z',
+    },
     compatPassed: { signature: 'sig-fresh', runAt: '2026-05-09T07:02:00.000Z' },
     compatLastResult: null,
     tutorialDone: true,
@@ -53,6 +58,11 @@ function baseState(overrides: Partial<AppState> = {}): AppState {
     softUpgradeAvailable: null,
     forceUpgradeBlocked: false,
     user: null,
+    deviceEvicted: false,
+    deviceEvictedReason: null,
+    uploadQueue: [],
+    uploadProgressById: {},
+    contributionsVersion: 0,
     // Phase 6 Wave 3 — Home / History range defaults. computeInitialRoute
     // never reads these but the AppState type now requires them, so the
     // baseState builder stubs the canonical defaults.
@@ -62,6 +72,8 @@ function baseState(overrides: Partial<AppState> = {}): AppState {
     historyRangeCustom: null,
     setJwt: () => {},
     signOut: () => {},
+    notifyDeviceEvicted: () => {},
+    clearDeviceEvicted: () => {},
     setConsent: () => {},
     setPermsGranted: () => {},
     setCompatResult: () => {},
@@ -73,6 +85,9 @@ function baseState(overrides: Partial<AppState> = {}): AppState {
     setSoftUpgradeAvailable: () => {},
     setForceUpgradeBlocked: () => {},
     setUser: () => {},
+    setUploadQueue: () => {},
+    setUploadProgress: () => {},
+    bumpContributionsVersion: () => {},
     setHomeRange: () => {},
     setHomeRangeCustom: () => {},
     setHistoryRange: () => {},
@@ -122,7 +137,30 @@ describe('computeInitialRoute', () => {
   it('Test 8b: JWT present, perms missing camera grant → OnboardingStack/Permissions', () => {
     const route = computeInitialRoute(
       baseState({
-        permsGranted: { camera: false, mic: true, grantedAt: '2026-05-09T07:01:00.000Z' },
+        permsGranted: {
+          camera: false,
+          mic: true,
+          location: true,
+          grantedAt: '2026-05-09T07:01:00.000Z',
+        },
+      }),
+      'sig-fresh',
+    );
+    expect(route).toEqual({ stack: 'OnboardingStack', screen: 'Permissions' });
+  });
+
+  it('Test 8c: JWT present, perms missing location grant → OnboardingStack/Permissions (Bug 3 / D4)', () => {
+    // Location joined the onboarding gate (Bug 3 / D4). A camera+mic-only grant
+    // — including pre-Bug-3 persisted perms where `location` is undefined — must
+    // re-gate to Permissions.
+    const route = computeInitialRoute(
+      baseState({
+        permsGranted: {
+          camera: true,
+          mic: true,
+          location: false,
+          grantedAt: '2026-05-09T07:01:00.000Z',
+        },
       }),
       'sig-fresh',
     );

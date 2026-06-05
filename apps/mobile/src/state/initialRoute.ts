@@ -77,8 +77,15 @@ export function computeInitialRoute(
     return { stack: 'OnboardingStack', screen: 'Signup' };
   }
 
-  // 3. Permissions gate — both grants must be true.
-  if (!s.permsGranted || !s.permsGranted.camera || !s.permsGranted.mic) {
+  // 3. Permissions gate — Camera + Mic + Location grants must all be true
+  //    (Bug 3 / D4 — Location joined the gate; `location` is undefined on
+  //    pre-Bug-3 persisted perms, which `!` treats as missing → re-gate).
+  if (
+    !s.permsGranted ||
+    !s.permsGranted.camera ||
+    !s.permsGranted.mic ||
+    !s.permsGranted.location
+  ) {
     return { stack: 'OnboardingStack', screen: 'Permissions' };
   }
 

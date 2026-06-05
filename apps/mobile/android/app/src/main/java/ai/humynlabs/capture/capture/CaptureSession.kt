@@ -150,6 +150,38 @@ class CaptureSession private constructor(
          */
         private const val MIN_KEPT_DURATION_MS = 60_000L
 
+        /**
+         * Bug D6-1 (2026-06-05) — pure predicate: does a discarded sole segment
+         * need a `too_short` [CancelReason] emitted (→ a non-retryable "Canceled
+         * — recording too short" History row) before its artifacts are deleted?
+         *
+         * `true` only for a NON-practice segment that is being discarded as the
+         * sole segment of a session under [MIN_KEPT_DURATION_MS]. Practice
+         * segments are EXEMPT — they never produce History rows / never upload
+         * (ONB-04). This reconciles the two duration floors so a sub-60s
+         * recording behaves like the [60s, 180s) band (which FinalizeWorker's
+         * [CancelReason.TooShort] gate already turns into a History row),
+         * honouring the documented D6 contract.
+         *
+         * Extracted as a pure function (mirroring
+         * [FinalizeWorker.decideCancelReason]) so it can be unit-tested without
+         * constructing a full [Segment] (Camera2 / MediaCodec / muxer — not
+         * Robolectric-shadowable). [stop] is the sole caller.
+         *
+         * @param segmentsCompleted how many segments already finalized this
+         *   session — the discard only applies to the SOLE segment (== 0); a
+         *   session that auto-segmented at least once is ≥10 min of real data.
+         * @param durationMs the segment's wall-clock length (elapsedRealtimeNanos
+         *   delta, ms).
+         */
+        @VisibleForTesting
+        internal fun shouldEmitTooShortOnDiscard(
+            segmentsCompleted: Int,
+            durationMs: Long,
+            isPractice: Boolean,
+        ): Boolean =
+            segmentsCompleted == 0 && durationMs < MIN_KEPT_DURATION_MS && !isPractice
+
         /** Mid-record thermal poll cadence — see [thermalPollRunnable]. */
         private const val THERMAL_POLL_INTERVAL_MS = 5_000L
 
@@ -1192,6 +1224,28 @@ class CaptureSession private constructor(
                 // finalize). RecordingScreen has already shown the "Recording
                 // too short — discarded." toast off its own durationMs; the
                 // files must not survive into Phase 5's upload queue.
+                //
+                // Bug D6-1 (2026-06-05) — emit `onSegmentCanceled(too_short)`
+                // FIRST so a NON-practice sub-60s sole segment produces the same
+                // non-retryable "Canceled — recording too short" History row that
+                // FinalizeWorker's [CancelReason.TooShort] path produces for the
+                // [60s, 180s) band. Before this, sub-60s discarded silently
+                // (toast only, no History row) while [60s, 180s) got a History
+                // row — inconsistent, and contradicting the documented D6
+                // contract ("sub-3-min segments render as non-retryable History
+                // rows"). We reuse FinalizeWorker.emitCanceled (single source of
+                // truth for the payload — width/height/meanFps emitted null for
+                // TooShort) so the bridge shape can never drift from the
+                // FinalizeWorker path. Practice segments stay EXEMPT (they never
+                // produce History rows / never upload — ONB-04). emitCanceled
+                // deletes the orphan-sidecar; we then keep the existing on-disk
+                // bundle deletion below (the JS onSegmentCanceled handler's own
+                // file unlink becomes a harmless no-op on already-deleted files).
+                // Neither band uploads — discardSegmentArtifacts guarantees the
+                // files never reach the upload queue.
+                if (shouldEmitTooShortOnDiscard(segmentsCompleted, durationMs, segN.sidecar.isPractice)) {
+                    FinalizeWorker.emitCanceled(segN, CancelReason.TooShort, emit)
+                }
                 discardSegmentArtifacts(segN)
             } else {
                 // Synchronously await finalize so the FGS doesn't shut down before

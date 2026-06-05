@@ -29,7 +29,12 @@ vi.mock('../../../src/lib/jwtSub', () => ({
 }));
 
 vi.mock('../../../src/state/appStore', () => {
-  const stub = { jwt: 'jwt-token' } as Record<string, unknown>;
+  // Bug 7 — PendingUploads reads rows + progress from the store slice; the
+  // visual fixtures seed rows via `__test_rows`, so these are empty defaults.
+  const stub = { jwt: 'jwt-token', uploadQueue: [], uploadProgressById: {} } as Record<
+    string,
+    unknown
+  >;
   function useAppStore<T>(selector: (s: typeof stub) => T): T {
     return selector(stub);
   }

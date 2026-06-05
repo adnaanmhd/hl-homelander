@@ -463,7 +463,9 @@ class MetadataComposerLiteralsTest {
             "hand_detection", true, false, false, 3420, 5, 400,
         ),
         captureDeviceInfoPartial = MetadataComposer.CaptureDeviceInfoPartial(
-            "phone", "Pixel 10a", "android", "14", "1.0.0", 115.0, null, "Bangalore, India",
+            // Bug 3 / D3 — location incidental to the no-literals grep; null
+            // exercises the unavailable-fix path (was a coarse label pre-1.5.0).
+            "phone", "Pixel 10a", "android", "14", "1.0.0", 115.0, null, null,
         ),
         recordedRotation = "landscape_left",
     )

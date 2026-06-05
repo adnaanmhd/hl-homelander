@@ -18,15 +18,25 @@ import type { CompatResult } from '@humyn/shared-types';
 import { secureMmkv } from './mmkv';
 import { KEYS, practiceDoneKey } from './keys';
 import type { NamedRange } from '../services/timeRange';
+// Bug 7 + Bug 11 (2026-06-04) — type-only import so the store carries the
+// upload-queue row shape WITHOUT a runtime require cycle (HumynUpload.ts pulls
+// only react-native; it never imports the store). `import type` is fully
+// erased at compile.
+import type { UploadQueueRow } from '../native/HumynUpload';
 
 export interface ConsentState {
   acceptedAt: string; // ISO datetime
-  consentVersion: string; // sha256 of canonical text — Phase 1 LEGAL constant
+  consentVersion: string; // FNV-1a 32-bit hash of the canonical consent text (client bookkeeping stamp; the server SHA-256 is the legal source of truth)
 }
 
 export interface PermsState {
   camera: boolean;
   mic: boolean;
+  // Bug 3 / D3 + D4 (2026-06-04) — precise Location is now a gated onboarding
+  // permission alongside Camera + Mic (block-until-granted). True when FINE or
+  // COARSE was granted (a partial "Approximate" grant still records — only a
+  // full denial blocks). Overrides the formerly-LOCKED coarse-only constraint.
+  location: boolean;
   grantedAt: string; // ISO datetime
 }
 
@@ -106,12 +116,48 @@ export interface AppState {
   softUpgradeAvailable: { latest: string } | null;
   forceUpgradeBlocked: boolean;
   user: UserDisplay | null;
+  // Bug 4 / D2 (2026-06-04) — set true when an authed request 401s with the
+  // `device-evicted` slug (this device was superseded by a newer sign-in). The
+  // SignupScreen reads it once on mount to show the "used on another device"
+  // notice, then clears it. Transient — never persisted.
+  deviceEvicted: boolean;
+  // Distinguishes a genuine eviction ('evicted' — superseded by a newer sign-in
+  // on another device) from a forced re-sign-in of a legacy no-claim token
+  // ('reauth'). SignupScreen picks the notice copy from it. Null when not flagged.
+  deviceEvictedReason: 'evicted' | 'reauth' | null;
+
+  // Bug 7 + Bug 11 (2026-06-04) — single app-lifetime reactive upload-queue
+  // source. Fed by ONE `onUploadQueueChanged` / `onUploadProgress` subscription
+  // installed at boot (`services/uploadQueueStore.ts`, next to
+  // `installUploadReconcile()` in App.tsx), seeded once from `getQueueSafe()`.
+  // Living outside the navigator it survives tab lazy-mount / freezeOnBlur, so
+  // History / Home / PendingUploads no longer each subscribe (and no longer
+  // miss an enqueue that fired while they were unmounted — Bug 7). Each screen
+  // reads `uploadQueue` and filters to its own `ownerUserId === currentSub`
+  // (UP-13 owner-pin) reactively, so a row enqueued during a null-`sub` window
+  // is NOT lost — the raw queue persists here and re-filters the moment `sub`
+  // resolves. All three are transient (never persisted).
+  //   - uploadQueue          : the full, unfiltered native queue snapshot.
+  //   - uploadProgressById    : recordingId → upload percent (0..100).
+  //   - contributionsVersion  : a monotonic counter bumped on every queue
+  //                             mutation. Home + Profile key a debounced
+  //                             contributions refetch on it (Bug 11) — a queue
+  //                             mutation correlates with the server-side count
+  //                             change at `/recordings/init`.
+  uploadQueue: UploadQueueRow[];
+  uploadProgressById: Record<string, number>;
+  contributionsVersion: number;
 
   // ---------------------------------------------------------------------
   // Actions
   // ---------------------------------------------------------------------
   setJwt(jwt: string | null): void;
   signOut(): void;
+  // Bug 4 / D2 — clear the session (JWT + user) and flag the eviction so the
+  // Signup screen can explain it. Onboarding flags are intentionally KEPT so a
+  // same-device re-sign-in is friction-free (newest-wins ping-pong is common).
+  notifyDeviceEvicted(reason?: 'evicted' | 'reauth'): void;
+  clearDeviceEvicted(): void;
   setConsent(c: ConsentState): void;
   setPermsGranted(p: PermsState): void;
   setCompatResult(r: CompatResult): void;
@@ -123,6 +169,14 @@ export interface AppState {
   setSoftUpgradeAvailable(s: { latest: string } | null): void;
   setForceUpgradeBlocked(b: boolean): void;
   setUser(u: UserDisplay | null): void;
+  // Bug 7 + Bug 11 — upload-queue reactive setters (fed by the boot installer).
+  //   setUploadQueue          : replace the queue snapshot wholesale (the native
+  //                             event always carries the full queue).
+  //   setUploadProgress       : merge one recording's percent into the map.
+  //   bumpContributionsVersion: ++contributionsVersion (Bug 11 invalidation).
+  setUploadQueue(rows: UploadQueueRow[]): void;
+  setUploadProgress(recordingId: string, pct: number): void;
+  bumpContributionsVersion(): void;
   // Phase 6 Wave 3 — Home / History range setters. Each setter persists the
   // new value to MMKV through `secureMmkv.set`. Setting `homeRange` to any
   // non-'custom' window also clears `homeRangeCustom` (the custom pair is
@@ -146,6 +200,12 @@ export const useAppStore = create<AppState>((set) => ({
   softUpgradeAvailable: null,
   forceUpgradeBlocked: false,
   user: null,
+  deviceEvicted: false,
+  deviceEvictedReason: null,
+  // Bug 7 + Bug 11 — reactive upload-queue defaults (transient).
+  uploadQueue: [],
+  uploadProgressById: {},
+  contributionsVersion: 0,
   // Phase 6 Wave 3 — Home / History range defaults.
   homeRange: 'today',
   homeRangeCustom: null,
@@ -165,6 +225,19 @@ export const useAppStore = create<AppState>((set) => ({
     secureMmkv.remove(KEYS.AUTH_JWT);
     set({ jwt: null, user: null });
   },
+
+  notifyDeviceEvicted: (reason = 'evicted') => {
+    // Drop the JWT (this device is no longer the bound device) and flag the
+    // eviction. `reason` distinguishes a genuine eviction ('evicted' — used on
+    // another device) from a forced re-sign-in of a legacy no-claim token
+    // ('reauth') so SignupScreen shows the right copy. Onboarding flags are kept
+    // — a same-device re-sign-in skips the gate-decision tree. Navigation to
+    // Signup is driven by the api.ts caller.
+    secureMmkv.remove(KEYS.AUTH_JWT);
+    set({ jwt: null, user: null, deviceEvicted: true, deviceEvictedReason: reason });
+  },
+
+  clearDeviceEvicted: () => set({ deviceEvicted: false, deviceEvictedReason: null }),
 
   setConsent: (consent) => {
     secureMmkv.set(KEYS.ONBOARDING_CONSENT, JSON.stringify(consent));
@@ -226,6 +299,30 @@ export const useAppStore = create<AppState>((set) => ({
   setSoftUpgradeAvailable: (s) => set({ softUpgradeAvailable: s }),
   setForceUpgradeBlocked: (b) => set({ forceUpgradeBlocked: b }),
   setUser: (user) => set({ user }),
+
+  // Bug 7 + Bug 11 — reactive upload-queue setters. Transient (no MMKV write):
+  // the native queue is the durable source of truth; this slice is a live
+  // mirror reseeded from `getQueueSafe()` on every cold boot.
+  setUploadQueue: (rows) =>
+    set((s) => {
+      // GC progress entries whose recording left the queue (a completed upload
+      // drops from the native queue) so `uploadProgressById` can't grow
+      // unbounded over a session. Only allocate a new map when something is
+      // actually pruned — otherwise keep the reference stable so progress
+      // consumers don't re-render on an unrelated queue mutation.
+      const liveIds = new Set(rows.map((r) => r.recordingId));
+      let pruned = false;
+      const next: Record<string, number> = {};
+      for (const id in s.uploadProgressById) {
+        if (liveIds.has(id)) next[id] = s.uploadProgressById[id]!;
+        else pruned = true;
+      }
+      return pruned ? { uploadQueue: rows, uploadProgressById: next } : { uploadQueue: rows };
+    }),
+  setUploadProgress: (recordingId, pct) =>
+    set((s) => ({ uploadProgressById: { ...s.uploadProgressById, [recordingId]: pct } })),
+  bumpContributionsVersion: () =>
+    set((s) => ({ contributionsVersion: s.contributionsVersion + 1 })),
 
   // Phase 6 Wave 3 — Home / History range setters.
   //

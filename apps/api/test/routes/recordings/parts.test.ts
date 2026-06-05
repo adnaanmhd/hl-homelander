@@ -27,6 +27,7 @@ function tok(sub: string): string {
       applicationId: 'ai.humynlabs.capture',
       integrity_verdict: 'passed',
       token_version: 1,
+      installationId: 'inst-test',
     },
     process.env.JWT_SIGNING_SECRET!,
     { algorithm: 'HS256', expiresIn: '24h' },
@@ -86,6 +87,7 @@ beforeAll(async () => {
         name: 'Parts',
         consentVersion: '1.0.0',
         consentAcceptedAt: new Date(),
+        currentInstallationId: 'inst-test',
         flavor: 'playStore',
         applicationId: 'ai.humynlabs.capture',
       })

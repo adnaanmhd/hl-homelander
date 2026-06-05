@@ -19,15 +19,20 @@ import { render, screen, cleanup } from '@testing-library/react';
 // observe the same spy the screen's `require()` resolves.
 import HapticFeedback from 'react-native-haptic-feedback';
 
-const { mockReplace, compatHolder } = vi.hoisted(() => ({
+const { mockReplace, mockReset, compatHolder, practiceDoneHolder } = vi.hoisted(() => ({
   mockReplace: vi.fn(),
+  mockReset: vi.fn(),
   compatHolder: { value: null as unknown },
+  practiceDoneHolder: { value: false },
 }));
 
 vi.mock('@react-navigation/native', () => ({
   useNavigation: () => ({
     replace: mockReplace,
-    reset: vi.fn(),
+    reset: mockReset,
+    // getParent → null so CompatPassScreen falls back to navigation.reset
+    // (mockReset) for the Bug 5/D7 practice-done → MainTabs path.
+    getParent: () => null,
     navigate: vi.fn(),
     goBack: vi.fn(),
     push: vi.fn(),
@@ -39,11 +44,25 @@ vi.mock('../../src/state/appStore', () => {
   function useAppStore<T>(selector: (s: { compatLastResult: unknown }) => T): T {
     return selector({ compatLastResult: compatHolder.value });
   }
-  (useAppStore as unknown as { getState: () => { compatLastResult: unknown } }).getState = () => ({
+  (
+    useAppStore as unknown as { getState: () => { compatLastResult: unknown; jwt: string } }
+  ).getState = () => ({
     compatLastResult: compatHolder.value,
+    jwt: 'jwt-x',
   });
   return { useAppStore };
 });
+
+// Bug 5 / D7 — CompatPassScreen now reads the per-account practice-done flag to
+// route RigTutorial (not done) vs MainTabs (done). Drive that flag via
+// `practiceDoneHolder` by mocking the sub-decode + the MMKV read + the key.
+vi.mock('../../src/lib/jwtSub', () => ({ decodeGoogleSubFromJwt: () => 'sub-x' }));
+vi.mock('../../src/state/keys', () => ({
+  practiceDoneKey: (sub: string) => `tutorial.practice_done.${sub}.v1`,
+}));
+vi.mock('../../src/state/mmkv', () => ({
+  secureMmkv: { getBoolean: () => practiceDoneHolder.value },
+}));
 
 import CompatPassScreen from '../../src/screens/compat/CompatPassScreen';
 
@@ -74,6 +93,7 @@ beforeEach(() => {
   // call history so per-test assertions observe only this test's render.
   (HapticFeedback.trigger as unknown as ReturnType<typeof vi.fn>).mockClear();
   compatHolder.value = PASS_RESULT;
+  practiceDoneHolder.value = false;
 });
 
 afterEach(() => {
@@ -144,5 +164,27 @@ describe('CompatPassScreen (design-spec §4c, post Plan 03-03 auto-advance)', ()
     unmount();
     vi.advanceTimersByTime(2000);
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('Test 8 (Bug 5/D7): a returning user whose account completed practice skips to MainTabs', () => {
+    // The practice-done flag is set (seeded at sign-in from the server, or set
+    // on this device). After the auto-advance, CompatPass must reset into
+    // MainTabs and must NOT push the user back through RigTutorial.
+    vi.useFakeTimers();
+    practiceDoneHolder.value = true;
+    render(<CompatPassScreen />);
+    vi.advanceTimersByTime(1500);
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockReset).toHaveBeenCalledTimes(1);
+    expect(mockReset).toHaveBeenCalledWith({ index: 0, routes: [{ name: 'MainTabs' }] });
+  });
+
+  it('Test 9 (Bug 5/D7): a user who has NOT completed practice still goes to RigTutorial', () => {
+    vi.useFakeTimers();
+    practiceDoneHolder.value = false;
+    render(<CompatPassScreen />);
+    vi.advanceTimersByTime(1500);
+    expect(mockReset).not.toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith('RigTutorial');
   });
 });

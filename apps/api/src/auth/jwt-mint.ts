@@ -10,6 +10,10 @@ export interface MintJwtOpts {
   flavor: Flavor;
   applicationId: string;
   integrity_verdict: 'passed' | 'bypassed_apk';
+  // Bug 4 / D2 — the device's stable install id, also written onto
+  // users.current_installation_id this sign-in. requireAuth 401s when a later
+  // JWT's installationId diverges from the row (newest-login-wins).
+  installationId: string;
 }
 
 export async function mintJwt(opts: MintJwtOpts): Promise<string> {
@@ -20,6 +24,7 @@ export async function mintJwt(opts: MintJwtOpts): Promise<string> {
       applicationId: opts.applicationId,
       integrity_verdict: opts.integrity_verdict,
       token_version: TOKEN_VERSION,
+      installationId: opts.installationId,
     },
     { expiresIn: `${TTL_DAYS}d`, algorithm: 'HS256' },
   );

@@ -325,6 +325,80 @@ class UploadQueueStoreTest {
     }
 
     @Test
+    fun `fromJson maps legacy VERIFIED state to FINALIZING (D1-mobile-1), not PENDING`() {
+        // Bug D1-mobile-1 — a row persisted by a PRIOR app version (pre Enh 3 /
+        // D1) with the now-removed `VERIFIED` state must NOT decode to PENDING
+        // (which would re-run /init + /parts on an already-uploaded recording →
+        // 409 → DEAD_LETTER + "Upload failed" chip flash). It must decode to
+        // FINALIZING, which self-cleans via the GET-based reconcile path.
+        val rid = "01KVERIFIEDLEGACY0000000000"
+        val legacyVerified = JSONObject().apply {
+            put("recordingId", rid)
+            put("ownerUserId", "userA")
+            put("mp4Path", "/data/files/recordings/$rid.mp4")
+            put("csvPath", "/data/files/recordings/$rid.csv")
+            put("jsonPath", "/data/files/recordings/$rid.json")
+            put("taskId", "01HVTESTTASK00000000000000")
+            put("isPractice", false)
+            put("state", "VERIFIED")
+            put("videoParts", JSONArray())
+            put("imuParts", JSONArray())
+            put("metadataPut", "PENDING")
+            put("enqueuedAt", 1L)
+            put("lastProgressAt", 1L)
+            put("initIdempotencyKey", "11111111-2222-4333-8444-555555555555")
+            put("partsIdempotencyKey", "22222222-3333-4444-8555-666666666666")
+            put("finalizeIdempotencyKey", "33333333-4444-4555-8666-777777777777")
+        }
+        val row = UploadRow.fromJson(legacyVerified)
+        assertEquals(UploadState.FINALIZING, row.state)
+        assertNotEquals(UploadState.PENDING, row.state)
+        assertEquals(rid, row.recordingId)
+    }
+
+    @Test
+    fun `fromJson maps legacy AWAITING_VERIFY state to FINALIZING (D1-mobile-1), not PENDING`() {
+        val rid = "01KAWAITVERIFYLEGACY00000000"
+        val legacyAwaiting = JSONObject().apply {
+            put("recordingId", rid)
+            put("ownerUserId", "userA")
+            put("mp4Path", "/data/files/recordings/$rid.mp4")
+            put("csvPath", "/data/files/recordings/$rid.csv")
+            put("jsonPath", "/data/files/recordings/$rid.json")
+            put("taskId", "01HVTESTTASK00000000000000")
+            put("isPractice", false)
+            put("state", "AWAITING_VERIFY")
+            put("videoParts", JSONArray())
+            put("imuParts", JSONArray())
+            put("metadataPut", "PENDING")
+            put("enqueuedAt", 1L)
+            put("lastProgressAt", 1L)
+            put("initIdempotencyKey", "11111111-2222-4333-8444-555555555555")
+            put("partsIdempotencyKey", "22222222-3333-4444-8555-666666666666")
+            put("finalizeIdempotencyKey", "33333333-4444-4555-8666-777777777777")
+        }
+        val row = UploadRow.fromJson(legacyAwaiting)
+        assertEquals(UploadState.FINALIZING, row.state)
+        assertNotEquals(UploadState.PENDING, row.state)
+    }
+
+    @Test
+    fun `decodeState — known and unknown states (D1-mobile-1 regression guard)`() {
+        // Current enum values decode to themselves (no regression).
+        assertEquals(UploadState.PENDING, UploadRow.decodeState("PENDING"))
+        assertEquals(UploadState.UPLOADING, UploadRow.decodeState("UPLOADING"))
+        assertEquals(UploadState.FINALIZING, UploadRow.decodeState("FINALIZING"))
+        assertEquals(UploadState.DEAD_LETTER, UploadRow.decodeState("DEAD_LETTER"))
+        assertEquals(UploadState.NEEDS_ATTENTION, UploadRow.decodeState("NEEDS_ATTENTION"))
+        // The two removed legacy states map to FINALIZING (self-cleaning path).
+        assertEquals(UploadState.FINALIZING, UploadRow.decodeState("AWAITING_VERIFY"))
+        assertEquals(UploadState.FINALIZING, UploadRow.decodeState("VERIFIED"))
+        // Any other garbage falls back to PENDING (forward-compat).
+        assertEquals(UploadState.PENDING, UploadRow.decodeState("SOME_FUTURE_STATE"))
+        assertEquals(UploadState.PENDING, UploadRow.decodeState(""))
+    }
+
+    @Test
     fun `fromJson mints three fresh UUIDv4s when a pre-Wave-1-5 row on disk has no per-route keys`() {
         // Shape (a): the pre-commit-5c0b2d8 row layout — NO `*IdempotencyKey`
         // fields at all (the currently-stuck `01KRFXGAWCMVQ89PJ2PBXSVAKK` from

@@ -19,6 +19,9 @@
 
 import uuid from 'react-native-uuid';
 import { apiClient } from './api';
+import { secureMmkv } from '../state/mmkv';
+import { KEYS, practiceDoneKey } from '../state/keys';
+import { decodeGoogleSubFromJwt } from '../lib/jwtSub';
 
 /** Server-side /me response shape — see shared/types/src/me.ts MeResponseSchema. */
 export interface MeResponse {
@@ -34,6 +37,9 @@ export interface MeResponse {
   deletedAt: string | null;
   deleteGraceUntil: string | null;
   createdAt: string;
+  // Bug 5 / D7 — practice-tutorial completion timestamp (or null). Seeds the
+  // local ONB-08 flag so the tutorial is skipped on a fresh install / new device.
+  practiceCompletedAt: string | null;
 }
 
 /** PATCH /me body — only the editable subset per UserPatchSchema. */
@@ -68,7 +74,31 @@ interface ServerContributionsLifetime {
 
 /** GET /me — read the current user record. */
 export async function fetchMe(): Promise<MeResponse> {
-  return apiClient.get<MeResponse>('/me');
+  const me = await apiClient.get<MeResponse>('/me');
+  // Bug 5 / D7 — seed the local ONB-08 practice-done flag from the server so
+  // computeInitialRoute skips the tutorial on a fresh install / new device once
+  // the account has completed practice. Best-effort; a seed failure must never
+  // break the /me read.
+  try {
+    if (me.practiceCompletedAt) {
+      const sub = decodeGoogleSubFromJwt(secureMmkv.getString(KEYS.AUTH_JWT) ?? null);
+      secureMmkv.set(practiceDoneKey(sub), true);
+    }
+  } catch {
+    /* best-effort seed */
+  }
+  return me;
+}
+
+/**
+ * POST /me/practice-complete — Bug 5 / D7. Idempotent server-side (set-if-NULL):
+ * persists practice-tutorial completion so the tutorial is skipped on all future
+ * devices/reinstalls. Called by PracticeCompleteScreen alongside the local
+ * ONB-08 MMKV flag. The route opts out of idempotency-key enforcement, so no
+ * Idempotency-Key header is needed.
+ */
+export async function postPracticeComplete(): Promise<{ practiceCompletedAt: string }> {
+  return apiClient.post<{ practiceCompletedAt: string }>('/me/practice-complete', {});
 }
 
 /**

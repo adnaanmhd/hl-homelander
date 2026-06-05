@@ -40,6 +40,7 @@ const {
   mockSetTutorialDone,
   mockSetPracticeDone,
   mockVibrate,
+  mockPostPracticeComplete,
   FAKE_JWT,
 } = vi.hoisted(() => {
   const json = JSON.stringify({ sub: 'flow-sub-7' });
@@ -60,6 +61,9 @@ const {
     mockSetTutorialDone: vi.fn(),
     mockSetPracticeDone: vi.fn(),
     mockVibrate: vi.fn(),
+    mockPostPracticeComplete: vi.fn(() =>
+      Promise.resolve({ practiceCompletedAt: '2026-06-04T00:00:00.000Z' }),
+    ),
     FAKE_JWT: `header.${b64}.signature`,
   };
 });
@@ -164,6 +168,13 @@ vi.mock('../../src/util/analytics', () => ({
   ],
 }));
 
+// Bug 5 / D7 — mock profileService so PracticeCompleteScreen's server-write
+// import doesn't pull the real api.ts → navigationRef chain (this file's local
+// @react-navigation/native mock omits createNavigationContainerRef).
+vi.mock('../../src/services/profileService', () => ({
+  postPracticeComplete: mockPostPracticeComplete,
+}));
+
 import RigTutorialScreen from '../../src/screens/tutorial/RigTutorialScreen';
 import PracticeIntroScreen from '../../src/screens/tutorial/PracticeIntroScreen';
 import PracticeCompleteScreen from '../../src/screens/tutorial/PracticeCompleteScreen';
@@ -228,7 +239,8 @@ describe('practice-tutorial chain (plan 04-06 — ONB-03 / ONB-07 / ONB-08)', ()
     // compatPassed (offline-boot caveat), so only the practice gate decides.
     const greenState = {
       jwt: FAKE_JWT,
-      permsGranted: { camera: true, mic: true },
+      // Bug 3 / D4 — location joined the onboarding perms gate.
+      permsGranted: { camera: true, mic: true, location: true },
       compatPassed: { signature: 'sig-abc' },
       tutorialDone: true,
     } as unknown as Parameters<typeof computeInitialRoute>[0];

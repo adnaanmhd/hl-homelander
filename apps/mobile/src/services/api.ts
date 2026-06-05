@@ -31,6 +31,8 @@ import { KEYS } from '../state/keys';
 import { toastKeyForCode } from '../i18n/errorMap';
 import i18n from '../i18n';
 import { showToast } from '../components/Toast';
+import { useAppStore } from '../state/appStore';
+import { resetToOnboarding } from '../navigation/navigationRef';
 
 const BASE_URL = (): string => {
   const u = Config.API_BASE_URL;
@@ -159,6 +161,45 @@ export function surfaceApiError(error: { code?: string | null; detail?: string |
   }
 }
 
+/**
+ * Bug 4 / D2 — single-device newest-login-wins eviction. When an authed request
+ * 401s with the `device-evicted` problem slug, this device's JWT no longer
+ * matches the account's bound installation id (a newer sign-in superseded it).
+ * Clear the session + flag the eviction (SignupScreen explains it) and route to
+ * Signup. Idempotent (guarded so concurrent evicted responses redirect once)
+ * and best-effort (a parse / native failure never masks the API error the
+ * caller is about to throw). Call from each verb's `!res.ok` block before throw.
+ */
+function maybeHandleEviction(status: number, bodyText: string): void {
+  if (status !== 401) return;
+  const hasEvicted = bodyText.includes('device-evicted');
+  const hasReauth = bodyText.includes('reauth-required');
+  if (!hasEvicted && !hasReauth) return;
+  // Distinguish a genuine eviction ("used on another device") from a forced
+  // re-sign-in of a legacy no-claim token ("please sign in again") so SignupScreen
+  // shows the right copy. Both clear the session + route to Signup identically.
+  let reason: 'evicted' | 'reauth' | null = null;
+  try {
+    const parsed = JSON.parse(bodyText) as { type?: unknown };
+    if (typeof parsed.type === 'string') {
+      if (parsed.type.endsWith('/device-evicted')) reason = 'evicted';
+      else if (parsed.type.endsWith('/reauth-required')) reason = 'reauth';
+    }
+  } catch {
+    // Body wasn't JSON but contained a slug — treat as the matched reason (defensive).
+    reason = hasEvicted ? 'evicted' : 'reauth';
+  }
+  if (reason === null) return;
+  try {
+    const store = useAppStore.getState();
+    if (store.deviceEvicted) return; // already handled — don't re-fire the redirect
+    store.notifyDeviceEvicted(reason);
+    resetToOnboarding();
+  } catch {
+    /* best-effort — never let eviction handling mask the thrown API error */
+  }
+}
+
 export const apiClient: ApiClient = {
   async post<T>(path: string, body: object, opts?: { idempotencyKey?: string }): Promise<T> {
     const headers: Record<string, string> = {
@@ -168,32 +209,52 @@ export const apiClient: ApiClient = {
     if (opts?.idempotencyKey) {
       headers['idempotency-key'] = opts.idempotencyKey;
     }
-    const res = await fetch(`${BASE_URL()}${path}`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`POST ${path} failed: ${res.status} ${text}`);
+    // Bug 10 (2026-06-04) — AbortController timeout parity with get/patch/delete.
+    // Without it a hung POST blocks the caller indefinitely (the latent
+    // unbounded-hang the get/patch paths already guard against).
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+    try {
+      const res = await fetch(`${BASE_URL()}${path}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        maybeHandleEviction(res.status, text);
+        throw new Error(`POST ${path} failed: ${res.status} ${text}`);
+      }
+      return (await res.json()) as T;
+    } finally {
+      clearTimeout(timer);
     }
-    return (await res.json()) as T;
   },
   async postNoBody<T>(path: string): Promise<T> {
     const headers: Record<string, string> = {
       'content-type': 'application/json',
       ...bearerHeader(),
     };
-    const res = await fetch(`${BASE_URL()}${path}`, {
-      method: 'POST',
-      headers,
-      body: '{}',
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`POST ${path} failed: ${res.status} ${text}`);
+    // Bug 10 — AbortController timeout parity (see post() above).
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+    try {
+      const res = await fetch(`${BASE_URL()}${path}`, {
+        method: 'POST',
+        headers,
+        body: '{}',
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        maybeHandleEviction(res.status, text);
+        throw new Error(`POST ${path} failed: ${res.status} ${text}`);
+      }
+      return (await res.json()) as T;
+    } finally {
+      clearTimeout(timer);
     }
-    return (await res.json()) as T;
   },
   async getJson<T>(path: string, opts?: GetJsonOptions): Promise<T> {
     const url = buildUrl(path, opts?.query);
@@ -231,6 +292,7 @@ export const apiClient: ApiClient = {
         } catch {
           body = await res.text();
         }
+        maybeHandleEviction(res.status, body);
         throw new Error(`GET ${path} failed: ${res.status} ${body}`);
       }
       return (await res.json()) as T;
@@ -272,6 +334,7 @@ export const apiClient: ApiClient = {
         } catch {
           bodyText = await res.text();
         }
+        maybeHandleEviction(res.status, bodyText);
         throw new Error(`PATCH ${path} failed: ${res.status} ${bodyText}`);
       }
       return (await res.json()) as T;
@@ -314,6 +377,7 @@ export const apiClient: ApiClient = {
         } catch {
           bodyText = await res.text();
         }
+        maybeHandleEviction(res.status, bodyText);
         throw new Error(`DELETE ${path} failed: ${res.status} ${bodyText}`);
       }
       // 200 with empty body (DELETE /me) → undefined. Otherwise try-parse.
@@ -359,6 +423,7 @@ export const apiClient: ApiClient = {
         } catch {
           bodyText = await res.text();
         }
+        maybeHandleEviction(res.status, bodyText);
         throw new Error(`POST ${path} failed: ${res.status} ${bodyText}`);
       }
       // POST /feedback returns JSON ({ id, diagnosticS3Key }); other

@@ -28,9 +28,14 @@ import { Text } from '../../ui/primitives/Text';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
 import { colors, spacing, radii } from '../../ui/tokens';
 import { useAppStore } from '../../state/appStore';
+import { decodeGoogleSubFromJwt } from '../../lib/jwtSub';
+import { secureMmkv } from '../../state/mmkv';
+import { practiceDoneKey } from '../../state/keys';
 
 interface NavigationLike {
   replace(route: string): void;
+  reset: (state: { index: number; routes: { name: string }[] }) => void;
+  getParent: () => NavigationLike | null | undefined;
 }
 
 // Auto-advance window per 02-COSMETIC-GAPS.md § Compat-pass screen ("≤1.5 s
@@ -59,11 +64,28 @@ export default function CompatPassScreen() {
   }, []);
 
   useEffect(() => {
-    // Auto-advance to RigTutorial — Plan 03-03 (02-COSMETIC-GAPS.md
-    // § Compat-pass screen). Cleanup cancels the pending route call if the
-    // user hardware-backs out before the timer fires (T-3.2-05 mitigation).
-    const t = setTimeout(() => navigation.replace('RigTutorial'), AUTO_ADVANCE_MS);
-    return () => clearTimeout(t);
+    // Auto-advance after the success confirmation (Plan 03-03). Bug 5 / D7 — a
+    // returning user whose account already completed practice (local ONB-08 flag
+    // seeded at sign-in from the server's practice_completed_at, or set on this
+    // device) skips the tutorial and resets straight into MainTabs; everyone
+    // else continues to RigTutorial. Mirrors computeInitialRoute step 5 — this is
+    // what makes Bug 5/D7 actually skip on a new device's FIRST launch. Cleanup
+    // cancels the pending nav if the user hardware-backs out first (T-3.2-05).
+    const timer = setTimeout(() => {
+      const sub = decodeGoogleSubFromJwt(useAppStore.getState().jwt);
+      const practiceDone = secureMmkv.getBoolean(practiceDoneKey(sub)) ?? false;
+      if (practiceDone) {
+        // MainTabs lives on the parent RootNativeStack — reset on the parent
+        // when present (we're nested in OnboardingStack), same idiom as
+        // PracticeCompleteScreen.
+        const parent = navigation.getParent?.();
+        const target = parent && typeof parent.reset === 'function' ? parent : navigation;
+        target.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+      } else {
+        navigation.replace('RigTutorial');
+      }
+    }, AUTO_ADVANCE_MS);
+    return () => clearTimeout(timer);
   }, [navigation]);
 
   const showStorageWarning = compat?.checks.freeStorageGB.warningOnly === true;

@@ -58,8 +58,13 @@ object MetadataComposer {
     // Enh 3 / D1 (2026-06-04) — schema bump 1.3.0 → 1.4.0 REMOVES the
     // `metadata.file_sha256` / `metadata.imu_sha256` fields: all upload hashing
     // is gone (the server verify worker AND the device-side SHA-256). No other
-    // field changes. (Bug 3 later bumps 1.4.0 → 1.5.0 to add `metadata.location`.)
-    const val CURRENT_SCHEMA_VERSION = "1.4.0"
+    // field changes.
+    // Bug 3 / D3 (2026-06-04) — schema bump 1.4.0 → 1.5.0 changes
+    // `capture_device_info.location` from a coarse string label to the precise
+    // [LocationFix] object { lat, lng, accuracy_m, provider, captured_at, label }
+    // (or JSON null when unavailable). Overrides the formerly-LOCKED coarse-only
+    // constraint (sign-off D3; consent + DPIA is a ship gate).
+    const val CURRENT_SCHEMA_VERSION = "1.5.0"
 
     /** Sidecar input shape (subset relevant to metadata composition). */
     data class SidecarPayload(
@@ -124,7 +129,8 @@ object MetadataComposer {
         val appVersion: String,
         val dfovDegrees: Double,
         val ipAddress: String?,
-        val location: String?,
+        // Bug 3 / D3 (2026-06-04): was `String?` (coarse label) → precise [LocationFix].
+        val location: LocationFix?,
     )
 
     data class StartGate(
@@ -263,7 +269,13 @@ object MetadataComposer {
             .put("app_version", sidecar.captureDeviceInfoPartial.appVersion)
             .put("dfov_degrees", sidecar.captureDeviceInfoPartial.dfovDegrees)
             .put("ip_address", sidecar.captureDeviceInfoPartial.ipAddress ?: JSONObject.NULL)
-            .put("location", sidecar.captureDeviceInfoPartial.location ?: JSONObject.NULL)
+            // Bug 3 / D3 — precise [LocationFix] object (schema 1.5.0), or JSON
+            // null when unavailable. Was a coarse string label pre-1.5.0.
+            .put(
+                "location",
+                sidecar.captureDeviceInfoPartial.location
+                    ?.let { LocationJson.toJson(it) } ?: JSONObject.NULL,
+            )
 
         // CAP-10: start_gate carries verbatim from the sidecar — same gate
         // result is stamped on every segment in the session. The hand-gate

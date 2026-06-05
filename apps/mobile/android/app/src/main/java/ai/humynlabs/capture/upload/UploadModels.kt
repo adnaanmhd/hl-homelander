@@ -304,6 +304,56 @@ data class UploadRow(
             return out
         }
 
+        /**
+         * Bug D1-mobile-1 (2026-06-05) — decode an on-disk `state` string into
+         * a current [UploadState], self-cleaning the two removed legacy states.
+         *
+         * Before Enh 3 / D1 (2026-06-04) the enum carried `AWAITING_VERIFY` and
+         * `VERIFIED`: a row reached `AWAITING_VERIFY` once every part had PUT to
+         * S3 AND `/finalize` had been POSTed, then advanced to `VERIFIED` when
+         * the server emitted the (now-removed) `verified` event. Both states mean
+         * the SAME thing under today's flow: "the bundle is already fully
+         * uploaded + finalized server-side" — `uploaded` is terminal success now
+         * (there is no on-device verify wait), so such a row should self-clean
+         * locally, not re-upload.
+         *
+         * A row persisted by a PRIOR app version with one of those values used to
+         * fall through `valueOf(...).getOrDefault(PENDING)` to **PENDING** → the
+         * next drain re-ran `/init` then `POST /:id/parts` against an
+         * already-`uploaded` recording → server **409** → DEAD_LETTER → only then
+         * cleared by the JS reconcile sweep. The user saw a transient "Upload
+         * failed" chip flash and the server logged avoidable 409s, purely from an
+         * app upgrade.
+         *
+         * Map both legacy strings to [UploadState.FINALIZING] instead. FINALIZING
+         * is the post-Enh-3 reconcile state for "uploaded, awaiting server
+         * confirm": `UploadCoordinator.uploadOne` short-circuits a FINALIZING row
+         * to a cheap `GET /recordings/:id` (NOT `/init` or `/parts`), and on the
+         * server's `qa_status ∈ {uploaded, verified}` calls
+         * `completeAndCleanup → UploadQueueStore.deleteLocalAndRemove` — deleting
+         * the local mp4/csv/json + dropping the row, with no `/parts` 409 and no
+         * "failed" chip (FINALIZING renders as in-flight, not failed). This routes
+         * the legacy row straight into the existing terminal-success cleanup path.
+         * (A literal zero-network cleanup would require a change to
+         * `UploadCoordinator`/`UploadQueueStore` or the JS `clearUploaded`
+         * backstop — all outside this module; FINALIZING is the minimal in-model
+         * mapping that avoids the 409 round-trip + DEAD_LETTER flash.)
+         *
+         * Any OTHER unknown string still defaults to PENDING (forward-compat with
+         * a hypothetical future enum value written by a newer build).
+         */
+        internal fun decodeState(raw: String): UploadState = when (raw) {
+            "AWAITING_VERIFY", "VERIFIED" -> {
+                Log.i(
+                    MODELS_TAG,
+                    "decodeState: legacy upload state '$raw' on disk → FINALIZING " +
+                        "(already uploaded pre-Enh-3; self-cleans via FINALIZING reconcile, no /parts 409)",
+                )
+                UploadState.FINALIZING
+            }
+            else -> runCatching { UploadState.valueOf(raw) }.getOrDefault(UploadState.PENDING)
+        }
+
         fun fromJson(o: JSONObject): UploadRow {
             // Migration (Wave-1.5 Items 1 + 7): existing on-disk rows from before
             // the per-route split — including rows written by commit `5c0b2d8`'s
@@ -346,8 +396,7 @@ data class UploadRow(
                 jsonPath = o.optString("jsonPath", ""),
                 taskId = o.optString("taskId", ""),
                 isPractice = o.optBoolean("isPractice", false),
-                state = runCatching { UploadState.valueOf(o.optString("state", "PENDING")) }
-                    .getOrDefault(UploadState.PENDING),
+                state = decodeState(o.optString("state", "PENDING")),
                 uploadId = if (o.has("uploadId") && !o.isNull("uploadId")) o.getString("uploadId") else null,
                 imuUploadId = if (o.has("imuUploadId") && !o.isNull("imuUploadId")) o.getString("imuUploadId") else null,
                 partsCount = if (o.has("partsCount") && !o.isNull("partsCount")) o.getInt("partsCount") else null,

@@ -4,11 +4,11 @@
 
 Every recording is called a **segment**. A segment produces exactly **three files**:
 
-| File            | What it is                         | Format                                                 |
-| --------------- | ---------------------------------- | ------------------------------------------------------ |
-| `video.mp4`     | The egocentric video               | HEVC, 1080p, 30fps, ultrawide (≥110° field of view)    |
-| `imu.csv`       | The motion-sensor stream           | CSV, ~100+ Hz accelerometer + gyroscope                |
-| `metadata.json` | A "receipt" describing the segment | JSON, ~50 fields (codec, drift, hashes, task, device…) |
+| File            | What it is                         | Format                                              |
+| --------------- | ---------------------------------- | --------------------------------------------------- |
+| `video.mp4`     | The egocentric video               | HEVC, 1080p, 30fps, ultrawide (≥110° field of view) |
+| `imu.csv`       | The motion-sensor stream           | CSV, ~100+ Hz accelerometer + gyroscope             |
+| `metadata.json` | A "receipt" describing the segment | JSON, ~50 fields (codec, drift, task, device…)      |
 
 These three files travel **byte-for-byte** from the phone to cloud storage — they are
 **never re-encoded or modified** server-side. What the phone wrote is exactly what the
@@ -45,17 +45,14 @@ flowchart TD
         API["API: /recordings/init,<br/>/parts, /finalize"]
         S3[("S3 bucket<br/>recordings/{user}/{rec}/")]
         PG[("PostgreSQL")]
-        WORKER["Hash-verify worker<br/>(BullMQ / Redis)"]
         API --> PG
         API --> S3
-        S3 -->|"EventBridge→SQS"| WORKER
-        WORKER -->|"re-hash files,<br/>compare SHA-256"| PG
+        API -->|"at finalize: poster<br/>thumb.jpg (ffmpeg, D5)"| S3
     end
 
     QUEUE -->|"1 - init (get presigned URLs)"| API
     QUEUE -->|"2 - PUT file parts directly"| S3
-    QUEUE -->|"3 - finalize"| API
-    WORKER -->|"verified / re-upload event"| QUEUE
+    QUEUE -->|"3 - finalize → qa_status=uploaded (done);<br/>device deletes local files"| API
 
     PG --> DASH["📊 Dashboards & analytics<br/>(you are here)"]
     S3 --> ML["🤖 Training pipeline<br/>(reads MP4 + IMU + metadata)"]
@@ -69,10 +66,12 @@ flowchart TD
    the server and never appears in any server table. (See [§9](#9-gotchas-for-analysts).)
 3. Passing segments enter an **on-device upload queue**. The app asks the API to start an
    upload (`init`), uploads the file chunks **directly to S3** using presigned URLs, then
-   tells the API it's done (`finalize`).
-4. A background **hash-verify worker** re-downloads the files, recomputes their SHA-256
-   hashes, and compares to what the phone claimed. Match → `verified`. Mismatch → the phone
-   is told to re-upload.
+   tells the API it's done (`finalize`). On a `finalize` 200 the recording is **`uploaded` —
+   terminal success** — and the phone **deletes its local copy**. _(Enh 3 / D1, 2026-06-04:
+   the former server-side hash-verify worker — re-hash MP4 + IMU, flip to `verified` — was
+   removed; `uploaded` is now the final good state. See [§8](#8-the-recording-lifecycle-qa_status).)_
+4. At `finalize` the server also extracts a **poster thumbnail** (`thumb.jpg`) for cross-device
+   History (Bug 6 / D5) — best-effort, never blocks the upload.
 5. **You query Postgres** for dashboards. The **ML team reads S3** for training.
 
 ---
@@ -86,7 +85,8 @@ humyn-recordings-{env}/
 └── recordings/{userId}/{recordingId}/
     ├── video.mp4        # ContentType video/mp4   — multipart upload
     ├── imu.csv          # ContentType text/csv     — multipart upload
-    └── metadata.json    # ContentType application/json — single PUT
+    ├── metadata.json    # ContentType application/json — single PUT
+    └── thumb.jpg        # ContentType image/jpeg — server-generated poster (Bug 6 / D5); best-effort, may be absent
 
 humyn-feedback-{env}/
 └── feedback/{userId}/{feedbackId}/
@@ -98,8 +98,10 @@ humyn-feedback-{env}/
   `recordings` table — so an S3 key fully determines the DB row and vice-versa.
 - Large files (`video.mp4`, `imu.csv`) are uploaded in **8 MiB parts** (5 MiB on cellular)
   via S3 multipart upload, max 1000 parts. `metadata.json` is one small `PUT`.
-- Files are **immutable once verified**. A re-upload (after a hash mismatch) overwrites the
-  same keys with fresh multipart uploads.
+- The three captured files are **immutable once uploaded** (`finalize` is terminal; the device
+  deletes its local copy and there is no re-upload path). _(Enh 3 / D1, 2026-06-04: the former
+  hash-mismatch re-upload overwrite was removed with the verification flow.)_ The server-derived
+  `thumb.jpg` (Bug 6 / D5) is the only object the backend writes after upload.
 - **S3 object keys are independent of the device-local filename.** As of schema `1.2.0`
   (quick 260522-elm) the on-device files are prefixed with the segment's 26-char ULID
   (`{recordingId}_{YYYYMMDD_HHMMSS_NNN}.{ext}`) so they are self-identifying on disk — but
@@ -113,7 +115,7 @@ humyn-feedback-{env}/
 
 This is the most important file for **data quality and training**. It is written by the
 phone (`MetadataComposer.kt`), uploaded byte-for-byte, and most of its fields are also copied
-into the `recordings` Postgres row. **Schema version: `1.2.0`.**
+into the `recordings` Postgres row. **Schema version: `1.5.0`** _(two 2026-06-04 changes: Enh 3 / D1 removed `file_sha256` / `imu_sha256` — `1.3.0` → `1.4.0`; Bug 3 / D3 changed `capture_device_info.location` from a coarse string to the precise object `{ lat, lng, accuracy_m, provider, captured_at, label }` — `1.4.0` → `1.5.0`, with the consent text updated + consent version bumped.)_
 
 It has **six** blocks (the sixth, `calibration`, was added in schema `1.2.0` — quick task
 260522-elm). Below is every field.
@@ -141,30 +143,26 @@ It has **six** blocks (the sixth, `calibration`, was added in schema `1.2.0` —
 
 ### `capture_device_info`
 
-| Field          | Type           | Notes                                  |
-| -------------- | -------------- | -------------------------------------- |
-| `type`         | string         | device class                           |
-| `model`        | string         | phone model                            |
-| `os`           | string         | "Android"                              |
-| `os_version`   | string         |                                        |
-| `app_version`  | string         |                                        |
-| `dfov_degrees` | number         | diagonal field of view (must be ≥110°) |
-| `ip_address`   | string \| null | usually filled server-side             |
-| `location`     | string \| null | coarse only — no precise GPS           |
+| Field          | Type           | Notes                                                                                                                                                                    |
+| -------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `type`         | string         | device class                                                                                                                                                             |
+| `model`        | string         | phone model                                                                                                                                                              |
+| `os`           | string         | "Android"                                                                                                                                                                |
+| `os_version`   | string         |                                                                                                                                                                          |
+| `app_version`  | string         |                                                                                                                                                                          |
+| `dfov_degrees` | number         | diagonal field of view (must be ≥110°)                                                                                                                                   |
+| `ip_address`   | string \| null | usually filled server-side                                                                                                                                               |
+| `location`     | object \| null | precise GPS `{ lat, lng, accuracy_m, provider, captured_at, label }` (Bug 3 / D3, schema 1.5.0); `label` = optional reverse-geocoded "City, Country"; `null` when no fix |
 
 ### `metadata` (the capture-spec block — the heart of quality monitoring)
 
-**File integrity / sizes**
+**File sizes** _(per-file SHA-256 removed 2026-06-04 — Enh 3 / D1; no upload hashing)_
 | Field | Type | Notes |
 |---|---|---|
 | `footage_type` | string | always `"egocentric_head"` |
 | `filename` | string | the MP4 filename — local on-disk name `{recordingId}_{YYYYMMDD_HHMMSS_NNN}.mp4` (ULID-prefixed, schema 1.2.0; quick 260522-elm). **S3 object key is UNCHANGED — still literally `video.mp4`** under `recordings/{userId}/{recordingId}/` |
-| `file_size_bytes` | number | actual MP4 byte count |
-| `file_sha256` | string | SHA-256 of the MP4 (the worker re-checks this) |
-| `imu_filename` | string | local on-disk name `{recordingId}_{YYYYMMDD_HHMMSS_NNN}.csv` (ULID-prefixed). **S3 object key UNCHANGED — still literally `imu.csv`** |
+| `file_size_bytes` | number | actual MP4 byte count || `imu_filename` | string | local on-disk name `{recordingId}_{YYYYMMDD_HHMMSS_NNN}.csv` (ULID-prefixed). **S3 object key UNCHANGED — still literally `imu.csv`** |
 | `imu_size_bytes` | number | actual CSV byte count |
-| `imu_sha256` | string | SHA-256 of the IMU CSV |
-
 **IMU rates & video↔IMU drift** _(quality telemetry)_
 | Field | Type | Notes |
 |---|---|---|
@@ -290,10 +288,7 @@ erDiagram
     users ||--o{ events : "emits"
     users ||--o{ feedback : "submits"
     users ||--o{ consent_log : "accepts (every sign-in)"
-    users ||--o{ recording_events_outbox : "notified of"
     tasks  ||--o{ recordings : "is recorded for"
-    recordings ||--o| recordings_to_verify : "queued for hashing"
-    recordings ||--o{ recording_events_outbox : "verified/re-upload"
 
     users {
         varchar26 id PK
@@ -309,8 +304,8 @@ erDiagram
         varchar26 taskId FK
         qa_status qaStatus
         int durationMs
-        varchar64 fileSha256
         text s3KeyVideo
+        text s3KeyThumbnail
         timestamp capturedAt
     }
     tasks {
@@ -357,31 +352,37 @@ erDiagram
 
 ```
 qa_status            : pending | uploaded | verified | hash-mismatch | rejected | takedown
+                       (NOTE: 'verified' / 'hash-mismatch' are LEGACY — kept in the enum
+                        because Postgres can't cheaply drop values, but NOTHING writes them
+                        since Enh 3 / D1, 2026-06-04. 'uploaded' is terminal success; any
+                        legacy 'verified' row is read as a success synonym.)
 build_flavor         : apkRollout | playStore | iosAppStore
 integrity_verdict    : passed | bypassed_apk
 task_setting         : indoor | outdoor | either
 task_request_status  : pending | reviewed | rejected | accepted
-recording_event_type : verified | re-upload
+(recording_event_type enum REMOVED — Enh 3 / D1, migration 0011)
 ```
 
 ### `users` — one row per signed-in person
 
-| Column                      | Type                  | Notes                                          |
-| --------------------------- | --------------------- | ---------------------------------------------- |
-| `id`                        | varchar(26) PK        | ULID                                           |
-| `google_sub`                | text UK NOT NULL      | Google account ID (stable identity)            |
-| `email`                     | text NOT NULL         |                                                |
-| `name`                      | text NOT NULL         |                                                |
-| `age`                       | integer               | nullable                                       |
-| `gender`                    | text                  | nullable                                       |
-| `avatar_url`                | text                  | nullable                                       |
-| `consent_version`           | text NOT NULL         | latest consent version accepted (denormalized) |
-| `consent_accepted_at`       | timestamp NOT NULL    |                                                |
-| `deleted_at`                | timestamp             | set when user requests deletion                |
-| `delete_grace_until`        | timestamp             | grace window before hard delete                |
-| `flavor`                    | build_flavor NOT NULL | which build (`apkRollout` at MVP)              |
-| `application_id`            | text NOT NULL         | Android package id                             |
-| `created_at` / `updated_at` | timestamp             |                                                |
+| Column                      | Type                  | Notes                                                                                                                                                                                                            |
+| --------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                        | varchar(26) PK        | ULID                                                                                                                                                                                                             |
+| `google_sub`                | text UK NOT NULL      | Google account ID (stable identity)                                                                                                                                                                              |
+| `email`                     | text NOT NULL         |                                                                                                                                                                                                                  |
+| `name`                      | text NOT NULL         |                                                                                                                                                                                                                  |
+| `age`                       | integer               | nullable                                                                                                                                                                                                         |
+| `gender`                    | text                  | nullable                                                                                                                                                                                                         |
+| `avatar_url`                | text                  | nullable                                                                                                                                                                                                         |
+| `consent_version`           | text NOT NULL         | latest consent version accepted (denormalized)                                                                                                                                                                   |
+| `consent_accepted_at`       | timestamp NOT NULL    |                                                                                                                                                                                                                  |
+| `deleted_at`                | timestamp             | set when user requests deletion                                                                                                                                                                                  |
+| `delete_grace_until`        | timestamp             | grace window before hard delete                                                                                                                                                                                  |
+| `flavor`                    | build_flavor NOT NULL | which build (`apkRollout` at MVP)                                                                                                                                                                                |
+| `application_id`            | text NOT NULL         | Android package id                                                                                                                                                                                               |
+| `current_installation_id`   | text                  | nullable; Bug 4 / D2 (2026-06-04) — most-recent sign-in's installation id; `requireAuth` 401s (`device-evicted`) any JWT whose `installationId` diverges. NULL for pre-Bug-4 rows. Overrides LOCKED `D-AUTH-03`. |
+| `practice_completed_at`     | timestamp             | nullable; Bug 5 / D7 (2026-06-04) — set once when the user finishes the practice tutorial; surfaced on `GET /me` so a reinstall / new device skips the walkthrough forever. NULL until completed.                |
+| `created_at` / `updated_at` | timestamp             |                                                                                                                                                                                                                  |
 
 _Indexes:_ unique on `google_sub`; index on `deleted_at`.
 
@@ -414,38 +415,37 @@ _Indexes:_ unique `slug`; `category`; HNSW on `embedding`; GIN on `name_search`.
 
 ### `recordings` — **one row per uploaded segment (the analyst's main table)**
 
-| Column                        | Type                        | Notes                                                                                                                           |
-| ----------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                          | varchar(26) PK              | = device-side `recording_id` = S3 folder name                                                                                   |
-| `user_id`                     | varchar(26) FK→users        | ON DELETE RESTRICT (can't delete a user with recordings)                                                                        |
-| `task_id`                     | varchar(26) FK→tasks        | ON DELETE RESTRICT                                                                                                              |
-| `practice`                    | boolean DEFAULT false       | practice runs (note: practice is normally **not** uploaded)                                                                     |
-| `qa_status`                   | qa_status DEFAULT 'pending' | lifecycle state — see [§8](#8-the-recording-lifecycle-qa_status)                                                                |
-| `duration_ms`                 | integer NOT NULL            | segment length                                                                                                                  |
-| `file_sha256`                 | varchar(64) NOT NULL        | MP4 hash (verified by worker)                                                                                                   |
-| `imu_sha256`                  | varchar(64) NOT NULL        | IMU CSV hash                                                                                                                    |
-| `file_size_bytes`             | bigint NOT NULL             |                                                                                                                                 |
-| `imu_size_bytes`              | bigint NOT NULL             |                                                                                                                                 |
-| `imu_video_drift_max_ms`      | integer                     | quality telemetry (nullable)                                                                                                    |
-| `imu_video_drift_mean_ms`     | integer                     |                                                                                                                                 |
-| `imu_video_drift_p99_ms`      | integer                     |                                                                                                                                 |
-| `imu_min_rate_hz_observed_p1` | integer                     | worst-case IMU rate                                                                                                             |
-| `calibration`                 | jsonb                       | the whole metadata.json `calibration` block (camera intrinsics + cam-IMU extrinsics); nullable (schema 1.2.0; quick 260522-elm) |
-| `s3_key_video`                | text NOT NULL               | path to `video.mp4`                                                                                                             |
-| `s3_key_imu`                  | text NOT NULL               | path to `imu.csv`                                                                                                               |
-| `s3_key_metadata`             | text NOT NULL               | path to `metadata.json`                                                                                                         |
-| `liveness_score`              | integer                     | 0–100, anti-fraud (nullable; descoped at MVP)                                                                                   |
-| `captured_at`                 | timestamp NOT NULL          | when recorded on device                                                                                                         |
-| `upload_started_at`           | timestamp                   |                                                                                                                                 |
-| `upload_completed_at`         | timestamp                   |                                                                                                                                 |
-| `verified_at`                 | timestamp                   | when hash-verify passed                                                                                                         |
-| `created_at`                  | timestamp                   | row insert time                                                                                                                 |
-| `ip_address`                  | text                        | server-populated                                                                                                                |
-| `flavor`                      | build_flavor NOT NULL       |                                                                                                                                 |
-| `s3_upload_id`                | text                        | AWS multipart upload id (video)                                                                                                 |
-| `parts_count`                 | integer                     | number of upload parts (1–1000)                                                                                                 |
+| Column                        | Type                        | Notes                                                                                                                                                                                                                                                                                                                           |
+| ----------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                          | varchar(26) PK              | = device-side `recording_id` = S3 folder name                                                                                                                                                                                                                                                                                   |
+| `user_id`                     | varchar(26) FK→users        | ON DELETE RESTRICT (can't delete a user with recordings)                                                                                                                                                                                                                                                                        |
+| `task_id`                     | varchar(26) FK→tasks        | ON DELETE RESTRICT                                                                                                                                                                                                                                                                                                              |
+| `practice`                    | boolean DEFAULT false       | practice runs (note: practice is normally **not** uploaded)                                                                                                                                                                                                                                                                     |
+| `qa_status`                   | qa_status DEFAULT 'pending' | lifecycle state — see [§8](#8-the-recording-lifecycle-qa_status)                                                                                                                                                                                                                                                                |
+| `duration_ms`                 | integer NOT NULL            | segment length                                                                                                                                                                                                                                                                                                                  |
+| `file_size_bytes`             | bigint NOT NULL             | _(Enh 3 / D1, 2026-06-04: `file_sha256` + `imu_sha256` columns dropped — migration 0011; no upload hashing)_                                                                                                                                                                                                                    |
+| `imu_size_bytes`              | bigint NOT NULL             |                                                                                                                                                                                                                                                                                                                                 |
+| `imu_video_drift_max_ms`      | integer                     | quality telemetry (nullable)                                                                                                                                                                                                                                                                                                    |
+| `imu_video_drift_mean_ms`     | integer                     |                                                                                                                                                                                                                                                                                                                                 |
+| `imu_video_drift_p99_ms`      | integer                     |                                                                                                                                                                                                                                                                                                                                 |
+| `imu_min_rate_hz_observed_p1` | integer                     | worst-case IMU rate                                                                                                                                                                                                                                                                                                             |
+| `calibration`                 | jsonb                       | the whole metadata.json `calibration` block (camera intrinsics + cam-IMU extrinsics); nullable (schema 1.2.0; quick 260522-elm)                                                                                                                                                                                                 |
+| `s3_key_video`                | text NOT NULL               | path to `video.mp4`                                                                                                                                                                                                                                                                                                             |
+| `s3_key_imu`                  | text NOT NULL               | path to `imu.csv`                                                                                                                                                                                                                                                                                                               |
+| `s3_key_metadata`             | text NOT NULL               | path to `metadata.json`                                                                                                                                                                                                                                                                                                         |
+| `s3_key_thumbnail`            | text                        | nullable; Bug 6 / D5 (2026-06-04) — server-generated poster JPEG (`…/thumb.jpg`) for cross-device History; best-effort (NULL if ffmpeg failed / legacy row)                                                                                                                                                                     |
+| `location`                    | jsonb                       | nullable; Bug 3 / D3 (2026-06-04) — precise-GPS block `{ lat, lng, accuracy_m, provider, captured_at, label }` mirrored from `metadata.json`'s `capture_device_info.location` (sibling to `ip_address`). `null` when no fix / partial grant. Overrides the formerly-LOCKED coarse-only rule (consent updated + version-bumped). |
+| `liveness_score`              | integer                     | 0–100, anti-fraud (nullable; descoped at MVP)                                                                                                                                                                                                                                                                                   |
+| `captured_at`                 | timestamp NOT NULL          | when recorded on device                                                                                                                                                                                                                                                                                                         |
+| `upload_started_at`           | timestamp                   |                                                                                                                                                                                                                                                                                                                                 |
+| `upload_completed_at`         | timestamp                   | _(Enh 3 / D1, 2026-06-04: the `verified_at` column was dropped here — migration 0011; no verify step)_                                                                                                                                                                                                                          |
+| `created_at`                  | timestamp                   | row insert time                                                                                                                                                                                                                                                                                                                 |
+| `ip_address`                  | text                        | server-populated                                                                                                                                                                                                                                                                                                                |
+| `flavor`                      | build_flavor NOT NULL       |                                                                                                                                                                                                                                                                                                                                 |
+| `s3_upload_id`                | text                        | AWS multipart upload id (video)                                                                                                                                                                                                                                                                                                 |
+| `parts_count`                 | integer                     | number of upload parts (1–1000)                                                                                                                                                                                                                                                                                                 |
 
-_Indexes:_ `(user_id, captured_at)`, `qa_status`, `task_id`.
+_Indexes:_ `(user_id, captured_at)`, `qa_status`, `task_id`, and `recordings_user_qa_idx` on `(user_id, qa_status)` INCLUDE `(duration_ms, task_id)` (covering index for the two `/contributions` per-user scans — Bug 10, 2026-06-04, migration 0016).
 
 ### `contributions` — **pre-aggregated daily activity** (use for time-series dashboards)
 
@@ -457,7 +457,7 @@ _Indexes:_ `(user_id, captured_at)`, `qa_status`, `task_id`.
 | `recording_count` | integer DEFAULT 0       |                            |
 | `task_count`      | integer DEFAULT 0       | distinct tasks that day    |
 
-PK is `(user_id, bucket_date)`. Maintained by a DB trigger as recordings verify.
+PK is `(user_id, bucket_date)`. Maintained by a DB trigger as recordings reach `uploaded` _(was "as recordings verify" pre-Enh-3 / D1; `uploaded` is now terminal success)_.
 
 ### `events` — **behavioral / funnel analytics**
 
@@ -526,9 +526,7 @@ _Indexes:_ `(user_id, occurred_at)`, `name`.
 
 ### Plumbing tables (rarely queried for analytics, listed for completeness)
 
-- **`recordings_to_verify`** — durable queue stub: `recording_id` PK, `enqueued_at`, `attempts` (max 8).
-- **`recording_events_outbox`** — events sent back to the device (`verified` / `re-upload`):
-  `id` PK, `user_id`, `recording_id`, `event_type`, `created_at`, `delivered_at`.
+- _(Enh 3 / D1, 2026-06-04: **`recordings_to_verify`** and **`recording_events_outbox`** were dropped with the hash-verify flow — migration 0011. `uploaded` is terminal; there is no verify queue and no server→device event outbox.)_
 - **`idempotency_keys`** — dedupes retried API calls: `(user_id, key)` PK, `method`, `path`,
   `request_hash`, `status_code`, `response_body` (jsonb), `expires_at`.
 - **`auth_nonces`** — anti-replay for sign-in: `id` PK, `nonce_sha256`, `expires_at`.
@@ -542,31 +540,35 @@ This is the single most important state for analytics. Every uploaded recording 
 ```mermaid
 stateDiagram-v2
     [*] --> pending: POST /recordings/init<br/>(row created, upload starting)
-    pending --> uploaded: POST /finalize<br/>(all parts in S3)
-    uploaded --> verified: worker re-hash MATCHES ✓
-    uploaded --> hash_mismatch: worker re-hash FAILS ✗
-    hash_mismatch --> pending: device re-uploads
+    pending --> uploaded: POST /finalize<br/>(all parts in S3 — ✅ TERMINAL SUCCESS)
     pending --> rejected: client/server aborts upload
-    verified --> takedown: legal/regulator removal
-    verified --> [*]: ✅ usable training data
+    uploaded --> takedown: legal/regulator removal
+    uploaded --> [*]: ✅ usable training data
 ```
 
-| `qa_status`     | Meaning                                           | Counts as good data?             |
-| --------------- | ------------------------------------------------- | -------------------------------- |
-| `pending`       | Row created, upload in progress (or re-uploading) | No — in flight                   |
-| `uploaded`      | All files in S3, waiting for hash verification    | Not yet                          |
-| `verified`      | Hashes matched — **the file is trustworthy**      | ✅ **Yes**                       |
-| `hash-mismatch` | Re-hash failed; device will re-upload             | No                               |
-| `rejected`      | Upload aborted                                    | No                               |
-| `takedown`      | Removed for legal/compliance reasons              | No — **exclude from everything** |
+> **Enh 3 / D1 (2026-06-04): `uploaded` is now terminal success.** The former
+> `uploaded → verified` / `hash-mismatch` hash-verify transitions were removed with the
+> verification flow. The `qa_status` enum still _contains_ the legacy `verified` /
+> `hash-mismatch` values (Postgres can't cheaply drop them) but **nothing writes them** —
+> any pre-existing `verified` row is read as a success synonym for `uploaded`.
 
-> **For "real" training-data and contribution counts, filter `qa_status = 'verified'`.**
-> The app's own History view and contribution rollups only count verified recordings.
+| `qa_status`     | Meaning                                 | Counts as good data?             |
+| --------------- | --------------------------------------- | -------------------------------- |
+| `pending`       | Row created, upload in progress         | No — in flight                   |
+| `uploaded`      | All files in S3 — **terminal success**  | ✅ **Yes**                       |
+| `verified`      | _Legacy_ — pre-Enh-3 hash-verified rows | ✅ Yes (success synonym)         |
+| `hash-mismatch` | _Legacy_ — never written anymore        | No                               |
+| `rejected`      | Upload aborted                          | No                               |
+| `takedown`      | Removed for legal/compliance reasons    | No — **exclude from everything** |
+
+> **For "real" training-data and contribution counts, filter `qa_status IN ('uploaded','verified')`**
+> (`uploaded` is the live terminal state; `verified` only appears on legacy pre-Enh-3 rows).
+> The app's own History view and contribution rollups count these as success.
 > `takedown` rows should be excluded from every analysis.
 
 ---
 
-## 9. How uploads actually happen (device → S3 → verified)
+## 9. How uploads actually happen (device → S3 → uploaded)
 
 The upload is **resumable, chunked, and survives app restarts**. The phone owns a durable
 upload queue; the API only hands out S3 permissions and records state.
@@ -587,13 +589,11 @@ stateDiagram-v2
     [*] --> PENDING: enqueued
     PENDING --> UPLOADING: coordinator starts
     UPLOADING --> FINALIZING: all parts PUT to S3
-    FINALIZING --> AWAITING_VERIFY: POST /finalize 2xx
-    AWAITING_VERIFY --> VERIFIED: server "verified" event<br/>(local files deleted)
+    FINALIZING --> UPLOADED: POST /finalize 2xx<br/>(local files deleted — terminal)
     UPLOADING --> NEEDS_ATTENTION: retries exhausted<br/>(user taps Retry)
     NEEDS_ATTENTION --> UPLOADING: manual retry
     UPLOADING --> DEAD_LETTER: permanent rejection (403/409)
-    AWAITING_VERIFY --> UPLOADING: "re-upload" event<br/>(hash mismatch)
-    VERIFIED --> [*]
+    UPLOADED --> [*]
 ```
 
 ### The wire sequence
@@ -603,9 +603,8 @@ sequenceDiagram
     participant P as Phone (upload queue)
     participant A as API (Fastify)
     participant S as S3
-    participant W as Hash-verify worker
 
-    P->>A: POST /recordings/init {recordingId, taskId, partsCount, shas, sizes}
+    P->>A: POST /recordings/init {recordingId, taskId, partsCount, sizes}
     A->>S: create multipart uploads (video + imu)
     A->>P: presigned URLs + uploadId
     A-->>A: insert recordings row (qa_status=pending)
@@ -615,17 +614,11 @@ sequenceDiagram
     end
     P->>S: PUT metadata.json
     P->>A: POST /recordings/:id/finalize {parts+etags}
-    A->>S: complete multipart upload
-    A-->>A: qa_status pending→uploaded; enqueue verify job
-    A->>W: (via EventBridge→SQS) verify recordingId
-    W->>S: download video.mp4 + imu.csv, recompute SHA-256
-    alt hashes match
-        W-->>A: qa_status uploaded→verified; outbox "verified"
-    else mismatch
-        W-->>A: qa_status uploaded→hash-mismatch; outbox "re-upload"
-    end
-    A->>P: deliver verified / re-upload event
-    P-->>P: delete local files (verified) or re-upload
+    A->>S: complete multipart upload (video + imu)
+    A->>S: extract + PUT thumb.jpg (poster, best-effort — Bug 6 / D5)
+    A-->>A: qa_status pending→uploaded (✅ TERMINAL SUCCESS)
+    A->>P: 200 OK
+    P-->>P: delete local files (mp4 + csv + json)
 ```
 
 **Key facts for engineers:**
@@ -633,32 +626,30 @@ sequenceDiagram
 - File bytes go **straight to S3** via presigned URLs — they do **not** pass through the API
   server. The API only orchestrates and records metadata.
 - **Idempotency:** each step carries a stable idempotency key, so retries (flaky networks)
-  don't create duplicate rows or double-count. The hash-verify job is keyed by `recordingId`,
-  so redeliveries collapse to one.
-- **Verification is independent:** the worker is the source of truth that what's in S3
-  matches what the phone claimed. Only after `verified` is the data considered trustworthy
-  and the phone deletes its local copy.
-- A **cron sweep** (every 5 min) re-enqueues any recording stuck in `uploaded` for >10 min,
-  in case the S3→SQS event was dropped (gives up after 8 attempts → ops investigates).
+  don't create duplicate rows or double-count.
+- **`finalize` is terminal:** a `/finalize` 200 transitions the row to `uploaded` (final
+  success) and the phone deletes its local copy. _(Enh 3 / D1, 2026-06-04: the former
+  independent hash-verify worker + the 5-min "stuck in uploaded" re-enqueue cron were removed
+  — there is nothing left to re-hash or sweep.)_
 
 ---
 
 ## 10. Data references
 
-| Question                                 | Where                                                              |
-| ---------------------------------------- | ------------------------------------------------------------------ |
-| How many users signed up?                | `users` (filter `deleted_at IS NULL` for active)                   |
-| A user's recordings + their video files  | `recordings WHERE user_id = …`, then `s3_key_video`                |
-| Only _usable_ recordings                 | `recordings WHERE qa_status = 'verified'`                          |
-| Recordings per day / contribution time   | `contributions` (pre-aggregated, UTC daily)                        |
-| Lifetime totals per user                 | `profiles`                                                         |
-| Most-recorded tasks                      | `recordings` joined to `tasks`, group by `task_id`                 |
-| Capture quality (fps/res/drift/IMU rate) | `recordings` drift columns + the per-segment `metadata.json` in S3 |
-| Funnels / feature usage / retention      | `events` (filter by `name`, parse `properties` jsonb)              |
-| Hash-mismatch / re-upload rate           | `recordings WHERE qa_status = 'hash-mismatch'` over time           |
-| Consent audit trail                      | `consent_log` (one row per sign-in)                                |
-| New-task demand                          | `task_requests`                                                    |
-| The raw motion data for training         | `imu.csv` in S3 (skip header row)                                  |
+| Question                                 | Where                                                                         |
+| ---------------------------------------- | ----------------------------------------------------------------------------- |
+| How many users signed up?                | `users` (filter `deleted_at IS NULL` for active)                              |
+| A user's recordings + their video files  | `recordings WHERE user_id = …`, then `s3_key_video`                           |
+| Only _usable_ recordings                 | `recordings WHERE qa_status IN ('uploaded','verified')` (`verified` = legacy) |
+| Recordings per day / contribution time   | `contributions` (pre-aggregated, UTC daily)                                   |
+| Lifetime totals per user                 | `profiles`                                                                    |
+| Most-recorded tasks                      | `recordings` joined to `tasks`, group by `task_id`                            |
+| Capture quality (fps/res/drift/IMU rate) | `recordings` drift columns + the per-segment `metadata.json` in S3            |
+| Funnels / feature usage / retention      | `events` (filter by `name`, parse `properties` jsonb)                         |
+| Hash-mismatch / re-upload rate           | _n/a — removed with the hash-verify flow (Enh 3 / D1, 2026-06-04)_            |
+| Consent audit trail                      | `consent_log` (one row per sign-in)                                           |
+| New-task demand                          | `task_requests`                                                               |
+| The raw motion data for training         | `imu.csv` in S3 (skip header row)                                             |
 
 **Joining users to their videos (the common one):**
 
@@ -670,7 +661,7 @@ SELECT u.id AS user_id, u.email,
 FROM recordings r
 JOIN users u ON u.id = r.user_id
 JOIN tasks t ON t.id = r.task_id
-WHERE r.qa_status = 'verified'
+WHERE r.qa_status IN ('uploaded', 'verified')  -- 'uploaded' = terminal success; 'verified' = legacy pre-Enh-3
 ORDER BY r.captured_at DESC;
 ```
 
@@ -678,8 +669,10 @@ ORDER BY r.captured_at DESC;
 
 ## 11. Gotchas (read before you trust a number)
 
-1. **Filter `qa_status = 'verified'`** for anything about real data volume. `pending`/`uploaded`
-   are in-flight; `rejected`/`hash-mismatch` failed; **`takedown` must always be excluded.**
+1. **Filter `qa_status IN ('uploaded','verified')`** for anything about real data volume
+   (`uploaded` is terminal success since Enh 3 / D1, 2026-06-04; `verified` only on legacy
+   pre-Enh-3 rows). `pending` is in-flight; `rejected`/`hash-mismatch` (legacy) failed;
+   **`takedown` must always be excluded.**
 2. **Drift is telemetry, not a gate.** `imu_video_drift_*` of ~1.7–6.2 ms is _expected and
    acceptable_ — the ultrawide lens causes it. Do **not** flag recordings as bad on drift.
    The relevant hard quality bars are **fps (≥29 effective), resolution (1080p), IMU rate (≥100 Hz)**.

@@ -223,6 +223,32 @@ describe('handleSegmentCanceled (Test E — write-then-delete invariant)', () =>
     expect(entry.cancel).toEqual({ reason: 'insufficient_frames' });
   });
 
+  it('payload shape — too_short carries no numeric extras (Bug 8 + Enh 1 / D6)', async () => {
+    // Non-practice segment under the native 3-min floor. The FinalizeWorker
+    // emits null meanFps/width/height (same as insufficient_frames); the
+    // ledger row carries just the reason code.
+    const writeLedgerEntry = vi.fn();
+    const unlink = vi.fn().mockResolvedValue(undefined);
+    const { handleSegmentCanceled } = await import(
+      '../../src/screens/recording/lib/handleSegmentCanceled'
+    );
+    const event: SegmentCanceledEvent = {
+      ...FIXTURE_CANCEL,
+      reason: 'too_short',
+      meanFps: null,
+      width: null,
+      height: null,
+    };
+    await handleSegmentCanceled(event, {
+      isPractice: false,
+      taskId: 'cooking.chopping',
+      writeLedgerEntry,
+      unlink,
+    });
+    const entry = writeLedgerEntry.mock.calls[0]![0] as ThumbnailLedgerEntry;
+    expect(entry.cancel).toEqual({ reason: 'too_short' });
+  });
+
   it('does NOT touch HumynUpload.enqueue (the whole point of the cancel)', async () => {
     // The helper has no HumynUpload dependency — this is structural,
     // verified by the absence of an import. The test serves as a

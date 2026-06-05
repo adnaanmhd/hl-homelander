@@ -5,8 +5,15 @@
  *
  * Verbatim copy:
  *   Title:  "Stop recording?"          ([confirm w/ PM] — recommended string)
- *   Body:   "Recordings under 1 minute are discarded."   (LOCKED)
+ *   Body:   "Recordings under 3 minutes are discarded."
  *   Actions: [Keep recording (btn-outline) | Stop (btn-coral)]
+ *
+ * ⚠ OWNER DEVIATION 2026-06-04 (Bug 8 + Enh 1 / D6, sign-off
+ * `.planning/260604-locked-override-signoff.md`): the body copy was the
+ * LOCKED "Recordings under 1 minute are discarded." — the owner raised the
+ * minimum-duration floor 1 min → 3 min, so the modal now states "3 minutes".
+ * The native FinalizeWorker TooShort gate (MIN_SEGMENT_MS = 180_000) is the
+ * real enforcement; this copy keeps the modal honest about the new floor.
  *
  * Template = `LogoutModal.tsx` — `<Modal transparent visible animationType="fade">`,
  * `rgba(0,0,0,.5)` scrim, dark card. Pattern 66 `inFlightRef` re-entrancy
@@ -55,7 +62,7 @@ export function StopConfirmModal({
             Stop recording?
           </Text>
           <Text variant="body" tone="secondary" style={styles.body}>
-            Recordings under 1 minute are discarded.
+            Recordings under 3 minutes are discarded.
           </Text>
           <View style={styles.actions}>
             <View style={styles.actionBtn}>

@@ -53,6 +53,9 @@ function validArgs(overrides: Partial<Parameters<typeof buildCaptureOpts>[0]> = 
       gender: 'female' as string | null,
       consentPresent: true,
     },
+    // Bug 3 / D3 — default to no fix; individual tests override with a precise
+    // LocationFix to exercise the threading path.
+    location: null as Parameters<typeof buildCaptureOpts>[0]['location'],
     appVersion: '1.0.0',
     ...overrides,
   };
@@ -155,13 +158,28 @@ describe('buildCaptureOpts (D-API-02 shape)', () => {
     expect(opts.appVersion).toBe('1.0.0-apk');
   });
 
-  it('threads dfovDegrees + startGate config + location:null + type:hand_detection', () => {
+  it('threads dfovDegrees + startGate config + type:hand_detection (null location)', () => {
     const opts = buildCaptureOpts(validArgs({ gateConfig: { targetHits: 3, cadenceMs: 600 } }));
     expect(opts.dfovDegrees).toBe(115.2);
     expect(opts.startGate.type).toBe('hand_detection');
     expect(opts.startGate.consecutiveHitsRequired).toBe(3);
     expect(opts.startGate.platformCadenceMs).toBe(600);
     expect(opts.location).toBeNull();
+  });
+
+  it('threads a precise location fix through to the opts (Bug 3 / D3)', () => {
+    const fix = {
+      lat: 12.9716,
+      lng: 77.5946,
+      accuracy_m: 8.5,
+      provider: 'fused',
+      captured_at: '2026-05-05T00:30:19.500+05:30',
+      label: 'Bangalore, India',
+    };
+    const opts = buildCaptureOpts(validArgs({ location: fix }));
+    expect(opts.location).toEqual(fix);
+    // Still a valid CaptureSessionOpts (the precise-location schema accepts it).
+    expect(() => CaptureSessionOptsSchema.parse(opts)).not.toThrow();
   });
 });
 
