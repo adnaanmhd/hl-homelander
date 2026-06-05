@@ -24,8 +24,8 @@
     "taglineAccent": " असली समझदारी।"
   },
   "signup": {
-    "deviceEvicted": "Signed out — your account was used on another device.",
-    "reauthRequired": "Signed out — please sign in again.",
+    "deviceEvicted": "साइन आउट हो गए — आपका खाता किसी दूसरे डिवाइस पर इस्तेमाल हुआ।",
+    "reauthRequired": "साइन आउट हो गए — कृपया फिर से साइन इन करें।",
     "tagline": "असली इंसान। असली समझदारी।",
     "pitchLine1": "असली पल रिकॉर्ड करें।",
     "pitchLine2": "असली समझदारी सिखाएँ।",

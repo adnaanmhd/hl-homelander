@@ -122,3 +122,8 @@ vendor/
 *.log
 .cache/
 tmp/
+
+# Third-party skill tooling — locally installed by a skill manager (sources +
+# hashes tracked in skills-lock.json). Re-fetchable; not part of this repo's code.
+.agents/
+skills-lock.json

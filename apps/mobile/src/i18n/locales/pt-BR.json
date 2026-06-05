@@ -24,8 +24,8 @@
     "taglineAccent": " Inteligência de verdade."
   },
   "signup": {
-    "deviceEvicted": "Signed out — your account was used on another device.",
-    "reauthRequired": "Signed out — please sign in again.",
+    "deviceEvicted": "Sessão encerrada — sua conta foi usada em outro dispositivo.",
+    "reauthRequired": "Sessão encerrada — entre novamente.",
     "tagline": "Humanos de verdade. Inteligência de verdade.",
     "pitchLine1": "Grave momentos reais.",
     "pitchLine2": "Treine inteligência de verdade.",

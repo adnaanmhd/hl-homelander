@@ -24,8 +24,8 @@
     "taglineAccent": " నిజమైన తెలివి."
   },
   "signup": {
-    "deviceEvicted": "Signed out — your account was used on another device.",
-    "reauthRequired": "Signed out — please sign in again.",
+    "deviceEvicted": "సైన్ అవుట్ అయ్యారు — మీ ఖాతా వేరే పరికరంలో వాడబడింది.",
+    "reauthRequired": "సైన్ అవుట్ అయ్యారు — దయచేసి మళ్ళీ సైన్ ఇన్ చేయండి.",
     "tagline": "నిజమైన మనుషులు. నిజమైన తెలివి.",
     "pitchLine1": "నిజమైన క్షణాలు రికార్డ్ చేయండి.",
     "pitchLine2": "నిజమైన తెలివికి శిక్షణ ఇవ్వండి.",

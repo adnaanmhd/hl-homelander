@@ -24,8 +24,8 @@
     "taglineAccent": " Inteligencia real."
   },
   "signup": {
-    "deviceEvicted": "Signed out — your account was used on another device.",
-    "reauthRequired": "Signed out — please sign in again.",
+    "deviceEvicted": "Sesión cerrada — tu cuenta se usó en otro dispositivo.",
+    "reauthRequired": "Sesión cerrada — inicia sesión de nuevo.",
     "tagline": "Humanos reales. Inteligencia real.",
     "pitchLine1": "Graba momentos reales.",
     "pitchLine2": "Entrena inteligencia real.",

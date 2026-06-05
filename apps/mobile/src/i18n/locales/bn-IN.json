@@ -24,8 +24,8 @@
     "taglineAccent": " আসল বুদ্ধিমত্তা।"
   },
   "signup": {
-    "deviceEvicted": "Signed out — your account was used on another device.",
-    "reauthRequired": "Signed out — please sign in again.",
+    "deviceEvicted": "সাইন আউট হয়ে গেছে — আপনার অ্যাকাউন্ট অন্য একটি ডিভাইসে ব্যবহার করা হয়েছে।",
+    "reauthRequired": "সাইন আউট হয়ে গেছে — অনুগ্রহ করে আবার সাইন ইন করুন।",
     "tagline": "আসল মানুষ। আসল বুদ্ধিমত্তা।",
     "pitchLine1": "আসল মুহূর্ত রেকর্ড করুন।",
     "pitchLine2": "আসল বুদ্ধিমত্তা গড়ে তুলুন।",
