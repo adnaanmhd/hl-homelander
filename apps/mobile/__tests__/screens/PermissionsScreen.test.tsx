@@ -4,10 +4,12 @@
 //
 // Behaviour matrix:
 //   1. Initial mount renders title / body / "Allow access" button verbatim.
-//   2. Happy path → request CAMERA → RECORD_AUDIO → ACCESS_FINE_LOCATION
-//      sequentially; all granted → setPermsGranted persisted +
-//      navigation.replace('Compat'). 2b: a COARSE-only "Approximate" grant
-//      still satisfies the gate (D3).
+//   2. Happy path → request CAMERA → RECORD_AUDIO (single) then location via
+//      requestMultiple([FINE, COARSE]); FINE granted → setPermsGranted +
+//      navigation.replace('Compat').
+//   2b. BUG-1 (precise-only): a coarse-only "Approximate" grant (FINE denied,
+//      COARSE granted) NO LONGER satisfies the gate → 'partial' recovery
+//      naming Location (inverted from the old Bug-3 "coarse still passes").
 //   3. All denied → 'denied' state with §4.1.1 recovery copy + "Open
 //      Settings" CTA that calls openSettings().
 //   4. Partial grants → 'partial' state naming the first missing permission
@@ -17,23 +19,30 @@
 //   6. Analytics: granted path fires *_granted events; denial fires *_denied
 //      (camera / mic / location).
 //
-// The screen is the *only* call site of `request(PERMISSIONS.ANDROID.CAMERA)`
-// + `request(PERMISSIONS.ANDROID.RECORD_AUDIO)` in the Phase 2 codebase, so
-// tests assert against the global `react-native-permissions` mock from
-// vitest.setup.ts — overridden per-test with `vi.mocked(request)
-// .mockResolvedValueOnce(...)`.
+// Camera + Mic use `request(...)`; Location uses `requestMultiple([FINE, COARSE])`
+// (Android needs both requested to show the Precise/Approximate dialog — BUG-1).
+// Tests assert against the global `react-native-permissions` mock from
+// vitest.setup.ts — overridden per-test with `mockResolvedValueOnce(...)`.
 
 import React from 'react';
 import { render, fireEvent, cleanup, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type MockedFunction } from 'vitest';
 import {
   request as rnpRequest,
+  requestMultiple as rnpRequestMultiple,
   check as rnpCheck,
   openSettings as rnpOpenSettings,
   RESULTS,
   PERMISSIONS,
+  type Permission,
+  type PermissionStatus,
 } from 'react-native-permissions';
 import { AppState } from 'react-native';
+
+// BUG-1 — the Android location-permission ids the screen's requestMultiple call
+// targets (mirrors the real react-native-permissions PERMISSIONS.ANDROID values).
+const FINE = PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
+const COARSE = PERMISSIONS.ANDROID.ACCESS_COARSE_LOCATION;
 
 // ---------------------------------------------------------------------------
 // Module-level mocks: navigation hook, app store action, analytics logger.
@@ -43,17 +52,29 @@ vi.mock('@react-navigation/native', async () => {
   // Keep the rest of the navigation surface (NavigationContainer, useRoute,
   // etc.) from vitest.setup.ts but override useNavigation to expose the
   // shared spy.
+  //
+  // BUG-1 — useNavigation MUST return a STABLE object across renders. The real
+  // React Navigation useNavigation() memoizes its return value, so the screen's
+  // useEffect([navigation, setPermsGranted]) runs once on mount (+ cleanup on
+  // unmount), not on every render. A fresh object per render would flip the
+  // [navigation] dep every render and spuriously re-run checkAndAdvance — which,
+  // with the DENIED default check() mock, would clobber a freshly-set 'partial'
+  // state into 'denied' (regressing Test 4's "names Microphone"). `nav` is built
+  // lazily on first call (so `mockReplace` is initialized by then — no vi.mock
+  // hoist TDZ) and memoized thereafter.
+  let nav: Record<string, unknown> | undefined;
   return {
     NavigationContainer: ({ children }: { children: React.ReactNode }) =>
       children as React.ReactElement,
-    useNavigation: () => ({
-      replace: mockReplace,
-      reset: vi.fn(),
-      navigate: vi.fn(),
-      goBack: vi.fn(),
-      push: vi.fn(),
-      pop: vi.fn(),
-    }),
+    useNavigation: () =>
+      (nav ??= {
+        replace: mockReplace,
+        reset: vi.fn(),
+        navigate: vi.fn(),
+        goBack: vi.fn(),
+        push: vi.fn(),
+        pop: vi.fn(),
+      }),
     useRoute: () => ({ params: {} }),
     useFocusEffect: (cb: () => void) => cb(),
     useIsFocused: () => true,
@@ -76,6 +97,13 @@ vi.mock('../../src/util/analytics', () => ({
 import PermissionsScreen from '../../src/screens/permissions/PermissionsScreen';
 
 const requestMock = vi.mocked(rnpRequest);
+// requestMultiple()'s real signature returns a FULL Record<Permission,
+// PermissionStatus> (~200 Android perms). Our tests only supply the FINE/COARSE
+// keys the screen reads, so re-type the mock to accept a PARTIAL map — avoids
+// enumerating every permission in each mockResolvedValue literal below.
+const requestMultipleMock = vi.mocked(rnpRequestMultiple) as unknown as MockedFunction<
+  (perms: Permission[]) => Promise<Partial<Record<Permission, PermissionStatus>>>
+>;
 const checkMock = vi.mocked(rnpCheck);
 const openSettingsMock = vi.mocked(rnpOpenSettings);
 
@@ -84,6 +112,10 @@ beforeEach(() => {
   mockSetPermsGranted.mockReset();
   mockLogEvent.mockReset();
   requestMock.mockReset();
+  // BUG-1 — location goes through requestMultiple now. Default: nothing granted
+  // (an empty map → locResults[FINE] is undefined → not granted), overridden
+  // per-test. Reset prevents a prior test's resolved value leaking.
+  requestMultipleMock.mockReset().mockResolvedValue({});
   openSettingsMock.mockReset();
   // quick-260510-007 — useEffect calls check() on mount + on AppState
   // 'change'. Default to DENIED so existing tests (which never grant via
@@ -113,12 +145,16 @@ describe('PermissionsScreen', () => {
     expect(getByLabelText('Allow access')).toBeTruthy();
   });
 
-  it('Test 2: happy path — Camera + Mic + Location granted sequentially → setPermsGranted + navigation.replace(Compat)', async () => {
-    // Bug 3 / D4 — Location joined the gate. Three sequential GRANTED requests.
+  it('Test 2: happy path — Camera + Mic + Precise Location granted → setPermsGranted + navigation.replace(Compat)', async () => {
+    // Camera + Mic via request(); Location via requestMultiple([FINE, COARSE]).
     requestMock
-      .mockResolvedValueOnce(RESULTS.GRANTED)
-      .mockResolvedValueOnce(RESULTS.GRANTED)
-      .mockResolvedValueOnce(RESULTS.GRANTED);
+      .mockResolvedValueOnce(RESULTS.GRANTED) // camera
+      .mockResolvedValueOnce(RESULTS.GRANTED); // mic
+    // "Precise" grant → both FINE + COARSE granted.
+    requestMultipleMock.mockResolvedValueOnce({
+      [FINE]: RESULTS.GRANTED,
+      [COARSE]: RESULTS.GRANTED,
+    });
 
     const { getByLabelText } = render(<PermissionsScreen />);
     fireEvent.click(getByLabelText('Allow access'));
@@ -127,13 +163,14 @@ describe('PermissionsScreen', () => {
       expect(mockReplace).toHaveBeenCalledWith('Compat');
     });
 
-    // Sequential ordering: CAMERA → RECORD_AUDIO → ACCESS_FINE_LOCATION (the OS
-    // prompt is modal — they can't be requested concurrently). FINE granted, so
-    // the COARSE-fallback check is never reached.
-    expect(requestMock).toHaveBeenCalledTimes(3);
+    // Sequential ordering: CAMERA → RECORD_AUDIO via request (modal OS prompt),
+    // then Location via requestMultiple([FINE, COARSE]) (BUG-1 — both requested so
+    // the OS shows the Precise/Approximate dialog; only FINE-granted passes).
+    expect(requestMock).toHaveBeenCalledTimes(2);
     expect(requestMock).toHaveBeenNthCalledWith(1, PERMISSIONS.ANDROID.CAMERA);
     expect(requestMock).toHaveBeenNthCalledWith(2, PERMISSIONS.ANDROID.RECORD_AUDIO);
-    expect(requestMock).toHaveBeenNthCalledWith(3, PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
+    expect(requestMultipleMock).toHaveBeenCalledTimes(1);
+    expect(requestMultipleMock).toHaveBeenCalledWith([FINE, COARSE]);
 
     // Persisted via setPermsGranted with all three flags true + grantedAt ISO.
     expect(mockSetPermsGranted).toHaveBeenCalledTimes(1);
@@ -151,36 +188,44 @@ describe('PermissionsScreen', () => {
     expect(Number.isNaN(Date.parse(arg.grantedAt))).toBe(false);
   });
 
-  it('Test 2b: Location "Approximate" (FINE denied, COARSE granted) still satisfies the gate (Bug 3 / D3)', async () => {
-    // Android 12+ partial grant: request(FINE) → DENIED, but a follow-up
-    // check(COARSE) → GRANTED. Per D3 the coarser fix still records, so the gate
-    // passes and location is persisted true.
+  it('Test 2b: BUG-1 (precise-only) — a coarse-only "Approximate" grant is REFUSED → partial recovery naming Location, NOT a pass', async () => {
+    // Android 12+ "Approximate" pick: requestMultiple → FINE DENIED, COARSE
+    // GRANTED. Pre-BUG-1 this satisfied the gate (location persisted true); now
+    // it must NOT — only a FINE ("Precise") grant counts. Camera + Mic granted,
+    // location coarse-only → the screen lands in 'partial' recovery naming
+    // Location, does NOT navigate to Compat, and does NOT persist perms.
     requestMock
       .mockResolvedValueOnce(RESULTS.GRANTED) // camera
-      .mockResolvedValueOnce(RESULTS.GRANTED) // mic
-      .mockResolvedValueOnce(RESULTS.DENIED); // FINE location denied
-    // check(COARSE) → GRANTED, everything else DENIED. This keeps the mount
-    // checkAndAdvance from auto-advancing (camera+mic still read DENIED there)
-    // while the click handler's COARSE fallback reads GRANTED.
-    checkMock.mockImplementation(async (perm) =>
-      perm === PERMISSIONS.ANDROID.ACCESS_COARSE_LOCATION ? RESULTS.GRANTED : RESULTS.DENIED,
-    );
+      .mockResolvedValueOnce(RESULTS.GRANTED); // mic
+    requestMultipleMock.mockResolvedValueOnce({
+      [FINE]: RESULTS.DENIED, // Precise refused
+      [COARSE]: RESULTS.GRANTED, // only Approximate granted
+    });
 
-    const { getByLabelText } = render(<PermissionsScreen />);
+    const { getByLabelText, findByLabelText } = render(<PermissionsScreen />);
     fireEvent.click(getByLabelText('Allow access'));
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('Compat'));
-    const arg = mockSetPermsGranted.mock.calls[0]?.[0] as { location: boolean };
-    expect(arg.location).toBe(true);
+    // Partial recovery copy names Location (the only still-missing permission);
+    // the gate did NOT pass.
+    const bodyNode = await findByLabelText('permissions body');
+    expect(bodyNode.textContent).toContain('Location');
+    expect(getByLabelText('Open Settings')).toBeTruthy();
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockSetPermsGranted).not.toHaveBeenCalled();
+    // A coarse-only grant fires location_denied, not _granted.
+    const events = mockLogEvent.mock.calls.map((c) => c[0]);
+    expect(events).toContain('permission_location_denied');
+    expect(events).not.toContain('permission_location_granted');
   });
 
   it('Test 3: all denied → §4.1.1 recovery copy + "Open Settings" CTA fires openSettings()', async () => {
-    // Camera + Mic + Location all denied (the COARSE fallback also reads the
-    // DENIED default), so the screen lands on the full-denial recovery copy.
-    requestMock
-      .mockResolvedValueOnce(RESULTS.DENIED)
-      .mockResolvedValueOnce(RESULTS.DENIED)
-      .mockResolvedValueOnce(RESULTS.DENIED);
+    // Camera + Mic denied via request; Location denied via requestMultiple (both
+    // FINE + COARSE denied) → the screen lands on the full-denial recovery copy.
+    requestMock.mockResolvedValueOnce(RESULTS.DENIED).mockResolvedValueOnce(RESULTS.DENIED);
+    requestMultipleMock.mockResolvedValueOnce({
+      [FINE]: RESULTS.DENIED,
+      [COARSE]: RESULTS.DENIED,
+    });
 
     const { getByLabelText, findByLabelText } = render(<PermissionsScreen />);
     fireEvent.click(getByLabelText('Allow access'));
@@ -206,12 +251,13 @@ describe('PermissionsScreen', () => {
   });
 
   it('Test 4: camera + location granted, mic denied → partial state names "Microphone"', async () => {
-    // camera GRANTED, mic DENIED, location(FINE) GRANTED → partial; the first
+    // camera GRANTED, mic DENIED, location FINE GRANTED → partial; the first
     // still-missing permission (camera → mic → location) is the Microphone.
-    requestMock
-      .mockResolvedValueOnce(RESULTS.GRANTED)
-      .mockResolvedValueOnce(RESULTS.DENIED)
-      .mockResolvedValueOnce(RESULTS.GRANTED);
+    requestMock.mockResolvedValueOnce(RESULTS.GRANTED).mockResolvedValueOnce(RESULTS.DENIED);
+    requestMultipleMock.mockResolvedValueOnce({
+      [FINE]: RESULTS.GRANTED,
+      [COARSE]: RESULTS.GRANTED,
+    });
 
     const { getByLabelText, findByLabelText } = render(<PermissionsScreen />);
     fireEvent.click(getByLabelText('Allow access'));
@@ -226,13 +272,14 @@ describe('PermissionsScreen', () => {
     expect(mockSetPermsGranted).not.toHaveBeenCalled();
   });
 
-  it('Test 4b: camera + mic granted, location denied → partial state names "Location" (Bug 3 / D4)', async () => {
-    // camera GRANTED, mic GRANTED, location(FINE) DENIED, COARSE fallback DENIED
-    // (default) → partial; the first still-missing permission is Location.
-    requestMock
-      .mockResolvedValueOnce(RESULTS.GRANTED)
-      .mockResolvedValueOnce(RESULTS.GRANTED)
-      .mockResolvedValueOnce(RESULTS.DENIED);
+  it('Test 4b: camera + mic granted, location fully denied → partial state names "Location" (Bug 3 / D4)', async () => {
+    // camera GRANTED, mic GRANTED, location fully denied (FINE + COARSE both
+    // DENIED) → partial; the first still-missing permission is Location.
+    requestMock.mockResolvedValueOnce(RESULTS.GRANTED).mockResolvedValueOnce(RESULTS.GRANTED);
+    requestMultipleMock.mockResolvedValueOnce({
+      [FINE]: RESULTS.DENIED,
+      [COARSE]: RESULTS.DENIED,
+    });
 
     const { getByLabelText, findByLabelText } = render(<PermissionsScreen />);
     fireEvent.click(getByLabelText('Allow access'));
@@ -245,10 +292,11 @@ describe('PermissionsScreen', () => {
   });
 
   it('Test 5: BLOCKED is treated as denied — Open Settings is the only recovery', async () => {
-    requestMock
-      .mockResolvedValueOnce(RESULTS.BLOCKED)
-      .mockResolvedValueOnce(RESULTS.BLOCKED)
-      .mockResolvedValueOnce(RESULTS.BLOCKED);
+    requestMock.mockResolvedValueOnce(RESULTS.BLOCKED).mockResolvedValueOnce(RESULTS.BLOCKED);
+    requestMultipleMock.mockResolvedValueOnce({
+      [FINE]: RESULTS.BLOCKED,
+      [COARSE]: RESULTS.BLOCKED,
+    });
 
     const { getByLabelText, findByLabelText } = render(<PermissionsScreen />);
     fireEvent.click(getByLabelText('Allow access'));
@@ -264,10 +312,11 @@ describe('PermissionsScreen', () => {
 
   it('Test 6: analytics — granted path fires *_granted events; denial fires *_denied', async () => {
     // First: full grant → all three granted events (incl. location)
-    requestMock
-      .mockResolvedValueOnce(RESULTS.GRANTED)
-      .mockResolvedValueOnce(RESULTS.GRANTED)
-      .mockResolvedValueOnce(RESULTS.GRANTED);
+    requestMock.mockResolvedValueOnce(RESULTS.GRANTED).mockResolvedValueOnce(RESULTS.GRANTED);
+    requestMultipleMock.mockResolvedValueOnce({
+      [FINE]: RESULTS.GRANTED,
+      [COARSE]: RESULTS.GRANTED,
+    });
 
     const { getByLabelText, unmount } = render(<PermissionsScreen />);
     fireEvent.click(getByLabelText('Allow access'));
@@ -290,8 +339,11 @@ describe('PermissionsScreen', () => {
     requestMock
       .mockReset()
       .mockResolvedValueOnce(RESULTS.DENIED)
-      .mockResolvedValueOnce(RESULTS.BLOCKED)
-      .mockResolvedValueOnce(RESULTS.DENIED);
+      .mockResolvedValueOnce(RESULTS.BLOCKED);
+    requestMultipleMock.mockReset().mockResolvedValueOnce({
+      [FINE]: RESULTS.DENIED,
+      [COARSE]: RESULTS.DENIED,
+    });
 
     const { getByLabelText: getByLabelText2 } = render(<PermissionsScreen />);
     fireEvent.click(getByLabelText2('Allow access'));

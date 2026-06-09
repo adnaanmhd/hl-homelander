@@ -38,7 +38,8 @@ const REQUIRED_BASE_PERMISSIONS = [
   'android.permission.CAMERA', // PERM-01 (runtime prompt + manifest)
   'android.permission.RECORD_AUDIO', // PERM-02
   'android.permission.ACCESS_FINE_LOCATION', // Bug 3 / D3 (precise GPS; gated in onboarding)
-  'android.permission.ACCESS_COARSE_LOCATION', // Bug 3 / D3 (Approximate-grant fallback)
+  'android.permission.ACCESS_COARSE_LOCATION', // BUG-1: declared so the OS will grant FINE (Android 12+ needs both); a coarse-only grant is NOT accepted in app logic
+
   'android.permission.FOREGROUND_SERVICE', // PERM-04
   'android.permission.FOREGROUND_SERVICE_CAMERA', // PERM-04 (Phase 3 capture FGS)
   'android.permission.FOREGROUND_SERVICE_MICROPHONE', // PERM-04

@@ -684,10 +684,16 @@ vi.mock('react-native-permissions', () => ({
     ANDROID: {
       CAMERA: 'android.permission.CAMERA',
       RECORD_AUDIO: 'android.permission.RECORD_AUDIO',
+      // BUG-1 (2026-06-09) — location constants are real values now (were absent;
+      // PermissionsScreen relied on undefined===undefined). Needed for the
+      // precise-only requestMultiple([FINE, COARSE]) flow + its dedup.
+      ACCESS_FINE_LOCATION: 'android.permission.ACCESS_FINE_LOCATION',
+      ACCESS_COARSE_LOCATION: 'android.permission.ACCESS_COARSE_LOCATION',
     },
     IOS: {
       CAMERA: 'ios.permission.CAMERA',
       MICROPHONE: 'ios.permission.MICROPHONE',
+      LOCATION_WHEN_IN_USE: 'ios.permission.LOCATION_WHEN_IN_USE',
     },
   },
   RESULTS: {
