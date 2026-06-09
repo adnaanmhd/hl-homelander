@@ -67,6 +67,12 @@ class UploadCoordinatorTest {
     @Volatile private var initHeadersDelayMs = 0L
     /** Override the `/recordings/init` response code (0 = default 201 + presigned body). */
     @Volatile private var initResponseCode = 0
+    /** BUG-4 — body returned with [initResponseCode] when that override is set (default "{}"). Lets a test assert the dead-letter reason carries the server's field name. */
+    @Volatile private var initResponseBody: String? = null
+    /** BUG-4 — override the `/recordings/:id/finalize` response code (0 = default 200). */
+    @Volatile private var finalizeResponseCode = 0
+    /** BUG-4 — body returned with [finalizeResponseCode] when that override is set (default "{}"). */
+    @Volatile private var finalizeResponseBody: String? = null
     /** Override the `/recordings/:id/parts` response code (0 = default 200 + presigned body echoing the supplied ids). */
     @Volatile private var partsResponseCode = 0
     /** When non-null, the `/recordings/:id/parts` body is returned verbatim with a 200 (used by the non-JSON-leak test). */
@@ -103,7 +109,7 @@ class UploadCoordinatorTest {
                         val code = initResponseCode
                         val flakyRemaining = flakyInitCount.get()
                         when {
-                            code != 0 -> MockResponse().setResponseCode(code).setBody("{}")
+                            code != 0 -> MockResponse().setResponseCode(code).setBody(initResponseBody ?: "{}")
                             flakyRemaining > 0 -> {
                                 flakyInitCount.decrementAndGet()
                                 // 503 → parseInitResponse throws IOException → uploadOne propagates → drainNow's
@@ -141,13 +147,16 @@ class UploadCoordinatorTest {
                         finalizeCalls.incrementAndGet()
                         request.getHeader("Idempotency-Key")?.let { idempotencyKeysByPath["/finalize"] = it }
                         lastFinalizeBody.set(JSONObject(request.body.readUtf8()))
-                        // Fix C item 2 — simulate a hung /finalize handler. The body
-                        // is parked via `setHeadersDelay` so the OkHttp `Call.timeout`
-                        // (set by executeTrackedWithTimeout) fires.
-                        if (finalizeHangCount.getAndDecrement() > 0) {
-                            MockResponse().setResponseCode(200).setBody("{}").setHeadersDelay(finalizeHangMs, TimeUnit.MILLISECONDS)
-                        } else {
-                            MockResponse().setResponseCode(200).setBody("{}")
+                        val finCode = finalizeResponseCode
+                        when {
+                            // BUG-4 — finalize error-code override (e.g. a 400 contract error).
+                            finCode != 0 -> MockResponse().setResponseCode(finCode).setBody(finalizeResponseBody ?: "{}")
+                            // Fix C item 2 — simulate a hung /finalize handler. The body
+                            // is parked via `setHeadersDelay` so the OkHttp `Call.timeout`
+                            // (set by executeTrackedWithTimeout) fires.
+                            finalizeHangCount.getAndDecrement() > 0 ->
+                                MockResponse().setResponseCode(200).setBody("{}").setHeadersDelay(finalizeHangMs, TimeUnit.MILLISECONDS)
+                            else -> MockResponse().setResponseCode(200).setBody("{}")
                         }
                     }
                     path.startsWith("/recordings/") && request.method == "GET" -> {
@@ -1154,6 +1163,106 @@ class UploadCoordinatorTest {
         // Two /init + two /finalize POSTs — both rows got the full Pattern-1 flow.
         assertEquals(2, initCalls.get())
         assertEquals(2, finalizeCalls.get())
+    }
+
+    // =========================================================================
+    // BUG-4 (2026-06-09) — a 4xx (except 408/429) is now classified TERMINAL:
+    // it dead-letters FAST + VISIBLY with the server's reason, instead of being
+    // mis-retried as a transient blip for ~23 min (the reported "stuck with no %,
+    // then 400" symptom). Plus the capturedAt corruption guard + durationSeconds.
+    // =========================================================================
+
+    @Test
+    fun `BUG-4 — a 400 from init dead-letters immediately carrying the server reason (not a 23-min transient retry)`() {
+        initResponseCode = 400
+        initResponseBody = """{"title":"Validation failed","errors":["capturedAt"]}"""
+        store.enqueue(row("01JBUG4INIT400XXXXXXXXXXXX"))
+        coordinator().drainNow()
+
+        // FAST-FAIL: exactly ONE /init — a 400 is classified terminal, NOT looped
+        // as transient (pre-BUG-4 it retried 3× in-process then sat ~23 min on the
+        // 30s→1h backoff before surfacing as failed).
+        assertEquals("a 400 is terminal — one /init, no transient retry", 1, initCalls.get())
+        val back = store.read().first()
+        assertEquals(UploadState.DEAD_LETTER, back.state)
+        assertNotNull(back.deadLetterReason)
+        assertTrue(
+            "dead-letter reason carries the 400 + the server's field name; got ${back.deadLetterReason}",
+            back.deadLetterReason!!.contains("400") && back.deadLetterReason!!.contains("capturedAt"),
+        )
+    }
+
+    @Test
+    fun `BUG-4 — a 400 from finalize dead-letters the row (terminal contract error)`() {
+        finalizeResponseCode = 400
+        finalizeResponseBody = """{"title":"bad finalize body"}"""
+        // GET reconciliation returns 404 (qaStatusFor null) so /finalize actually fires.
+        qaStatusFor = { _ -> null }
+        store.enqueue(row("01JBUG4FIN400XXXXXXXXXXXXX"))
+        coordinator().drainNow()
+
+        assertEquals("one /finalize attempt (terminal, not retried)", 1, finalizeCalls.get())
+        val back = store.read().first()
+        assertEquals(UploadState.DEAD_LETTER, back.state)
+        assertNotNull(back.deadLetterReason)
+        assertTrue("reason carries the 400; got ${back.deadLetterReason}", back.deadLetterReason!!.contains("400"))
+    }
+
+    @Test
+    fun `BUG-4 — a 429 from init stays transient (retried, not dead-lettered)`() {
+        initResponseCode = 429
+        store.enqueue(row("01JBUG4INIT429XXXXXXXXXXXX"))
+        coordinator().drainNow()
+
+        // 429 (Too Many Requests) is transient → the bounded retry loop tries 3×;
+        // the row is NOT dead-lettered (contrast the 400 test above). This locks
+        // the 408/429 carve-out in classifyHttpFailure.
+        assertEquals("429 retried as transient (3 attempts)", 3, initCalls.get())
+        val back = store.read().first()
+        assertNotEquals(UploadState.DEAD_LETTER, back.state)
+        assertNull("no dead-letter reason on a transient 429", back.deadLetterReason)
+    }
+
+    @Test
+    fun `BUG-4 — a blank metadata start_timestamp falls back to a valid offset-ISO capturedAt (never blank)`() {
+        // Metadata corruption: no start_timestamp. Pre-BUG-4 the uploader shipped
+        // capturedAt="" → a guaranteed server 400. resolveCapturedAt must instead
+        // send a valid offset-ISO (exactly the server's datetime({offset:true})
+        // contract) so the bytes still upload.
+        val recId = "01JBUG4CAPAT00XXXXXXXXXXXX"
+        val mp4 = File(recDir, "$recId.mp4").apply { writeBytes(ByteArray(12_000_000) { (it % 251).toByte() }) }
+        val csv = File(recDir, "$recId.csv").apply { writeText("ts,ax,ay,az\n1,0,0,9.8\n") }
+        val json = File(recDir, "$recId.json").apply {
+            writeText(
+                JSONObject().apply {
+                    put("schema_version", "1.1.0")
+                    put("recording_id", recId)
+                    put(
+                        "metadata",
+                        JSONObject().apply {
+                            put("file_size_bytes", 12_000_000L)
+                            put("imu_size_bytes", csv.length())
+                            put("duration_seconds", 9.0)
+                            // NO start_timestamp — the corruption case.
+                        },
+                    )
+                }.toString(),
+            )
+        }
+        store.enqueue(
+            UploadRow(
+                recordingId = recId, ownerUserId = "userA",
+                mp4Path = mp4.path, csvPath = csv.path, jsonPath = json.path,
+                taskId = "T".repeat(26), isPractice = false,
+            ),
+        )
+        coordinator().drainNow()
+
+        val init = lastInitBody.get()!!
+        val capturedAt = init.getString("capturedAt")
+        assertTrue("capturedAt must not be blank (a blank value 400s the upload)", capturedAt.isNotBlank())
+        // Parses as an offset-ISO — the exact server contract. Throws → test fails.
+        java.time.OffsetDateTime.parse(capturedAt)
     }
 
 }

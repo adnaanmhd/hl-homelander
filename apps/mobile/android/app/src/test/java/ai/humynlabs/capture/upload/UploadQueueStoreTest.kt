@@ -14,6 +14,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 
 /**
  * Plan 05-04 Task 1 — `UploadQueueStore` (native-owned durable upload queue) +
@@ -470,6 +471,43 @@ class UploadQueueStoreTest {
             3,
             setOf(migratedB.initIdempotencyKey, migratedB.partsIdempotencyKey, migratedB.finalizeIdempotencyKey).size,
         )
+    }
+
+    // -------------------------------------------------------------------------
+    // BUG-4 (2026-06-09) — durationSeconds is now plumbed through the row so the
+    // History / Pending-Uploads screens show the real recording length on an
+    // in-flight (server-unknown) row instead of "0s".
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `BUG-4 — durationSeconds round-trips through queue json`() {
+        val (store, _) = newStore()
+        val r = row("01JDURSECROUNDTRIPXXXXXXXX").also { it.durationSeconds = 137.5 }
+        store.enqueue(r)
+        val back = store.read()
+        assertEquals(1, back.size)
+        assertNotNull("durationSeconds must round-trip", back[0].durationSeconds)
+        assertEquals(137.5, back[0].durationSeconds!!, 1e-9)
+    }
+
+    @Test
+    fun `BUG-4 — durationSeconds is null when absent on disk (backward compat)`() {
+        val (store, _) = newStore()
+        store.enqueue(row("01JDURSECNULLXXXXXXXXXXXXXX"))
+        assertNull("a row enqueued without durationSeconds stays null", store.read()[0].durationSeconds)
+    }
+
+    @Test
+    fun `BUG-4 — readDurationSecondsFromMetadataJson parses metadata duration_seconds, null on any error`() {
+        val good = JSONObject().apply {
+            put("metadata", JSONObject().apply { put("duration_seconds", 42.0) })
+        }.toString()
+        assertEquals(42.0, readDurationSecondsFromMetadataJson(good)!!, 1e-9)
+        // Missing metadata block / missing field / non-JSON → null (best-effort —
+        // duration display must never be a reason to fail an enqueue).
+        assertNull(readDurationSecondsFromMetadataJson("{}"))
+        assertNull(readDurationSecondsFromMetadataJson("not json at all"))
+        assertNull(readDurationSecondsFromMetadataJson(JSONObject().put("metadata", JSONObject()).toString()))
     }
 
 }

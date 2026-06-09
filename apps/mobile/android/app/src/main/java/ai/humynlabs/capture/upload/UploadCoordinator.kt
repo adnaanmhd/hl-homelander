@@ -487,6 +487,63 @@ class UploadCoordinator(
         return safe.take(160)
     }
 
+    /**
+     * BUG-4 (2026-06-09) — classify a non-2xx response from `/recordings/init`,
+     * `/recordings/:id/parts`, or `/recordings/:id/finalize`.
+     *
+     * A **4xx (EXCEPT 408 Request-Timeout + 429 Too-Many-Requests, which are
+     * genuinely transient)** is a permanent client-contract violation: return a
+     * [DeadLetterException] carrying a SANITIZED snippet of the server's
+     * problem-detail body (which names the failing zod field —
+     * `error-handler.ts`), so the row dead-letters **fast + visibly** with a
+     * readable `deadLetterReason` + a History Retry affordance — instead of being
+     * mis-retried as a flaky-network blip on the `30s→1h` backoff for ~23 min
+     * (the reported "stuck in-progress with no %, then 400" symptom). Every
+     * **5xx / 408 / 429 / network error** stays transient → [IOException] → the
+     * bounded retry loop in [runWorker].
+     *
+     * ⚠ OkHttp response bodies are single-consume: the caller MUST read the body
+     * ONCE (`resp.body?.string()`) at the top of its `.use{}` block and pass that
+     * text here — never re-read `resp.body`. The snippet is run through
+     * [sanitizeFailureReason] (strips presigned-URL noise, T-5-06-02) so a leaky
+     * body never reaches `deadLetterReason` / the History UI.
+     */
+    private fun classifyHttpFailure(code: Int, bodyText: String, label: String): Exception {
+        val transient4xx = code == 408 || code == 429
+        if (code in 400..499 && !transient4xx) {
+            val snippet = sanitizeFailureReason(bodyText)
+            val reason = if (!snippet.isNullOrBlank()) "$label -> $code ($snippet)" else "$label -> $code"
+            return DeadLetterException(reason, null)
+        }
+        return IOException("$label -> $code")
+    }
+
+    /**
+     * BUG-4 (2026-06-09) — resolve the `capturedAt` ISO for `/recordings/init`.
+     * The source (`CaptureSession.kt` wallclock-start via `MetadataComposer`) is
+     * normally ALWAYS a valid numeric-offset ISO; a blank value here means
+     * metadata corruption. Rather than ship `""` — which is GUARANTEED to 400
+     * against the server's `capturedAt: z.string().datetime({ offset: true })`
+     * (and, pre-BUG-4, dead-loop the row for ~23 min) — log loudly and fall back
+     * to a best-effort offset-ISO derived from the MP4's `lastModified` (close to
+     * capture time). The server records this as an audit field; an
+     * approximately-correct timestamp beats a guaranteed upload failure.
+     */
+    private fun resolveCapturedAt(metadata: JSONObject, row: UploadRow): String {
+        val raw = metadata.optString("start_timestamp", "")
+        if (raw.isNotBlank()) return raw
+        val mp4Modified = File(row.mp4Path).lastModified().takeIf { it > 0L } ?: System.currentTimeMillis()
+        val fallback = java.time.OffsetDateTime
+            .ofInstant(java.time.Instant.ofEpochMilli(mp4Modified), java.time.ZoneId.systemDefault())
+            .format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        Log.w(
+            TAG,
+            "row ${row.recordingId}: metadata start_timestamp blank (corruption?) — " +
+                "using best-effort capturedAt=$fallback so the upload isn't blocked",
+        )
+        return fallback
+    }
+
     /** Cancel any in-flight HTTP calls (pause / logout). Queue rows are NOT discarded — they resume. */
     fun cancelInflight() {
         synchronized(inflight) {
@@ -934,7 +991,10 @@ class UploadCoordinator(
             put("durationMs", Math.round((m.optDouble("duration_seconds", 0.0)) * 1000.0))
             put("fileSizeBytes", m.optLong("file_size_bytes", File(row.mp4Path).length()))
             put("imuSizeBytes", m.optLong("imu_size_bytes", File(row.csvPath).length()))
-            put("capturedAt", m.optString("start_timestamp", ""))
+            // BUG-4 (2026-06-09) — guard against a blank start_timestamp (metadata
+            // corruption); shipping "" guarantees a 400. resolveCapturedAt falls
+            // back to a best-effort offset-ISO so the bytes still upload.
+            put("capturedAt", resolveCapturedAt(m, row))
             // Quick task 260522-elm CAPTURE-QA-08/09 — forward the metadata.json
             // top-level `calibration` block (camera intrinsics + cam-IMU
             // extrinsics) verbatim so the server persists it as the queryable
@@ -956,19 +1016,18 @@ class UploadCoordinator(
                 ?.let { put("location", it) }
         }
         executeTracked(authedJsonRequest("$baseUrl/recordings/init", body, row.initIdempotencyKey)).use { resp ->
-            // Post-CR-02 (Plan 05-09) `/recordings/init` is idempotent: a re-/init for an existing `pending` row
-            // owned by the caller returns 200 with the SAME uploadId (a lost-201 self-heals). A 409 only happens
-            // when the row moved to a non-`pending` state (e.g. an ops takedown) — genuinely terminal; a 403 is a
-            // wrong-owner mismatch (shouldn't ever happen from this client). Both are non-retryable → dead-letter
-            // instead of looping (CR-02). A 5xx / network error is still transient (the next drain retries).
-            if (resp.code == 409 || resp.code == 403) {
-                throw DeadLetterException(
-                    "/recordings/init -> ${resp.code} (recording not resumable — moved to a non-pending state, or owner mismatch)",
-                    null,
-                )
-            }
-            if (!resp.isSuccessful) throw IOException("/recordings/init -> ${resp.code}")
-            return parseInitResponse(resp.body?.string().orEmpty(), "/recordings/init")
+            // BUG-4 (2026-06-09) — read the single-consume OkHttp body ONCE, then
+            // branch on the code. Post-CR-02 (Plan 05-09) `/recordings/init` is
+            // idempotent: a re-/init for an existing `pending` row owned by the
+            // caller returns 200 with the SAME uploadId (a lost-201 self-heals).
+            // ANY 4xx (409 non-pending takedown, 403 owner mismatch, AND a 400
+            // contract violation — the reported stuck-then-400 symptom) is
+            // non-retryable → dead-letter FAST with the server's reason via
+            // classifyHttpFailure, instead of being looped as transient for ~23
+            // min. A 5xx / 408 / 429 / network error stays transient (next drain).
+            val bodyText = resp.body?.string().orEmpty()
+            if (!resp.isSuccessful) throw classifyHttpFailure(resp.code, bodyText, "/recordings/init")
+            return parseInitResponse(bodyText, "/recordings/init")
         }
     }
 
@@ -988,11 +1047,14 @@ class UploadCoordinator(
             ?: throw DeadLetterException("re-presign needs imuUploadId; row ${row.recordingId} has none", null)
         val body = JSONObject().put("partsCount", partsCount).put("imuUploadId", imuId)
         executeTracked(authedJsonRequest("$baseUrl/recordings/${row.recordingId}/parts", body, row.partsIdempotencyKey)).use { resp ->
-            if (resp.code == 404 || resp.code == 409) {
-                throw DeadLetterException("/recordings/${row.recordingId}/parts -> ${resp.code} (upload not resumable)", null)
+            // BUG-4 (2026-06-09) — read the single-consume body ONCE; any 4xx
+            // (404 row-gone / 409 not-resumable / 400 contract) dead-letters fast
+            // with the server's reason; 5xx / 408 / 429 stay transient.
+            val bodyText = resp.body?.string().orEmpty()
+            if (!resp.isSuccessful) {
+                throw classifyHttpFailure(resp.code, bodyText, "/recordings/${row.recordingId}/parts")
             }
-            if (!resp.isSuccessful) throw IOException("/recordings/${row.recordingId}/parts -> ${resp.code}")
-            return parseInitResponse(resp.body?.string().orEmpty(), "/recordings/:id/parts")
+            return parseInitResponse(bodyText, "/recordings/:id/parts")
         }
     }
 
@@ -1055,7 +1117,15 @@ class UploadCoordinator(
             authedJsonRequest("$baseUrl/recordings/${row.recordingId}/finalize", body, row.finalizeIdempotencyKey),
             finalizeCallTimeoutMs,
         ).use { resp ->
-            if (!resp.isSuccessful) throw IOException("/recordings/${row.recordingId}/finalize -> ${resp.code}")
+            // BUG-4 (2026-06-09) — a 4xx from /finalize is a terminal contract
+            // error (404 row-gone / 403 owner / 409 state-conflict / 400 malformed
+            // body) → dead-letter fast with the server's reason; a 5xx / 408 / 429
+            // stays transient (the watchdog-timeout path throws before we get here,
+            // so a hung finalize is still a transient IOException).
+            if (!resp.isSuccessful) {
+                val bodyText = resp.body?.string().orEmpty()
+                throw classifyHttpFailure(resp.code, bodyText, "/recordings/${row.recordingId}/finalize")
+            }
         }
     }
 

@@ -12,6 +12,7 @@ import com.facebook.react.bridge.WritableMap
 import com.facebook.react.module.annotations.ReactModule
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import ai.humynlabs.capture.fgs.HumynForegroundService
+import java.io.File
 import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -150,6 +151,13 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
     ) {
         bgExecutor.execute {
             try {
+                // BUG-4 (2026-06-09) — pin the recording duration on the row so an
+                // in-flight (server-unknown) row shows its real length in History /
+                // Pending-Uploads instead of "0s". Best-effort: a metadata read
+                // failure yields null and never blocks the enqueue.
+                val durationSeconds =
+                    runCatching { readDurationSecondsFromMetadataJson(File(jsonPath).readText()) }
+                        .getOrNull()
                 val row = UploadRow(
                     recordingId = recordingId,
                     ownerUserId = ownerUserId,
@@ -158,6 +166,7 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
                     jsonPath = jsonPath,
                     taskId = taskId,
                     isPractice = isPractice,
+                    durationSeconds = durationSeconds,
                 )
                 queueStore.enqueue(row)
                 emitQueueChanged()
@@ -546,6 +555,10 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
         putDouble("enqueuedAt", r.enqueuedAt.toDouble())
         putDouble("lastProgressAt", r.lastProgressAt.toDouble())
         if (r.deadLetterReason != null) putString("deadLetterReason", r.deadLetterReason)
+        // BUG-4 (2026-06-09) — surface the recording duration so the History /
+        // Pending-Uploads rows render the real length on an in-flight row
+        // (UploadQueueRow.durationSeconds → `(durationSeconds ?? 0)` no longer 0s).
+        if (r.durationSeconds != null) putDouble("durationSeconds", r.durationSeconds!!)
         // Debug session `upload-queue-hol-finalizing` Fix C item 4 — surface
         // the failure markers to JS so the History UI's NEEDS_ATTENTION Retry
         // copy can render a reason-specific label.

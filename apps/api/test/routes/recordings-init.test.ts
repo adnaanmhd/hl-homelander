@@ -334,7 +334,12 @@ describe('POST /recordings/init', () => {
     expect(rows[0]!.location).toBeNull();
   });
 
-  it('rejects a malformed location (lat not a number) with 400', async () => {
+  // BUG-4 / D-UPLOAD-LOC (2026-06-09) — location is an audit field and must
+  // NEVER block an upload. With `LocationSchema.nullable().optional().catch(null)`
+  // a present-but-INVALID location coerces to null and the row is still created
+  // (was: a 400 that stranded the whole upload). Replaces the prior
+  // "rejects a malformed location with 400" test, which enforced the old behavior.
+  it('coerces a malformed location (lat not a number) to null and still 201s', async () => {
     const recordingId = ulid();
     const res = await app.inject({
       method: 'POST',
@@ -344,6 +349,71 @@ describe('POST /recordings/init', () => {
         'idempotency-key': '4f7e8f5c-8d2a-4b7f-9c1d-1e3a2b1c4d74',
       },
       payload: { ...baseBody(recordingId), location: { ...locationBlock, lat: 'nope' } },
+    });
+    expect(res.statusCode).toBe(201);
+    const rows = await db
+      .select()
+      .from(schema.recordings)
+      .where(eq(schema.recordings.id, recordingId));
+    expect(rows.length).toBe(1);
+    expect(rows[0]!.location).toBeNull();
+  });
+
+  it('coerces an out-of-range location (lat 999) to null and still 201s', async () => {
+    const recordingId = ulid();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/recordings/init',
+      headers: {
+        authorization: `Bearer ${tok()}`,
+        'idempotency-key': '4f7e8f5c-8d2a-4b7f-9c1d-1e3a2b1c4d75',
+      },
+      payload: { ...baseBody(recordingId), location: { ...locationBlock, lat: 999 } },
+    });
+    expect(res.statusCode).toBe(201);
+    const rows = await db
+      .select()
+      .from(schema.recordings)
+      .where(eq(schema.recordings.id, recordingId));
+    expect(rows[0]!.location).toBeNull();
+  });
+
+  it('a valid location still persists (catch(null) does not weaken the happy path)', async () => {
+    const recordingId = ulid();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/recordings/init',
+      headers: {
+        authorization: `Bearer ${tok()}`,
+        'idempotency-key': '4f7e8f5c-8d2a-4b7f-9c1d-1e3a2b1c4d76',
+      },
+      payload: { ...baseBody(recordingId), location: locationBlock },
+    });
+    expect(res.statusCode).toBe(201);
+    const rows = await db
+      .select()
+      .from(schema.recordings)
+      .where(eq(schema.recordings.id, recordingId));
+    expect(rows[0]!.location).toEqual(locationBlock);
+  });
+
+  it('catch(null) does NOT swallow sibling-field errors — a malformed required field still 400s', async () => {
+    const recordingId = ulid();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/recordings/init',
+      headers: {
+        authorization: `Bearer ${tok()}`,
+        'idempotency-key': '4f7e8f5c-8d2a-4b7f-9c1d-1e3a2b1c4d77',
+      },
+      // A bad REQUIRED field (durationMs as a string) alongside an invalid
+      // location: the location coerces to null, but the sibling error must still
+      // 400 the request — proving `.catch(null)` is scoped to its own field only.
+      payload: {
+        ...baseBody(recordingId),
+        durationMs: 'nope',
+        location: { ...locationBlock, lat: 'nope' },
+      },
     });
     expect(res.statusCode).toBe(400);
     const rows = await db
