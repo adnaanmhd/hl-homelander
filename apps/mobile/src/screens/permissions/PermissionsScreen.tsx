@@ -60,6 +60,7 @@ import { Button } from '../../ui/primitives/Button';
 import { colors, spacing, radii } from '../../ui/tokens';
 import { useAppStore } from '../../state/appStore';
 import { logEvent } from '../../util/analytics';
+import { HumynUpload } from '../../native/HumynUpload';
 
 type ScreenState = 'idle' | 'requesting' | 'denied' | 'partial';
 
@@ -237,6 +238,21 @@ export default function PermissionsScreen() {
         location: true,
         grantedAt: new Date().toISOString(),
       });
+      // BUG-5 (2026-06-09 — D-BATTERY): fold the best-effort battery-optimization
+      // exemption ask into onboarding (replaces the deleted standalone first-upload
+      // modal). FIRE-AND-FORGET (deliberately NOT awaited) so navigation stays
+      // synchronous: the OEM-flaky native call never delays onboarding, and the
+      // `replace('Compat')` below unmounts this screen (running its AppState-listener
+      // cleanup) before the system battery dialog can background the app — so the
+      // foreground re-check can't fire a second navigation. We only open the AOSP
+      // dialog if not already exempt. The per-vendor OEM autostart walkthrough now
+      // lives in the Help Center. `*Safe` = no-op without the native module
+      // (iOS / JSDOM) and never throws.
+      void (async () => {
+        if (!(await HumynUpload.isBatteryOptimizationExemptSafe())) {
+          await HumynUpload.requestBatteryOptimizationExemptionSafe();
+        }
+      })();
       // Onboarding stack route name is "Compat" (CompatRunningScreen) —
       // see apps/mobile/src/navigation/OnboardingStack.tsx.
       navigation.replace('Compat');

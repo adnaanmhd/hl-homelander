@@ -93,6 +93,20 @@ vi.mock('../../src/util/analytics', () => ({
   EVENT_NAMES: [],
 }));
 
+// BUG-5 — on full grant the screen fires a best-effort battery-optimization
+// exemption ask (open the AOSP dialog only if not already exempt) before
+// navigating to Compat. Mock the two *Safe bridges so the test asserts the ask
+// without reaching the native module. (Deferred-reference arrows so the factory
+// can be hoisted above these const declarations — same pattern as mockLogEvent.)
+const mockBatteryExemptSafe = vi.fn(async () => false);
+const mockBatteryRequestSafe = vi.fn(async () => undefined);
+vi.mock('../../src/native/HumynUpload', () => ({
+  HumynUpload: {
+    isBatteryOptimizationExemptSafe: () => mockBatteryExemptSafe(),
+    requestBatteryOptimizationExemptionSafe: () => mockBatteryRequestSafe(),
+  },
+}));
+
 // Import the screen AFTER vi.mock declarations so the mocked modules win.
 import PermissionsScreen from '../../src/screens/permissions/PermissionsScreen';
 
@@ -117,6 +131,9 @@ beforeEach(() => {
   // per-test. Reset prevents a prior test's resolved value leaking.
   requestMultipleMock.mockReset().mockResolvedValue({});
   openSettingsMock.mockReset();
+  // BUG-5 — default: not battery-exempt (so the ask fires), request is a no-op.
+  mockBatteryExemptSafe.mockReset().mockResolvedValue(false);
+  mockBatteryRequestSafe.mockReset().mockResolvedValue(undefined);
   // quick-260510-007 — useEffect calls check() on mount + on AppState
   // 'change'. Default to DENIED so existing tests (which never grant via
   // Settings) don't trigger the auto-advance path; tests that exercise the
@@ -450,5 +467,38 @@ describe('PermissionsScreen', () => {
     // request() was NOT called — auto-advance bypasses the OS prompt
     // entirely since the perms are already granted.
     expect(requestMock).not.toHaveBeenCalled();
+  });
+
+  it('Test 9 (BUG-5): full grant fires the best-effort battery-optimization ask before navigating', async () => {
+    requestMock.mockResolvedValueOnce(RESULTS.GRANTED).mockResolvedValueOnce(RESULTS.GRANTED);
+    requestMultipleMock.mockResolvedValueOnce({
+      [FINE]: RESULTS.GRANTED,
+      [COARSE]: RESULTS.GRANTED,
+    });
+    // Default mockBatteryExemptSafe → false → the AOSP exemption dialog is asked.
+    const { getByLabelText } = render(<PermissionsScreen />);
+    fireEvent.click(getByLabelText('Allow access'));
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('Compat'));
+    // The ask is fire-and-forget (not awaited before navigation) — it resolves on a
+    // later microtask, so wait for it.
+    await waitFor(() => expect(mockBatteryRequestSafe).toHaveBeenCalledTimes(1));
+  });
+
+  it('Test 9b (BUG-5): already battery-exempt → skips the AOSP ask but still navigates (non-blocking)', async () => {
+    mockBatteryExemptSafe.mockResolvedValue(true);
+    requestMock.mockResolvedValueOnce(RESULTS.GRANTED).mockResolvedValueOnce(RESULTS.GRANTED);
+    requestMultipleMock.mockResolvedValueOnce({
+      [FINE]: RESULTS.GRANTED,
+      [COARSE]: RESULTS.GRANTED,
+    });
+    const { getByLabelText } = render(<PermissionsScreen />);
+    fireEvent.click(getByLabelText('Allow access'));
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('Compat'));
+    // Wait until the fire-and-forget ask has checked exemption, then confirm it did
+    // NOT open the system dialog (already exempt) — navigation happened regardless.
+    await waitFor(() => expect(mockBatteryExemptSafe).toHaveBeenCalled());
+    expect(mockBatteryRequestSafe).not.toHaveBeenCalled();
   });
 });

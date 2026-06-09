@@ -15,12 +15,10 @@ export const KEYS = {
   COMPAT_LAST_RESULT: 'compat.lastResult.v1',
   APP_VERSION_CACHE: 'appVersion.cache.v1',
   TELEMETRY_RING: 'telemetry.ring.v1',
-  // Plan 05-07 (UP-09) — the first-upload battery-optimization walkthrough.
-  // `..._SHOWN` is set once the user dismisses the screen; `..._VERSION` records
-  // the app version it was last shown for, so a force-upgrade re-shows it (MIUI
-  // may revert the exemption on an app update — idea-brief.md §7.4).
-  UPLOAD_FIRST_PROMPT_SHOWN: 'upload.firstPromptShown.v1',
-  UPLOAD_FIRST_PROMPT_VERSION: 'upload.firstPromptVersion.v1',
+  // (BUG-5, 2026-06-09 — UPLOAD_FIRST_PROMPT_SHOWN/_VERSION removed with the
+  // standalone first-upload battery-optimization modal; the exemption ask moved
+  // to onboarding/PermissionsScreen + the Help Center guide, which don't gate on
+  // a per-version "shown" flag.)
   // Plan 05-08 (VERIFY-06 / UP-14/15/16) — the `_events`-envelope + reconcile sweep.
   // `..._RECONCILE_CURSOR` is the `verified-ids` pagination cursor (opaque server token);
   // `..._PROCESSED_EVENTS` is a JSON array of `${recording_id}:${event_type}` keys the

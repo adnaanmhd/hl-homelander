@@ -1,6 +1,8 @@
 // HelpCenterScreen — verifies the design-spec §17 contract:
-//   Test 1: All 3 accordions render in HELP-01 order (Instructions Guide /
-//           FAQs / Troubleshooting), each with its accordion-toggle label.
+//   Test 1: All 3 HELP-01 content accordions render in order (Instructions Guide
+//           / FAQs / Troubleshooting), each with its accordion-toggle label. (A
+//           4th, BUG-5/D-BATTERY battery-optimization accordion is asserted
+//           separately by the "renders the relocated battery accordion" test.)
 //   Test 2: Contact Support button calls Linking.openURL with the
 //           support@humynlabs.ai mailto: URL (OQ-1 resolved in Plan 03-02:
 //           resolves; the parser preserves it verbatim from
@@ -158,6 +160,18 @@ describe('HelpCenterScreen', () => {
     expect(getByLabelText('accordion-toggle-Instructions Guide')).toBeTruthy();
     expect(getByLabelText('accordion-toggle-FAQs')).toBeTruthy();
     expect(getByLabelText('accordion-toggle-Troubleshooting')).toBeTruthy();
+  });
+
+  it('BUG-5: renders the relocated battery-optimization accordion; expanding mounts the guide', () => {
+    const { getByLabelText, queryByLabelText } = render(<HelpCenterScreen />);
+    // The 4th accordion (D-BATTERY relocation) uses batteryOpt.title.
+    const toggle = getByLabelText('accordion-toggle-Keep your uploads running');
+    expect(toggle).toBeTruthy();
+    // Collapsed by default → the guide body isn't mounted yet (AccordionItem is lazy).
+    expect(queryByLabelText('battery-optimization-guide')).toBeNull();
+    fireEvent.click(toggle);
+    // Expanded → the BatteryOptimizationGuide renders.
+    expect(getByLabelText('battery-optimization-guide')).toBeTruthy();
   });
 
   it('Contact Support button opens the support@humynlabs.ai mailto: URL', () => {
