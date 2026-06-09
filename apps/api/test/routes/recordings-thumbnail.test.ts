@@ -11,7 +11,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { ulid } from 'ulid';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { readFileSync, rmSync } from 'node:fs';
@@ -21,9 +21,11 @@ import {
   CreateMultipartUploadCommand,
   UploadPartCommand,
   HeadObjectCommand,
+  PutObjectCommand,
 } from '@aws-sdk/client-s3';
 import { db, schema } from '../../src/db/index.js';
 import { recordingKeys } from '../../src/lib/s3-client.js';
+import { backfillThumbnails } from '../../src/lib/thumbnail-backfill.js';
 import { buildApp } from '../../src/app.js';
 
 const HAS_LOCALSTACK = !!process.env.AWS_ENDPOINT_URL;
@@ -60,6 +62,66 @@ let keyCounter = 0;
 function idemKey(): string {
   keyCounter += 1;
   return `9d2e8f5c-8d2a-4b7f-9c1d-${String(keyCounter).padStart(12, '0')}`;
+}
+
+// BUG-3 (2026-06-09) — a tiny REAL HEVC MP4 (matches the device's libx265 /
+// hvc1 output — the codec the capture pipeline actually emits), +faststart so
+// the moov atom is up front for the ffmpeg seek over a presigned GET.
+function makeHevcMp4(): Buffer {
+  const mp4Path = join(tmpdir(), `thumb-hevc-${ulid()}.mp4`);
+  const gen = spawnSync('ffmpeg', [
+    '-y',
+    '-f',
+    'lavfi',
+    '-i',
+    'testsrc=duration=2:size=320x240:rate=15',
+    '-c:v',
+    'libx265',
+    '-tag:v',
+    'hvc1',
+    '-pix_fmt',
+    'yuv420p',
+    '-movflags',
+    '+faststart',
+    mp4Path,
+  ]);
+  if (gen.status !== 0) {
+    throw new Error(`ffmpeg HEVC fixture gen failed: ${gen.stderr?.toString().slice(0, 300)}`);
+  }
+  const buf = readFileSync(mp4Path);
+  rmSync(mp4Path, { force: true });
+  return buf;
+}
+
+// BUG-3 — insert an 'uploaded' row whose video object is REALLY present in S3 (a
+// single PutObject of `mp4`), with no server thumbnail. Used by the
+// finalize-retry + backfill tests (both regenerate the poster from this object).
+async function insertUploadedRowWithVideo(mp4: Buffer): Promise<{
+  id: string;
+  keys: ReturnType<typeof recordingKeys>;
+}> {
+  const id = ulid();
+  const keys = recordingKeys({ userId: USER_ID, recordingId: id });
+  await s3.send(
+    new PutObjectCommand({ Bucket: BUCKET, Key: keys.video, Body: mp4, ContentType: 'video/mp4' }),
+  );
+  await db.insert(schema.recordings).values({
+    id,
+    userId: USER_ID,
+    taskId: TASK_ID,
+    practice: false,
+    qaStatus: 'uploaded',
+    durationMs: 2000,
+    fileSizeBytes: mp4.byteLength,
+    imuSizeBytes: 24,
+    s3KeyVideo: keys.video,
+    s3KeyImu: keys.imu,
+    s3KeyMetadata: keys.metadata,
+    s3KeyThumbnail: null,
+    capturedAt: new Date(),
+    flavor: 'playStore',
+  });
+  return { id, keys };
 }
 
 async function insertUploadedRow(opts: { withThumbnail: boolean }): Promise<string> {
@@ -341,6 +403,101 @@ describeE2E(
         .from(schema.recordings)
         .where(eq(schema.recordings.id, recordingId));
       expect(row!.s3KeyThumbnail).toBeNull();
+    }, 60_000);
+
+    // BUG-3 (2026-06-09) — forward fix: a re-finalize that REACHES the handler
+    // (fresh idempotency key, so it isn't an idempotency replay) for an
+    // already-'uploaded' but THUMBLESS row regenerates the poster. Mirrors the
+    // production gap where a row finalized before ffmpeg shipped in the image.
+    it('a re-finalize of an uploaded but thumbless row regenerates the poster', async () => {
+      const { id, keys } = await insertUploadedRowWithVideo(makeHevcMp4());
+      // Sanity: it starts thumbless.
+      const [before] = await db
+        .select()
+        .from(schema.recordings)
+        .where(eq(schema.recordings.id, id));
+      expect(before!.s3KeyThumbnail).toBeNull();
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/recordings/${id}/finalize`,
+        headers: { authorization: `Bearer ${tok()}`, 'idempotency-key': idemKey() },
+        // The short-circuit returns before consuming these, but the body must
+        // still satisfy FinalizeBodyExtended.
+        payload: {
+          videoParts: [{ partNumber: 1, etag: 'x' }],
+          imuParts: [{ partNumber: 1, etag: 'y' }],
+          imuUploadId: 'imu-upload-id',
+        },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().qaStatus).toBe('uploaded');
+
+      const [after] = await db.select().from(schema.recordings).where(eq(schema.recordings.id, id));
+      expect(after!.s3KeyThumbnail).toBe(keys.thumbnail);
+      const head = await s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: keys.thumbnail }));
+      expect((head.ContentLength ?? 0) > 0).toBe(true);
+    }, 60_000);
+
+    // BUG-3 (2026-06-09) — the one-shot backfill (PRIMARY recovery for the
+    // existing thumbless fleet) generates posters for uploaded/thumbless rows,
+    // leaves already-thumbed rows untouched, and is idempotent on re-run.
+    it('backfillThumbnails posters thumbless uploaded rows, skips thumbed ones, is idempotent', async () => {
+      // Isolate this user so the user-scoped thumbless count is deterministic.
+      await db.delete(schema.recordings).where(eq(schema.recordings.userId, USER_ID));
+      const mp4 = makeHevcMp4();
+      const a = await insertUploadedRowWithVideo(mp4);
+      const b = await insertUploadedRowWithVideo(mp4);
+      // An already-thumbed row (with a real video) must NOT be a candidate.
+      const c = await insertUploadedRowWithVideo(mp4);
+      await db
+        .update(schema.recordings)
+        .set({ s3KeyThumbnail: c.keys.thumbnail })
+        .where(eq(schema.recordings.id, c.id));
+
+      const thumblessQuery = db
+        .select({ id: schema.recordings.id })
+        .from(schema.recordings)
+        .where(
+          and(
+            eq(schema.recordings.userId, USER_ID),
+            isNull(schema.recordings.s3KeyThumbnail),
+            inArray(schema.recordings.qaStatus, ['uploaded', 'verified']),
+          ),
+        );
+      expect((await thumblessQuery).length).toBe(2);
+
+      const result = await backfillThumbnails({ concurrency: 2, log: () => {} });
+      expect(result.generated).toBeGreaterThanOrEqual(2);
+
+      // a + b now have posters; the objects exist.
+      for (const r of [a, b]) {
+        const [row] = await db
+          .select()
+          .from(schema.recordings)
+          .where(eq(schema.recordings.id, r.id));
+        expect(row!.s3KeyThumbnail).toBe(r.keys.thumbnail);
+        const head = await s3.send(
+          new HeadObjectCommand({ Bucket: BUCKET, Key: r.keys.thumbnail }),
+        );
+        expect((head.ContentLength ?? 0) > 0).toBe(true);
+      }
+      // c is untouched (still its pre-set thumbnail).
+      const [cRow] = await db
+        .select()
+        .from(schema.recordings)
+        .where(eq(schema.recordings.id, c.id));
+      expect(cRow!.s3KeyThumbnail).toBe(c.keys.thumbnail);
+      // No thumbless candidates remain for this user.
+      expect((await thumblessQuery).length).toBe(0);
+
+      // Idempotent: a re-run finds nothing new for this user and leaves a/b intact.
+      await backfillThumbnails({ concurrency: 2, log: () => {} });
+      const [aAfter] = await db
+        .select()
+        .from(schema.recordings)
+        .where(eq(schema.recordings.id, a.id));
+      expect(aAfter!.s3KeyThumbnail).toBe(a.keys.thumbnail);
     }, 60_000);
   },
 );

@@ -21,6 +21,7 @@
     "db:push": "drizzle-kit push",
     "db:migrate": "tsx scripts/migrate.ts",
     "seed:tasks": "tsx scripts/seed-tasks.ts",
+    "backfill:thumbnails": "tsx scripts/backfill-thumbnails.ts",
     "legal:hash": "tsx scripts/legal-hash.ts",
     "dsr:build-export": "tsx scripts/dsr-export.ts"
   },

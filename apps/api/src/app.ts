@@ -19,6 +19,7 @@ import feedbackPostRoute from './routes/feedback/post.js';
 import appVersionGetRoute from './routes/app-version/get.js';
 import { startDsrCron } from './cron/dsr-hard-delete.js';
 import { verifyConsentTextHash } from './legal/boot-guard.js';
+import { isFfmpegAvailable } from './lib/thumbnail.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   // Plan 01-11 — refuse to start on consent-text drift. MUST run before any
@@ -69,6 +70,24 @@ export async function buildApp(): Promise<FastifyInstance> {
   // (Enh 3 / D1, 2026-06-04: the hash-verify worker, its BullMQ/Redis queue, the
   // SQS poller, the events-outbox plugin, and the verify-sweep cron were all
   // removed. `uploaded` is now terminal success — there is nothing to sweep.)
+
+  // BUG-3 (2026-06-09) — ffmpeg boot probe. Server-side poster thumbnails
+  // (Bug 6 / D5) shell out to ffmpeg at /finalize + in the backfill script; an
+  // image WITHOUT ffmpeg (a pre-Dockerfile-ffmpeg build — DEPLOY-2) silently
+  // degrades every poster to null. Log loudly at startup so the gap is
+  // observable rather than invisible. Skipped under test (no log noise / no
+  // subprocess spawn in the singleFork pool).
+  if (process.env.NODE_ENV !== 'test') {
+    if (isFfmpegAvailable()) {
+      app.log.info('ffmpeg present — server-side poster thumbnails (Bug 6 / D5) enabled');
+    } else {
+      app.log.warn(
+        'ffmpeg NOT found on PATH — server-side poster thumbnails (Bug 6 / D5) are DISABLED; ' +
+          'History falls back to the local ledger / gradient. Rebuild the API image WITH ffmpeg ' +
+          '(apps/api/Dockerfile already installs it — the deployed image may predate that).',
+      );
+    }
+  }
 
   return app;
 }
