@@ -29,6 +29,38 @@ const PROBLEM_CT = 'application/problem+json';
 
 type FeedbackCategory = (typeof FEEDBACK_CATEGORIES)[number];
 
+// BUG-7 (2026-06-09) — Postgres rejects a NUL byte (U+0000) inside a jsonb value
+// (SQLSTATE 22P05, "unsupported Unicode escape sequence") AND inside a text value
+// (22021). An unredacted control char in a telemetry / device-model string
+// (analytics.ts) therefore 500'd the whole "report a problem" request: the
+// db.insert below was unguarded — commit cfc69c3 only made the S3 upload
+// best-effort. We strip the NUL char from the diagnostic's string keys + values
+// (and the message) before insert so the report persists with a 201.
+//
+// ⚠ Must walk the PARSED values — a `JSON.parse(JSON.stringify(obj).replace(
+// /\u0000/g,''))` one-liner does NOT work: JSON.stringify escapes a NUL char to
+// the 6-character "\u0000" text sequence, which a literal-NUL regex can't match,
+// so the NUL survives the round-trip (empirically verified 2026-06-09).
+// Build the NUL matcher at runtime rather than a `/\u0000/` regex LITERAL —
+// the literal trips ESLint `no-control-regex` (a build + pre-commit error). A
+// shared global-flag regex is safe for String#replace (no lastIndex state).
+const NUL_RE = new RegExp(String.fromCharCode(0), 'g');
+function stripNul(s: string): string {
+  return s.replace(NUL_RE, '');
+}
+function stripNulDeep(value: unknown): unknown {
+  if (typeof value === 'string') return stripNul(value);
+  if (Array.isArray(value)) return value.map(stripNulDeep);
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[stripNul(k)] = stripNulDeep(v);
+    }
+    return out;
+  }
+  return value;
+}
+
 export default async function feedbackPostRoute(app: FastifyInstance): Promise<void> {
   await app.register(multipart, {
     limits: { fileSize: FEEDBACK_MAX_BYTES, files: 1, fields: 10 },
@@ -186,13 +218,44 @@ export default async function feedbackPostRoute(app: FastifyInstance): Promise<v
           );
         }
       }
-      await db.insert(schema.feedback).values({
-        id,
-        userId: sub,
-        category,
-        message,
-        diagnostic: { ...(diagnosticInline ?? {}), _s3_key: diagnosticS3Key } as never,
-      });
+      // BUG-7 — strip NUL bytes (Postgres rejects them in jsonb + text) so a
+      // control char in a telemetry string can't 500 the report, and guard the
+      // insert: prefer sanitize-then-insert (the row persists in full); only on a
+      // residual content failure degrade to dropping the inline diagnostic.
+      const diagnosticValue = stripNulDeep({
+        ...(diagnosticInline ?? {}),
+        _s3_key: diagnosticS3Key,
+      }) as Record<string, unknown>;
+      const safeMessage = stripNul(message);
+      try {
+        await db.insert(schema.feedback).values({
+          id,
+          userId: sub,
+          category,
+          message: safeMessage,
+          diagnostic: diagnosticValue as never,
+        });
+      } catch (err) {
+        // Sanitize-then-insert already handles the NUL case; this is a last-resort
+        // degrade for any OTHER content quirk so a support-attachment problem never
+        // loses the user's category + message. Retry with the inline diagnostic
+        // dropped (onConflictDoNothing guards the rare partial-first-insert). A
+        // genuine DB outage still surfaces as a 500 — correct (not a content bug).
+        req.log.error(
+          { err, feedbackId: id },
+          'feedback insert failed after NUL-strip — retrying without the inline diagnostic',
+        );
+        await db
+          .insert(schema.feedback)
+          .values({
+            id,
+            userId: sub,
+            category,
+            message: safeMessage,
+            diagnostic: { _s3_key: diagnosticS3Key, _inline_dropped: true } as never,
+          })
+          .onConflictDoNothing();
+      }
       return reply.status(201).send({ id, diagnosticS3Key });
     },
   );

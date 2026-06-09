@@ -127,6 +127,52 @@ describe('POST /feedback (multipart)', () => {
     }
   });
 
+  it('strips a NUL byte (U+0000) from the diagnostic + message → 201, no 500 (BUG-7)', async () => {
+    // A control char in a telemetry / device-model string (analytics.ts doesn't
+    // redact them) used to 500 the UNGUARDED jsonb insert: Postgres rejects a NUL
+    // in a jsonb value (SQLSTATE 22P05) AND in a text value. The device sends
+    // VALID JSON with the NUL escaped (\u0000); the server's JSON.parse turns it
+    // back into a real NUL char before the insert — exactly the repro. Build the
+    // NUL at runtime so the .ts source carries no literal NUL byte.
+    const NUL = String.fromCharCode(0);
+    const form = new FormData();
+    form.append('category', 'app-crashed');
+    form.append('message', `crash with a NUL${NUL} in the message`);
+    form.append(
+      'diagnostic',
+      Buffer.from(
+        JSON.stringify({
+          os: 'Android 14',
+          model: `Pixel${NUL} 7a`,
+          nested: { telemetry: `x${NUL}y` },
+        }),
+      ),
+      { filename: 'diag.json', contentType: 'application/json' },
+    );
+    const r = await app.inject({
+      method: 'POST',
+      url: '/feedback',
+      headers: {
+        authorization: `Bearer ${tok()}`,
+        'idempotency-key': '4f7e8f5c-8d2a-4b7f-9c1d-8e3a2b1c4dc7',
+        ...form.getHeaders(),
+      },
+      payload: form.getBuffer(),
+    });
+    // The whole point: a 201, NOT a 500.
+    expect(r.statusCode).toBe(201);
+    // The row persisted with the NUL stripped from the diagnostic + the message.
+    const rows = await db
+      .select()
+      .from(schema.feedback)
+      .where(eq(schema.feedback.id, r.json().id as string));
+    expect(rows).toHaveLength(1);
+    const diag = rows[0]!.diagnostic as Record<string, unknown>;
+    expect(diag.model).toBe('Pixel 7a');
+    expect((diag.nested as Record<string, unknown>).telemetry).toBe('xy');
+    expect(rows[0]!.message).toBe('crash with a NUL in the message');
+  });
+
   it('rejects non-application/json diagnostic (text/plain) → 400 (T-1.8-04)', async () => {
     const form = new FormData();
     form.append('category', 'app-crashed');
