@@ -88,22 +88,35 @@ async function idempotencyPlugin(app: FastifyInstance) {
   // After-response hook persists the original response.
   app.addHook('onSend', async (req, reply, payload) => {
     if (!req.idempotency) return payload;
-    if (reply.statusCode >= 500) return payload; // don't memoize server errors
+    // Only memoize SUCCESS. The handlers are SELECT-first idempotent, so only
+    // 2xx replay needs protection; memoizing any error pins a transient
+    // failure under the client's never-rotated key for 24 h. Concretely: a
+    // legacy-JWT device's first post-deploy /recordings/init earns a
+    // `reauth-required` 401 — caching it under the row's initIdempotencyKey
+    // would replay that 401 on every Retry even after re-sign-in.
+    if (reply.statusCode >= 400) return payload;
     let bodyForStorage: unknown;
     try {
       bodyForStorage = typeof payload === 'string' ? JSON.parse(payload) : payload;
     } catch {
       bodyForStorage = payload;
     }
-    await persist({
-      userId: req.idempotency.userId,
-      key: req.idempotency.key,
-      method: req.method,
-      path: req.url,
-      requestHash: req.idempotency.requestHash,
-      statusCode: reply.statusCode,
-      responseBody: bodyForStorage,
-    });
+    try {
+      await persist({
+        userId: req.idempotency.userId,
+        key: req.idempotency.key,
+        method: req.method,
+        path: req.url,
+        requestHash: req.idempotency.requestHash,
+        statusCode: reply.statusCode,
+        responseBody: bodyForStorage,
+      });
+    } catch (err) {
+      // A memoization write failure must never fail a request that already
+      // succeeded (was a /feedback 500 path) — the only cost of skipping is
+      // that an exact retry re-executes an idempotent handler.
+      req.log.warn({ err }, 'idempotency persist failed — response not memoized');
+    }
     return payload;
   });
 }

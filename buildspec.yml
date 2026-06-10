@@ -46,7 +46,11 @@ phases:
   build:
     commands:
       - echo "Running unit tests and assembling apkRollout release APK..."
-      - cd $CODEBUILD_SRC_DIR/apps/mobile/android && APK_ROLLOUT_KEYSTORE_PATH=/tmp/apkrollout.keystore ./gradlew :app:testApkRolloutReleaseUnitTest assembleApkRolloutRelease
+      # -PhumynVersionName stamps the real build into versionName (PROF-05
+      # Profile footer) so an installed APK is identifiable — without it every
+      # build reads the constant 0.1.0-apk (1).
+      - IMAGE_TAG=${CODEBUILD_RESOLVED_SOURCE_VERSION:0:8}
+      - cd $CODEBUILD_SRC_DIR/apps/mobile/android && APK_ROLLOUT_KEYSTORE_PATH=/tmp/apkrollout.keystore ./gradlew :app:testApkRolloutReleaseUnitTest assembleApkRolloutRelease -PhumynVersionName=0.1.0-${IMAGE_TAG}
 
   post_build:
     commands:

@@ -19,9 +19,9 @@
     "test:e2e:watch": "vitest --config vitest.e2e.config.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "db:migrate": "tsx scripts/migrate.ts",
+    "db:migrate": "tsx src/scripts/migrate.ts",
     "seed:tasks": "tsx scripts/seed-tasks.ts",
-    "backfill:thumbnails": "tsx scripts/backfill-thumbnails.ts",
+    "backfill:thumbnails": "tsx src/scripts/backfill-thumbnails.ts",
     "legal:hash": "tsx scripts/legal-hash.ts",
     "dsr:build-export": "tsx scripts/dsr-export.ts"
   },

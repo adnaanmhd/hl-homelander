@@ -3,18 +3,23 @@
 // Recovers existing recordings with no server poster (qa_status uploaded/verified
 // AND s3_key_thumbnail NULL) by deriving a JPEG from the stored video object.
 // The reusable, testable core lives in src/lib/thumbnail-backfill.ts; this file
-// is just the CLI surface (env preflight + ffmpeg check + exit codes).
+// is just the CLI surface (env preflight + ffmpeg check + exit codes). It lives
+// under src/ (not scripts/) so `tsc -b` emits dist/scripts/backfill-thumbnails.js
+// into the Docker image, making it runnable as a one-off ECS task.
 //
 // Usage (staging/prod — DATABASE_URL + AWS_* + RECORDINGS_BUCKET exported, and
 // ffmpeg on PATH, the SAME dependency as /recordings/:id/finalize):
-//   pnpm --filter @humyn/api exec tsx scripts/backfill-thumbnails.ts
+//   dev:   pnpm --filter @humyn/api backfill:thumbnails
+//   image: node dist/scripts/backfill-thumbnails.js   (one-off ECS task)
 //
 // Idempotent: only touches still-thumbless rows, so it's safe to re-run (e.g.
 // after a deploy that adds ffmpeg, or to pick up rows a flaky first pass skipped).
+// Since 2026-06-10 the API process also runs this sweep itself at boot + hourly
+// (src/app.ts) — this CLI remains for one-off ops runs.
 
-import { getPool } from '../src/db/index.js';
-import { backfillThumbnails } from '../src/lib/thumbnail-backfill.js';
-import { isFfmpegAvailable } from '../src/lib/thumbnail.js';
+import { getPool } from '../db/index.js';
+import { backfillThumbnails } from '../lib/thumbnail-backfill.js';
+import { isFfmpegAvailable } from '../lib/thumbnail.js';
 
 async function main(): Promise<void> {
   if (!process.env.DATABASE_URL) {

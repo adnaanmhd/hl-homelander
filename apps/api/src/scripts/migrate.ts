@@ -35,10 +35,14 @@ async function main() {
     console.error('DATABASE_URL not set');
     process.exit(1);
   }
+  // Source lives at src/scripts/migrate.ts (tsx dev path); the build emits
+  // dist/scripts/migrate.js. The raw SQL lives only under src/db/migrations —
+  // the Docker image copies that dir alongside dist, so the compiled branch
+  // walks up out of dist/ into src/.
   const isCompiled = import.meta.url.endsWith('.js');
   const migrationsDir = isCompiled
     ? new URL('../../src/db/migrations/', import.meta.url)
-    : new URL('../src/db/migrations/', import.meta.url);
+    : new URL('../db/migrations/', import.meta.url);
   const entries = await readdir(migrationsDir);
   const files = entries.filter((f) => f.endsWith('.sql')).sort((a, b) => a.localeCompare(b));
   if (files.length === 0) {
