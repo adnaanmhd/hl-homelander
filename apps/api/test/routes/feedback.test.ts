@@ -8,48 +8,76 @@ import jwt from 'jsonwebtoken';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '../../src/db/index.js';
 import { buildApp } from '../../src/app.js';
+import { isPgContentError } from '../../src/routes/feedback/post.js';
 import FormData from 'form-data';
 
 const TEST_USER_ID = '01HVTFB0000000000000000000';
+// Second user for the Phase 6 (Bug 6) tests — the /feedback auth-tier rate
+// limit is 5/min keyed per-sub and the original suite already spends user 1's
+// whole budget; a fresh sub gets a disjoint bucket.
+const TEST_USER_ID_2 = '01HVTFB2222222222222222222';
 
-function tok(): string {
+function tokFor(sub: string, installationId: string): string {
   return jwt.sign(
     {
-      sub: TEST_USER_ID,
+      sub,
       flavor: 'playStore',
       applicationId: 'ai.humynlabs.capture',
       integrity_verdict: 'passed',
       token_version: 1,
-      installationId: 'inst-test',
+      installationId,
     },
     process.env.JWT_SIGNING_SECRET!,
     { algorithm: 'HS256', expiresIn: '24h' },
   );
 }
+function tok(): string {
+  return tokFor(TEST_USER_ID, 'inst-test');
+}
+function tok2(): string {
+  return tokFor(TEST_USER_ID_2, 'inst-test-2');
+}
 
 let app: FastifyInstance;
 beforeAll(async () => {
   app = await buildApp();
-  await db.delete(schema.feedback).where(eq(schema.feedback.userId, TEST_USER_ID));
-  await db.delete(schema.idempotencyKeys).where(eq(schema.idempotencyKeys.userId, TEST_USER_ID));
+  for (const uid of [TEST_USER_ID, TEST_USER_ID_2]) {
+    await db.delete(schema.feedback).where(eq(schema.feedback.userId, uid));
+    await db.delete(schema.idempotencyKeys).where(eq(schema.idempotencyKeys.userId, uid));
+  }
   await db
     .insert(schema.users)
-    .values({
-      id: TEST_USER_ID,
-      googleSub: 'g-feedback',
-      email: 'fb@e.com',
-      name: 'F',
-      consentVersion: '1.0.0',
-      consentAcceptedAt: new Date(),
-      currentInstallationId: 'inst-test',
-      flavor: 'playStore',
-      applicationId: 'ai.humynlabs.capture',
-    })
+    .values([
+      {
+        id: TEST_USER_ID,
+        googleSub: 'g-feedback',
+        email: 'fb@e.com',
+        name: 'F',
+        consentVersion: '1.0.0',
+        consentAcceptedAt: new Date(),
+        currentInstallationId: 'inst-test',
+        flavor: 'playStore',
+        applicationId: 'ai.humynlabs.capture',
+      },
+      {
+        id: TEST_USER_ID_2,
+        googleSub: 'g-feedback-2',
+        email: 'fb2@e.com',
+        name: 'F2',
+        consentVersion: '1.0.0',
+        consentAcceptedAt: new Date(),
+        currentInstallationId: 'inst-test-2',
+        flavor: 'playStore',
+        applicationId: 'ai.humynlabs.capture',
+      },
+    ])
     .onConflictDoNothing();
 });
 afterAll(async () => {
-  await db.delete(schema.feedback).where(eq(schema.feedback.userId, TEST_USER_ID));
-  await db.delete(schema.users).where(eq(schema.users.id, TEST_USER_ID));
+  for (const uid of [TEST_USER_ID, TEST_USER_ID_2]) {
+    await db.delete(schema.feedback).where(eq(schema.feedback.userId, uid));
+    await db.delete(schema.users).where(eq(schema.users.id, uid));
+  }
   await app.close();
 });
 
@@ -225,5 +253,82 @@ describe('POST /feedback (multipart)', () => {
       payload: form.getBuffer(),
     });
     expect(r.statusCode).toBe(401);
+  });
+
+  it('truncated multipart body (busboy "Unexpected end of form") → 400, not 500 (Phase 6 item 3)', async () => {
+    // A dropped connection / malformed client body makes busboy throw an error
+    // WITHOUT a statusCode mid-parts-loop; pre-fix that bubbled into the 500
+    // handler. Chop the closing boundary off a valid form to reproduce.
+    const form = new FormData();
+    form.append('category', 'app-crashed');
+    form.append('message', 'truncated mid-flight');
+    form.append('diagnostic', Buffer.from(JSON.stringify({ os: 'Android 14' })), {
+      filename: 'diag.json',
+      contentType: 'application/json',
+    });
+    const whole = form.getBuffer();
+    const truncated = whole.subarray(0, whole.length - 30);
+    const r = await app.inject({
+      method: 'POST',
+      url: '/feedback',
+      headers: {
+        authorization: `Bearer ${tok2()}`,
+        'idempotency-key': '4f7e8f5c-8d2a-4b7f-9c1d-8e3a2b1c4dc8',
+        ...form.getHeaders(),
+      },
+      payload: truncated,
+    });
+    expect(r.statusCode).toBe(400);
+    expect(r.headers['content-type']).toContain('application/problem+json');
+    expect(r.json().title).toBe('malformed multipart');
+  });
+
+  it('lone-surrogate diagnostic → first insert content-rejected, retry drops inline → 201 (Phase 6 items 3+4)', async () => {
+    // A lone UTF-16 surrogate survives JSON.parse and the NUL strip (it is not
+    // a NUL), then Postgres rejects the jsonb text (`\ud800` escape) with a
+    // 22xxx content error on the FIRST insert. The retry insert must drop the
+    // inline diagnostic and still land the report with a 201 — never a 500.
+    // The raw JSON text carries the 6-char escape sequence, exactly as a
+    // device would ship it.
+    const form = new FormData();
+    form.append('category', 'app-crashed');
+    form.append('message', 'poison diagnostic');
+    form.append('diagnostic', Buffer.from('{"poison":"\\ud800"}'), {
+      filename: 'diag.json',
+      contentType: 'application/json',
+    });
+    const r = await app.inject({
+      method: 'POST',
+      url: '/feedback',
+      headers: {
+        authorization: `Bearer ${tok2()}`,
+        'idempotency-key': '4f7e8f5c-8d2a-4b7f-9c1d-8e3a2b1c4dc9',
+        ...form.getHeaders(),
+      },
+      payload: form.getBuffer(),
+    });
+    expect(r.statusCode).toBe(201);
+    const rows = await db
+      .select()
+      .from(schema.feedback)
+      .where(eq(schema.feedback.id, r.json().id as string));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.message).toBe('poison diagnostic');
+    const diag = rows[0]!.diagnostic as Record<string, unknown>;
+    expect(diag._inline_dropped).toBe(true);
+    expect(diag.poison).toBeUndefined();
+  });
+});
+
+describe('isPgContentError (Phase 6 item 3)', () => {
+  it('classifies 22xxx/23xxx as content errors, infra codes and code-less errors as not', () => {
+    expect(isPgContentError({ code: '22P05' })).toBe(true); // unsupported unicode escape
+    expect(isPgContentError({ code: '23505' })).toBe(true); // unique violation
+    // drizzle wraps the pg error — the SQLSTATE may live on .cause
+    expect(isPgContentError({ cause: { code: '22021' } })).toBe(true);
+    expect(isPgContentError({ code: '57P01' })).toBe(false); // admin shutdown = infra
+    expect(isPgContentError(new Error('no code'))).toBe(false);
+    expect(isPgContentError(null)).toBe(false);
+    expect(isPgContentError('22P05')).toBe(false); // bare string is not an error object
   });
 });

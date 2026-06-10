@@ -16,6 +16,7 @@
 import type { FastifyInstance } from 'fastify';
 import multipart from '@fastify/multipart';
 import { ulid } from 'ulid';
+import { eq, sql } from 'drizzle-orm';
 import { db, schema } from '../../db/index.js';
 import { FEEDBACK_CATEGORIES } from '@humyn/shared-types';
 import {
@@ -61,6 +62,22 @@ function stripNulDeep(value: unknown): unknown {
   return value;
 }
 
+/**
+ * Phase 6 item 3 (2026-06-10, Bug 6) — PG content/constraint error classes:
+ * 22xxx (data exception — e.g. 22P05 unsupported unicode escape, 22021 bad
+ * encoding) and 23xxx (integrity constraint). These mean THIS payload cannot
+ * be stored — a client-content problem (4xx), not an infra outage (500).
+ * Drizzle wraps the pg error, so check both the error and its cause.
+ * Exported for tests.
+ */
+export function isPgContentError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const cause = (err as { cause?: unknown }).cause;
+  const code =
+    (err as { code?: unknown }).code ?? (cause as { code?: unknown } | null | undefined)?.code;
+  return typeof code === 'string' && (code.startsWith('22') || code.startsWith('23'));
+}
+
 export default async function feedbackPostRoute(app: FastifyInstance): Promise<void> {
   await app.register(multipart, {
     limits: { fileSize: FEEDBACK_MAX_BYTES, files: 1, fields: 10 },
@@ -100,6 +117,14 @@ export default async function feedbackPostRoute(app: FastifyInstance): Promise<v
       try {
         for await (const part of req.parts()) {
           if (part.type === 'file') {
+            // Phase 6 item 3 (2026-06-10, Bug 6) — a truncated body makes
+            // @fastify/busboy's Dicer emit a LATE (nextTick) 'error' onto this
+            // file stream; with no listener that is an uncaughtException =
+            // process death, not even a 500. @fastify/multipart ≥9.3.0 guards
+            // the pre-consumption window (fastify-multipart #595); this no-op
+            // covers the post-detach window after our iterator below rejects.
+            // The parts() iterator still lands in the 400 catch either way.
+            part.file.on('error', () => {});
             if (part.fieldname !== 'diagnostic') {
               part.file.resume(); // drain unknown file fields
               continue;
@@ -130,9 +155,26 @@ export default async function feedbackPostRoute(app: FastifyInstance): Promise<v
       } catch (err) {
         // @fastify/multipart throws when limits.fileSize is exceeded — collapse
         // to the same "too large" branch so the client sees a 413 problem-detail.
-        const e = err as { code?: string };
+        const e = err as { code?: string; statusCode?: number };
         if (e?.code === 'FST_REQ_FILE_TOO_LARGE') {
           diagnosticTooLarge = true;
+        } else if (typeof e?.statusCode !== 'number') {
+          // Phase 6 item 3 (2026-06-10, Bug 6) — a busboy parse error
+          // ("Unexpected end of form", "Malformed part header", a dropped
+          // connection mid-body) carries NO statusCode and used to bubble
+          // into the 500 handler. A body the server cannot parse is the
+          // CLIENT's malformed request → 400. Fastify/multipart's own typed
+          // errors (FST_FIELDS_LIMIT etc.) carry a statusCode and still
+          // rethrow to the error handler, which maps them correctly.
+          req.log.warn({ err }, 'malformed multipart body on /feedback — replying 400');
+          const pd = buildProblemDetail({
+            slug: PROBLEM_SLUGS.validation,
+            title: 'malformed multipart',
+            status: 400,
+            detail: 'The multipart body could not be parsed',
+            instance: req.id as string,
+          });
+          return reply.status(400).type(PROBLEM_CT).send(pd);
         } else {
           throw err;
         }
@@ -181,7 +223,6 @@ export default async function feedbackPostRoute(app: FastifyInstance): Promise<v
       }
 
       const id = ulid();
-      let diagnosticS3Key: string | null = null;
       let diagnosticInline: Record<string, unknown> | null = null;
       if (diagnosticBytes) {
         // Truncate inline to 100 KB so the DB row stays small but support staff
@@ -198,33 +239,19 @@ export default async function feedbackPostRoute(app: FastifyInstance): Promise<v
         } catch {
           diagnosticInline = { _raw_truncated: truncated.slice(0, 1024) };
         }
-        // Best-effort archive of the full diagnostic blob to S3. A failure here
-        // (FEEDBACK_BUCKET unset, bucket missing, S3 unreachable) must NOT 500
-        // the whole report — degrade to "feedback stored, diagnostic-in-S3
-        // skipped". The inline copy above is already on the row; _s3_key stays
-        // null. Surfaced as a warn so a misconfigured bucket is still visible
-        // in the logs without taking the endpoint down.
-        try {
-          diagnosticS3Key = await uploadDiagnostic({
-            feedbackId: id,
-            userId: sub,
-            bytes: diagnosticBytes,
-            contentType: 'application/json',
-          });
-        } catch (err) {
-          req.log.warn(
-            { err, feedbackId: id },
-            'feedback diagnostic S3 upload failed — storing feedback with inline diagnostic only',
-          );
-        }
       }
-      // BUG-7 — strip NUL bytes (Postgres rejects them in jsonb + text) so a
-      // control char in a telemetry string can't 500 the report, and guard the
-      // insert: prefer sanitize-then-insert (the row persists in full); only on a
-      // residual content failure degrade to dropping the inline diagnostic.
+
+      // Phase 6 item 4 (2026-06-10, Bug 6) — INSERT-FIRST, upload-later. The
+      // row (with `_s3_key: null`) is persisted BEFORE any S3 call, so S3
+      // leaves the 201 path entirely: an S3 outage can neither 500 nor delay
+      // the user's report. BUG-7 — strip NUL bytes (Postgres rejects them in
+      // jsonb + text); on a residual content failure degrade to dropping the
+      // inline diagnostic, and if even THAT insert fails with a PG content/
+      // constraint class (22xxx/23xxx), reply 422 "diagnostic not storable" —
+      // 500 is reserved for infra.
       const diagnosticValue = stripNulDeep({
         ...(diagnosticInline ?? {}),
-        _s3_key: diagnosticS3Key,
+        _s3_key: null,
       }) as Record<string, unknown>;
       const safeMessage = stripNul(message);
       try {
@@ -239,22 +266,70 @@ export default async function feedbackPostRoute(app: FastifyInstance): Promise<v
         // Sanitize-then-insert already handles the NUL case; this is a last-resort
         // degrade for any OTHER content quirk so a support-attachment problem never
         // loses the user's category + message. Retry with the inline diagnostic
-        // dropped (onConflictDoNothing guards the rare partial-first-insert). A
-        // genuine DB outage still surfaces as a 500 — correct (not a content bug).
+        // dropped (onConflictDoNothing guards the rare partial-first-insert).
         req.log.error(
           { err, feedbackId: id },
           'feedback insert failed after NUL-strip — retrying without the inline diagnostic',
         );
-        await db
-          .insert(schema.feedback)
-          .values({
-            id,
+        try {
+          await db
+            .insert(schema.feedback)
+            .values({
+              id,
+              userId: sub,
+              category,
+              message: safeMessage,
+              diagnostic: { _s3_key: null, _inline_dropped: true } as never,
+            })
+            .onConflictDoNothing();
+        } catch (err2) {
+          if (isPgContentError(err2)) {
+            // Phase 6 item 3 — even the diagnostic-free row is content-
+            // rejected (e.g. an unstorable message). This payload can never
+            // succeed → 4xx so the client stops retrying it; 500 stays
+            // reserved for genuine infra failures.
+            req.log.error(
+              { err: err2, feedbackId: id },
+              'feedback retry insert content-rejected — replying 422',
+            );
+            const pd = buildProblemDetail({
+              slug: PROBLEM_SLUGS.validation,
+              title: 'diagnostic not storable',
+              status: 422,
+              detail: 'The report content cannot be stored; remove unusual characters and retry',
+              instance: req.id as string,
+            });
+            return reply.status(422).type(PROBLEM_CT).send(pd);
+          }
+          throw err2; // genuine DB outage → 500 (correct)
+        }
+      }
+
+      // Row persisted — NOW the best-effort S3 archive of the full blob. On
+      // success, stamp the key onto the already-inserted row via jsonb_set; a
+      // failure anywhere in this block (bucket misconfig, S3 down, the UPDATE
+      // itself) is logged and the 201 stands with `_s3_key: null`.
+      let diagnosticS3Key: string | null = null;
+      if (diagnosticBytes) {
+        try {
+          diagnosticS3Key = await uploadDiagnostic({
+            feedbackId: id,
             userId: sub,
-            category,
-            message: safeMessage,
-            diagnostic: { _s3_key: diagnosticS3Key, _inline_dropped: true } as never,
-          })
-          .onConflictDoNothing();
+            bytes: diagnosticBytes,
+            contentType: 'application/json',
+          });
+          await db
+            .update(schema.feedback)
+            .set({
+              diagnostic: sql`jsonb_set(${schema.feedback.diagnostic}, '{_s3_key}', ${JSON.stringify(diagnosticS3Key)}::jsonb)`,
+            })
+            .where(eq(schema.feedback.id, id));
+        } catch (err) {
+          req.log.warn(
+            { err, feedbackId: id },
+            'feedback diagnostic S3 archive failed — feedback already stored with inline diagnostic only',
+          );
+        }
       }
       return reply.status(201).send({ id, diagnosticS3Key });
     },

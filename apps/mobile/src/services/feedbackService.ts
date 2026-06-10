@@ -34,6 +34,7 @@ import { Platform, NativeModules } from 'react-native';
 import uuid from 'react-native-uuid';
 import { apiClient } from './api';
 import { telemetryRing } from './telemetryRing';
+import { stripControlChars, stripControlCharsDeep } from '../lib/sanitizeControlChars';
 
 /** Phase 1 wire enum — copied verbatim from shared/types/src/feedback.ts. */
 export const FEEDBACK_CATEGORIES = [
@@ -115,10 +116,16 @@ export async function submitFeedback(input: SubmitFeedbackInput): Promise<void> 
     throw new Error('feedback_message_length_out_of_range');
   }
 
-  const diagnostic = buildDiagnosticSnapshot();
+  // Phase 6 item 1 (2026-06-10, Bug 6) — belt-and-braces sanitize over the
+  // WHOLE snapshot + the user's message. Ring entries are sanitized at append
+  // time now, but a HISTORICALLY poisoned ring (persisted before this build)
+  // would otherwise keep shipping NUL/C0 bytes that 500'd /feedback. \t\n\r
+  // survive (legitimate in a typed message).
+  const diagnostic = stripControlCharsDeep(buildDiagnosticSnapshot());
+  const safeMessage = stripControlChars(input.message);
   const form = new FormData();
   form.append('category', input.category);
-  form.append('message', input.message);
+  form.append('message', safeMessage);
   // quick-260510-008 — branch on Hermes-presence (NOT Platform.OS — see
   // below) for the diagnostic part shape.
   //
@@ -177,4 +184,16 @@ export async function submitFeedback(input: SubmitFeedbackInput): Promise<void> 
   await apiClient.postMultipart<unknown>('/feedback', form, {
     headers: { 'Idempotency-Key': uuid.v4() as string },
   });
+
+  // Phase 6 item 2 (2026-06-10, Bug 6) — send-and-clear, finally wired (the
+  // design was documented on telemetryRing.clear() but never called). The
+  // events are now archived on the feedback row/S3; clearing means (a) a
+  // historically poisoned ring stops replaying on every report and (b) a
+  // SECOND report carries fresh events instead of the same 100 forever.
+  // Only after a 2xx — a failed POST keeps the ring for the retry.
+  try {
+    telemetryRing.clear();
+  } catch {
+    /* best-effort — never fail a delivered report over local cleanup */
+  }
 }
