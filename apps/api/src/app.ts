@@ -87,6 +87,16 @@ export async function buildApp(): Promise<FastifyInstance> {
           '(apps/api/Dockerfile already installs it — the deployed image may predate that).',
       );
     }
+    // Phase 2 item 4 (2026-06-10) — make the single-instance invariant VISIBLE
+    // at boot. The Bug 4 / D2 eviction LRU (auth/installation-binding.ts, 60 s
+    // TTL, per-process) and the hourly in-process thumbnail sweep both assume
+    // ECS desired_count = 1; scaling out silently weakens eviction (a stale
+    // binding can be served from another instance's LRU for up to 60 s) and
+    // duplicates the sweep. Revisit both before any scale-out.
+    app.log.info(
+      'single-instance invariant: installation-binding LRU (60 s TTL) + the thumbnail sweep ' +
+        'assume desired_count = 1 — do not scale out without revisiting both',
+    );
   }
 
   return app;

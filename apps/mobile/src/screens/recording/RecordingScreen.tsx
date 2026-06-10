@@ -84,6 +84,7 @@ import { HumynUpload } from '../../native/HumynUpload';
 import { decodeGoogleSubFromJwt } from '../../lib/jwtSub';
 import { setPendingUploadToast } from '../../state/uploadToastBus';
 import { writeEntry as writeThumbnailLedgerEntry } from '../../services/thumbnailLedger';
+import { preRecordSessionCheck } from '../../services/sessionCheck';
 import { handleSegmentCanceled } from './lib/handleSegmentCanceled';
 
 interface NavigationLike {
@@ -272,6 +273,12 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
   useEffect(() => {
     dfovMeasuredDeg.current = readCompatUltrawideDfovDeg();
     appVersionRef.current = readAppVersion();
+    // Phase 2 item 2 (2026-06-10, Bug 3) — pre-record session check. Fire one
+    // cheap authed GET before the gate flow: a definitive 401 routes through
+    // the eviction UX (resetToOnboarding unmounts this screen), so an evicted
+    // device can't waste a 10-minute capture that could never upload. Network
+    // errors proceed — offline capture stays legal (the queue holds).
+    void preRecordSessionCheck();
     // Bug 3 / D3 — resolve the precise GPS fix EARLY (at mount) so it's ready by
     // the time the user clears the hand gate and presses Start, WITHOUT adding
     // latency to start(). Best-effort: resolveLocationFix never throws and
