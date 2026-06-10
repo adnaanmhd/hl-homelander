@@ -18,6 +18,7 @@ import eventsPostRoute from './routes/events/post.js';
 import feedbackPostRoute from './routes/feedback/post.js';
 import appVersionGetRoute from './routes/app-version/get.js';
 import { startDsrCron } from './cron/dsr-hard-delete.js';
+import { startThumbnailSweep } from './cron/thumbnail-sweep.js';
 import { verifyConsentTextHash } from './legal/boot-guard.js';
 import { isFfmpegAvailable } from './lib/thumbnail.js';
 
@@ -97,6 +98,15 @@ export async function buildApp(): Promise<FastifyInstance> {
       'single-instance invariant: installation-binding LRU (60 s TTL) + the thumbnail sweep ' +
         'assume desired_count = 1 — do not scale out without revisiting both',
     );
+    // Phase 4 item 1 (2026-06-10, Bug 4) — in-process poster-thumbnail
+    // recovery: backfillThumbnails once at boot + hourly. Replaces the
+    // structurally-unrunnable manual CLI as the recovery path; rows whose
+    // finalize-time generation failed self-heal within one sweep. No-ops
+    // (with a warn) when ffmpeg is absent. GSD_THUMB_SWEEP=off escape hatch
+    // mirrors GSD_DSR_CRON.
+    if (process.env.GSD_THUMB_SWEEP !== 'off') {
+      startThumbnailSweep(app.log);
+    }
   }
 
   return app;

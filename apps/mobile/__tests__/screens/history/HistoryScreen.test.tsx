@@ -530,6 +530,58 @@ describe('HistoryScreen (Plan 06-09)', () => {
     expect(await findByLabelText('history-row')).toBeTruthy();
   });
 
+  it('Phase 4 (Bug 4, 2026-06-10): a device-ONLY row renders its local ledger thumb (not the letter tile)', async () => {
+    // The ledger map used to span only server rawRows — a failed/in-flight
+    // device row letter-tiled even though filesDir/thumbs/<id>.jpg + a ledger
+    // entry existed. The map now unions device-queue recordingIds.
+    mockState.historyRange = 'all';
+    mockState.jwt = 'jwt-token'; // 'sub-alice'
+    mockState.uploadQueue = [
+      {
+        recordingId: 'dev-rec-thumb',
+        ownerUserId: 'sub-alice',
+        mp4Path: '/data/dev-rec-thumb.mp4',
+        csvPath: '/data/dev-rec-thumb.csv',
+        jsonPath: '/data/dev-rec-thumb.json',
+        taskId: 'task-1',
+        isPractice: false,
+        state: 'dead-letter',
+        videoParts: [],
+        imuParts: [],
+        metadataPut: 'pending',
+        enqueuedAt: 1_717_000_000_000,
+        lastProgressAt: 1_717_000_000_000,
+      },
+    ];
+    fetchRecordingsMock.mockResolvedValue({ items: [], next_cursor: null });
+    fetchTasksMock.mockResolvedValue({
+      items: [{ id: 'task-1', name: 'Make tea' }],
+      nextCursor: null,
+    });
+    readEntryMock.mockImplementation((id: string) =>
+      id === 'dev-rec-thumb'
+        ? {
+            recordingId: id,
+            thumbnailPath: '/data/thumbs/dev-rec-thumb.jpg',
+            filename: 'b.mp4',
+            mp4LocalPath: '/data/b.mp4',
+            createdAtMs: 0,
+          }
+        : null,
+    );
+    groupByDayMock.mockImplementation(
+      <T,>(rows: T[]): Array<{ title: string; data: T[] }> =>
+        rows.length ? [{ title: 'Today', data: rows }] : [],
+    );
+    const { findByLabelText, baseElement } = render(<HistoryScreen />);
+    await findByLabelText('history-row');
+    // The local thumb image renders; NO gradient letter-tile fallback.
+    expect(baseElement.querySelectorAll('[aria-label="history-row-thumb"]').length).toBe(1);
+    expect(baseElement.querySelectorAll('[aria-label="history-row-thumb-fallback"]').length).toBe(
+      0,
+    );
+  });
+
   it("does NOT render another user's device-queue row (UP-13 owner-pin)", async () => {
     mockState.historyRange = 'all';
     mockState.jwt = 'jwt-token'; // 'sub-alice'

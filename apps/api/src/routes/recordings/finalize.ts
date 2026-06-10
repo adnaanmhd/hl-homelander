@@ -181,6 +181,12 @@ export default async function finalizeRoute(app: FastifyInstance): Promise<void>
               .update(schema.recordings)
               .set({ s3KeyThumbnail: keys.thumbnail })
               .where(eq(schema.recordings.id, rec.id));
+            // Phase 4 item 2 (2026-06-10) — success was silent; log the key so
+            // CloudWatch can answer "are thumbnails being generated at all?".
+            req.log.info(
+              { recordingId: rec.id, thumbKey: keys.thumbnail },
+              'poster thumbnail generated (finalize-retry recovery)',
+            );
             return reply.send(toRecordingResponse({ ...rec, s3KeyThumbnail: keys.thumbnail }));
           } catch (err) {
             req.log.warn(
@@ -253,6 +259,9 @@ export default async function finalizeRoute(app: FastifyInstance): Promise<void>
           thumbKey: keys.thumbnail,
         });
         thumbKey = keys.thumbnail;
+        // Phase 4 item 2 (2026-06-10) — success was silent; log the key so
+        // CloudWatch can answer "are thumbnails being generated at all?".
+        req.log.info({ recordingId: rec.id, thumbKey }, 'poster thumbnail generated');
       } catch (err) {
         req.log.warn(
           { err, recordingId: rec.id },

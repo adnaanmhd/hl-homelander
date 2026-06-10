@@ -361,14 +361,26 @@ export function HistoryScreen(): React.JSX.Element {
   // Ledger overlay — per-row MMKV lookup (Plan 06-04). The map keys on
   // `recording_id` (the natural key). We rebuild the map on each rows
   // change; ledger reads are MMKV-fast (sub-ms).
+  //
+  // Phase 4 item 3 (2026-06-10, Bug 4) — the map now spans the UNION of
+  // server rows AND device-queue rows. It used to cover only `rawRows`, so a
+  // device-only row (still uploading, or failed before /init) letter-tiled
+  // even though its local capture thumb (filesDir/thumbs/<id>.jpg) + ledger
+  // entry existed the whole time. No new UI — HistoryRow already prefers
+  // ledgerEntry.thumbnailPath.
   // ---------------------------------------------------------------------
   const ledgerByRecordingId: Record<string, ThumbnailLedgerEntry | null> = useMemo(() => {
     const map: Record<string, ThumbnailLedgerEntry | null> = {};
     for (const r of rawRows) {
       map[r.recording_id] = readEntry(r.recording_id);
     }
+    for (const r of deviceRows) {
+      if (!(r.recordingId in map)) {
+        map[r.recordingId] = readEntry(r.recordingId);
+      }
+    }
     return map;
-  }, [rawRows]);
+  }, [rawRows, deviceRows]);
 
   // Normalize to camelCase rows for HistoryRow + groupByDay. The
   // intersection with `GroupableRow` keeps `historyGrouping.groupByDay`'s
