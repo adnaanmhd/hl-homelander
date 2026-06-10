@@ -1,14 +1,17 @@
 package ai.humynlabs.capture.upload
 
+import android.app.Activity
 import android.app.Application
 import android.content.ComponentName
 import android.content.Intent
+import android.provider.Settings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
@@ -95,6 +98,38 @@ class BatteryOptimizationHelperTest {
         // way the helper try/catches both — reaching here without an exception
         // is the assertion.
         BatteryOptimizationHelper.requestExempt(app())
+    }
+
+    @Test
+    fun `requestExempt prefers the Activity context with NO NEW_TASK flag (Phase 5, Bug 5)`() {
+        // Launching from the app context with FLAG_ACTIVITY_NEW_TASK puts the
+        // system dialog in its own task on some OEMs — dismissing it then lands
+        // on the launcher ("the app exited"). With an Activity the intent must
+        // launch from that Activity WITHOUT the flag so dismissal returns to us.
+        val activity = Robolectric.buildActivity(Activity::class.java).create().get()
+        BatteryOptimizationHelper.requestExempt(app(), activity)
+
+        val launched: Intent? = shadowOf(activity).nextStartedActivity
+        assertEquals(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, launched?.action)
+        assertEquals(
+            "Activity-context launch must NOT carry FLAG_ACTIVITY_NEW_TASK",
+            0,
+            (launched?.flags ?: 0) and Intent.FLAG_ACTIVITY_NEW_TASK,
+        )
+    }
+
+    @Test
+    fun `requestExempt without an Activity falls back to appContext plus NEW_TASK`() {
+        val ctx = app()
+        BatteryOptimizationHelper.requestExempt(ctx)
+
+        val launched: Intent? = shadowOf(ctx).nextStartedActivity
+        assertEquals(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, launched?.action)
+        assertEquals(
+            "non-Activity context requires FLAG_ACTIVITY_NEW_TASK",
+            Intent.FLAG_ACTIVITY_NEW_TASK,
+            (launched?.flags ?: 0) and Intent.FLAG_ACTIVITY_NEW_TASK,
+        )
     }
 
     @Test

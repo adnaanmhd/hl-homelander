@@ -93,11 +93,12 @@ vi.mock('../../src/util/analytics', () => ({
   EVENT_NAMES: [],
 }));
 
-// BUG-5 — on full grant the screen fires a best-effort battery-optimization
-// exemption ask (open the AOSP dialog only if not already exempt) before
-// navigating to Compat. Mock the two *Safe bridges so the test asserts the ask
-// without reaching the native module. (Deferred-reference arrows so the factory
-// can be hoisted above these const declarations — same pattern as mockLogEvent.)
+// BUG-5 → Phase 5 (2026-06-10): the battery-optimization exemption ask was
+// RELOCATED from this screen to CompatPassScreen mount (asking here raced the
+// compat camera probes on the next screen). The mocks are RETAINED so Test 9
+// can pin the relocation: full grant must navigate WITHOUT touching the
+// battery bridges. (Deferred-reference arrows so the factory can be hoisted
+// above these const declarations — same pattern as mockLogEvent.)
 const mockBatteryExemptSafe = vi.fn(async () => false);
 const mockBatteryRequestSafe = vi.fn(async () => undefined);
 vi.mock('../../src/native/HumynUpload', () => ({
@@ -469,24 +470,7 @@ describe('PermissionsScreen', () => {
     expect(requestMock).not.toHaveBeenCalled();
   });
 
-  it('Test 9 (BUG-5): full grant fires the best-effort battery-optimization ask before navigating', async () => {
-    requestMock.mockResolvedValueOnce(RESULTS.GRANTED).mockResolvedValueOnce(RESULTS.GRANTED);
-    requestMultipleMock.mockResolvedValueOnce({
-      [FINE]: RESULTS.GRANTED,
-      [COARSE]: RESULTS.GRANTED,
-    });
-    // Default mockBatteryExemptSafe → false → the AOSP exemption dialog is asked.
-    const { getByLabelText } = render(<PermissionsScreen />);
-    fireEvent.click(getByLabelText('Allow access'));
-
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('Compat'));
-    // The ask is fire-and-forget (not awaited before navigation) — it resolves on a
-    // later microtask, so wait for it.
-    await waitFor(() => expect(mockBatteryRequestSafe).toHaveBeenCalledTimes(1));
-  });
-
-  it('Test 9b (BUG-5): already battery-exempt → skips the AOSP ask but still navigates (non-blocking)', async () => {
-    mockBatteryExemptSafe.mockResolvedValue(true);
+  it('Test 9 (Phase 5, 2026-06-10): full grant navigates WITHOUT firing the battery ask — relocated to CompatPassScreen', async () => {
     requestMock.mockResolvedValueOnce(RESULTS.GRANTED).mockResolvedValueOnce(RESULTS.GRANTED);
     requestMultipleMock.mockResolvedValueOnce({
       [FINE]: RESULTS.GRANTED,
@@ -496,9 +480,12 @@ describe('PermissionsScreen', () => {
     fireEvent.click(getByLabelText('Allow access'));
 
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('Compat'));
-    // Wait until the fire-and-forget ask has checked exemption, then confirm it did
-    // NOT open the system dialog (already exempt) — navigation happened regardless.
-    await waitFor(() => expect(mockBatteryExemptSafe).toHaveBeenCalled());
+    // Phase 5: asking here raced the compat camera probes on the NEXT screen
+    // (a system dialog over a held camera = disconnect mid-probe). The ask now
+    // fires on CompatPassScreen mount (probes done, no camera open) — this
+    // screen must no longer touch the battery bridges.
+    await new Promise((r) => setTimeout(r, 0)); // flush the microtasks the old IIFE used
+    expect(mockBatteryExemptSafe).not.toHaveBeenCalled();
     expect(mockBatteryRequestSafe).not.toHaveBeenCalled();
   });
 });

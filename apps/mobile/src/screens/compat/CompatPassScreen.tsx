@@ -32,6 +32,7 @@ import { decodeGoogleSubFromJwt } from '../../lib/jwtSub';
 import { secureMmkv } from '../../state/mmkv';
 import { practiceDoneKey } from '../../state/keys';
 import { fetchMe } from '../../services/profileService';
+import { HumynUpload } from '../../native/HumynUpload';
 
 interface NavigationLike {
   replace(route: string): void;
@@ -70,6 +71,23 @@ export default function CompatPassScreen() {
     // the practice fall-through stays the safe default (and RigTutorial runs
     // its own double-check on mount).
     void fetchMe().catch(() => undefined);
+    // BUG-5 (D-BATTERY) → Phase 5 (2026-06-10): the best-effort battery-
+    // optimization exemption ask, RELOCATED here from PermissionsScreen.
+    // This mount is the first onboarding point where the compat probes have
+    // finished and no camera is open — asking from PermissionsScreen raced
+    // the EncoderProbe/ImuProbe camera sessions on CompatRunningScreen (a
+    // system dialog over a held camera = disconnect mid-probe). FIRE-AND-
+    // FORGET (deliberately NOT awaited): the OEM-flaky native call never
+    // delays the 1.5 s auto-advance, and the dialog opening over the next
+    // screen is fine — accept/deny/dismiss all return to the app. Only opens
+    // the AOSP dialog when not already exempt. The per-vendor OEM autostart
+    // walkthrough lives in the Help Center. `*Safe` = no-op without the
+    // native module (iOS / JSDOM) and never throws.
+    void (async () => {
+      if (!(await HumynUpload.isBatteryOptimizationExemptSafe())) {
+        await HumynUpload.requestBatteryOptimizationExemptionSafe();
+      }
+    })();
   }, []);
 
   useEffect(() => {

@@ -13,7 +13,7 @@
 
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, waitFor } from '@testing-library/react';
 // The canonical react-native-haptic-feedback mock from vitest.setup.ts exposes
 // `default.trigger` as a vi.fn(); we import it directly so per-test assertions
 // observe the same spy the screen's `require()` resolves.
@@ -77,6 +77,22 @@ vi.mock('../../src/state/mmkv', () => ({
   secureMmkv: { getBoolean: () => practiceDoneHolder.value },
 }));
 
+// Phase 5 (2026-06-10, Bug 5) — the battery-optimization exemption ask was
+// RELOCATED here from PermissionsScreen (asking there raced the compat camera
+// probes — a system dialog over a held camera = disconnect mid-probe; this
+// mount is the first point with probes done + no camera open). Mock the two
+// *Safe bridges to assert the mount-time ask.
+const { mockBatteryExemptSafe, mockBatteryRequestSafe } = vi.hoisted(() => ({
+  mockBatteryExemptSafe: vi.fn(async () => false),
+  mockBatteryRequestSafe: vi.fn(async () => undefined),
+}));
+vi.mock('../../src/native/HumynUpload', () => ({
+  HumynUpload: {
+    isBatteryOptimizationExemptSafe: () => mockBatteryExemptSafe(),
+    requestBatteryOptimizationExemptionSafe: () => mockBatteryRequestSafe(),
+  },
+}));
+
 import CompatPassScreen from '../../src/screens/compat/CompatPassScreen';
 
 const PASS_RESULT = {
@@ -107,6 +123,10 @@ beforeEach(() => {
   (HapticFeedback.trigger as unknown as ReturnType<typeof vi.fn>).mockClear();
   compatHolder.value = PASS_RESULT;
   practiceDoneHolder.value = false;
+  // Phase 5 — default: not battery-exempt (so the relocated ask fires); reset
+  // restores the base implementations clearAllMocks left untouched.
+  mockBatteryExemptSafe.mockReset().mockResolvedValue(false);
+  mockBatteryRequestSafe.mockReset().mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -199,5 +219,20 @@ describe('CompatPassScreen (design-spec §4c, post Plan 03-03 auto-advance)', ()
     vi.advanceTimersByTime(1500);
     expect(mockReset).not.toHaveBeenCalled();
     expect(mockReplace).toHaveBeenCalledWith('RigTutorial');
+  });
+
+  it('Test 10 (Phase 5, Bug 5): mount fires the relocated battery-optimization ask when not exempt', async () => {
+    render(<CompatPassScreen />);
+    // Fire-and-forget IIFE — resolves on later microtasks; never blocks the
+    // 1.5 s auto-advance.
+    await waitFor(() => expect(mockBatteryExemptSafe).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockBatteryRequestSafe).toHaveBeenCalledTimes(1));
+  });
+
+  it('Test 11 (Phase 5, Bug 5): already battery-exempt → mount does NOT open the AOSP dialog', async () => {
+    mockBatteryExemptSafe.mockResolvedValue(true);
+    render(<CompatPassScreen />);
+    await waitFor(() => expect(mockBatteryExemptSafe).toHaveBeenCalledTimes(1));
+    expect(mockBatteryRequestSafe).not.toHaveBeenCalled();
   });
 });

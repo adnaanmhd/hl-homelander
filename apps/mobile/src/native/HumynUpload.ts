@@ -329,8 +329,9 @@ export const HumynUpload = {
 
   // Boot-/screen-safe variants — never throw (a build without the native module,
   // a JSDOM test, an iOS build where these aren't implemented). Used by the
-  // onboarding PermissionsScreen battery ask + the Help Center
-  // BatteryOptimizationGuide so they run without the module (BUG-5, 2026-06-09).
+  // onboarding CompatPassScreen battery ask (relocated from PermissionsScreen
+  // in Phase 5, 2026-06-10 — the ask raced the compat camera probes) + the
+  // Help Center BatteryOptimizationGuide (BUG-5, 2026-06-09).
   /** Safe: `false` (treat as "not exempt — show the prompt") when the module is unavailable. */
   isBatteryOptimizationExemptSafe: async (): Promise<boolean> => {
     try {

@@ -209,6 +209,37 @@ VALUES ('apkRollout', '0.1.0-<sha8>', <versionCode>,
 
 (Adjust columns to the live `app_versions` schema if it differs — check `\d app_versions`.)
 
+## 9. Diagnostics: "app exits during the battery ask" (Bug 5)
+
+The owner can no longer reproduce this (the standalone battery screen it crashed from was
+deleted 06-09; Phase 5 additionally guarded the compat camera probes, relocated the ask to
+CompatPassScreen — after the probes, no camera open — and launches the dialog from the Activity
+so dismissal can't land on the launcher). If it ever recurs, capture evidence in this order:
+
+1. **Live filtered logcat while reproducing** (crash signatures + camera lifecycle + the
+   battery-helper's own warnings):
+
+   ```bash
+   adb logcat -v time AndroidRuntime:E ReactNativeJS:E CameraService:I ActivityManager:I HumynBattOpt:W *:S
+   ```
+
+2. **Post-mortem crash buffer** (works after the fact — the crash ring buffer survives):
+
+   ```bash
+   adb logcat -b crash -d
+   ```
+
+3. **Crashlytics console** filtered to the `apkRollout` app — the probe-window failure mode
+   presents as a native `CameraAccessException` / `IllegalStateException` on an
+   `EncoderProbe`/`ImuProbe` HandlerThread; the task-affinity failure mode shows NO crash at
+   all (the app was simply tasked away — check `ActivityManager:I` lines for the dialog's task).
+
+Distinguish the two failure modes: a **crash** leaves an `AndroidRuntime:E` line + a Crashlytics
+event; the **back-to-launcher quirk** leaves neither (the process stays alive — `adb shell pidof
+ai.humynlabs.capture` still prints a pid). The second is cosmetic-but-confusing; it means the
+dialog opened in its own task (the pre-Phase-5 `FLAG_ACTIVITY_NEW_TASK` path — verify the
+installed build is current).
+
 ## Known sharp edges
 
 - **Old APK + new API:** sign-in 400s (`installationId` required) and legacy JWTs 401

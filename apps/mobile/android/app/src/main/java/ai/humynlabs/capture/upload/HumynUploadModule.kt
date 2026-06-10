@@ -384,9 +384,16 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
     /** Open the AOSP "allow unrestricted" prompt (falls back to the settings list). */
     @ReactMethod
     fun requestBatteryOptimizationExemption(promise: Promise) {
+        // Phase 5 (2026-06-10, Bug 5) — capture the host Activity at call time:
+        // launching from it (no NEW_TASK) keeps the system dialog in the app's
+        // task so dismissal returns to the app, not the launcher. Null (app
+        // backgrounded / teardown) falls back to appContext+NEW_TASK inside
+        // the helper. (RN 0.83: the getter lives on ReactContext, not on
+        // ReactContextBaseJavaModule.)
+        val activity = reactApplicationContext.currentActivity
         bgExecutor.execute {
             try {
-                BatteryOptimizationHelper.requestExempt(reactApplicationContext)
+                BatteryOptimizationHelper.requestExempt(reactApplicationContext, activity)
                 promise.resolve(null)
             } catch (t: Throwable) {
                 promise.reject("BATT_OPT_REQUEST_FAILED", t.message ?: "requestBatteryOptimizationExemption failed", t)

@@ -73,7 +73,10 @@ class ImuProbe(private val ctx: Context) {
                     val openLatch = CountDownLatch(1)
                     mgr.openCamera(backId, object : CameraDevice.StateCallback() {
                         override fun onOpened(c: CameraDevice) { camera = c; openLatch.countDown() }
-                        override fun onDisconnected(c: CameraDevice) { c.close() }
+                        // Phase 5 (2026-06-10, Bug 5) — release the latch so a
+                        // pre-open disconnect skips the preview immediately
+                        // instead of waiting out the 2 s timeout.
+                        override fun onDisconnected(c: CameraDevice) { c.close(); openLatch.countDown() }
                         override fun onError(c: CameraDevice, error: Int) { c.close(); openLatch.countDown() }
                     }, handler)
                     openLatch.await(2, TimeUnit.SECONDS)
@@ -81,10 +84,23 @@ class ImuProbe(private val ctx: Context) {
                         val sessionLatch = CountDownLatch(1)
                         cam.createCaptureSession(listOf(surface), object : CameraCaptureSession.StateCallback() {
                             override fun onConfigured(s: CameraCaptureSession) {
-                                session = s
-                                val req = cam.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply { addTarget(surface!!) }.build()
-                                s.setRepeatingRequest(req, null, handler)
-                                sessionLatch.countDown()
+                                // Phase 5 (2026-06-10, Bug 5) — runs on the
+                                // probe HandlerThread: a camera disconnect
+                                // mid-configure (e.g. a system dialog opening
+                                // over the app) makes createCaptureRequest /
+                                // setRepeatingRequest throw, and an uncaught
+                                // throw here is process death. The preview is
+                                // best-effort load — swallow and release the
+                                // latch; the IMU measurement continues.
+                                try {
+                                    session = s
+                                    val req = cam.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply { addTarget(surface!!) }.build()
+                                    s.setRepeatingRequest(req, null, handler)
+                                } catch (_: Throwable) {
+                                    /* best-effort preview — IMU probe proceeds without load */
+                                } finally {
+                                    sessionLatch.countDown()
+                                }
                             }
                             override fun onConfigureFailed(s: CameraCaptureSession) { sessionLatch.countDown() }
                         }, handler)

@@ -1,5 +1,6 @@
 package ai.humynlabs.capture.upload
 
+import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -53,23 +54,34 @@ object BatteryOptimizationHelper {
      * `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` manifest perm, declared in Plan 05-04);
      * if that's somehow unhandled, falls back to the general
      * `ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS` list. Both try/caught — never crashes.
+     *
+     * Phase 5 (2026-06-10, Bug 5) — prefer the current [Activity] (NO
+     * `FLAG_ACTIVITY_NEW_TASK`): launching from the app context with NEW_TASK
+     * puts the system dialog in its OWN task on some OEMs, so dismissing it
+     * lands on the LAUNCHER instead of the app — exactly the "app exited
+     * during the battery ask" presentation. With an Activity context the
+     * dialog stays in the app's task and accept/deny/dismiss all return to
+     * the app. Falls back to the old appContext+NEW_TASK path when no
+     * Activity is available (e.g. a background JS call).
      */
-    fun requestExempt(ctx: Context) {
+    fun requestExempt(ctx: Context, activity: Activity? = null) {
+        val launch: (Intent) -> Unit = if (activity != null) {
+            { intent -> activity.startActivity(intent) }
+        } else {
+            { intent -> ctx.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        }
         val direct = Intent(
             Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
             Uri.parse("package:${ctx.packageName}"),
-        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
         try {
-            ctx.startActivity(direct)
+            launch(direct)
             return
         } catch (e: Exception) {
             Log.w(TAG, "ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS unhandled — falling back to the list", e)
         }
         try {
-            ctx.startActivity(
-                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
+            launch(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
         } catch (e: Exception) {
             Log.w(TAG, "ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS unhandled — user must navigate Settings manually", e)
         }
