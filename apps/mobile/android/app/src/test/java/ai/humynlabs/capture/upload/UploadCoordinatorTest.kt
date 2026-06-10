@@ -1281,7 +1281,12 @@ class UploadCoordinatorTest {
         initResponseCode = 401
         initResponseBody =
             """{"type":"https://humyn-app.io/problems/reauth-required","title":"Re-auth required","status":401}"""
-        store.enqueue(row("01JP1AUTH401AXXXXXXXXXXXXX"))
+        val seeded = row("01JP1AUTH401AXXXXXXXXXXXXX")
+        // Review fix (2026-06-10): prior transient failures must not backoff-block
+        // the row after a successful re-auth — the auth park ZEROES the counter.
+        seeded.attemptCount = 3
+        store.enqueue(seeded)
+        store.upsert(seeded)
 
         val pausedFlag = java.util.concurrent.atomic.AtomicBoolean(false)
         val slugs = java.util.concurrent.CopyOnWriteArrayList<String>()
@@ -1296,9 +1301,52 @@ class UploadCoordinatorTest {
         assertNull("no deadLetterReason on auth failure", back.deadLetterReason)
         assertEquals("auth marker carries the slug", "auth: reauth-required", back.lastFailureReason)
         assertTrue("lastFailureAt stamped", back.lastFailureAt > 0L)
-        assertEquals("auth failure never burns the NEEDS_ATTENTION budget", 0, back.attemptCount)
+        assertEquals(
+            "auth park ZEROES attemptCount (a 401 is a queue condition, not row flakiness)",
+            0,
+            back.attemptCount,
+        )
         assertTrue("queue paused on auth failure", pausedFlag.get())
         assertEquals(listOf("reauth-required"), slugs.toList())
+    }
+
+    @Test
+    fun `Review fix — queueHasWork ignores auth-parked rows (no eternal FGS notification on an evicted device)`() {
+        val parked = row("01JRVQHWAUTHPARKEDXXXXXXXX")
+        store.enqueue(parked)
+        parked.state = UploadState.PENDING
+        parked.lastFailureReason = UploadCoordinator.AUTH_FAILURE_REASON_PREFIX + "device-evicted"
+        store.upsert(parked)
+
+        val coord = coordinator(paused = { true })
+        assertEquals("an auth-parked PENDING row is not actionable work", false, coord.queueHasWork())
+
+        // A normal PENDING row IS work.
+        store.enqueue(row("01JRVQHWNORMALROWXXXXXXXXX"))
+        assertEquals(true, coord.queueHasWork())
+    }
+
+    @Test
+    fun `Review fix — UploadControlState pause reasons are independent (recording stop cannot clear an auth park)`() {
+        try {
+            // Auth park while a recording also pauses: clearing the JS pause
+            // (recording stop / logout sign-in) must NOT clear the auth park...
+            UploadControlState.setPaused(true)
+            UploadControlState.setAuthPaused(true)
+            UploadControlState.setPaused(false)
+            assertTrue("auth park survives the JS-lifecycle resume", UploadControlState.isPaused())
+            // ...and clearing the auth park (fresh token push / resumeAuth) must
+            // NOT unpause a recording in progress (UP-10).
+            UploadControlState.setPaused(true)
+            UploadControlState.setAuthPaused(false)
+            assertTrue("recording pause survives an auth resume", UploadControlState.isPaused())
+            UploadControlState.setPaused(false)
+            assertEquals(false, UploadControlState.isPaused())
+        } finally {
+            // Never leak pause state into other tests.
+            UploadControlState.setPaused(false)
+            UploadControlState.setAuthPaused(false)
+        }
     }
 
     @Test
@@ -1333,7 +1381,10 @@ class UploadCoordinatorTest {
         assertTrue("revive returns true on an actual revival", coord.reviveDeadLetter(r.recordingId))
 
         val back = store.read().first()
-        assertEquals(UploadState.UPLOADING, back.state)
+        // Review fix (2026-06-10): revive routes by uploadId like retryNeedsAttention
+        // (shared reactivateRow). This row has NO uploadId, so it takes the /init
+        // self-heal branch as PENDING (the old code hardcoded UPLOADING).
+        assertEquals(UploadState.PENDING, back.state)
         assertNull(back.deadLetterReason)
         assertEquals("attemptCount reset (was backoff-skipping the row up to 1 h)", 0, back.attemptCount)
         assertEquals(0L, back.lastFailureAt)
@@ -1343,7 +1394,7 @@ class UploadCoordinatorTest {
         assertNotEquals("parts key rotated", oldPartsKey, back.partsIdempotencyKey)
         assertNotEquals("finalize key rotated", oldFinalizeKey, back.finalizeIdempotencyKey)
 
-        // No-op contract: a second revive on the (now UPLOADING) row returns false.
+        // No-op contract: a second revive on the (now reactivated) row returns false.
         assertEquals(false, coord.reviveDeadLetter(r.recordingId))
     }
 

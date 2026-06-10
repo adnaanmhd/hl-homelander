@@ -28,6 +28,16 @@
  */
 import { NativeEventEmitter, NativeModules, type EmitterSubscription } from 'react-native';
 
+/**
+ * Phase 1 (2026-06-10) — marker prefix the native coordinator stamps into
+ * `lastFailureReason` when a 401 parks a row (mirror of
+ * `UploadCoordinator.AUTH_FAILURE_REASON_PREFIX` — keep in sync). Lives here
+ * on the bridge (the Kotlin-contract module) so both `uploadQueueStore` and
+ * `uploadReconcile` can import it without importing each other (review fix
+ * 2026-06-10 — avoids a service-module cycle).
+ */
+export const AUTH_FAILURE_REASON_PREFIX = 'auth: ';
+
 /** One S3 multipart part — number (1-based), status, ETag (once done), retry count. */
 export type UploadPartState = {
   n: number;
@@ -151,8 +161,14 @@ interface HumynUploadNativeModule {
   ): Promise<void>;
   /** Pause in-flight uploads (UP-10 — HumynCapture.start() calls this). */
   pause(): Promise<void>;
-  /** Resume uploads (UP-10 — HumynCapture.stop() calls this). */
+  /** Resume uploads (UP-10 — HumynCapture.stop() calls this). Clears ONLY the JS-lifecycle pause. */
   resume(): Promise<void>;
+  /**
+   * Review fix (2026-06-10) — clear the coordinator's 401 AUTH pause + kick
+   * the drainer, WITHOUT touching the JS-lifecycle pause (a recording in
+   * progress keeps uploads parked, UP-10). Called by the auth-recovery paths.
+   */
+  resumeAuth(): Promise<void>;
   /** Read all queue rows (the JS side filters to own-rows). Read-only — no abort (UP-11). */
   getQueue(): Promise<UploadQueueRow[]>;
   /**
@@ -251,6 +267,16 @@ export const HumynUpload = {
     ensure().enqueue(recordingId, mp4Path, csvPath, jsonPath, taskId, isPractice, ownerUserId),
   pause: (): Promise<void> => ensure().pause(),
   resume: (): Promise<void> => ensure().resume(),
+  /** Clear the 401 auth-pause + drain — never touches the recording/logout pause (UP-10). */
+  resumeAuth: (): Promise<void> => ensure().resumeAuth(),
+  /** Boot-safe `resumeAuth()` — never throws; no-op when the module is absent. */
+  resumeAuthSafe: async (): Promise<void> => {
+    try {
+      await ensure().resumeAuth();
+    } catch {
+      /* no native module / JSDOM — non-fatal */
+    }
+  },
   getQueue: (): Promise<UploadQueueRow[]> => ensure().getQueue(),
   /** Local-delete on terminal success (renamed from clearUploaded, Enh 3 / D1). */
   clearUploaded: (recordingIds: string[]): Promise<void> => ensure().clearUploaded(recordingIds),

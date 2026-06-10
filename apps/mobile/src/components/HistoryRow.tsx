@@ -307,22 +307,16 @@ function uploadedAtLabel(row: HistoryRowItem, t: TFunction): string {
 
 /**
  * Debug session `upload-queue-hol-finalizing` (Fix C item 4), generalized
- * 2026-06-10 (Phase 1 item 6) — Retry label for a failed row. DEAD_LETTER
- * rows now surface their captured `deadLetterReason` exactly like
- * NEEDS_ATTENTION rows surface `lastFailureReason` (before this, a
- * dead-lettered row only ever said "Upload failed — Retry" and the user
- * never learned why). Falls back to the legacy copy when no reason is
- * available (e.g. legacy on-disk rows that pre-date the failure markers).
+ * 2026-06-10 (Phase 1 item 6) — Retry label for a failed row: the captured
+ * reason (`lastFailureReason` for NEEDS_ATTENTION / `deadLetterReason` for
+ * DEAD_LETTER — HistoryScreen decides which) when present, else the legacy
+ * copy (e.g. legacy on-disk rows that pre-date the failure markers). Review
+ * simplification 2026-06-10: the deviceState param was dropped — both failed
+ * states render identically, so the guard was always true at the only call
+ * site (and the export had no importers).
  */
-export function retryLabelFor(deviceState: HistoryRowDeviceState, reason?: string): string {
-  if (
-    (deviceState === 'needs-attention' || deviceState === 'dead-letter') &&
-    reason != null &&
-    reason.length > 0
-  ) {
-    return `${reason} — Retry`;
-  }
-  return 'Upload failed — Retry';
+function retryLabelFor(reason?: string): string {
+  return reason != null && reason.length > 0 ? `${reason} — Retry` : 'Upload failed — Retry';
 }
 
 export function HistoryRow({
@@ -373,15 +367,10 @@ export function HistoryRow({
 
   const firstLetter = (localizedTaskName || '?').slice(0, 1).toUpperCase();
 
-  // 2026-05-18 — Fix C item 4: pick the Retry copy. needs-attention overrides
-  // dead-letter when both apply (the deviceState is the authoritative source).
-  // 2026-06-10 (Phase 1 item 6): dead-letter rows render their captured
-  // reason too — failureReason carries lastFailureReason OR deadLetterReason
-  // per the device state (HistoryScreen decides which).
-  const retryLabel = retryLabelFor(
-    deviceState === 'needs-attention' ? 'needs-attention' : 'dead-letter',
-    failureReason,
-  );
+  // 2026-05-18 — Fix C item 4 / 2026-06-10 (Phase 1 item 6): the Retry copy
+  // surfaces the captured reason — failureReason carries lastFailureReason OR
+  // deadLetterReason per the device state (HistoryScreen decides which).
+  const retryLabel = retryLabelFor(failureReason);
 
   return (
     <Pressable

@@ -19,6 +19,7 @@ import { secureMmkv } from '../state/mmkv';
 import { KEYS, practicePendingServerPostKey } from '../state/keys';
 import { decodeGoogleSubFromJwt } from '../lib/jwtSub';
 import { postPracticeComplete } from './profileService';
+import { apiErrorStatus } from './api';
 
 /** Mark the signed-in account's completion as not-yet-persisted server-side. */
 export function markPracticeServerPostPending(sub: string): void {
@@ -35,6 +36,29 @@ export function clearPracticeServerPostPending(sub: string): void {
     secureMmkv.remove(practicePendingServerPostKey(sub));
   } catch {
     /* best-effort */
+  }
+}
+
+/**
+ * Attempt the completion POST once and settle the pending flag: cleared on
+ * 2xx OR a 409/conflict (the server already has a non-null
+ * practice_completed_at, or an idempotency-key conflict on a duplicate
+ * in-flight POST — either way the server state is what we wanted); kept on
+ * anything else (offline, 401 pre-re-sign-in, 5xx, the stale 404 server) so
+ * a later flush retries. Never throws. Shared by PracticeCompleteScreen's
+ * immediate attempt and [flushPracticeServerPost] (review extraction
+ * 2026-06-10 — the two copies of this classifier had to change in lockstep).
+ * Status is read from the typed ApiError (`apiErrorStatus`) — the old
+ * /failed: 409/ message regex also matched body text.
+ */
+export async function attemptPracticeServerPost(sub: string): Promise<void> {
+  try {
+    await postPracticeComplete();
+    clearPracticeServerPostPending(sub);
+  } catch (e) {
+    if (apiErrorStatus(e) === 409) {
+      clearPracticeServerPostPending(sub);
+    }
   }
 }
 
@@ -55,20 +79,7 @@ export async function flushPracticeServerPost(): Promise<void> {
     const sub = decodeGoogleSubFromJwt(jwt);
     if (!sub) return;
     if (secureMmkv.getBoolean(practicePendingServerPostKey(sub)) !== true) return;
-    try {
-      await postPracticeComplete();
-      clearPracticeServerPostPending(sub);
-    } catch (e) {
-      // 409 = the server already has a non-null practice_completed_at (or an
-      // idempotency-key conflict on a duplicate in-flight POST) — either way
-      // the server state is what we wanted; stop retrying. Anything else
-      // (offline, 401 pre-re-sign-in, 5xx, the stale 404 server) keeps the
-      // flag for the next boot/foreground flush.
-      const msg = e instanceof Error ? e.message : '';
-      if (/failed: 409/.test(msg)) {
-        clearPracticeServerPostPending(sub);
-      }
-    }
+    await attemptPracticeServerPost(sub);
   } finally {
     flushInFlight = false;
   }

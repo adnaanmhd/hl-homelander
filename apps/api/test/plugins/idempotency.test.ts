@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../src/app.js';
 import { db, schema } from '../../src/db/index.js';
+import { persist, hashRequest } from '../../src/lib/idempotency-store.js';
 import { eq } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 
@@ -157,5 +158,45 @@ describe('idempotency plugin', () => {
     });
     expect(r3.statusCode).toBe(200);
     expect(r3.json()).toEqual({ calls: 2 }); // handler NOT invoked a third time
+  });
+
+  // Review hardening F3 (2026-06-10) — the READ-side guard. The >=400
+  // write-guard keeps new error entries out, but an entry stored BEFORE that
+  // guard deployed (or by any future regression) would otherwise pin its 4xx
+  // for the 24 h TTL against the client's stable per-row keys. The plugin must
+  // treat a stored error as a miss: purge it and re-execute the handler.
+  it('a stale stored 4xx entry is purged + the handler re-executes (read-side guard)', async () => {
+    const key = '7c9e6679-7425-40de-944b-e07fc1f90ae7'; // fresh v4
+    const body = { value: 'after-purge' };
+    // Seed the poisoned entry DIRECTLY via the store, bypassing the plugin's
+    // write-guard — exactly what a pre-guard deploy would have left behind.
+    // Same request hash, so without the guard this WOULD replay the 422.
+    await persist({
+      userId: TEST_USER_ID,
+      key,
+      method: 'POST',
+      path: '/_test/echo-authed',
+      requestHash: hashRequest('POST', '/_test/echo-authed', body),
+      statusCode: 422,
+      responseBody: { error: 'stale poisoned 4xx' },
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/_test/echo-authed',
+      headers: { authorization: `Bearer ${tok()}`, 'idempotency-key': key },
+      payload: body,
+    });
+    // The handler RAN (fresh 200) — the seeded 422 was NOT replayed.
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ echoed: 'after-purge' });
+
+    // The poisoned entry is gone, replaced by the new success memo.
+    const rows = await db
+      .select()
+      .from(schema.idempotencyKeys)
+      .where(eq(schema.idempotencyKeys.key, key));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.statusCode).toBe(200);
   });
 });

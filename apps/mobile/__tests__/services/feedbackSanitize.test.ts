@@ -127,4 +127,19 @@ describe('stripControlChars helpers (Phase 6 item 1)', () => {
       }),
     ).toEqual({ k: ['v1', 2, null, { inner: 'xy' }] });
   });
+
+  it('replaces LONE surrogates with U+FFFD but preserves valid astral pairs (review fix V13)', () => {
+    // A length-truncated emoji in an err.message leaves a lone high surrogate —
+    // the other Postgres-unstorable class besides NUL. Hermes 0.14 has no
+    // String#toWellFormed; the sanitizer must neutralize these itself.
+    const LONE_HIGH = '\uD800';
+    const LONE_LOW = '\uDC00';
+    expect(stripControlChars(`oops ${LONE_HIGH} truncated`)).toBe('oops � truncated');
+    expect(stripControlChars(`tail${LONE_LOW}`)).toBe('tail�');
+    // A VALID pair (😀 = D83D DE00) passes through untouched — including when a
+    // lone surrogate sits right next to it.
+    expect(stripControlChars('hi 😀 there')).toBe('hi 😀 there');
+    expect(stripControlChars(`😀${LONE_HIGH}😀`)).toBe('😀�😀');
+    expect(stripControlCharsDeep({ msg: `e${LONE_HIGH}` })).toEqual({ msg: 'e�' });
+  });
 });

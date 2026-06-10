@@ -14,6 +14,9 @@ vi.mock('@react-native-google-signin/google-signin', () => ({
     configure: vi.fn(),
     hasPlayServices: vi.fn().mockResolvedValue(true),
     signIn: vi.fn().mockResolvedValue({ type: 'success', data: { idToken: 'g-id-token' } }),
+    signInSilently: vi
+      .fn()
+      .mockResolvedValue({ type: 'success', data: { idToken: 'g-silent-token' } }),
   },
 }));
 vi.mock('react-native-keychain', () => ({
@@ -35,7 +38,7 @@ vi.mock('../../src/services/api', () => ({
   apiClient: { post: vi.fn(), postNoBody: vi.fn() },
 }));
 
-import { signInWithGoogle } from '../../src/services/auth';
+import { signInWithGoogle, silentReauth } from '../../src/services/auth';
 import { apiClient } from '../../src/services/api';
 
 // A JWT whose payload decodes to the build-time (flavor, applicationId) — the
@@ -62,7 +65,7 @@ beforeEach(() => {
 });
 
 describe('auth.signInWithGoogle (Bug 4 / D2)', () => {
-  it('sends installationId in the /auth/google body', async () => {
+  it('sends installationId in the /auth/google body — and NO silent flag (interactive keeps last-writer-wins)', async () => {
     await signInWithGoogle();
     const postMock = apiClient.post as ReturnType<typeof vi.fn>;
     const [path, body] = postMock.mock.calls[0] as [string, Record<string, unknown>];
@@ -72,5 +75,30 @@ describe('auth.signInWithGoogle (Bug 4 / D2)', () => {
     expect(body.flavor).toBe('apkRollout');
     expect(body.applicationId).toBe('ai.humynlabs.capture.apk');
     expect(body.nonceId).toBe('nonce-id');
+    // Review fix (2026-06-10): only MACHINE-initiated re-auths mark silent.
+    expect(body.silent).toBeUndefined();
+  });
+});
+
+describe('auth.silentReauth (review fix 2026-06-10 — must not steal the device binding)', () => {
+  it('sends silent: true in the /auth/google body (the server refuses to rebind on it)', async () => {
+    await expect(silentReauth()).resolves.toBe(true);
+    const postMock = apiClient.post as ReturnType<typeof vi.fn>;
+    const [path, body] = postMock.mock.calls[0] as [string, Record<string, unknown>];
+    expect(path).toBe('/auth/google');
+    expect(body.silent).toBe(true);
+    expect(body.installationId).toBe('inst-uuid-xyz');
+  });
+
+  it('a 401 device-evicted rejection (bound to another device) → false, never throws', async () => {
+    (apiClient.post as ReturnType<typeof vi.fn>).mockRejectedValue(
+      Object.assign(
+        new Error(
+          'POST /auth/google failed: 401 {"type":"https://humyn-app.io/problems/device-evicted"}',
+        ),
+        { status: 401 },
+      ),
+    );
+    await expect(silentReauth()).resolves.toBe(false);
   });
 });

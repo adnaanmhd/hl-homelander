@@ -35,19 +35,23 @@ import Config from 'react-native-config';
 import { secureMmkv } from '../state/mmkv';
 import { KEYS } from '../state/keys';
 import { apiClient } from './api';
-import { HumynUpload, type UploadQueueRow } from '../native/HumynUpload';
+import {
+  HumynUpload,
+  AUTH_FAILURE_REASON_PREFIX,
+  type UploadQueueRow,
+} from '../native/HumynUpload';
 import { decodeGoogleSubFromJwt } from '../lib/jwtSub';
 import { useAppStore } from '../state/appStore';
-import { AUTH_FAILURE_REASON_PREFIX } from './uploadQueueStore';
 
 /**
  * Phase 1 item 7 (2026-06-10) — true for a row the native coordinator parked
  * after an auth-classified 401 (`lastFailureReason` carries the `auth: <slug>`
- * marker). The foreground reconcile must NOT auto-revive/drain these: the
- * token is dead, so kicking the drainer just re-fires the 401 (ping-pong).
- * Recovery comes from the jwt-change subscription below (fresh token →
- * context push + resume) or the `onUploadAuthFailure` listener's silent
- * re-auth — both clear the pause; a successful drain clears the marker.
+ * marker). The foreground reconcile must not blind-revive/drain these with the
+ * REST of the queue — instead they get the dedicated `resumeAuth` recovery
+ * below (review fix 2026-06-10): with a fresh/valid JWT the drain clears the
+ * marker; with a dead one it costs exactly one 401 that re-fires
+ * `onUploadAuthFailure` (single-flight silent re-auth), so recovery rides the
+ * boot/foreground cadence instead of waiting for an interactive sign-in.
  */
 function isAuthBlocked(r: UploadQueueRow): boolean {
   return r.lastFailureReason?.startsWith(AUTH_FAILURE_REASON_PREFIX) ?? false;
@@ -71,11 +75,20 @@ interface RecordingsListResponseLite {
  * key) — Kotlin can't conveniently read the encrypted MMKV (Plan 05-06). Called
  * on boot, on every AppState→`active` (a JWT refresh is picked up), and on every
  * `appStore.jwt` change (post-sign-in). Best-effort + boot-safe (no native
- * module / JSDOM → no-op). Also `resume()`s after a same-user re-login (the
- * coordinator's process-lived paused flag may be set from a prior logout — the
- * native `bootstrap(currentSub)` then only resumes own-rows).
+ * module / JSDOM → no-op). The native `setUploadContext` clears the AUTH pause
+ * whenever a non-null bearer lands.
+ *
+ * Review fix (2026-06-10) — `resume` carries WHICH pause to clear:
+ *  - `'js'`   (interactive sign-in after a logout): `HumynUpload.resume()` —
+ *    clears the JS-lifecycle pause the logout set. Safe: the user was on the
+ *    Signup screen, so no recording can be in progress.
+ *  - `'auth'` (token ROTATION — silent re-auth): `HumynUpload.resumeAuth()` —
+ *    clears only the 401 park + kicks the drain. A recording in progress
+ *    keeps uploads parked (UP-10).
+ * Exported so `uploadQueueStore.handleUploadAuthFailure` shares this exact
+ * path instead of carrying a drift-prone copy.
  */
-async function pushUploadContext(opts?: { resume?: boolean }): Promise<void> {
+export async function pushUploadContext(opts?: { resume?: 'js' | 'auth' }): Promise<void> {
   const baseUrl = Config.API_BASE_URL;
   if (!baseUrl) return; // no API base URL configured (a test/JSDOM env) — nothing to push
   const jwt = secureMmkv.getString(KEYS.AUTH_JWT) ?? null;
@@ -83,7 +96,11 @@ async function pushUploadContext(opts?: { resume?: boolean }): Promise<void> {
   await HumynUpload.setUploadContextSafe(baseUrl, jwt, sub);
   if (opts?.resume && jwt) {
     try {
-      await HumynUpload.resume();
+      if (opts.resume === 'js') {
+        await HumynUpload.resume();
+      } else {
+        await HumynUpload.resumeAuth();
+      }
     } catch {
       /* no native module / transient — non-fatal */
     }
@@ -118,9 +135,9 @@ export async function reconcileOnce(): Promise<number> {
     // active before the drain kick. We use `reviveDeadLetterSafe` (NOT
     // `reupload`) — the latter has a FULL-RESET footgun when `row.reupload`
     // was already set, see `.planning/debug/resolved/uploads-stuck-multi-segment.md`.
-    // Phase 1 item 7 (2026-06-10) — skip auth-blocked rows (the `auth: <slug>`
-    // marker): reviving/draining them with the same dead token just re-fires
-    // the 401. They recover via the jwt-change resume path below.
+    // Phase 1 item 7 (2026-06-10) — keep auth-blocked rows (the `auth: <slug>`
+    // marker) OUT of the blind revive/drain below; they get the dedicated
+    // recovery probe instead.
     const deadLetters = queue.filter((r) => r.state === 'dead-letter' && !isAuthBlocked(r));
     for (const r of deadLetters) {
       await HumynUpload.reviveDeadLetterSafe(r.recordingId);
@@ -130,6 +147,19 @@ export async function reconcileOnce(): Promise<number> {
       queue.some((r) => (r.state === 'pending' || r.state === 'uploading') && !isAuthBlocked(r));
     if (hasStale) {
       await HumynUpload.drainNowSafe();
+    }
+    // Review fix (2026-06-10) — auth-parked rows must not strand. The 401 park
+    // is process-lived (the in-memory pause dies with the process) but the row
+    // marker is durable, and nothing else kicks these rows: the skip above
+    // excludes them, PENDING rows have no Retry CTA, and a failed silent
+    // re-auth leaves the queue paused with no retrigger. With a JWT present,
+    // clear the auth pause + drain (`resumeAuth` — never touches the
+    // recording/logout pause): a valid token drains them to success (clearing
+    // the markers); a dead one costs one 401 that re-fires
+    // `onUploadAuthFailure` → single-flight silent re-auth, so recovery rides
+    // every boot/foreground instead of waiting for an interactive sign-in.
+    if (queue.some(isAuthBlocked) && (secureMmkv.getString(KEYS.AUTH_JWT) ?? null)) {
+      await HumynUpload.resumeAuthSafe();
     }
   } catch {
     /* boot-safe — never crash the reconcile sweep over a queue read */
@@ -191,14 +221,20 @@ export function installUploadReconcile(): () => void {
   //     case is also covered by useRecordingLifecycle's onStop('logout') →
   //     handleStop → HumynUpload.pause(); this is the not-recording / logged-out-
   //     elsewhere path.)
-  //   - jwt → <value> (sign-in / same-user re-login): re-push the auth context
-  //     + resume() — the native bootstrap(currentSub) only resumes own-rows.
+  //   - null → <value> (interactive sign-in after a logout): re-push the auth
+  //     context + resume('js') — clears the logout pause; no recording can be
+  //     in progress on the Signup screen.
+  //   - <value> → <value> (token ROTATION — silent re-auth): resume('auth')
+  //     only — review fix 2026-06-10: clearing the JS-lifecycle pause here
+  //     unpaused uploads MID-RECORDING when a silent re-auth landed during
+  //     capture (UP-10 violation).
   let lastJwt: string | null = useAppStore.getState().jwt;
   const storeUnsub = useAppStore.subscribe((state) => {
     if (state.jwt !== lastJwt) {
+      const prevJwt = lastJwt;
       lastJwt = state.jwt;
       if (state.jwt) {
-        void pushUploadContext({ resume: true });
+        void pushUploadContext({ resume: prevJwt === null ? 'js' : 'auth' });
       } else {
         try {
           void HumynUpload.pause().catch(() => undefined);

@@ -22,6 +22,11 @@ import { isFfmpegAvailable } from '../lib/thumbnail.js';
 import { backfillThumbnails } from '../lib/thumbnail-backfill.js';
 
 export const THUMBNAIL_SWEEP_INTERVAL_MS = 60 * 60 * 1000; // hourly
+// Review fix (2026-06-10) — the boot sweep is DEFERRED: a post-deploy boot is
+// exactly when the backlog is largest, and an immediate sweep (candidate
+// SELECT + up to 2 concurrent ffmpeg spawns) would contend with the new ECS
+// task's first live requests during cold start.
+export const THUMBNAIL_SWEEP_BOOT_DELAY_MS = 60 * 1000;
 
 export interface SweepLogger {
   info: (obj: unknown, msg?: string) => void;
@@ -29,6 +34,7 @@ export interface SweepLogger {
 }
 
 let _timer: NodeJS.Timeout | undefined;
+let _bootTimer: NodeJS.Timeout | undefined;
 let _running = false;
 
 /**
@@ -61,13 +67,15 @@ export async function runThumbnailSweepOnce(logger: SweepLogger): Promise<void> 
 }
 
 /**
- * Start the sweep: once at boot + every [THUMBNAIL_SWEEP_INTERVAL_MS].
- * No-ops (with a loud warn) when ffmpeg is absent — generation cannot work,
- * and a sweep that fails every row hourly is just noise.
+ * Start the sweep: once at boot (after [THUMBNAIL_SWEEP_BOOT_DELAY_MS]) + every
+ * [THUMBNAIL_SWEEP_INTERVAL_MS]. No-ops (with a loud warn) when ffmpeg is
+ * absent — generation cannot work, and a sweep that fails every row hourly is
+ * just noise.
  */
 export function startThumbnailSweep(
   logger: SweepLogger,
   intervalMs: number = THUMBNAIL_SWEEP_INTERVAL_MS,
+  bootDelayMs: number = THUMBNAIL_SWEEP_BOOT_DELAY_MS,
 ): void {
   if (_timer) return;
   if (!isFfmpegAvailable()) {
@@ -77,7 +85,11 @@ export function startThumbnailSweep(
     );
     return;
   }
-  void runThumbnailSweepOnce(logger);
+  _bootTimer = setTimeout(() => {
+    _bootTimer = undefined;
+    void runThumbnailSweepOnce(logger);
+  }, bootDelayMs);
+  _bootTimer.unref?.();
   _timer = setInterval(() => {
     void runThumbnailSweepOnce(logger);
   }, intervalMs);
@@ -85,6 +97,10 @@ export function startThumbnailSweep(
 }
 
 export function stopThumbnailSweep(): void {
+  if (_bootTimer) {
+    clearTimeout(_bootTimer);
+    _bootTimer = undefined;
+  }
   if (_timer) {
     clearInterval(_timer);
     _timer = undefined;

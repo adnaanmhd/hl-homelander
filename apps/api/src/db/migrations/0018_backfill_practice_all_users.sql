@@ -13,13 +13,16 @@
 --
 -- COALESCE keeps it idempotent + non-destructive: a non-null
 -- practice_completed_at (set organically post-06-04, or by 0017) is preserved,
--- never overwritten; re-running is a no-op. created_at is NOT NULL
--- (defaultNow), so the backfilled value is always well-defined. Accounts
--- created AFTER this migration runs are untouched — they go through practice
--- normally and get stamped by POST /me/practice-complete.
+-- never overwritten; re-running is a no-op. The WHERE clause is semantically
+-- redundant with the COALESCE but skips rewriting (and re-triggering/WAL-ing)
+-- every already-stamped row. created_at is NOT NULL (defaultNow), so the
+-- backfilled value is always well-defined. Accounts created AFTER this
+-- migration runs are untouched — they go through practice normally and get
+-- stamped by POST /me/practice-complete.
 --
 -- Sequencing: 0017 stays as-is (already-applied environments see a
 -- superset-safe sequence — 0017's subset stamp followed by 0018's full stamp).
 
 UPDATE users
-SET practice_completed_at = COALESCE(practice_completed_at, created_at);
+SET practice_completed_at = COALESCE(practice_completed_at, created_at)
+WHERE practice_completed_at IS NULL;

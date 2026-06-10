@@ -7,6 +7,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../../src/services/api', () => ({
   apiClient: { get: vi.fn() },
   applyDeviceEviction: vi.fn(),
+  // Real duck-typed reader (review fix 2026-06-10) — classification is by the
+  // typed ApiError's .status, never by message text.
+  apiErrorStatus: (e: unknown) => {
+    const s = (e as { status?: unknown } | null | undefined)?.status;
+    return typeof s === 'number' ? s : undefined;
+  },
 }));
 
 import { preRecordSessionCheck } from '../../src/services/sessionCheck';
@@ -26,7 +32,10 @@ describe('preRecordSessionCheck', () => {
 
   it('definitive 401 → false + the re-sign-in UX fires', async () => {
     vi.mocked(apiClient.get).mockRejectedValue(
-      new Error('GET /me failed: 401 {"type":"https://humyn-app.io/problems/device-evicted"}'),
+      Object.assign(
+        new Error('GET /me failed: 401 {"type":"https://humyn-app.io/problems/device-evicted"}'),
+        { status: 401 },
+      ),
     );
     await expect(preRecordSessionCheck()).resolves.toBe(false);
     expect(applyDeviceEviction).toHaveBeenCalledWith('reauth');
@@ -39,7 +48,19 @@ describe('preRecordSessionCheck', () => {
   });
 
   it('server 5xx → true (indeterminate — never blocks recording)', async () => {
-    vi.mocked(apiClient.get).mockRejectedValue(new Error('GET /me failed: 503 upstream'));
+    vi.mocked(apiClient.get).mockRejectedValue(
+      Object.assign(new Error('GET /me failed: 503 upstream'), { status: 503 }),
+    );
+    await expect(preRecordSessionCheck()).resolves.toBe(true);
+    expect(applyDeviceEviction).not.toHaveBeenCalled();
+  });
+
+  it('a 500 whose BODY echoes "failed: 401" does NOT evict (review fix — status-typed, not regex)', async () => {
+    vi.mocked(apiClient.get).mockRejectedValue(
+      Object.assign(new Error('GET /me failed: 500 {"detail":"upstream request failed: 401"}'), {
+        status: 500,
+      }),
+    );
     await expect(preRecordSessionCheck()).resolves.toBe(true);
     expect(applyDeviceEviction).not.toHaveBeenCalled();
   });

@@ -32,9 +32,9 @@
 //     "caller MUST .remove()" leak contract).
 
 import type { EmitterSubscription } from 'react-native';
-import Config from 'react-native-config';
 import {
   HumynUpload,
+  AUTH_FAILURE_REASON_PREFIX,
   onUploadAuthFailure,
   onUploadProgress,
   onUploadQueueChanged,
@@ -45,18 +45,11 @@ import {
 import { useAppStore } from '../state/appStore';
 import { applyDeviceEviction } from './api';
 import { silentReauth } from './auth';
-import { secureMmkv } from '../state/mmkv';
-import { KEYS } from '../state/keys';
-import { decodeGoogleSubFromJwt } from '../lib/jwtSub';
+import { pushUploadContext } from './uploadReconcile';
 
-/**
- * Phase 1 (2026-06-10) — marker prefix the native coordinator stamps into
- * `lastFailureReason` when a 401 parks a row (see
- * `UploadCoordinator.AUTH_FAILURE_REASON_PREFIX` — keep in sync). The
- * reconcile sweep skips auto-reviving/draining rows carrying it until a fresh
- * token has been pushed (prevents 401 ping-pong).
- */
-export const AUTH_FAILURE_REASON_PREFIX = 'auth: ';
+// Re-export for existing importers (the constant moved to the bridge module —
+// review fix 2026-06-10, see native/HumynUpload.ts).
+export { AUTH_FAILURE_REASON_PREFIX };
 
 /** Single-flight guard — N parked rows can emit N auth events in one drain tick. */
 let authFailureHandling = false;
@@ -82,19 +75,15 @@ export async function handleUploadAuthFailure(slug: string): Promise<void> {
     }
     const ok = await silentReauth().catch(() => false);
     if (!ok) return;
-    // silentReauth's setJwt already triggers uploadReconcile's jwt-change
-    // subscription (context push + resume), but that subscription only exists
-    // when installUploadReconcile ran — push + resume here too (idempotent).
-    const baseUrl = Config.API_BASE_URL;
-    if (baseUrl) {
-      const jwt = secureMmkv.getString(KEYS.AUTH_JWT) ?? null;
-      await HumynUpload.setUploadContextSafe(baseUrl, jwt, decodeGoogleSubFromJwt(jwt));
-    }
-    try {
-      await HumynUpload.resume();
-    } catch {
-      /* no native module — non-fatal */
-    }
+    // Review fix (2026-06-10) — single-path the recovery through
+    // uploadReconcile.pushUploadContext (the previous inline copy had already
+    // drifted from it). `resume: 'auth'` pushes the fresh token (which clears
+    // the native AUTH pause) and kicks the drain WITHOUT touching the
+    // JS-lifecycle pause — a recording in progress keeps uploads parked
+    // (UP-10) even when the re-auth lands mid-capture. silentReauth's setJwt
+    // also fires uploadReconcile's jwt-change subscription with the same call
+    // — idempotent; this explicit call covers any install-ordering edge.
+    await pushUploadContext({ resume: 'auth' });
   } finally {
     authFailureHandling = false;
   }

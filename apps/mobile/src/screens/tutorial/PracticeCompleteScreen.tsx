@@ -51,10 +51,9 @@ import { Button } from '../../ui/primitives/Button';
 import { colors, spacing } from '../../ui/tokens';
 import { useAppStore } from '../../state/appStore';
 import { decodeGoogleSubFromJwt } from '../../lib/jwtSub';
-import { postPracticeComplete } from '../../services/profileService';
 import {
   markPracticeServerPostPending,
-  clearPracticeServerPostPending,
+  attemptPracticeServerPost,
 } from '../../services/practiceSync';
 import { logEvent } from '../../util/analytics';
 import Confetti from './components/Confetti';
@@ -111,14 +110,10 @@ export default function PracticeCompleteScreen() {
     // app-foreground instead of silently dropped (which re-gated existing
     // users through the tutorial on their next reinstall).
     markPracticeServerPostPending(sub);
-    void postPracticeComplete()
-      .then(() => clearPracticeServerPostPending(sub))
-      .catch((e: unknown) => {
-        // 409 = the server already has it — done. Everything else keeps the
-        // pending flag for the practiceSync flush.
-        const msg = e instanceof Error ? e.message : '';
-        if (/failed: 409/.test(msg)) clearPracticeServerPostPending(sub);
-      });
+    // attemptPracticeServerPost owns the settle logic (clear on 2xx/409, keep
+    // pending otherwise) — review extraction 2026-06-10; this screen and the
+    // boot/foreground flush previously carried drift-prone copies.
+    void attemptPracticeServerPost(sub);
     logEvent('practice_complete_continued');
     // MainTabs is a RootNativeStack route — reset on the parent navigator
     // when present (we are nested inside OnboardingStack); fall back to the

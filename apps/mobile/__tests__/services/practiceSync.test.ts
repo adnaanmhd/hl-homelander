@@ -17,6 +17,17 @@ vi.mock('../../src/services/profileService', () => ({
   postPracticeComplete: postMock,
 }));
 
+// Review fix (2026-06-10) — practiceSync classifies the 409 via the typed
+// ApiError's .status (apiErrorStatus) instead of message-regexing. Mock the
+// api module with the real duck-typed reader so the heavy api.ts import chain
+// (Toast/StyleSheet/navigationRef) stays out of this narrow test env.
+vi.mock('../../src/services/api', () => ({
+  apiErrorStatus: (e: unknown) => {
+    const s = (e as { status?: unknown } | null | undefined)?.status;
+    return typeof s === 'number' ? s : undefined;
+  },
+}));
+
 vi.mock('react-native', () => ({
   AppState: {
     currentState: 'active' as const,
@@ -80,7 +91,13 @@ describe('flushPracticeServerPost', () => {
   it('pending + 409 → clears the flag (server already has it)', async () => {
     secureMmkv.set(KEYS.AUTH_JWT, JWT_SUB_ALICE);
     markPracticeServerPostPending(SUB);
-    postMock.mockRejectedValue(new Error('POST /me/practice-complete failed: 409 conflict'));
+    // Review fix (2026-06-10): classification reads ApiError.status — the
+    // message text alone no longer clears anything.
+    postMock.mockRejectedValue(
+      Object.assign(new Error('POST /me/practice-complete failed: 409 conflict'), {
+        status: 409,
+      }),
+    );
 
     await flushPracticeServerPost();
     expect(secureMmkv.getBoolean(practicePendingServerPostKey(SUB))).toBe(false);
@@ -98,6 +115,20 @@ describe('flushPracticeServerPost', () => {
     postMock.mockResolvedValue({ practiceCompletedAt: 'x' });
     await flushPracticeServerPost();
     expect(secureMmkv.getBoolean(practicePendingServerPostKey(SUB))).toBe(false);
+  });
+
+  it('a 500 whose body echoes "failed: 409" does NOT clear the flag (status-typed, not regex)', async () => {
+    secureMmkv.set(KEYS.AUTH_JWT, JWT_SUB_ALICE);
+    markPracticeServerPostPending(SUB);
+    postMock.mockRejectedValue(
+      Object.assign(
+        new Error('POST /me/practice-complete failed: 500 {"detail":"upstream failed: 409"}'),
+        { status: 500 },
+      ),
+    );
+
+    await flushPracticeServerPost();
+    expect(secureMmkv.getBoolean(practicePendingServerPostKey(SUB))).toBe(true);
   });
 
   it('clearPracticeServerPostPending removes the flag', () => {

@@ -115,11 +115,16 @@ class UploadCoordinator(
     /**
      * Phase 1 (2026-06-10) — pause the whole queue when a 401 lands (the JWT is
      * dead for EVERY row; hammering the API with N more 401s helps nobody).
-     * Default flips the process-lived [UploadControlState] flag — the same one
-     * `HumynUploadModule.pause()` sets — so the queue stays parked until the JS
-     * side pushes a fresh token and calls `resume()`. Test seam.
+     * Default flips the process-lived [UploadControlState] AUTH-pause flag —
+     * distinct from the JS-lifecycle pause that `HumynUploadModule.pause()` /
+     * `resume()` flip (review fix 2026-06-10: with a single shared flag, a
+     * recording stop's `resume()` punched through the auth park and re-drained
+     * against a known-dead token; conversely a silent re-auth's resume could
+     * unpause uploads mid-recording, violating UP-10). The auth pause clears
+     * only when JS pushes a fresh token (`setUploadContext`) or calls
+     * `resumeAuth()`. Test seam.
      */
-    private val requestPause: () -> Unit = { UploadControlState.setPaused(true) },
+    private val requestPause: () -> Unit = { UploadControlState.setAuthPaused(true) },
     /** Test seam — short backoff so tests don't sleep 2/4/8 s. */
     private val chunkUploader: ChunkUploader = ChunkUploader(DEFAULT_HTTP_CLIENT),
     /** Wave-2 #5 — sleep between bounded in-loop transient retries. Test seam: pass 1L so the retry test doesn't sleep 5 s. */
@@ -283,7 +288,17 @@ class UploadCoordinator(
     fun queueHasWork(): Boolean =
         queueStore.read().any {
             it.state != UploadState.DEAD_LETTER &&
-                it.state != UploadState.NEEDS_ATTENTION
+                it.state != UploadState.NEEDS_ATTENTION &&
+                // Review fix (2026-06-10) — auth-parked rows are not actionable
+                // work: they wait on a fresh token, not on the FGS/UIDT.
+                // Counting them kept the dataSync notification alive (and the
+                // UIDT job rescheduling) forever on an evicted device that
+                // never re-signs-in. The durable row marker (unlike the
+                // in-memory paused flag) survives process death; recovery
+                // never flows through queueHasWork() — resume()/resumeAuth()/
+                // drain() kick PENDING rows directly and a successful drain
+                // clears the marker.
+                it.lastFailureReason?.startsWith(AUTH_FAILURE_REASON_PREFIX) != true
         }
 
     /**
@@ -424,6 +439,12 @@ class UploadCoordinator(
                 row.lastFailureAt = System.currentTimeMillis()
                 row.lastFailureState = row.state.name
                 row.lastFailureReason = AUTH_FAILURE_REASON_PREFIX + e.slug
+                // Review fix (2026-06-10) — zero the backoff counter: a 401 is a
+                // QUEUE condition (dead token), never row flakiness. Without
+                // this, a row carrying prior transient-failure attempts stayed
+                // backoff-skipped for up to 15 min AFTER a successful silent
+                // re-auth + resume, looking frozen with a valid token.
+                row.attemptCount = 0
                 row.state = UploadState.PENDING
                 queueStore.upsert(row)
                 requestPause()
@@ -670,26 +691,32 @@ class UploadCoordinator(
     fun retryNeedsAttention(recordingId: String): Boolean {
         val row = queueStore.read().firstOrNull { it.recordingId == recordingId } ?: return false
         if (row.state != UploadState.NEEDS_ATTENTION) return false
+        reactivateRow(row)
+        return true
+    }
+
+    /**
+     * Shared body of the two row-revival paths ([retryNeedsAttention] +
+     * [reviveDeadLetter] — review extraction 2026-06-10; the two hand-copies
+     * had already drifted on the post-revive state). Clears the failure
+     * markers, mints fresh per-route Idempotency-Keys (so a historically
+     * server-cached entry under the old key can never replay — safe because
+     * /init + /parts + /finalize are SELECT-first idempotent and the server
+     * only memoizes 2xx), and puts the row back on the automatic drain path:
+     * UPLOADING when an uploadId exists (the worker re-presigns against the
+     * EXISTING multipart upload, preserving DONE parts' ETags) or PENDING
+     * (the worker takes the idempotent /init self-heal branch).
+     */
+    private fun reactivateRow(row: UploadRow) {
         row.attemptCount = 0
         row.lastFailureAt = 0L
         row.lastFailureState = null
         row.lastFailureReason = null
-        // Phase 1 item 5 (2026-06-10) — fresh per-route Idempotency-Keys on every
-        // USER-initiated retry, so a historically server-cached entry under the
-        // old key (the pre-06-10 server memoized 4xx for 24 h) can never replay.
-        // Safe: /init + /parts re-presign idempotently by recordingId
-        // (SELECT-first), so a fresh key just re-runs the idempotent handler.
         row.rotateIdempotencyKeys()
-        // If the row had an uploadId set when it stalled (mid-finalize or
-        // mid-part-PUT after /init), the worker re-presigns against the
-        // EXISTING multipart upload (preserves DONE parts' ETags). If not,
-        // the worker takes the /init self-heal branch. Either way, we just
-        // need to put the row back into the automatic drain path.
         row.state = if (row.uploadId != null) UploadState.UPLOADING else UploadState.PENDING
         queueStore.upsert(row)
         emitQueueChanged()
         drain()
-        return true
     }
 
     /**
@@ -707,21 +734,14 @@ class UploadCoordinator(
      * takes `/parts` re-presign (uploadId set — preserves DONE ETags) or the
      * idempotent `/init` self-heal (uploadId null). No-op (false) for a missing
      * or non-DEAD_LETTER row — a sweep over a mixed queue never mutates an
-     * UPLOADING row mid-transfer.
+     * UPLOADING row mid-transfer. Invoked by the user-tapped History Retry AND
+     * the automatic boot/foreground revive sweep (`uploadReconcile.ts`).
      */
     fun reviveDeadLetter(recordingId: String): Boolean {
         val row = queueStore.read().firstOrNull { it.recordingId == recordingId } ?: return false
         if (row.state != UploadState.DEAD_LETTER) return false
-        row.state = UploadState.UPLOADING
         row.deadLetterReason = null
-        row.attemptCount = 0
-        row.lastFailureAt = 0L
-        row.lastFailureState = null
-        row.lastFailureReason = null
-        row.rotateIdempotencyKeys()
-        queueStore.upsert(row)
-        emitQueueChanged()
-        drain()
+        reactivateRow(row)
         return true
     }
 

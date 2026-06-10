@@ -29,9 +29,24 @@ const C0_EXCEPT_TAB_LF_CR_RE = new RegExp(
   'g',
 );
 
-/** Strip C0 control chars (keeping \t \n \r) from a string. */
+// Review fix (2026-06-10) — LONE (unpaired) UTF-16 surrogates are the other
+// Postgres-unstorable class (jsonb rejects the `\udXXX` escape with a 22xxx
+// SQLSTATE): one length-truncated emoji in an err.message prop poisons the
+// ring exactly like a NUL did, and the server's degrade path then drops the
+// whole inline diagnostic. Matches a VALID surrogate pair first (kept) or any
+// remaining (= lone) surrogate (replaced with U+FFFD). Lookbehind-free on
+// purpose — Hermes 0.14 has neither `String.prototype.toWellFormed` nor
+// reliable lookbehind (verified against the bundled libhermesvm).
+const SURROGATE_PAIR_OR_LONE_RE = /([\uD800-\uDBFF][\uDC00-\uDFFF])|[\uD800-\uDFFF]/g;
+
+/**
+ * Strip C0 control chars (keeping \t \n \r) and replace lone surrogates with
+ * U+FFFD, yielding a well-formed, Postgres-storable string.
+ */
 export function stripControlChars(s: string): string {
-  return s.replace(C0_EXCEPT_TAB_LF_CR_RE, '');
+  return s
+    .replace(C0_EXCEPT_TAB_LF_CR_RE, '')
+    .replace(SURROGATE_PAIR_OR_LONE_RE, (m, pair: string | undefined) => pair ?? '�');
 }
 
 /** Deep-sanitize every string key + value in a JSON-ish structure. */

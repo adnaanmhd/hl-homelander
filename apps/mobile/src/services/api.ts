@@ -211,6 +211,35 @@ export function applyDeviceEviction(reason: 'evicted' | 'reauth'): void {
   }
 }
 
+/**
+ * Review fix (2026-06-10) — typed transport error carrying the numeric HTTP
+ * status. Callers that branch on status (pre-record session check, the
+ * practice-sync 409 classifier) MUST read `.status` via [apiErrorStatus]
+ * instead of regex-matching the message: the message embeds the raw response
+ * BODY, so a 500 whose body echoed "failed: 401" used to force-evict the
+ * user pre-record.
+ */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+/**
+ * The HTTP status of a thrown API-client error, or undefined for non-API
+ * failures (offline TypeError, abort, mocks without a status). Duck-typed on
+ * `.status` rather than `instanceof` so test doubles and cross-realm errors
+ * classify identically.
+ */
+export function apiErrorStatus(e: unknown): number | undefined {
+  const s = (e as { status?: unknown } | null | undefined)?.status;
+  return typeof s === 'number' ? s : undefined;
+}
+
 export const apiClient: ApiClient = {
   async post<T>(path: string, body: object, opts?: { idempotencyKey?: string }): Promise<T> {
     const headers: Record<string, string> = {
@@ -235,7 +264,7 @@ export const apiClient: ApiClient = {
       if (!res.ok) {
         const text = await res.text();
         maybeHandleEviction(res.status, text);
-        throw new Error(`POST ${path} failed: ${res.status} ${text}`);
+        throw new ApiError(`POST ${path} failed: ${res.status} ${text}`, res.status);
       }
       return (await res.json()) as T;
     } finally {
@@ -260,7 +289,7 @@ export const apiClient: ApiClient = {
       if (!res.ok) {
         const text = await res.text();
         maybeHandleEviction(res.status, text);
-        throw new Error(`POST ${path} failed: ${res.status} ${text}`);
+        throw new ApiError(`POST ${path} failed: ${res.status} ${text}`, res.status);
       }
       return (await res.json()) as T;
     } finally {
@@ -304,7 +333,7 @@ export const apiClient: ApiClient = {
           body = await res.text();
         }
         maybeHandleEviction(res.status, body);
-        throw new Error(`GET ${path} failed: ${res.status} ${body}`);
+        throw new ApiError(`GET ${path} failed: ${res.status} ${body}`, res.status);
       }
       return (await res.json()) as T;
     } finally {
@@ -346,7 +375,7 @@ export const apiClient: ApiClient = {
           bodyText = await res.text();
         }
         maybeHandleEviction(res.status, bodyText);
-        throw new Error(`PATCH ${path} failed: ${res.status} ${bodyText}`);
+        throw new ApiError(`PATCH ${path} failed: ${res.status} ${bodyText}`, res.status);
       }
       return (await res.json()) as T;
     } finally {
@@ -389,7 +418,7 @@ export const apiClient: ApiClient = {
           bodyText = await res.text();
         }
         maybeHandleEviction(res.status, bodyText);
-        throw new Error(`DELETE ${path} failed: ${res.status} ${bodyText}`);
+        throw new ApiError(`DELETE ${path} failed: ${res.status} ${bodyText}`, res.status);
       }
       // 200 with empty body (DELETE /me) → undefined. Otherwise try-parse.
       const text = await res.text();
@@ -435,7 +464,7 @@ export const apiClient: ApiClient = {
           bodyText = await res.text();
         }
         maybeHandleEviction(res.status, bodyText);
-        throw new Error(`POST ${path} failed: ${res.status} ${bodyText}`);
+        throw new ApiError(`POST ${path} failed: ${res.status} ${bodyText}`, res.status);
       }
       // POST /feedback returns JSON ({ id, diagnosticS3Key }); other
       // multipart endpoints may return empty 201s. Try parse-as-JSON; if the

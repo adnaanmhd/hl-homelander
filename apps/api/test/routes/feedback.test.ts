@@ -283,13 +283,14 @@ describe('POST /feedback (multipart)', () => {
     expect(r.json().title).toBe('malformed multipart');
   });
 
-  it('lone-surrogate diagnostic → first insert content-rejected, retry drops inline → 201 (Phase 6 items 3+4)', async () => {
+  it('lone-surrogate diagnostic → sanitized to U+FFFD, diagnostic SURVIVES the first insert → 201 (Phase 6 + review fix V13)', async () => {
     // A lone UTF-16 surrogate survives JSON.parse and the NUL strip (it is not
-    // a NUL), then Postgres rejects the jsonb text (`\ud800` escape) with a
-    // 22xxx content error on the FIRST insert. The retry insert must drop the
-    // inline diagnostic and still land the report with a 201 — never a 500.
-    // The raw JSON text carries the 6-char escape sequence, exactly as a
-    // device would ship it.
+    // a NUL); pre-V13 Postgres rejected the jsonb text (`\ud800` escape) with a
+    // 22xxx content error on the FIRST insert and the retry ladder "recovered"
+    // by DROPPING the entire inline diagnostic. The sanitizer now replaces
+    // lone surrogates with U+FFFD at strip time, so the first insert succeeds
+    // with the diagnostic intact. The raw JSON text carries the 6-char escape
+    // sequence, exactly as a device would ship it.
     const form = new FormData();
     form.append('category', 'app-crashed');
     form.append('message', 'poison diagnostic');
@@ -315,8 +316,9 @@ describe('POST /feedback (multipart)', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]!.message).toBe('poison diagnostic');
     const diag = rows[0]!.diagnostic as Record<string, unknown>;
-    expect(diag._inline_dropped).toBe(true);
-    expect(diag.poison).toBeUndefined();
+    // The diagnostic was NOT dropped — the poison char was neutralized in place.
+    expect(diag._inline_dropped).toBeUndefined();
+    expect(diag.poison).toBe('�');
   });
 });
 

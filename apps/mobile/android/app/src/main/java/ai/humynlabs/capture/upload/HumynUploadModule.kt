@@ -123,6 +123,14 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
         bgExecutor.execute {
             try {
                 UploadAuthContext.set(apiBaseUrl, bearerToken, sub)
+                // Review fix (2026-06-10) — a token push is the auth-pause's
+                // clear condition: the coordinator parked the queue because the
+                // bearer was dead; JS pushing a (possibly fresh) one re-arms the
+                // drain. A still-dead token costs one 401 round that re-parks +
+                // re-fires onUploadAuthFailure (single-flight silent re-auth on
+                // the JS side). Does NOT touch the JS-lifecycle pause — a
+                // recording in progress keeps uploads parked (UP-10).
+                if (bearerToken != null) UploadControlState.setAuthPaused(false)
                 promise.resolve(null)
             } catch (t: Throwable) {
                 promise.reject("UPLOAD_SET_CONTEXT_FAILED", t.message ?: "setUploadContext failed", t)
@@ -201,7 +209,11 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
         }
     }
 
-    /** Resume uploads (UP-10 — HumynCapture.stop() calls this). */
+    /**
+     * Resume uploads (UP-10 — HumynCapture.stop() calls this). Clears ONLY the
+     * JS-lifecycle pause; an auth park (dead token) survives a recording stop
+     * (review fix 2026-06-10 — see [UploadControlState]).
+     */
     @ReactMethod
     fun resume(promise: Promise) {
         bgExecutor.execute {
@@ -213,6 +225,27 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
                 promise.resolve(null)
             } catch (t: Throwable) {
                 promise.reject("UPLOAD_RESUME_FAILED", t.message ?: "resume failed", t)
+            }
+        }
+    }
+
+    /**
+     * Review fix (2026-06-10) — clear the AUTH pause (the coordinator's 401
+     * park) + kick the drainer, WITHOUT touching the JS-lifecycle pause: a
+     * recording in progress keeps uploads parked (UP-10) even when a silent
+     * re-auth lands mid-capture. Called by the JS auth-recovery paths
+     * (`uploadReconcile.pushUploadContext` after a token rotation, and the
+     * foreground reconcile's auth-parked-row recovery).
+     */
+    @ReactMethod
+    fun resumeAuth(promise: Promise) {
+        bgExecutor.execute {
+            try {
+                UploadControlState.setAuthPaused(false)
+                runCatching { coordinator.drain() }
+                promise.resolve(null)
+            } catch (t: Throwable) {
+                promise.reject("UPLOAD_RESUME_AUTH_FAILED", t.message ?: "resumeAuth failed", t)
             }
         }
     }
@@ -609,14 +642,33 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
 }
 
 /**
- * Process-lived paused flag for the upload pipeline. `HumynUploadModule.pause()`
- * / `resume()` flip it; `UploadCoordinator` (Plan 05-06) reads it. Lives at
- * module scope (not in the bridge instance) so it survives a catalyst reload.
+ * Process-lived paused flags for the upload pipeline. Lives at module scope
+ * (not in the bridge instance) so it survives a catalyst reload.
+ *
+ * Review fix (2026-06-10) — split into TWO ORed reasons. With the single
+ * shared flag, the two pause owners punched through each other:
+ *  - a recording stop's `resume()` cleared the coordinator's 401 park and
+ *    re-drained every row against a known-dead token (one doomed 401 burst +
+ *    a full silent-re-auth handshake per recording stop);
+ *  - a successful silent re-auth's `resume()` could unpause uploads while a
+ *    recording was in progress (UP-10 violation — the CPU/network-contention
+ *    class that historically regressed `imu_video_drift`).
+ *
+ * `jsPaused`: the JS-lifecycle pause (recording in progress / logged out).
+ * Bridge `pause()`/`resume()` flip it — nothing else.
+ * `authPaused`: the coordinator parked the queue on a 401 (Phase 1, Bug 1).
+ * Cleared ONLY by a fresh-token `setUploadContext(bearer != null)` or
+ * `resumeAuth()` — never by the JS-lifecycle `resume()`.
  */
 internal object UploadControlState {
     @Volatile
-    private var paused: Boolean = false
+    private var jsPaused: Boolean = false
 
-    fun setPaused(value: Boolean) { paused = value }
-    fun isPaused(): Boolean = paused
+    @Volatile
+    private var authPaused: Boolean = false
+
+    fun setPaused(value: Boolean) { jsPaused = value }
+    fun setAuthPaused(value: Boolean) { authPaused = value }
+    fun isPaused(): Boolean = jsPaused || authPaused
+    fun isAuthPaused(): Boolean = authPaused
 }

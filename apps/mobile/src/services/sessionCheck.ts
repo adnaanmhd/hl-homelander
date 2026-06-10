@@ -15,7 +15,7 @@
 //   - ANY other failure (offline, timeout, 5xx) → proceed. Offline capture
 //     stays legal — the upload queue holds until connectivity returns.
 
-import { apiClient, applyDeviceEviction } from './api';
+import { apiClient, apiErrorStatus, applyDeviceEviction } from './api';
 
 /** Short timeout — this is a liveness probe, never a UX-blocking fetch. */
 const SESSION_CHECK_TIMEOUT_MS = 5_000;
@@ -30,13 +30,14 @@ export async function preRecordSessionCheck(): Promise<boolean> {
     await apiClient.get('/me', { timeoutMs: SESSION_CHECK_TIMEOUT_MS });
     return true;
   } catch (e) {
-    const msg = e instanceof Error ? e.message : '';
-    // apiClient throws `GET /me failed: <status> <body>` on non-2xx. Only a
-    // definitive 401 blocks; the eviction-slug variants already fired
-    // maybeHandleEviction inside the client (applyDeviceEviction is
-    // idempotent — guarded on deviceEvicted — so re-applying is safe and
-    // covers the slug-less 401 shape).
-    if (/failed: 401/.test(msg)) {
+    // Review fix (2026-06-10): branch on the typed ApiError status — the old
+    // /failed: 401/ message regex also matched the response BODY embedded in
+    // the message, so a 5xx whose body echoed "failed: 401" force-evicted the
+    // user pre-record. Only a definitive 401 blocks; the eviction-slug
+    // variants already fired maybeHandleEviction inside the client
+    // (applyDeviceEviction is idempotent — guarded on deviceEvicted — so
+    // re-applying is safe and covers the slug-less 401 shape).
+    if (apiErrorStatus(e) === 401) {
       applyDeviceEviction('reauth');
       return false;
     }

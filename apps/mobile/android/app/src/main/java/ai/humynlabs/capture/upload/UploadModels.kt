@@ -260,14 +260,19 @@ data class UploadRow(
 ) {
     /**
      * Phase 1 item 5 (2026-06-10) — mint fresh per-route Idempotency-Keys.
-     * Called on every USER-initiated retry (`reviveDeadLetter` /
-     * `retryNeedsAttention`) so a historically server-cached response under the
-     * old key can never replay against the retry (the pre-06-10 server memoized
-     * 4xx responses for 24 h — a poisoned cache entry would otherwise survive
-     * even a server fix). Safe because `/recordings/init` + `/:id/parts`
-     * re-presign idempotently by recordingId (SELECT-first) — a fresh key just
-     * re-runs the idempotent handler. NOT called on automatic retries (the
-     * stable-key contract is what makes ordinary retry storms idempotent).
+     * Called on every row REACTIVATION (`reviveDeadLetter` /
+     * `retryNeedsAttention`) — that's the user-tapped Retry paths AND the
+     * automatic boot/foreground dead-letter revive sweep (`uploadReconcile.ts`)
+     * — so a historically server-cached response under the old key can never
+     * replay against the retry (the pre-06-10 server memoized 4xx responses
+     * for 24 h — a poisoned cache entry would otherwise survive even a server
+     * fix). Safe on BOTH paths because `/recordings/init` + `/:id/parts` +
+     * `/finalize` are SELECT-first idempotent and the server only memoizes
+     * 2xx — a fresh key just re-runs the idempotent handler (review
+     * verification 2026-06-10). The drain loop's own bounded in-place retries
+     * still reuse the stable keys; rotation happens only when a parked row is
+     * put back on the drain path, serialized on the module's single-thread
+     * executor.
      */
     fun rotateIdempotencyKeys() {
         initIdempotencyKey = UUID.randomUUID().toString()

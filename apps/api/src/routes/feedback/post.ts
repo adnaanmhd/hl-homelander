@@ -25,6 +25,7 @@ import {
   FEEDBACK_INLINE_MAX_BYTES,
 } from '../../lib/feedback-uploader.js';
 import { buildProblemDetail, PROBLEM_SLUGS } from '../../lib/problem-detail.js';
+import { pgErrorCode } from '../../lib/pg-error.js';
 
 const PROBLEM_CT = 'application/problem+json';
 
@@ -46,8 +47,20 @@ type FeedbackCategory = (typeof FEEDBACK_CATEGORIES)[number];
 // the literal trips ESLint `no-control-regex` (a build + pre-commit error). A
 // shared global-flag regex is safe for String#replace (no lastIndex state).
 const NUL_RE = new RegExp(String.fromCharCode(0), 'g');
+// Review fix (2026-06-10) — LONE (unpaired) UTF-16 surrogates are the other
+// jsonb-unstorable class (the escape JSON.stringify emits for them is rejected
+// with a 22xxx SQLSTATE). They reach here from device telemetry (a
+// length-truncated emoji in an err.message) AND can be minted locally by the
+// `_raw_truncated` slice below splitting an astral pair. Replacing them with
+// U+FFFD lets the FIRST insert succeed with the diagnostic INTACT — before
+// this, the retry ladder "recovered" by dropping the entire inline diagnostic.
+// Matches a valid surrogate pair first (kept) or any remaining lone surrogate
+// (replaced). Same well-formed semantics as String#toWellFormed.
+const SURROGATE_PAIR_OR_LONE_RE = /([\uD800-\uDBFF][\uDC00-\uDFFF])|[\uD800-\uDFFF]/g;
 function stripNul(s: string): string {
-  return s.replace(NUL_RE, '');
+  return s
+    .replace(NUL_RE, '')
+    .replace(SURROGATE_PAIR_OR_LONE_RE, (m, pair: string | undefined) => pair ?? '�');
 }
 function stripNulDeep(value: unknown): unknown {
   if (typeof value === 'string') return stripNul(value);
@@ -67,14 +80,10 @@ function stripNulDeep(value: unknown): unknown {
  * 22xxx (data exception — e.g. 22P05 unsupported unicode escape, 22021 bad
  * encoding) and 23xxx (integrity constraint). These mean THIS payload cannot
  * be stored — a client-content problem (4xx), not an infra outage (500).
- * Drizzle wraps the pg error, so check both the error and its cause.
  * Exported for tests.
  */
 export function isPgContentError(err: unknown): boolean {
-  if (!err || typeof err !== 'object') return false;
-  const cause = (err as { cause?: unknown }).cause;
-  const code =
-    (err as { code?: unknown }).code ?? (cause as { code?: unknown } | null | undefined)?.code;
+  const code = pgErrorCode(err);
   return typeof code === 'string' && (code.startsWith('22') || code.startsWith('23'));
 }
 
@@ -158,14 +167,22 @@ export default async function feedbackPostRoute(app: FastifyInstance): Promise<v
         const e = err as { code?: string; statusCode?: number };
         if (e?.code === 'FST_REQ_FILE_TOO_LARGE') {
           diagnosticTooLarge = true;
-        } else if (typeof e?.statusCode !== 'number') {
+        } else if (
+          typeof e?.statusCode !== 'number' &&
+          err instanceof Error &&
+          err.constructor === Error
+        ) {
           // Phase 6 item 3 (2026-06-10, Bug 6) — a busboy parse error
           // ("Unexpected end of form", "Malformed part header", a dropped
           // connection mid-body) carries NO statusCode and used to bubble
           // into the 500 handler. A body the server cannot parse is the
           // CLIENT's malformed request → 400. Fastify/multipart's own typed
           // errors (FST_FIELDS_LIMIT etc.) carry a statusCode and still
-          // rethrow to the error handler, which maps them correctly.
+          // rethrow to the error handler, which maps them correctly. The
+          // plain-Error constructor check (review hardening 2026-06-10) keeps
+          // TypeError/RangeError-class faults — i.e. genuine server bugs —
+          // rethrowing to the 500 handler instead of masquerading as client
+          // 400s; busboy only ever throws bare Errors.
           req.log.warn({ err }, 'malformed multipart body on /feedback — replying 400');
           const pd = buildProblemDetail({
             slug: PROBLEM_SLUGS.validation,

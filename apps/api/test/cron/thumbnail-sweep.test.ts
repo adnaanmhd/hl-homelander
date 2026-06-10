@@ -1,7 +1,8 @@
 // Phase 4 item 1 (2026-06-10, Bug 4) — the in-process thumbnail recovery
 // sweep. Scheduling guard: ffmpeg-absent → loud warn + NO backfill + NO
-// interval; present → immediate sweep with per-sweep counts logged; the
-// re-entry guard skips a tick that fires mid-backfill.
+// interval; present → boot sweep after bootDelayMs (deferred off the cold-start
+// window; tests pass 0) with per-sweep counts logged; the re-entry guard skips
+// a tick that fires mid-backfill.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -45,15 +46,25 @@ describe('thumbnail sweep (Phase 4, Bug 4)', () => {
     expect(backfillThumbnails).not.toHaveBeenCalled();
   });
 
-  it('ffmpeg present → sweeps once at start and logs scanned/generated/failed', async () => {
+  it('ffmpeg present → boot sweep fires (bootDelayMs elapsed) and logs scanned/generated/failed', async () => {
     const log = makeLogger();
-    startThumbnailSweep(log);
+    startThumbnailSweep(log, 60 * 60 * 1000, 0);
     await new Promise((r) => setTimeout(r, 0));
     expect(backfillThumbnails).toHaveBeenCalledWith(expect.objectContaining({ concurrency: 2 }));
     expect(log.info).toHaveBeenCalledWith(
       { scanned: 3, generated: 2, failed: 1 },
       'thumbnail_sweep_complete',
     );
+  });
+
+  it('boot sweep is DEFERRED — nothing runs inside the boot-delay window, and stop cancels it', async () => {
+    const log = makeLogger();
+    startThumbnailSweep(log, 60 * 60 * 1000, 60 * 1000);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(backfillThumbnails).not.toHaveBeenCalled();
+    stopThumbnailSweep(); // clears the pending boot timer too
+    await new Promise((r) => setTimeout(r, 0));
+    expect(backfillThumbnails).not.toHaveBeenCalled();
   });
 
   it('a backfill failure is logged and never throws (the next tick retries)', async () => {

@@ -16,10 +16,14 @@ const { hooks } = vi.hoisted(() => ({
 }));
 
 vi.mock('../../src/native/HumynUpload', () => ({
+  AUTH_FAILURE_REASON_PREFIX: 'auth: ',
   HumynUpload: {
     getQueueSafe: vi.fn(async () => []),
     setUploadContextSafe: vi.fn(async () => undefined),
     resume: vi.fn(async () => undefined),
+    // Review fix (2026-06-10): the auth-recovery path resumes via resumeAuth
+    // (clears ONLY the 401 park — never the recording/logout pause, UP-10).
+    resumeAuth: vi.fn(async () => undefined),
   },
   onUploadQueueChanged: vi.fn(() => ({ remove: vi.fn() })),
   onUploadProgress: vi.fn(() => ({ remove: vi.fn() })),
@@ -52,6 +56,7 @@ beforeEach(() => {
   vi.mocked(silentReauth).mockClear().mockResolvedValue(false);
   vi.mocked(HumynUpload.setUploadContextSafe).mockClear();
   vi.mocked(HumynUpload.resume).mockClear();
+  vi.mocked(HumynUpload.resumeAuth).mockClear();
   hooks.authListener = null;
   (Config as Record<string, string>).API_BASE_URL = 'http://api.test';
   secureMmkv.remove(KEYS.AUTH_JWT);
@@ -63,6 +68,7 @@ describe('handleUploadAuthFailure', () => {
     expect(applyDeviceEviction).toHaveBeenCalledWith('evicted');
     expect(silentReauth).not.toHaveBeenCalled();
     expect(HumynUpload.resume).not.toHaveBeenCalled();
+    expect(HumynUpload.resumeAuth).not.toHaveBeenCalled();
   });
 
   it('reauth-required → eviction UX with the reauth copy', async () => {
@@ -71,7 +77,7 @@ describe('handleUploadAuthFailure', () => {
     expect(silentReauth).not.toHaveBeenCalled();
   });
 
-  it('plain expiry (unknown slug) → silent re-auth; on success pushes the fresh JWT and resumes the queue', async () => {
+  it('plain expiry (unknown slug) → silent re-auth; on success pushes the fresh JWT and auth-resumes the queue', async () => {
     vi.mocked(silentReauth).mockResolvedValue(true);
     secureMmkv.set(KEYS.AUTH_JWT, 'header.eyJzdWIiOiJzdWItYWxpY2UifQ.sig');
     await handleUploadAuthFailure('unknown');
@@ -82,13 +88,18 @@ describe('handleUploadAuthFailure', () => {
       'header.eyJzdWIiOiJzdWItYWxpY2UifQ.sig',
       expect.any(String),
     );
-    expect(HumynUpload.resume).toHaveBeenCalledTimes(1);
+    // Review fix (2026-06-10): resumeAuth, NOT resume — a recording in
+    // progress must keep uploads parked even when the re-auth lands
+    // mid-capture (UP-10).
+    expect(HumynUpload.resumeAuth).toHaveBeenCalledTimes(1);
+    expect(HumynUpload.resume).not.toHaveBeenCalled();
   });
 
   it('plain expiry + failed silent re-auth → queue stays paused (no resume), no eviction', async () => {
     vi.mocked(silentReauth).mockResolvedValue(false);
     await handleUploadAuthFailure('unknown');
     expect(HumynUpload.resume).not.toHaveBeenCalled();
+    expect(HumynUpload.resumeAuth).not.toHaveBeenCalled();
     expect(applyDeviceEviction).not.toHaveBeenCalled();
   });
 });
