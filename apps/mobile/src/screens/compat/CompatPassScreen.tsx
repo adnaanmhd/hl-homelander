@@ -31,6 +31,7 @@ import { useAppStore } from '../../state/appStore';
 import { decodeGoogleSubFromJwt } from '../../lib/jwtSub';
 import { secureMmkv } from '../../state/mmkv';
 import { practiceDoneKey } from '../../state/keys';
+import { fetchMe } from '../../services/profileService';
 
 interface NavigationLike {
   replace(route: string): void;
@@ -61,6 +62,14 @@ export default function CompatPassScreen() {
     } catch {
       /* haptic best-effort */
     }
+    // Phase 3 item 3 (2026-06-10, Bug 2) — gate double-check, CompatPass leg.
+    // fetchMe() seeds the local practiceDoneKey from the server's
+    // practice_completed_at as a side effect; kicking it at mount gives the
+    // server ~1.5 s (the AUTO_ADVANCE window) to overrule a stale local cache
+    // before the timer below reads the flag. Offline/slow → flag unchanged →
+    // the practice fall-through stays the safe default (and RigTutorial runs
+    // its own double-check on mount).
+    void fetchMe().catch(() => undefined);
   }, []);
 
   useEffect(() => {

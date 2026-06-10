@@ -41,6 +41,19 @@ const { PASS_RESULT } = vi.hoisted(() => ({
 }));
 
 vi.mock('@react-navigation/native', () => ({
+  // Phase 3 (2026-06-10) — the screen now transitively imports
+  // services/profileService → services/api → navigation/navigationRef, which
+  // calls createNavigationContainerRef at module load. Mirror the
+  // vitest.setup stub (reports NOT ready → resetToOnboarding no-ops here).
+  createNavigationContainerRef: () => ({
+    isReady: () => false,
+    resetRoot: vi.fn(),
+    reset: vi.fn(),
+    navigate: vi.fn(),
+    dispatch: vi.fn(),
+    getRootState: vi.fn(),
+    current: null,
+  }),
   useNavigation: () => ({
     replace: vi.fn(),
     navigate: vi.fn(),

@@ -158,6 +158,19 @@ vi.mock('../../src/state/appStore', () => {
 // present, falling back to the local navigator).
 // ---------------------------------------------------------------------------
 vi.mock('@react-navigation/native', () => ({
+  // Phase 3 (2026-06-10) — the screen now transitively imports
+  // services/profileService → services/api → navigation/navigationRef, which
+  // calls createNavigationContainerRef at module load. Mirror the
+  // vitest.setup stub (reports NOT ready → resetToOnboarding no-ops here).
+  createNavigationContainerRef: () => ({
+    isReady: () => false,
+    resetRoot: vi.fn(),
+    reset: vi.fn(),
+    navigate: vi.fn(),
+    dispatch: vi.fn(),
+    getRootState: vi.fn(),
+    current: null,
+  }),
   NavigationContainer: ({ children }: { children: React.ReactNode }) =>
     children as React.ReactElement,
   useNavigation: () => ({

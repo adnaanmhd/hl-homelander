@@ -173,6 +173,12 @@ vi.mock('../../src/util/analytics', () => ({
 // @react-navigation/native mock omits createNavigationContainerRef).
 vi.mock('../../src/services/profileService', () => ({
   postPracticeComplete: mockPostPracticeComplete,
+  // Phase 3 (2026-06-10) — RigTutorial's mount double-check calls fetchMe with
+  // a short timeout. Reject (≈offline) so the flow tests stay on the tutorial
+  // (the safe default) and never navigate away mid-assertion.
+  fetchMe: vi.fn(async () => {
+    throw new Error('offline');
+  }),
 }));
 
 import RigTutorialScreen from '../../src/screens/tutorial/RigTutorialScreen';

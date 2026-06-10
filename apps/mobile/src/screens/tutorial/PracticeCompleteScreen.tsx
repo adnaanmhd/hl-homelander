@@ -52,6 +52,10 @@ import { colors, spacing } from '../../ui/tokens';
 import { useAppStore } from '../../state/appStore';
 import { decodeGoogleSubFromJwt } from '../../lib/jwtSub';
 import { postPracticeComplete } from '../../services/profileService';
+import {
+  markPracticeServerPostPending,
+  clearPracticeServerPostPending,
+} from '../../services/practiceSync';
 import { logEvent } from '../../util/analytics';
 import Confetti from './components/Confetti';
 
@@ -99,11 +103,22 @@ export default function PracticeCompleteScreen() {
     // MMKV; computeInitialRoute reads it at the next boot to skip the
     // tutorial). Never log `sub` (T-4.6-03).
     useAppStore.getState().setPracticeDone(sub);
-    // Bug 5 / D7 — persist completion server-side so the tutorial is skipped on
-    // all future devices/reinstalls. Best-effort + non-blocking: navigation must
-    // not wait on the network, and the next sign-in's /me read re-seeds the local
-    // flag if this write was lost. Independent of the practice clip uploading.
-    void postPracticeComplete().catch(() => undefined);
+    // Bug 5 / D7 + Phase 3 (2026-06-10, Bug 2) — persist completion server-side
+    // DURABLY. Non-blocking (navigation never waits on the network), but no
+    // longer fire-and-forget: the per-sub pending flag is set BEFORE the
+    // attempt and cleared on success, so a POST lost to offline / a process
+    // kill / a stale server is re-flushed by practiceSync on the next boot or
+    // app-foreground instead of silently dropped (which re-gated existing
+    // users through the tutorial on their next reinstall).
+    markPracticeServerPostPending(sub);
+    void postPracticeComplete()
+      .then(() => clearPracticeServerPostPending(sub))
+      .catch((e: unknown) => {
+        // 409 = the server already has it — done. Everything else keeps the
+        // pending flag for the practiceSync flush.
+        const msg = e instanceof Error ? e.message : '';
+        if (/failed: 409/.test(msg)) clearPracticeServerPostPending(sub);
+      });
     logEvent('practice_complete_continued');
     // MainTabs is a RootNativeStack route — reset on the parent navigator
     // when present (we are nested inside OnboardingStack); fall back to the

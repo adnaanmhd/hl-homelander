@@ -50,6 +50,20 @@ export function practiceDoneKey(sub: string): string {
 }
 
 /**
+ * Phase 3 (2026-06-10, Bug 2) — per-account "the practice-completion POST has
+ * not reached the server yet" flag. Set by PracticeCompleteScreen BEFORE the
+ * POST /me/practice-complete attempt; cleared on a 2xx (or a 409/already-set).
+ * services/practiceSync flushes it on boot + every app-foreground, so a
+ * completion that happened offline (or hit the stale-404 server) still reaches
+ * the server eventually instead of being lost to a fire-and-forget. Keyed per
+ * sub: the flush only posts when the SAME account is still signed in (posting
+ * with another account's JWT would stamp the wrong user).
+ */
+export function practicePendingServerPostKey(sub: string): string {
+  return `practice.pendingServerPost.${sub}.v1`;
+}
+
+/**
  * Phase 6 (D-04 / D-05) — per-recording thumbnail-ledger entry key.
  *
  * Pattern: `pendingThumb.{recordingId}.v1` — mirrors `practiceDoneKey(sub)`
