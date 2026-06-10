@@ -188,14 +188,16 @@ export interface HistoryRowProps {
    */
   progressPct?: number;
   /**
-   * Debug session `upload-queue-hol-finalizing` (Fix C item 4) — optional
-   * short reason string for a NEEDS_ATTENTION row, surfaced from the
-   * coordinator via `UploadQueueRow.lastFailureReason`. When present,
-   * replaces the default "Upload failed — Retry" label with a reason-
-   * specific copy ("Stuck on finalize — Retry"). Truncated to a single
-   * UI line; the full text lives in the debug-bundle ZIP.
+   * Debug session `upload-queue-hol-finalizing` (Fix C item 4), generalized
+   * 2026-06-10 (Phase 1 item 6) — optional short failure-reason string for a
+   * failed row: `UploadQueueRow.lastFailureReason` for NEEDS_ATTENTION rows,
+   * `UploadQueueRow.deadLetterReason` for DEAD_LETTER rows (both already
+   * sanitized native-side). When present, replaces the default "Upload
+   * failed — Retry" label with reason-specific copy ("/recordings/init ->
+   * 400 (…) — Retry"). Truncated to a single UI line; the full text lives in
+   * the debug-bundle ZIP.
    */
-  needsAttentionReason?: string;
+  failureReason?: string;
 }
 
 /**
@@ -304,17 +306,22 @@ function uploadedAtLabel(row: HistoryRowItem, t: TFunction): string {
 }
 
 /**
- * Debug session `upload-queue-hol-finalizing` (Fix C item 4) — Retry label
- * for a NEEDS_ATTENTION row. Falls back to the existing "Upload failed —
- * Retry" copy when no reason is supplied (e.g. legacy on-disk rows that
- * pre-date the failure-marker fields). When a reason is present, prefixes
- * it onto the Retry CTA.
+ * Debug session `upload-queue-hol-finalizing` (Fix C item 4), generalized
+ * 2026-06-10 (Phase 1 item 6) — Retry label for a failed row. DEAD_LETTER
+ * rows now surface their captured `deadLetterReason` exactly like
+ * NEEDS_ATTENTION rows surface `lastFailureReason` (before this, a
+ * dead-lettered row only ever said "Upload failed — Retry" and the user
+ * never learned why). Falls back to the legacy copy when no reason is
+ * available (e.g. legacy on-disk rows that pre-date the failure markers).
  */
-function retryLabelFor(deviceState: HistoryRowDeviceState, reason?: string): string {
-  if (deviceState === 'needs-attention' && reason != null && reason.length > 0) {
+export function retryLabelFor(deviceState: HistoryRowDeviceState, reason?: string): string {
+  if (
+    (deviceState === 'needs-attention' || deviceState === 'dead-letter') &&
+    reason != null &&
+    reason.length > 0
+  ) {
     return `${reason} — Retry`;
   }
-  // dead-letter, or needs-attention with no reason → legacy copy
   return 'Upload failed — Retry';
 }
 
@@ -326,7 +333,7 @@ export function HistoryRow({
   onRetry,
   deviceState,
   progressPct,
-  needsAttentionReason,
+  failureReason,
 }: HistoryRowProps): React.JSX.Element {
   const { t, i18n } = useTranslation();
   // Plan 07-17 re-walk 2026-05-27 (G-28 re-attempt): the recording's task
@@ -368,9 +375,12 @@ export function HistoryRow({
 
   // 2026-05-18 — Fix C item 4: pick the Retry copy. needs-attention overrides
   // dead-letter when both apply (the deviceState is the authoritative source).
+  // 2026-06-10 (Phase 1 item 6): dead-letter rows render their captured
+  // reason too — failureReason carries lastFailureReason OR deadLetterReason
+  // per the device state (HistoryScreen decides which).
   const retryLabel = retryLabelFor(
     deviceState === 'needs-attention' ? 'needs-attention' : 'dead-letter',
-    needsAttentionReason,
+    failureReason,
   );
 
   return (

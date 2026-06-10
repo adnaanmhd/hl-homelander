@@ -180,7 +180,7 @@ interface HumynUploadNativeModule {
    * and every cached part ETag → the drainer pounds /reupload → 409 storm.
    * Trail: `.planning/debug/resolved/uploads-stuck-multi-segment.md`.
    */
-  reviveDeadLetter(recordingId: string): Promise<void>;
+  reviveDeadLetter(recordingId: string): Promise<boolean | null>;
   /**
    * Debug session `.planning/debug/upload-queue-hol-finalizing.md` (Fix C
    * item 4) — manually retry a `NEEDS_ATTENTION` row. Resets `attemptCount`
@@ -259,14 +259,23 @@ export const HumynUpload = {
    * Preferred over [reupload] for the cold-start sweep + Home tile tap.
    * Throws if the module is absent — use [reviveDeadLetterSafe] from boot
    * paths (the boot-time variants never throw).
+   *
+   * Phase 1 (2026-06-10): resolves `true` when a row was actually revived;
+   * `null` for the no-op case (missing / non-DEAD_LETTER row) so the History
+   * Retry handler can toast "nothing to retry" instead of failing silently.
    */
-  reviveDeadLetter: (recordingId: string): Promise<void> => ensure().reviveDeadLetter(recordingId),
-  /** Boot-safe `reviveDeadLetter()` — never throws; no-op when the module is unavailable. */
-  reviveDeadLetterSafe: async (recordingId: string): Promise<void> => {
+  reviveDeadLetter: (recordingId: string): Promise<boolean | null> =>
+    ensure().reviveDeadLetter(recordingId),
+  /**
+   * Boot-safe `reviveDeadLetter()` — never throws. Resolves `true` on an
+   * actual revive; `null` on a no-op OR when the module is unavailable.
+   */
+  reviveDeadLetterSafe: async (recordingId: string): Promise<boolean | null> => {
     try {
-      await ensure().reviveDeadLetter(recordingId);
+      return (await ensure().reviveDeadLetter(recordingId)) ?? null;
     } catch {
       /* no native module / JSDOM — non-fatal */
+      return null;
     }
   },
   /**
@@ -409,6 +418,27 @@ export function onUploadQueueChanged(
  */
 export function onUploadProgress(listener: (e: UploadProgressEvent) => void): EmitterSubscription {
   return emitter().addListener('onUploadProgress', listener);
+}
+
+/**
+ * Phase 1 (2026-06-10) — auth-failure event payload. `slug` is the server's
+ * problem-detail slug from the 401 body: `'device-evicted'` (single-device
+ * binding kicked this install), `'reauth-required'` (legacy/expired claim
+ * shape), or `'unknown'` (unparseable body — treat as plain token expiry).
+ */
+export type UploadAuthFailureEvent = { slug: string };
+
+/**
+ * Phase 1 (2026-06-10) — subscribe to `onUploadAuthFailure`. Fired by the
+ * native coordinator when a 401 from `/init`, `/parts` or `/finalize` parks a
+ * row + pauses the queue. The boot-installed listener
+ * (`services/uploadQueueStore.ts`) runs the eviction UX or a silent re-auth.
+ * Caller MUST `.remove()` the returned subscription on teardown.
+ */
+export function onUploadAuthFailure(
+  listener: (e: UploadAuthFailureEvent) => void,
+): EmitterSubscription {
+  return emitter().addListener('onUploadAuthFailure', listener);
 }
 
 /** Connectivity-change event payload — `online === true` when there's an active default network with INTERNET capability. */

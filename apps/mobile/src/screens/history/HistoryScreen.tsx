@@ -72,6 +72,7 @@ import { fetchTasks } from '../../services/tasksApi';
 import { HumynUpload, onConnectivityChanged, type UploadQueueRow } from '../../native/HumynUpload';
 import { decodeGoogleSubFromJwt } from '../../lib/jwtSub';
 import { logEvent } from '../../util/analytics';
+import { showToast } from '../../components/Toast';
 
 /**
  * Map the on-device `UploadQueueRow.state` to the HistoryRow device-state type.
@@ -524,10 +525,20 @@ export function HistoryScreen(): React.JSX.Element {
         // accepts string|number|boolean only, no null.
         device_state: deviceRow?.state ?? 'unknown',
       });
+      // Phase 1 item 6 (2026-06-10) — a Retry tap must never be a silent
+      // no-op. The native revive resolves null when there was nothing to
+      // revive (row gone / files purged / not dead-letter) — toast it so the
+      // user gets feedback instead of a frozen row. A successful revive
+      // emits onUploadQueueChanged immediately (chip flips to in-progress);
+      // an instant re-fail re-stamps lastFailureAt so the row still updates.
       if (isNeedsAttention) {
-        void HumynUpload.retryNeedsAttentionSafe(r.id);
+        void HumynUpload.retryNeedsAttentionSafe(r.id).then((ok) => {
+          if (!ok) showToast('Nothing to retry — the upload is no longer waiting');
+        });
       } else {
-        void HumynUpload.reviveDeadLetterSafe(r.id);
+        void HumynUpload.reviveDeadLetterSafe(r.id).then((res) => {
+          if (res == null) showToast('Nothing to retry — the upload is no longer waiting');
+        });
       }
     },
     [deviceRowsById],
@@ -638,12 +649,18 @@ export function HistoryScreen(): React.JSX.Element {
               ? (() => {
                   const dr = deviceRowsById[item.id]!;
                   const ds = toDeviceState(dr.state);
-                  // Surface the NEEDS_ATTENTION reason to the row's Retry label
-                  // (Fix C item 4 — debug session upload-queue-hol-finalizing).
-                  const reason =
-                    ds === 'needs-attention' && dr.lastFailureReason
-                      ? { needsAttentionReason: dr.lastFailureReason }
-                      : {};
+                  // Surface the failure reason to the row's Retry label:
+                  // NEEDS_ATTENTION → lastFailureReason (Fix C item 4);
+                  // DEAD_LETTER → deadLetterReason (Phase 1 item 6,
+                  // 2026-06-10 — the reason was captured + sanitized
+                  // native-side but never shown).
+                  const reasonText =
+                    ds === 'needs-attention'
+                      ? dr.lastFailureReason
+                      : ds === 'dead-letter'
+                        ? dr.deadLetterReason
+                        : undefined;
+                  const reason = reasonText ? { failureReason: reasonText } : {};
                   return ds ? { deviceState: ds, ...reason } : reason;
                 })()
               : {})}

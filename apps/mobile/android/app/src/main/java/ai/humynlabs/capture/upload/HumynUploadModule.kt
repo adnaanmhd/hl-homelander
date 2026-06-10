@@ -100,7 +100,7 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
         // Install the real RCTDeviceEventEmitter-backed emitters on the shared
         // coordinator (it starts with no-op emitters for the FGS / JobService
         // threads that have no JS bridge).
-        runCatching { coordinator.setEmitters(::emitProgress, ::emitQueueChanged) }
+        runCatching { coordinator.setEmitters(::emitProgress, ::emitQueueChanged, ::emitAuthFailure) }
         // Plan 06-12 follow-on (Finding 6) — bridge connectivity changes to
         // JS so the OfflineBanner on Home / History flips on airplane-mode
         // toggle. The listener fires once immediately with the current state
@@ -311,18 +311,16 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
     fun reviveDeadLetter(recordingId: String, promise: Promise) {
         bgExecutor.execute {
             try {
-                val row = queueStore.read().find { it.recordingId == recordingId }
-                if (row == null || row.state != UploadState.DEAD_LETTER) {
-                    promise.resolve(null)
-                    return@execute
-                }
-                row.state = UploadState.UPLOADING
-                row.deadLetterReason = null
-                queueStore.upsert(row)
-                emitQueueChanged()
-                runCatching { coordinator.drain() }
-                signalUploadActiveBestEffort()
-                promise.resolve(null)
+                // Phase 1 items 3 + 5 (2026-06-10) — the revive logic moved into
+                // UploadCoordinator.reviveDeadLetter so it ALSO resets the
+                // attemptCount/lastFailure* markers (a revived row used to keep
+                // its old backoff and could sit frozen for up to 1 h) and rotates
+                // the per-route Idempotency-Keys. Resolves `true` on an actual
+                // revive; `null` on a no-op (missing / non-DEAD_LETTER row) so the
+                // JS caller can toast "nothing to retry" instead of staying silent.
+                val ok = coordinator.reviveDeadLetter(recordingId)
+                if (ok) signalUploadActiveBestEffort()
+                promise.resolve(if (ok) true else null)
             } catch (t: Throwable) {
                 promise.reject(
                     "UPLOAD_REVIVE_DEAD_LETTER_FAILED",
@@ -479,6 +477,24 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    /**
+     * Phase 1 (2026-06-10) — emit `onUploadAuthFailure({ slug })` when the
+     * coordinator classifies a 401 (queue paused, row parked). The JS listener
+     * (`uploadQueueStore.ts` installer) runs the eviction UX for
+     * `device-evicted` / `reauth-required`, or a silent re-auth + context
+     * re-push + `resume()` for plain expiry.
+     */
+    private fun emitAuthFailure(slug: String) {
+        runCatching {
+            reactApplicationContext
+                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                .emit(
+                    "onUploadAuthFailure",
+                    Arguments.createMap().apply { putString("slug", slug) },
+                )
+        }
+    }
+
     /** Emit `onUploadQueueChanged` with the current queue snapshot. */
     private fun emitQueueChanged() {
         runCatching {
@@ -577,7 +593,7 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
         // FGS / the UIDT JobService) — do NOT shut it down on a catalyst reload;
         // just detach the JS-bridge emitters so a torn-down ReactContext isn't
         // touched. A fresh module instance reinstalls them in its init.
-        runCatching { coordinator.setEmitters({ _, _, _ -> }, { }) }
+        runCatching { coordinator.setEmitters({ _, _, _ -> }, { }, { }) }
         // Plan 06-12 follow-on (Finding 6) — unregister our connectivity
         // listener so a stale ReactContext doesn't keep receiving callbacks.
         runCatching { coordinator.removeConnectivityListener(connectivityListener) }

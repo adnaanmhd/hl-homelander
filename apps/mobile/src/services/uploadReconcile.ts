@@ -35,9 +35,23 @@ import Config from 'react-native-config';
 import { secureMmkv } from '../state/mmkv';
 import { KEYS } from '../state/keys';
 import { apiClient } from './api';
-import { HumynUpload } from '../native/HumynUpload';
+import { HumynUpload, type UploadQueueRow } from '../native/HumynUpload';
 import { decodeGoogleSubFromJwt } from '../lib/jwtSub';
 import { useAppStore } from '../state/appStore';
+import { AUTH_FAILURE_REASON_PREFIX } from './uploadQueueStore';
+
+/**
+ * Phase 1 item 7 (2026-06-10) — true for a row the native coordinator parked
+ * after an auth-classified 401 (`lastFailureReason` carries the `auth: <slug>`
+ * marker). The foreground reconcile must NOT auto-revive/drain these: the
+ * token is dead, so kicking the drainer just re-fires the 401 (ping-pong).
+ * Recovery comes from the jwt-change subscription below (fresh token →
+ * context push + resume) or the `onUploadAuthFailure` listener's silent
+ * re-auth — both clear the pause; a successful drain clears the marker.
+ */
+function isAuthBlocked(r: UploadQueueRow): boolean {
+  return r.lastFailureReason?.startsWith(AUTH_FAILURE_REASON_PREFIX) ?? false;
+}
 
 // Enh 3 / D1 (2026-06-04): the reconcile backstop now reads GET /recordings (the
 // canonical list) instead of the removed GET /recordings/verified-ids. A row the
@@ -104,12 +118,16 @@ export async function reconcileOnce(): Promise<number> {
     // active before the drain kick. We use `reviveDeadLetterSafe` (NOT
     // `reupload`) — the latter has a FULL-RESET footgun when `row.reupload`
     // was already set, see `.planning/debug/resolved/uploads-stuck-multi-segment.md`.
-    const deadLetters = queue.filter((r) => r.state === 'dead-letter');
+    // Phase 1 item 7 (2026-06-10) — skip auth-blocked rows (the `auth: <slug>`
+    // marker): reviving/draining them with the same dead token just re-fires
+    // the 401. They recover via the jwt-change resume path below.
+    const deadLetters = queue.filter((r) => r.state === 'dead-letter' && !isAuthBlocked(r));
     for (const r of deadLetters) {
       await HumynUpload.reviveDeadLetterSafe(r.recordingId);
     }
     const hasStale =
-      deadLetters.length > 0 || queue.some((r) => r.state === 'pending' || r.state === 'uploading');
+      deadLetters.length > 0 ||
+      queue.some((r) => (r.state === 'pending' || r.state === 'uploading') && !isAuthBlocked(r));
     if (hasStale) {
       await HumynUpload.drainNowSafe();
     }

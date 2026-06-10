@@ -206,6 +206,64 @@ export async function signInWithGoogle(): Promise<AuthSuccess> {
   };
 }
 
+/**
+ * Phase 1 (2026-06-10) — NON-interactive re-auth for the upload pipeline's
+ * `onUploadAuthFailure` listener (plain token expiry, NOT eviction). Runs the
+ * same 4-step handshake as [signInWithGoogle] but sources the Google ID token
+ * from `GoogleSignin.signInSilently()` — no UI is ever shown. On success the
+ * fresh JWT lands in MMKV AND the app store (`setJwt` writes through), which
+ * also fires `uploadReconcile`'s jwt-change subscription → context re-push +
+ * `resume()`. Returns `false` on ANY failure (no saved credential, offline,
+ * integrity failure) — never throws, never shows UI; the caller decides what
+ * to do next (typically: leave the queue paused until the user signs in).
+ */
+export async function silentReauth(): Promise<boolean> {
+  try {
+    const { flavor, applicationId } = getFlavorContext();
+
+    let googleIdToken: string;
+    let integrityToken: string;
+    let nonceId: string;
+
+    if (Config['BYPASS_AUTH'] === 'true') {
+      googleIdToken = 'mock-google-token';
+      integrityToken = 'mock-integrity-token';
+      const nonceRes = await apiClient.postNoBody<NonceResponse>('/auth/nonce');
+      nonceId = nonceRes.nonceId;
+    } else {
+      const silent = await GoogleSignin.signInSilently();
+      if (silent.type !== 'success' || !silent.data.idToken) return false;
+      googleIdToken = silent.data.idToken;
+      const nonceRes = await apiClient.postNoBody<NonceResponse>('/auth/nonce');
+      nonceId = nonceRes.nonceId;
+      integrityToken = await requestIntegrityToken(nonceRes.nonce);
+    }
+
+    const installationId = await getInstallationId();
+    const authRes = await apiClient.post<AuthGoogleResponse>('/auth/google', {
+      googleIdToken,
+      integrityToken,
+      flavor,
+      applicationId,
+      nonceId,
+      installationId,
+    });
+
+    const payload = decodeJwtPayload(authRes.jwt);
+    if (payload.flavor !== flavor || payload.applicationId !== applicationId) {
+      return false;
+    }
+
+    // setJwt writes through to MMKV AND updates the store slice — the latter
+    // is what re-pushes the upload context + resume()s the queue (the
+    // uploadReconcile jwt-change subscription).
+    useAppStore.getState().setJwt(authRes.jwt);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function getStoredJwt(): string | undefined {
   return mmkv.getString(KEYS.AUTH_JWT);
 }

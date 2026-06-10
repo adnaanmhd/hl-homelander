@@ -287,6 +287,10 @@ class UploadCoordinatorTest {
         // Fix C item 4 — default to 2 so a NEEDS_ATTENTION test lands in
         // two iterations instead of six.
         needsAttentionThreshold: Int = 2,
+        // Phase 1 (2026-06-10) — pause hook fired on an auth-classified 401.
+        // Default no-op so a 401 test never flips the PROCESS-LIVED
+        // UploadControlState flag (which would leak pause=true into other tests).
+        requestPause: () -> Unit = {},
     ): UploadCoordinator {
         val monitor = NetworkMonitor(app) {}
         val cu = if (fastBackoffUploader) {
@@ -303,6 +307,7 @@ class UploadCoordinatorTest {
             getBearerToken = { bearer },
             getCurrentSub = { currentSub },
             isPaused = paused,
+            requestPause = requestPause,
             chunkUploader = cu,
             // Wave-2 #5 — 1 ms so the in-loop retry test doesn't sleep 5 s.
             transientRetryDelayMs = 1L,
@@ -1263,6 +1268,126 @@ class UploadCoordinatorTest {
         assertTrue("capturedAt must not be blank (a blank value 400s the upload)", capturedAt.isNotBlank())
         // Parses as an offset-ISO — the exact server contract. Throws → test fails.
         java.time.OffsetDateTime.parse(capturedAt)
+    }
+
+    // =========================================================================
+    // Phase 1 (2026-06-10, IMPLEMENTATION-PLAN-260610) — 401 is an AUTH failure,
+    // never a row failure: park PENDING + pause + emit onUploadAuthFailure.
+    // Plus revive/retry parity (counter resets + per-route key rotation).
+    // =========================================================================
+
+    @Test
+    fun `Phase1 — a 401 from init parks the row PENDING with an auth marker, pauses the queue, emits the slug (never dead-letters)`() {
+        initResponseCode = 401
+        initResponseBody =
+            """{"type":"https://humyn-app.io/problems/reauth-required","title":"Re-auth required","status":401}"""
+        store.enqueue(row("01JP1AUTH401AXXXXXXXXXXXXX"))
+
+        val pausedFlag = java.util.concurrent.atomic.AtomicBoolean(false)
+        val slugs = java.util.concurrent.CopyOnWriteArrayList<String>()
+        val coord = coordinator(requestPause = { pausedFlag.set(true) })
+        coord.setEmitters({ _, _, _ -> }, { }, { slug -> slugs.add(slug) })
+        coord.drainNow()
+
+        // One /init only — an auth failure is not looped as transient.
+        assertEquals("one /init on auth failure (no in-loop retry)", 1, initCalls.get())
+        val back = store.read().first()
+        assertEquals("row parked PENDING, NOT dead-lettered", UploadState.PENDING, back.state)
+        assertNull("no deadLetterReason on auth failure", back.deadLetterReason)
+        assertEquals("auth marker carries the slug", "auth: reauth-required", back.lastFailureReason)
+        assertTrue("lastFailureAt stamped", back.lastFailureAt > 0L)
+        assertEquals("auth failure never burns the NEEDS_ATTENTION budget", 0, back.attemptCount)
+        assertTrue("queue paused on auth failure", pausedFlag.get())
+        assertEquals(listOf("reauth-required"), slugs.toList())
+    }
+
+    @Test
+    fun `Phase1 — parseAuthSlug reads the problem-detail type, falls back to substring then unknown`() {
+        val coord = coordinator(paused = { true })
+        assertEquals(
+            "device-evicted",
+            coord.parseAuthSlug("""{"type":"https://humyn-app.io/problems/device-evicted","status":401}"""),
+        )
+        assertEquals("reauth-required", coord.parseAuthSlug("plain text mentioning reauth-required"))
+        assertEquals("unknown", coord.parseAuthSlug("<html>502 gateway</html>"))
+    }
+
+    @Test
+    fun `Phase1 — reviveDeadLetter resets the failure counters AND rotates the per-route idempotency keys`() {
+        val r = row("01JP1REVIVERESETXXXXXXXXXX")
+        store.enqueue(r)
+        r.state = UploadState.DEAD_LETTER
+        r.deadLetterReason = "/recordings/init -> 400 (whatever)"
+        r.attemptCount = 4
+        r.lastFailureAt = 123_456L
+        r.lastFailureState = "PENDING"
+        r.lastFailureReason = "/recordings/init -> 400"
+        store.upsert(r)
+        val oldInitKey = r.initIdempotencyKey
+        val oldPartsKey = r.partsIdempotencyKey
+        val oldFinalizeKey = r.finalizeIdempotencyKey
+
+        // Paused coordinator: revive's internal drain() no-ops, so the row state
+        // is stable for assertions.
+        val coord = coordinator(paused = { true })
+        assertTrue("revive returns true on an actual revival", coord.reviveDeadLetter(r.recordingId))
+
+        val back = store.read().first()
+        assertEquals(UploadState.UPLOADING, back.state)
+        assertNull(back.deadLetterReason)
+        assertEquals("attemptCount reset (was backoff-skipping the row up to 1 h)", 0, back.attemptCount)
+        assertEquals(0L, back.lastFailureAt)
+        assertNull(back.lastFailureState)
+        assertNull(back.lastFailureReason)
+        assertNotEquals("init key rotated", oldInitKey, back.initIdempotencyKey)
+        assertNotEquals("parts key rotated", oldPartsKey, back.partsIdempotencyKey)
+        assertNotEquals("finalize key rotated", oldFinalizeKey, back.finalizeIdempotencyKey)
+
+        // No-op contract: a second revive on the (now UPLOADING) row returns false.
+        assertEquals(false, coord.reviveDeadLetter(r.recordingId))
+    }
+
+    @Test
+    fun `Phase1 — retryNeedsAttention rotates the per-route idempotency keys`() {
+        val r = row("01JP1RETRYROTATEXXXXXXXXXX")
+        store.enqueue(r)
+        r.state = UploadState.NEEDS_ATTENTION
+        r.attemptCount = 6
+        r.lastFailureAt = 123L
+        store.upsert(r)
+        val oldInitKey = r.initIdempotencyKey
+
+        val coord = coordinator(paused = { true })
+        assertTrue(coord.retryNeedsAttention(r.recordingId))
+        val back = store.read().first()
+        assertEquals(0, back.attemptCount)
+        assertNotEquals("init key rotated on user-initiated retry", oldInitKey, back.initIdempotencyKey)
+    }
+
+    @Test
+    fun `Phase1 — a Retry that re-fails instantly still leaves a CHANGED lastFailureAt (the row visibly updates)`() {
+        initResponseCode = 400
+        initResponseBody = """{"title":"Validation failed","errors":["capturedAt"]}"""
+        val r = row("01JP1REFAILSTAMPXXXXXXXXXX")
+        store.enqueue(r)
+        coordinator().drainNow()
+        val firstFail = store.read().first()
+        assertEquals(UploadState.DEAD_LETTER, firstFail.state)
+        assertTrue("dead-letter stamps lastFailureAt", firstFail.lastFailureAt > 0L)
+
+        // User taps Retry (revive resets lastFailureAt to 0) …
+        val pausedCoord = coordinator(paused = { true })
+        assertTrue(pausedCoord.reviveDeadLetter(r.recordingId))
+        assertEquals(0L, store.read().first().lastFailureAt)
+
+        // … and the very next drain re-fails with the same 400 — the row must
+        // come back DEAD_LETTER with a fresh lastFailureAt so the UI shows that
+        // the retry actually happened (no silent no-op).
+        coordinator().drainNow()
+        val back = store.read().first()
+        assertEquals(UploadState.DEAD_LETTER, back.state)
+        assertNotNull(back.deadLetterReason)
+        assertTrue("re-fail re-stamps lastFailureAt", back.lastFailureAt > 0L)
     }
 
 }

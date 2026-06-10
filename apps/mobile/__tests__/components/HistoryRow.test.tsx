@@ -295,4 +295,38 @@ describe('HistoryRow (Plan 06-09)', () => {
     expect(getByLabelText('history-row-thumb-letter').textContent).toBe('C');
     expect(queryByLabelText('history-row-thumb')).toBeNull();
   });
+
+  // Phase 1 item 6 (2026-06-10) — a DEAD_LETTER row surfaces its captured
+  // deadLetterReason on the Retry affordance instead of the generic copy
+  // (the reason was sanitized + bridged native-side but never shown).
+  it('dead-letter row renders the failureReason on the Retry label', () => {
+    const { getByLabelText } = render(
+      <HistoryRow
+        row={makeRow({ qaStatus: 'pending' })}
+        ledgerEntry={null}
+        offline={false}
+        onTap={() => undefined}
+        onRetry={() => undefined}
+        deviceState="dead-letter"
+        failureReason="/recordings/init -> 400 (capturedAt)"
+      />,
+    );
+    expect(getByLabelText('history-row-failed-retry').textContent).toBe(
+      '/recordings/init -> 400 (capturedAt) — Retry',
+    );
+  });
+
+  it('dead-letter row without a reason falls back to the legacy Retry copy', () => {
+    const { getByLabelText } = render(
+      <HistoryRow
+        row={makeRow({ qaStatus: 'pending' })}
+        ledgerEntry={null}
+        offline={false}
+        onTap={() => undefined}
+        onRetry={() => undefined}
+        deviceState="dead-letter"
+      />,
+    );
+    expect(getByLabelText('history-row-failed-retry').textContent).toBe('Upload failed — Retry');
+  });
 });

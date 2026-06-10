@@ -259,6 +259,23 @@ data class UploadRow(
     var durationSeconds: Double? = null,
 ) {
     /**
+     * Phase 1 item 5 (2026-06-10) — mint fresh per-route Idempotency-Keys.
+     * Called on every USER-initiated retry (`reviveDeadLetter` /
+     * `retryNeedsAttention`) so a historically server-cached response under the
+     * old key can never replay against the retry (the pre-06-10 server memoized
+     * 4xx responses for 24 h — a poisoned cache entry would otherwise survive
+     * even a server fix). Safe because `/recordings/init` + `/:id/parts`
+     * re-presign idempotently by recordingId (SELECT-first) — a fresh key just
+     * re-runs the idempotent handler. NOT called on automatic retries (the
+     * stable-key contract is what makes ordinary retry storms idempotent).
+     */
+    fun rotateIdempotencyKeys() {
+        initIdempotencyKey = UUID.randomUUID().toString()
+        partsIdempotencyKey = UUID.randomUUID().toString()
+        finalizeIdempotencyKey = UUID.randomUUID().toString()
+    }
+
+    /**
      * Transient in-memory signal from `fromJson` to `UploadQueueStore.read()`:
      * `true` if any of the four `*IdempotencyKey` fields was minted from a
      * missing on-disk value. Not persisted to `toJson` — `UploadQueueStore.read()`

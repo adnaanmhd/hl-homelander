@@ -32,14 +32,73 @@
 //     "caller MUST .remove()" leak contract).
 
 import type { EmitterSubscription } from 'react-native';
+import Config from 'react-native-config';
 import {
   HumynUpload,
+  onUploadAuthFailure,
   onUploadProgress,
   onUploadQueueChanged,
+  type UploadAuthFailureEvent,
   type UploadProgressEvent,
   type UploadQueueRow,
 } from '../native/HumynUpload';
 import { useAppStore } from '../state/appStore';
+import { applyDeviceEviction } from './api';
+import { silentReauth } from './auth';
+import { secureMmkv } from '../state/mmkv';
+import { KEYS } from '../state/keys';
+import { decodeGoogleSubFromJwt } from '../lib/jwtSub';
+
+/**
+ * Phase 1 (2026-06-10) — marker prefix the native coordinator stamps into
+ * `lastFailureReason` when a 401 parks a row (see
+ * `UploadCoordinator.AUTH_FAILURE_REASON_PREFIX` — keep in sync). The
+ * reconcile sweep skips auto-reviving/draining rows carrying it until a fresh
+ * token has been pushed (prevents 401 ping-pong).
+ */
+export const AUTH_FAILURE_REASON_PREFIX = 'auth: ';
+
+/** Single-flight guard — N parked rows can emit N auth events in one drain tick. */
+let authFailureHandling = false;
+
+/**
+ * Phase 1 (2026-06-10) — dispatch a native `onUploadAuthFailure` event.
+ * Exported for tests.
+ *
+ *  - `device-evicted` / `reauth-required` → the EXACT `maybeHandleEviction`
+ *    behavior (`services/api.ts`): clear session + eviction notice + Signup.
+ *  - anything else (plain expiry / unparseable body) → attempt a silent Google
+ *    re-auth; on success push the fresh JWT to the native coordinator and
+ *    `resume()` the (auth-paused) queue. On failure leave the queue paused —
+ *    the next sign-in or process restart recovers it.
+ */
+export async function handleUploadAuthFailure(slug: string): Promise<void> {
+  if (authFailureHandling) return;
+  authFailureHandling = true;
+  try {
+    if (slug === 'device-evicted' || slug === 'reauth-required') {
+      applyDeviceEviction(slug === 'device-evicted' ? 'evicted' : 'reauth');
+      return;
+    }
+    const ok = await silentReauth().catch(() => false);
+    if (!ok) return;
+    // silentReauth's setJwt already triggers uploadReconcile's jwt-change
+    // subscription (context push + resume), but that subscription only exists
+    // when installUploadReconcile ran — push + resume here too (idempotent).
+    const baseUrl = Config.API_BASE_URL;
+    if (baseUrl) {
+      const jwt = secureMmkv.getString(KEYS.AUTH_JWT) ?? null;
+      await HumynUpload.setUploadContextSafe(baseUrl, jwt, decodeGoogleSubFromJwt(jwt));
+    }
+    try {
+      await HumynUpload.resume();
+    } catch {
+      /* no native module — non-fatal */
+    }
+  } finally {
+    authFailureHandling = false;
+  }
+}
 
 /**
  * Install the single upload-queue → store bridge. Call once at app boot
@@ -68,6 +127,7 @@ export function installUploadQueueStore(): () => void {
 
   let queueSub: EmitterSubscription | undefined;
   let progressSub: EmitterSubscription | undefined;
+  let authSub: EmitterSubscription | undefined;
 
   try {
     queueSub = onUploadQueueChanged((rows: UploadQueueRow[]) => {
@@ -91,9 +151,20 @@ export function installUploadQueueStore(): () => void {
     /* no native module / JSDOM — non-fatal */
   }
 
+  try {
+    // Phase 1 (2026-06-10) — the coordinator paused the queue on a 401.
+    // Either run the eviction UX or silently re-auth + resume.
+    authSub = onUploadAuthFailure((e: UploadAuthFailureEvent) => {
+      void handleUploadAuthFailure(e.slug).catch(() => undefined);
+    });
+  } catch {
+    /* no native module / JSDOM — non-fatal */
+  }
+
   return () => {
     queueSub?.remove();
     progressSub?.remove();
+    authSub?.remove();
   };
 }
 

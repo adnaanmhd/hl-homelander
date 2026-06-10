@@ -190,6 +190,17 @@ function maybeHandleEviction(status: number, bodyText: string): void {
     reason = hasEvicted ? 'evicted' : 'reauth';
   }
   if (reason === null) return;
+  applyDeviceEviction(reason);
+}
+
+/**
+ * Phase 1 (2026-06-10) — the shared eviction tail, exported so the native
+ * uploader's `onUploadAuthFailure` listener (`services/uploadQueueStore.ts`)
+ * runs the EXACT same UX as an evicted JS API call: clear the session, flag
+ * the eviction (SignupScreen explains it), route to Signup. Idempotent
+ * (guarded on `deviceEvicted`) and best-effort (never throws).
+ */
+export function applyDeviceEviction(reason: 'evicted' | 'reauth'): void {
   try {
     const store = useAppStore.getState();
     if (store.deviceEvicted) return; // already handled — don't re-fire the redirect
