@@ -22,6 +22,16 @@ vi.mock('../../src/util/analytics', () => ({ logEvent: () => undefined }));
 // Bug 5 / D7 — mock profileService so PracticeCompleteScreen's server-write
 // import doesn't pull the real api.ts → navigationRef chain (the local
 // @react-navigation/native mock below omits createNavigationContainerRef).
+// Review fix (2026-06-10) — practiceSync now classifies the 409 via the typed
+// ApiError's .status (services/api apiErrorStatus); mock the api module with
+// the real duck-typed reader so the heavy api.ts import chain
+// (Toast/navigationRef) stays out of this file's narrow mock env.
+vi.mock('../../src/services/api', () => ({
+  apiErrorStatus: (e: unknown) => {
+    const s = (e as { status?: unknown } | null | undefined)?.status;
+    return typeof s === 'number' ? s : undefined;
+  },
+}));
 vi.mock('../../src/services/profileService', () => ({
   postPracticeComplete: () => Promise.resolve({ practiceCompletedAt: '2026-06-04T00:00:00.000Z' }),
 }));

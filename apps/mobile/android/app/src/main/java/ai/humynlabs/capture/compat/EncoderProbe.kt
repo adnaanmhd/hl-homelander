@@ -122,7 +122,10 @@ class EncoderProbe(private val ctx: Context) {
 
             mgr.openCamera(backId, object : CameraDevice.StateCallback() {
                 override fun onOpened(c: CameraDevice) { camera = c; openLatch.countDown() }
-                override fun onDisconnected(c: CameraDevice) { c.close() }
+                // Phase 5 (2026-06-10, Bug 5) — count the latch down so a
+                // pre-open disconnect fails the probe immediately instead of
+                // waiting out the 2 s open timeout (post-open it's a no-op).
+                override fun onDisconnected(c: CameraDevice) { c.close(); openLatch.countDown() }
                 override fun onError(c: CameraDevice, error: Int) { c.close(); openLatch.countDown() }
             }, handler)
             openLatch.await(CAMERA_OPEN_TIMEOUT_S, TimeUnit.SECONDS)
@@ -152,19 +155,31 @@ class EncoderProbe(private val ctx: Context) {
                 listOf(inputSurface),
                 object : CameraCaptureSession.StateCallback() {
                     override fun onConfigured(session: CameraCaptureSession) {
-                        session.setRepeatingRequest(
-                            builder.build(),
-                            object : CameraCaptureSession.CaptureCallback() {
-                                override fun onCaptureCompleted(
-                                    s: CameraCaptureSession,
-                                    r: CaptureRequest,
-                                    result: TotalCaptureResult,
-                                ) {
-                                    lastResult = result
-                                }
-                            },
-                            handler,
-                        )
+                        // Phase 5 (2026-06-10, Bug 5) — this runs on the probe
+                        // HandlerThread: a camera yanked mid-configure (system
+                        // dialog over the app, higher-priority client) makes
+                        // setRepeatingRequest throw CameraAccessException /
+                        // IllegalStateException, and an uncaught throw on a
+                        // HandlerThread is process death. Swallow → the pump
+                        // loop collects nothing and the probe fails closed
+                        // (resolutionDeliverable stays false).
+                        try {
+                            session.setRepeatingRequest(
+                                builder.build(),
+                                object : CameraCaptureSession.CaptureCallback() {
+                                    override fun onCaptureCompleted(
+                                        s: CameraCaptureSession,
+                                        r: CaptureRequest,
+                                        result: TotalCaptureResult,
+                                    ) {
+                                        lastResult = result
+                                    }
+                                },
+                                handler,
+                            )
+                        } catch (_: Throwable) {
+                            /* fail-closed via empty encoder output */
+                        }
                     }
                     override fun onConfigureFailed(s: CameraCaptureSession) { /* surface via empty bytes */ }
                 },

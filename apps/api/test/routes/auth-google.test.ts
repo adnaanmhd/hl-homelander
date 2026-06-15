@@ -249,3 +249,113 @@ describe('POST /auth/google — single-device newest-login-wins (Bug 4 / D2)', (
     expect(bRes.statusCode).toBe(200);
   });
 });
+
+describe('POST /auth/google — silent re-auth (review fix V1: newest-INTERACTIVE-login-wins)', () => {
+  // A drawer phone's background upload drain silent-re-auths on token expiry.
+  // That machine-initiated call must never steal the single-device binding from
+  // the phone the user is actively using, create an account, or stamp consent.
+  //
+  // The earlier describes spend most of the default 127.0.0.1 anonymous-tier
+  // budget (30/min per IP, in-memory per app instance) — this block runs in its
+  // own per-IP bucket so the whole file stays under the limit.
+  const SILENT_TESTS_IP = '10.99.0.1';
+  async function authGoogle(installationId: string, silent?: boolean) {
+    const nonceRes = await app.inject({
+      method: 'POST',
+      url: '/auth/nonce',
+      remoteAddress: SILENT_TESTS_IP,
+    });
+    const { nonceId, nonce } = nonceRes.json() as { nonceId: string; nonce: string };
+    (decodeIntegrityToken as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ...FIXTURES.happyPlayStore(),
+      requestDetails: { ...FIXTURES.happyPlayStore().requestDetails, nonce },
+    });
+    return app.inject({
+      method: 'POST',
+      url: '/auth/google',
+      remoteAddress: SILENT_TESTS_IP,
+      payload: {
+        googleIdToken: 'fake-id-token',
+        integrityToken: 'fake-integrity-token',
+        flavor: 'playStore',
+        applicationId: 'ai.humynlabs.capture',
+        nonceId,
+        installationId,
+        ...(silent === undefined ? {} : { silent }),
+      },
+    });
+  }
+
+  it('silent + DIVERGENT binding → 401 device-evicted; binding NOT stolen; no consent_log append', async () => {
+    const interactive = await authGoogle('inst-active-phone');
+    expect(interactive.statusCode).toBe(200);
+    const userId = interactive.json().user.id as string;
+
+    const res = await authGoogle('inst-drawer-phone', true);
+    expect(res.statusCode).toBe(401);
+    expect(res.json().type).toBe('https://humyn-app.io/problems/device-evicted');
+
+    const [row] = await db.select().from(schema.users).where(eq(schema.users.id, userId));
+    expect(row!.currentInstallationId).toBe('inst-active-phone'); // unchanged
+    const consentRows = await db
+      .select()
+      .from(schema.consentLog)
+      .where(eq(schema.consentLog.userId, userId));
+    expect(consentRows).toHaveLength(1); // only the interactive sign-in stamped
+  });
+
+  it('silent + MATCHING binding → 200 + fresh JWT; consent NOT bumped, no consent_log append', async () => {
+    const interactive = await authGoogle('inst-same');
+    expect(interactive.statusCode).toBe(200);
+    const userId = interactive.json().user.id as string;
+    // Pin an OLD consent denorm so any silent bump would be visible.
+    const oldAccepted = new Date('2025-01-02T03:04:05.000Z');
+    await db
+      .update(schema.users)
+      .set({ consentVersion: '0.9.9-test', consentAcceptedAt: oldAccepted })
+      .where(eq(schema.users.id, userId));
+
+    const res = await authGoogle('inst-same', true);
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(typeof body.jwt).toBe('string');
+    const claims = jwt.decode(body.jwt as string) as { sub?: string; installationId?: string };
+    expect(claims.sub).toBe(userId);
+    expect(claims.installationId).toBe('inst-same');
+
+    const [row] = await db.select().from(schema.users).where(eq(schema.users.id, userId));
+    expect(row!.consentVersion).toBe('0.9.9-test'); // NOT bumped
+    expect(row!.consentAcceptedAt.getTime()).toBe(oldAccepted.getTime());
+    const consentRows = await db
+      .select()
+      .from(schema.consentLog)
+      .where(eq(schema.consentLog.userId, userId));
+    expect(consentRows).toHaveLength(1); // still only the interactive stamp
+  });
+
+  it('silent + UNKNOWN account → 401, no account created (creation implies consent UI)', async () => {
+    const res = await authGoogle('inst-fresh-install', true);
+    expect(res.statusCode).toBe(401);
+    expect(res.json().type).toBe('https://humyn-app.io/problems/device-evicted');
+    const rows = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.googleSub, '1234567890'));
+    expect(rows).toHaveLength(0);
+  });
+
+  it('INTERACTIVE divergent sign-in still rebinds (newest-login-wins regression pin)', async () => {
+    const a = await authGoogle('inst-a');
+    expect(a.statusCode).toBe(200);
+    const b = await authGoogle('inst-b'); // no silent flag — interactive
+    expect(b.statusCode).toBe(200);
+    const userId = b.json().user.id as string;
+    const [row] = await db.select().from(schema.users).where(eq(schema.users.id, userId));
+    expect(row!.currentInstallationId).toBe('inst-b'); // rebound
+    const consentRows = await db
+      .select()
+      .from(schema.consentLog)
+      .where(eq(schema.consentLog.userId, userId));
+    expect(consentRows).toHaveLength(2); // every interactive sign-in stamps
+  });
+});

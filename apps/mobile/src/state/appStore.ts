@@ -33,9 +33,10 @@ export interface PermsState {
   camera: boolean;
   mic: boolean;
   // Bug 3 / D3 + D4 (2026-06-04) — precise Location is now a gated onboarding
-  // permission alongside Camera + Mic (block-until-granted). True when FINE or
-  // COARSE was granted (a partial "Approximate" grant still records — only a
-  // full denial blocks). Overrides the formerly-LOCKED coarse-only constraint.
+  // permission alongside Camera + Mic (block-until-granted). Overrides the
+  // formerly-LOCKED coarse-only constraint. BUG-1 (2026-06-09 — precise-only):
+  // True ONLY when FINE ("Precise") was granted; a coarse-only "Approximate"
+  // grant is insufficient and keeps the user in the permissions recovery state.
   location: boolean;
   grantedAt: string; // ISO datetime
 }

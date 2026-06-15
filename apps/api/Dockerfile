@@ -41,6 +41,12 @@ WORKDIR /app
 # (best-effort — its absence just degrades to no server thumbnail).
 RUN apk add --no-cache curl ffmpeg
 
+# Deploy stamp — build with `--build-arg GIT_SHA=$(git rev-parse --short=8 HEAD)`.
+# /healthz returns it so a stale deployed image is detectable from a curl
+# (the 2026-06-10 staging incident: code on `stage` never reached the cluster).
+ARG GIT_SHA=unknown
+ENV GIT_SHA=${GIT_SHA}
+
 ENV NODE_ENV=production
 ENV PORT=8080
 

@@ -17,7 +17,7 @@
 // failure (ffmpeg missing, unreadable input, timeout) leaves s3_key_thumbnail
 // NULL — it MUST NOT block the terminal-success flip.
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import type { S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -26,6 +26,21 @@ const FFMPEG_TIMEOUT_MS = 10_000; // hard cap so a hung ffmpeg can't stall final
 const THUMB_SEEK_SECONDS = 1; // poster frame ~1s in (skips any black lead-in)
 const PRESIGN_TTL_SECONDS = 120; // just long enough for ffmpeg to read the input
 const THUMB_MAX_EDGE = 640; // downscale the longest edge; History renders at 64px
+
+/**
+ * Bug 6 / D5 + BUG-3 (2026-06-09) — boot/CLI probe: true iff an `ffmpeg` binary
+ * is on PATH and runnable. Used by the API boot probe (so an ffmpeg-less image —
+ * a DEPLOY-2 regression — is OBSERVABLE as a startup warning instead of silently
+ * producing no server thumbnails forever) and by the one-shot backfill script
+ * (which refuses to run without it). Cheap one-shot `ffmpeg -version`.
+ */
+export function isFfmpegAvailable(): boolean {
+  try {
+    return spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status === 0;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Derive a poster JPEG from the S3 video object and PUT it to `thumbKey`.

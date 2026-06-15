@@ -22,6 +22,19 @@ import { render, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
 vi.mock('@react-navigation/native', () => ({
+  // Phase 2 (2026-06-10) — RecordingScreen now imports services/sessionCheck →
+  // services/api → navigation/navigationRef, which calls
+  // createNavigationContainerRef at module load. Mirror the vitest.setup stub
+  // (reports NOT ready so resetToOnboarding safely no-ops in this env).
+  createNavigationContainerRef: () => ({
+    isReady: () => false,
+    resetRoot: vi.fn(),
+    reset: vi.fn(),
+    navigate: vi.fn(),
+    dispatch: vi.fn(),
+    getRootState: vi.fn(),
+    current: null,
+  }),
   useNavigation: () => ({ goBack: vi.fn(), navigate: vi.fn(), reset: vi.fn(), push: vi.fn() }),
   useRoute: () => ({
     key: 'Recording-1',

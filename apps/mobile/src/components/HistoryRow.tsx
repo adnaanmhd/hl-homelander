@@ -188,14 +188,16 @@ export interface HistoryRowProps {
    */
   progressPct?: number;
   /**
-   * Debug session `upload-queue-hol-finalizing` (Fix C item 4) — optional
-   * short reason string for a NEEDS_ATTENTION row, surfaced from the
-   * coordinator via `UploadQueueRow.lastFailureReason`. When present,
-   * replaces the default "Upload failed — Retry" label with a reason-
-   * specific copy ("Stuck on finalize — Retry"). Truncated to a single
-   * UI line; the full text lives in the debug-bundle ZIP.
+   * Debug session `upload-queue-hol-finalizing` (Fix C item 4), generalized
+   * 2026-06-10 (Phase 1 item 6) — optional short failure-reason string for a
+   * failed row: `UploadQueueRow.lastFailureReason` for NEEDS_ATTENTION rows,
+   * `UploadQueueRow.deadLetterReason` for DEAD_LETTER rows (both already
+   * sanitized native-side). When present, replaces the default "Upload
+   * failed — Retry" label with reason-specific copy ("/recordings/init ->
+   * 400 (…) — Retry"). Truncated to a single UI line; the full text lives in
+   * the debug-bundle ZIP.
    */
-  needsAttentionReason?: string;
+  failureReason?: string;
 }
 
 /**
@@ -304,18 +306,17 @@ function uploadedAtLabel(row: HistoryRowItem, t: TFunction): string {
 }
 
 /**
- * Debug session `upload-queue-hol-finalizing` (Fix C item 4) — Retry label
- * for a NEEDS_ATTENTION row. Falls back to the existing "Upload failed —
- * Retry" copy when no reason is supplied (e.g. legacy on-disk rows that
- * pre-date the failure-marker fields). When a reason is present, prefixes
- * it onto the Retry CTA.
+ * Debug session `upload-queue-hol-finalizing` (Fix C item 4), generalized
+ * 2026-06-10 (Phase 1 item 6) — Retry label for a failed row: the captured
+ * reason (`lastFailureReason` for NEEDS_ATTENTION / `deadLetterReason` for
+ * DEAD_LETTER — HistoryScreen decides which) when present, else the legacy
+ * copy (e.g. legacy on-disk rows that pre-date the failure markers). Review
+ * simplification 2026-06-10: the deviceState param was dropped — both failed
+ * states render identically, so the guard was always true at the only call
+ * site (and the export had no importers).
  */
-function retryLabelFor(deviceState: HistoryRowDeviceState, reason?: string): string {
-  if (deviceState === 'needs-attention' && reason != null && reason.length > 0) {
-    return `${reason} — Retry`;
-  }
-  // dead-letter, or needs-attention with no reason → legacy copy
-  return 'Upload failed — Retry';
+function retryLabelFor(reason?: string): string {
+  return reason != null && reason.length > 0 ? `${reason} — Retry` : 'Upload failed — Retry';
 }
 
 export function HistoryRow({
@@ -326,7 +327,7 @@ export function HistoryRow({
   onRetry,
   deviceState,
   progressPct,
-  needsAttentionReason,
+  failureReason,
 }: HistoryRowProps): React.JSX.Element {
   const { t, i18n } = useTranslation();
   // Plan 07-17 re-walk 2026-05-27 (G-28 re-attempt): the recording's task
@@ -366,12 +367,10 @@ export function HistoryRow({
 
   const firstLetter = (localizedTaskName || '?').slice(0, 1).toUpperCase();
 
-  // 2026-05-18 — Fix C item 4: pick the Retry copy. needs-attention overrides
-  // dead-letter when both apply (the deviceState is the authoritative source).
-  const retryLabel = retryLabelFor(
-    deviceState === 'needs-attention' ? 'needs-attention' : 'dead-letter',
-    needsAttentionReason,
-  );
+  // 2026-05-18 — Fix C item 4 / 2026-06-10 (Phase 1 item 6): the Retry copy
+  // surfaces the captured reason — failureReason carries lastFailureReason OR
+  // deadLetterReason per the device state (HistoryScreen decides which).
+  const retryLabel = retryLabelFor(failureReason);
 
   return (
     <Pressable

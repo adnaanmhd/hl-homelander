@@ -34,12 +34,60 @@
 import type { EmitterSubscription } from 'react-native';
 import {
   HumynUpload,
+  AUTH_FAILURE_REASON_PREFIX,
+  onUploadAuthFailure,
   onUploadProgress,
   onUploadQueueChanged,
+  type UploadAuthFailureEvent,
   type UploadProgressEvent,
   type UploadQueueRow,
 } from '../native/HumynUpload';
 import { useAppStore } from '../state/appStore';
+import { applyDeviceEviction } from './api';
+import { silentReauth } from './auth';
+import { pushUploadContext } from './uploadReconcile';
+
+// Re-export for existing importers (the constant moved to the bridge module —
+// review fix 2026-06-10, see native/HumynUpload.ts).
+export { AUTH_FAILURE_REASON_PREFIX };
+
+/** Single-flight guard — N parked rows can emit N auth events in one drain tick. */
+let authFailureHandling = false;
+
+/**
+ * Phase 1 (2026-06-10) — dispatch a native `onUploadAuthFailure` event.
+ * Exported for tests.
+ *
+ *  - `device-evicted` / `reauth-required` → the EXACT `maybeHandleEviction`
+ *    behavior (`services/api.ts`): clear session + eviction notice + Signup.
+ *  - anything else (plain expiry / unparseable body) → attempt a silent Google
+ *    re-auth; on success push the fresh JWT to the native coordinator and
+ *    `resume()` the (auth-paused) queue. On failure leave the queue paused —
+ *    the next sign-in or process restart recovers it.
+ */
+export async function handleUploadAuthFailure(slug: string): Promise<void> {
+  if (authFailureHandling) return;
+  authFailureHandling = true;
+  try {
+    if (slug === 'device-evicted' || slug === 'reauth-required') {
+      applyDeviceEviction(slug === 'device-evicted' ? 'evicted' : 'reauth');
+      return;
+    }
+    const ok = await silentReauth().catch(() => false);
+    if (!ok) return;
+    // Review fix (2026-06-10) — single-path the recovery through
+    // uploadReconcile.pushUploadContext (the previous inline copy had already
+    // drifted from it). `resume: 'auth'` pushes the fresh token (which clears
+    // the native AUTH pause) and kicks the drain WITHOUT touching the
+    // JS-lifecycle pause — a recording in progress keeps uploads parked
+    // (UP-10) even when the re-auth lands mid-capture. silentReauth's setJwt
+    // also fires uploadReconcile's jwt-change subscription with the same call
+    // — idempotent; this explicit call covers any install-ordering edge.
+    await pushUploadContext({ resume: 'auth' });
+  } finally {
+    authFailureHandling = false;
+  }
+}
 
 /**
  * Install the single upload-queue → store bridge. Call once at app boot
@@ -68,6 +116,7 @@ export function installUploadQueueStore(): () => void {
 
   let queueSub: EmitterSubscription | undefined;
   let progressSub: EmitterSubscription | undefined;
+  let authSub: EmitterSubscription | undefined;
 
   try {
     queueSub = onUploadQueueChanged((rows: UploadQueueRow[]) => {
@@ -91,9 +140,20 @@ export function installUploadQueueStore(): () => void {
     /* no native module / JSDOM — non-fatal */
   }
 
+  try {
+    // Phase 1 (2026-06-10) — the coordinator paused the queue on a 401.
+    // Either run the eviction UX or silently re-auth + resume.
+    authSub = onUploadAuthFailure((e: UploadAuthFailureEvent) => {
+      void handleUploadAuthFailure(e.slug).catch(() => undefined);
+    });
+  } catch {
+    /* no native module / JSDOM — non-fatal */
+  }
+
   return () => {
     queueSub?.remove();
     progressSub?.remove();
+    authSub?.remove();
   };
 }
 

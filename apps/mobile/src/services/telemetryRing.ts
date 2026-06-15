@@ -18,6 +18,7 @@
 
 import { secureMmkv } from '../state/mmkv';
 import { KEYS } from '../state/keys';
+import { stripControlCharsDeep } from '../lib/sanitizeControlChars';
 
 export interface TelemetryEvent {
   name: string;
@@ -44,10 +45,18 @@ function write(arr: TelemetryEvent[]): void {
 }
 
 export const telemetryRing = {
-  /** Append an event; FIFO-trim the array to the last RING_CAP entries. */
+  /**
+   * Append an event; FIFO-trim the array to the last RING_CAP entries.
+   *
+   * Phase 6 item 1 (2026-06-10, Bug 6) — the event is control-char-sanitized
+   * AT APPEND TIME (the single choke point for analytics): a NUL/C0 byte in a
+   * raw `err.message` prop used to persist into the ring and poison every
+   * subsequent /feedback diagnostic (Postgres 22P05 → 500) until the ring
+   * aged it out.
+   */
   append(event: TelemetryEvent): void {
     const arr = read();
-    arr.push(event);
+    arr.push(stripControlCharsDeep(event));
     if (arr.length > RING_CAP) arr.splice(0, arr.length - RING_CAP);
     write(arr);
   },

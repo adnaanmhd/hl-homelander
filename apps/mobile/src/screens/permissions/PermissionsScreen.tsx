@@ -21,11 +21,20 @@
  *   permission_location_requested / _granted / _denied
  *
  * Bug 3 / D3 + D4 (2026-06-04): precise Location (ACCESS_FINE_LOCATION) joined
- * the gate alongside Camera + Mic — block-until-granted parity. A partial
- * "Approximate" (COARSE) grant still satisfies the gate (D3); only a full denial
- * blocks. Overrides the formerly-LOCKED coarse-only constraint + the prior
- * "PERM-03 deferred to Phase 4" stance (sign-off D3; consent + DPIA is a ship
- * gate). The old coarse-only `services/locationPermission.ts` helper was removed.
+ * the gate alongside Camera + Mic — block-until-granted parity. Overrides the
+ * formerly-LOCKED coarse-only constraint + the prior "PERM-03 deferred to Phase
+ * 4" stance (sign-off D3; consent + DPIA is a ship gate). The old coarse-only
+ * `services/locationPermission.ts` helper was removed.
+ *
+ * BUG-1 (2026-06-09 — precise-only): a coarse-only ("Approximate") grant NO
+ * LONGER satisfies the gate — only a FINE grant does. The app can't remove the
+ * OS Precise/Approximate toggle (Android 12+), so an Approximate pick routes to
+ * the 'partial' recovery state (Open Settings → grant Precise → auto-advance).
+ * We REQUEST both FINE+COARSE together (`requestMultiple`) because Android
+ * requires both declared+requested to even show the precise/approximate dialog
+ * ("ACCESS_FINE_LOCATION must be requested with ACCESS_COARSE_LOCATION"); we just
+ * GATE on FINE-granted. The native `HumynLocationModule.hasLocationPermission`
+ * mirrors this (FINE-only) so a coarse device never embeds a coarse fix.
  *
  * iOS analogue lives in Phase 7: PERMISSIONS.IOS.CAMERA / .MICROPHONE /
  * .LOCATION_WHEN_IN_USE swap in conditionally on Platform.OS.
@@ -37,6 +46,7 @@ import {
   PERMISSIONS,
   RESULTS,
   request,
+  requestMultiple,
   check,
   openSettings,
   type Permission,
@@ -59,18 +69,26 @@ const CAMERA_PERMISSION: Permission =
   Platform.OS === 'ios' ? PERMISSIONS.IOS.CAMERA : PERMISSIONS.ANDROID.CAMERA;
 const MIC_PERMISSION: Permission =
   Platform.OS === 'ios' ? PERMISSIONS.IOS.MICROPHONE : PERMISSIONS.ANDROID.RECORD_AUDIO;
-// Bug 3 / D3 + D4 (2026-06-04) — precise Location, requested FINE. On Android
-// 12+ the user may grant only "Approximate" (COARSE); per D3 that partial grant
-// still records (a coarser fix) — only a FULL denial blocks. So the gate treats
-// FINE-granted OR COARSE-granted as satisfied; COARSE is checked as the fallback.
+// BUG-1 (2026-06-09 — precise-only) — the gate is satisfied ONLY by a FINE
+// ("Precise") grant. COARSE is still REQUESTED alongside FINE (via
+// requestMultiple) — Android won't show the precise/approximate dialog otherwise
+// — but a coarse-only grant is treated as INSUFFICIENT (routes to recovery).
 const LOCATION_PERMISSION: Permission =
   Platform.OS === 'ios'
     ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
     : PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
+// Requested together with FINE so the OS shows the Precise/Approximate dialog
+// (Android: "ACCESS_FINE_LOCATION must be requested with ACCESS_COARSE_LOCATION").
+// NOT a grant target — only FINE counts. (iOS collapses to the same permission;
+// the request array is deduped.)
 const COARSE_LOCATION_PERMISSION: Permission =
   Platform.OS === 'ios'
     ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
     : PERMISSIONS.ANDROID.ACCESS_COARSE_LOCATION;
+// Deduped request set — [FINE, COARSE] on Android, [LOCATION_WHEN_IN_USE] on iOS.
+const LOCATION_PERMISSIONS_TO_REQUEST: Permission[] = Array.from(
+  new Set<Permission>([LOCATION_PERMISSION, COARSE_LOCATION_PERMISSION]),
+);
 
 interface NavigationLike {
   replace(route: string): void;
@@ -120,18 +138,17 @@ export default function PermissionsScreen() {
   useEffect(() => {
     let cancelled = false;
     const checkAndAdvance = async () => {
-      const [camResult, micResult, fineResult, coarseResult] = await Promise.all([
+      const [camResult, micResult, fineResult] = await Promise.all([
         check(CAMERA_PERMISSION),
         check(MIC_PERMISSION),
         check(LOCATION_PERMISSION),
-        check(COARSE_LOCATION_PERMISSION),
       ]);
       if (cancelled) return;
       const camGranted = camResult === RESULTS.GRANTED;
       const micGranted = micResult === RESULTS.GRANTED;
-      // Bug 3 / D3 — FINE OR COARSE counts (a partial "Approximate" grant still
-      // records; only a full denial blocks).
-      const locGranted = fineResult === RESULTS.GRANTED || coarseResult === RESULTS.GRANTED;
+      // BUG-1 (precise-only) — only a FINE ("Precise") grant satisfies the gate;
+      // a coarse-only "Approximate" grant is insufficient and stays in recovery.
+      const locGranted = fineResult === RESULTS.GRANTED;
       if (camGranted && micGranted && locGranted) {
         setPermsGranted({
           camera: true,
@@ -196,17 +213,17 @@ export default function PermissionsScreen() {
       logEvent('permission_mic_denied', { result: String(micResult) });
     }
 
-    // ---- Location (Bug 3 / D4 — sequential, after mic) ----
-    // Request FINE; on Android 12+ the user may grant only "Approximate"
-    // (COARSE), which leaves FINE denied — per D3 that partial grant still
-    // records, so we re-check COARSE and treat either as granted.
+    // ---- Location (Bug 3 / D4 — sequential, after mic; BUG-1 precise-only) ----
+    // Request FINE + COARSE TOGETHER (requestMultiple): Android only shows the
+    // Precise/Approximate dialog when both are requested ("ACCESS_FINE_LOCATION
+    // must be requested with ACCESS_COARSE_LOCATION"; requesting FINE alone is
+    // ignored on some Android 12 releases). The gate then passes ONLY on a FINE
+    // ("Precise") grant — a coarse-only "Approximate" grant is insufficient and
+    // routes to the 'partial' recovery state (Open Settings → grant Precise).
     logEvent('permission_location_requested');
-    const locResult = await request(LOCATION_PERMISSION);
-    let locGranted = locResult === RESULTS.GRANTED;
-    if (!locGranted) {
-      const coarseResult = await check(COARSE_LOCATION_PERMISSION);
-      locGranted = coarseResult === RESULTS.GRANTED;
-    }
+    const locResults = await requestMultiple(LOCATION_PERMISSIONS_TO_REQUEST);
+    const locResult = locResults[LOCATION_PERMISSION];
+    const locGranted = locResult === RESULTS.GRANTED;
     if (locGranted) {
       logEvent('permission_location_granted');
     } else {
@@ -220,6 +237,11 @@ export default function PermissionsScreen() {
         location: true,
         grantedAt: new Date().toISOString(),
       });
+      // BUG-5 (2026-06-09 — D-BATTERY) → Phase 5 (2026-06-10): the best-effort
+      // battery-optimization exemption ask moved from here to CompatPassScreen
+      // mount — asking here raced the compat camera probes (the system dialog
+      // could yank the camera mid-probe on the next screen). See
+      // CompatPassScreen.tsx.
       // Onboarding stack route name is "Compat" (CompatRunningScreen) —
       // see apps/mobile/src/navigation/OnboardingStack.tsx.
       navigation.replace('Compat');

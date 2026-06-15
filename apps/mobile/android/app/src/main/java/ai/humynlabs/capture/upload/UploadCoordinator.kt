@@ -112,6 +112,19 @@ class UploadCoordinator(
     private val getBearerToken: () -> String?,
     private val getCurrentSub: () -> String?,
     private val isPaused: () -> Boolean,
+    /**
+     * Phase 1 (2026-06-10) — pause the whole queue when a 401 lands (the JWT is
+     * dead for EVERY row; hammering the API with N more 401s helps nobody).
+     * Default flips the process-lived [UploadControlState] AUTH-pause flag —
+     * distinct from the JS-lifecycle pause that `HumynUploadModule.pause()` /
+     * `resume()` flip (review fix 2026-06-10: with a single shared flag, a
+     * recording stop's `resume()` punched through the auth park and re-drained
+     * against a known-dead token; conversely a silent re-auth's resume could
+     * unpause uploads mid-recording, violating UP-10). The auth pause clears
+     * only when JS pushes a fresh token (`setUploadContext`) or calls
+     * `resumeAuth()`. Test seam.
+     */
+    private val requestPause: () -> Unit = { UploadControlState.setAuthPaused(true) },
     /** Test seam — short backoff so tests don't sleep 2/4/8 s. */
     private val chunkUploader: ChunkUploader = ChunkUploader(DEFAULT_HTTP_CLIENT),
     /** Wave-2 #5 — sleep between bounded in-loop transient retries. Test seam: pass 1L so the retry test doesn't sleep 5 s. */
@@ -153,13 +166,25 @@ class UploadCoordinator(
     @Volatile
     private var emitQueueChanged: () -> Unit = emitQueueChanged
 
+    /**
+     * Phase 1 (2026-06-10) — `onUploadAuthFailure { slug }` emitter. Starts
+     * no-op (the FGS / JobService singleton has no JS bridge);
+     * `HumynUploadModule` installs the real one via [setEmitters]. Fired once
+     * per auth-classified 401 so the JS side can either force the eviction UX
+     * (`device-evicted` / `reauth-required`) or silently re-auth + resume.
+     */
+    @Volatile
+    private var emitAuthFailure: (slug: String) -> Unit = { }
+
     /** Install the real event emitters (called by `HumynUploadModule` once the bridge is up). */
     fun setEmitters(
         emitProgress: (recordingId: String, bytesUploaded: Long, bytesTotal: Long) -> Unit,
         emitQueueChanged: () -> Unit,
+        emitAuthFailure: (slug: String) -> Unit = { },
     ) {
         this.emitProgress = emitProgress
         this.emitQueueChanged = emitQueueChanged
+        this.emitAuthFailure = emitAuthFailure
     }
 
     /**
@@ -263,7 +288,17 @@ class UploadCoordinator(
     fun queueHasWork(): Boolean =
         queueStore.read().any {
             it.state != UploadState.DEAD_LETTER &&
-                it.state != UploadState.NEEDS_ATTENTION
+                it.state != UploadState.NEEDS_ATTENTION &&
+                // Review fix (2026-06-10) — auth-parked rows are not actionable
+                // work: they wait on a fresh token, not on the FGS/UIDT.
+                // Counting them kept the dataSync notification alive (and the
+                // UIDT job rescheduling) forever on an evicted device that
+                // never re-signs-in. The durable row marker (unlike the
+                // in-memory paused flag) survives process death; recovery
+                // never flows through queueHasWork() — resume()/resumeAuth()/
+                // drain() kick PENDING rows directly and a successful drain
+                // clears the marker.
+                it.lastFailureReason?.startsWith(AUTH_FAILURE_REASON_PREFIX) != true
         }
 
     /**
@@ -391,8 +426,39 @@ class UploadCoordinator(
                     runCatching { queueStore.upsert(row) }
                 }
                 break
+            } catch (e: AuthFailureException) {
+                // Phase 1 (2026-06-10) — a 401 is NEVER the row's fault and NEVER
+                // dead-letters. The JWT is dead/evicted for the whole queue: park
+                // THIS row back to PENDING with an auth marker, pause the queue
+                // (resume() re-opens it once JS pushes a fresh token), and tell
+                // the JS side why via onUploadAuthFailure so it can run the
+                // eviction UX or a silent re-auth. Before this, an eviction
+                // permanently killed every queued upload with no explanation
+                // (contradicting UPLOAD-PIPELINE.md §19's refresh contract).
+                Log.w(TAG, "row ${row.recordingId} auth failure (${e.slug}) — pausing queue, not dead-lettering")
+                row.lastFailureAt = System.currentTimeMillis()
+                row.lastFailureState = row.state.name
+                row.lastFailureReason = AUTH_FAILURE_REASON_PREFIX + e.slug
+                // Review fix (2026-06-10) — zero the backoff counter: a 401 is a
+                // QUEUE condition (dead token), never row flakiness. Without
+                // this, a row carrying prior transient-failure attempts stayed
+                // backoff-skipped for up to 15 min AFTER a successful silent
+                // re-auth + resume, looking frozen with a valid token.
+                row.attemptCount = 0
+                row.state = UploadState.PENDING
+                queueStore.upsert(row)
+                requestPause()
+                emitQueueChanged()
+                runCatching { emitAuthFailure(e.slug) }
+                break
             } catch (e: DeadLetterException) {
                 Log.w(TAG, "row ${row.recordingId} DEAD_LETTER: ${e.message}")
+                // Stamp the failure markers BEFORE flipping state so the History
+                // row visibly changes even when a user-driven Retry re-fails
+                // instantly with the same reason (lastFailureAt is the field the
+                // UI keys "something happened" off — Phase 1 item 6).
+                row.lastFailureAt = System.currentTimeMillis()
+                row.lastFailureState = row.state.name
                 row.state = UploadState.DEAD_LETTER
                 row.deadLetterReason = e.message ?: "upload failed"
                 queueStore.upsert(row)
@@ -487,6 +553,92 @@ class UploadCoordinator(
         return safe.take(160)
     }
 
+    /**
+     * Phase 1 (2026-06-10) — extract the problem-detail slug from a 401 body.
+     * The API's problem-details carry `type: "https://humyn-app.io/problems/
+     * <slug>"`; the slugs the JS side dispatches on are `device-evicted`
+     * (single-device binding kicked this install) and `reauth-required`
+     * (legacy/expired claim shape). Falls back to substring matching for a
+     * non-JSON body (proxy error page), then to "unknown" — the JS listener
+     * treats unknown as plain token expiry (silent re-auth attempt).
+     */
+    internal fun parseAuthSlug(bodyText: String): String {
+        runCatching {
+            val type = JSONObject(bodyText).optString("type", "")
+            if (type.isNotBlank()) {
+                val slug = type.substringAfterLast('/').trim()
+                if (slug.isNotBlank()) return slug
+            }
+        }
+        return when {
+            bodyText.contains("device-evicted") -> "device-evicted"
+            bodyText.contains("reauth-required") -> "reauth-required"
+            else -> "unknown"
+        }
+    }
+
+    /**
+     * BUG-4 (2026-06-09) — classify a non-2xx response from `/recordings/init`,
+     * `/recordings/:id/parts`, or `/recordings/:id/finalize`.
+     *
+     * A **4xx (EXCEPT 408 Request-Timeout + 429 Too-Many-Requests, which are
+     * genuinely transient)** is a permanent client-contract violation: return a
+     * [DeadLetterException] carrying a SANITIZED snippet of the server's
+     * problem-detail body (which names the failing zod field —
+     * `error-handler.ts`), so the row dead-letters **fast + visibly** with a
+     * readable `deadLetterReason` + a History Retry affordance — instead of being
+     * mis-retried as a flaky-network blip on the `30s→1h` backoff for ~23 min
+     * (the reported "stuck in-progress with no %, then 400" symptom). Every
+     * **5xx / 408 / 429 / network error** stays transient → [IOException] → the
+     * bounded retry loop in [runWorker].
+     *
+     * ⚠ OkHttp response bodies are single-consume: the caller MUST read the body
+     * ONCE (`resp.body?.string()`) at the top of its `.use{}` block and pass that
+     * text here — never re-read `resp.body`. The snippet is run through
+     * [sanitizeFailureReason] (strips presigned-URL noise, T-5-06-02) so a leaky
+     * body never reaches `deadLetterReason` / the History UI.
+     */
+    private fun classifyHttpFailure(code: Int, bodyText: String, label: String): Exception {
+        // Phase 1 (2026-06-10) — 401 is an AUTH failure, not a row failure: the
+        // JWT expired or the device was evicted (single-device binding). It must
+        // never dead-letter; runWorker parks the row, pauses the queue, and
+        // emits onUploadAuthFailure with the problem-detail slug.
+        if (code == 401) return AuthFailureException(parseAuthSlug(bodyText))
+        val transient4xx = code == 408 || code == 429
+        if (code in 400..499 && !transient4xx) {
+            val snippet = sanitizeFailureReason(bodyText)
+            val reason = if (!snippet.isNullOrBlank()) "$label -> $code ($snippet)" else "$label -> $code"
+            return DeadLetterException(reason, null)
+        }
+        return IOException("$label -> $code")
+    }
+
+    /**
+     * BUG-4 (2026-06-09) — resolve the `capturedAt` ISO for `/recordings/init`.
+     * The source (`CaptureSession.kt` wallclock-start via `MetadataComposer`) is
+     * normally ALWAYS a valid numeric-offset ISO; a blank value here means
+     * metadata corruption. Rather than ship `""` — which is GUARANTEED to 400
+     * against the server's `capturedAt: z.string().datetime({ offset: true })`
+     * (and, pre-BUG-4, dead-loop the row for ~23 min) — log loudly and fall back
+     * to a best-effort offset-ISO derived from the MP4's `lastModified` (close to
+     * capture time). The server records this as an audit field; an
+     * approximately-correct timestamp beats a guaranteed upload failure.
+     */
+    private fun resolveCapturedAt(metadata: JSONObject, row: UploadRow): String {
+        val raw = metadata.optString("start_timestamp", "")
+        if (raw.isNotBlank()) return raw
+        val mp4Modified = File(row.mp4Path).lastModified().takeIf { it > 0L } ?: System.currentTimeMillis()
+        val fallback = java.time.OffsetDateTime
+            .ofInstant(java.time.Instant.ofEpochMilli(mp4Modified), java.time.ZoneId.systemDefault())
+            .format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        Log.w(
+            TAG,
+            "row ${row.recordingId}: metadata start_timestamp blank (corruption?) — " +
+                "using best-effort capturedAt=$fallback so the upload isn't blocked",
+        )
+        return fallback
+    }
+
     /** Cancel any in-flight HTTP calls (pause / logout). Queue rows are NOT discarded — they resume. */
     fun cancelInflight() {
         synchronized(inflight) {
@@ -539,19 +691,57 @@ class UploadCoordinator(
     fun retryNeedsAttention(recordingId: String): Boolean {
         val row = queueStore.read().firstOrNull { it.recordingId == recordingId } ?: return false
         if (row.state != UploadState.NEEDS_ATTENTION) return false
+        reactivateRow(row)
+        return true
+    }
+
+    /**
+     * Shared body of the two row-revival paths ([retryNeedsAttention] +
+     * [reviveDeadLetter] — review extraction 2026-06-10; the two hand-copies
+     * had already drifted on the post-revive state). Clears the failure
+     * markers, mints fresh per-route Idempotency-Keys (so a historically
+     * server-cached entry under the old key can never replay — safe because
+     * /init + /parts + /finalize are SELECT-first idempotent and the server
+     * only memoizes 2xx), and puts the row back on the automatic drain path:
+     * UPLOADING when an uploadId exists (the worker re-presigns against the
+     * EXISTING multipart upload, preserving DONE parts' ETags) or PENDING
+     * (the worker takes the idempotent /init self-heal branch).
+     */
+    private fun reactivateRow(row: UploadRow) {
         row.attemptCount = 0
         row.lastFailureAt = 0L
         row.lastFailureState = null
         row.lastFailureReason = null
-        // If the row had an uploadId set when it stalled (mid-finalize or
-        // mid-part-PUT after /init), the worker re-presigns against the
-        // EXISTING multipart upload (preserves DONE parts' ETags). If not,
-        // the worker takes the /init self-heal branch. Either way, we just
-        // need to put the row back into the automatic drain path.
+        row.rotateIdempotencyKeys()
         row.state = if (row.uploadId != null) UploadState.UPLOADING else UploadState.PENDING
         queueStore.upsert(row)
         emitQueueChanged()
         drain()
+    }
+
+    /**
+     * Phase 1 items 3 + 5 (2026-06-10) — user-driven revival of a DEAD_LETTER
+     * row, moved here from `HumynUploadModule.reviveDeadLetter` so it shares the
+     * queue store + emitters and is plain-JUnit testable. Beyond the historical
+     * state-flip it now ALSO:
+     *  - resets `attemptCount` / `lastFailureAt` / `lastFailureState` /
+     *    `lastFailureReason` (mirrors [retryNeedsAttention]) — without this a
+     *    revived row could sit backoff-skipped for up to 1 h looking frozen;
+     *  - rotates the per-route Idempotency-Keys (immunity against any
+     *    historically cached server entry — see [retryNeedsAttention]).
+     *
+     * `uploadId` / `imuUploadId` / parts / `metadataPut` are KEPT so the drainer
+     * takes `/parts` re-presign (uploadId set — preserves DONE ETags) or the
+     * idempotent `/init` self-heal (uploadId null). No-op (false) for a missing
+     * or non-DEAD_LETTER row — a sweep over a mixed queue never mutates an
+     * UPLOADING row mid-transfer. Invoked by the user-tapped History Retry AND
+     * the automatic boot/foreground revive sweep (`uploadReconcile.ts`).
+     */
+    fun reviveDeadLetter(recordingId: String): Boolean {
+        val row = queueStore.read().firstOrNull { it.recordingId == recordingId } ?: return false
+        if (row.state != UploadState.DEAD_LETTER) return false
+        row.deadLetterReason = null
+        reactivateRow(row)
         return true
     }
 
@@ -934,7 +1124,10 @@ class UploadCoordinator(
             put("durationMs", Math.round((m.optDouble("duration_seconds", 0.0)) * 1000.0))
             put("fileSizeBytes", m.optLong("file_size_bytes", File(row.mp4Path).length()))
             put("imuSizeBytes", m.optLong("imu_size_bytes", File(row.csvPath).length()))
-            put("capturedAt", m.optString("start_timestamp", ""))
+            // BUG-4 (2026-06-09) — guard against a blank start_timestamp (metadata
+            // corruption); shipping "" guarantees a 400. resolveCapturedAt falls
+            // back to a best-effort offset-ISO so the bytes still upload.
+            put("capturedAt", resolveCapturedAt(m, row))
             // Quick task 260522-elm CAPTURE-QA-08/09 — forward the metadata.json
             // top-level `calibration` block (camera intrinsics + cam-IMU
             // extrinsics) verbatim so the server persists it as the queryable
@@ -956,19 +1149,18 @@ class UploadCoordinator(
                 ?.let { put("location", it) }
         }
         executeTracked(authedJsonRequest("$baseUrl/recordings/init", body, row.initIdempotencyKey)).use { resp ->
-            // Post-CR-02 (Plan 05-09) `/recordings/init` is idempotent: a re-/init for an existing `pending` row
-            // owned by the caller returns 200 with the SAME uploadId (a lost-201 self-heals). A 409 only happens
-            // when the row moved to a non-`pending` state (e.g. an ops takedown) — genuinely terminal; a 403 is a
-            // wrong-owner mismatch (shouldn't ever happen from this client). Both are non-retryable → dead-letter
-            // instead of looping (CR-02). A 5xx / network error is still transient (the next drain retries).
-            if (resp.code == 409 || resp.code == 403) {
-                throw DeadLetterException(
-                    "/recordings/init -> ${resp.code} (recording not resumable — moved to a non-pending state, or owner mismatch)",
-                    null,
-                )
-            }
-            if (!resp.isSuccessful) throw IOException("/recordings/init -> ${resp.code}")
-            return parseInitResponse(resp.body?.string().orEmpty(), "/recordings/init")
+            // BUG-4 (2026-06-09) — read the single-consume OkHttp body ONCE, then
+            // branch on the code. Post-CR-02 (Plan 05-09) `/recordings/init` is
+            // idempotent: a re-/init for an existing `pending` row owned by the
+            // caller returns 200 with the SAME uploadId (a lost-201 self-heals).
+            // ANY 4xx (409 non-pending takedown, 403 owner mismatch, AND a 400
+            // contract violation — the reported stuck-then-400 symptom) is
+            // non-retryable → dead-letter FAST with the server's reason via
+            // classifyHttpFailure, instead of being looped as transient for ~23
+            // min. A 5xx / 408 / 429 / network error stays transient (next drain).
+            val bodyText = resp.body?.string().orEmpty()
+            if (!resp.isSuccessful) throw classifyHttpFailure(resp.code, bodyText, "/recordings/init")
+            return parseInitResponse(bodyText, "/recordings/init")
         }
     }
 
@@ -988,11 +1180,14 @@ class UploadCoordinator(
             ?: throw DeadLetterException("re-presign needs imuUploadId; row ${row.recordingId} has none", null)
         val body = JSONObject().put("partsCount", partsCount).put("imuUploadId", imuId)
         executeTracked(authedJsonRequest("$baseUrl/recordings/${row.recordingId}/parts", body, row.partsIdempotencyKey)).use { resp ->
-            if (resp.code == 404 || resp.code == 409) {
-                throw DeadLetterException("/recordings/${row.recordingId}/parts -> ${resp.code} (upload not resumable)", null)
+            // BUG-4 (2026-06-09) — read the single-consume body ONCE; any 4xx
+            // (404 row-gone / 409 not-resumable / 400 contract) dead-letters fast
+            // with the server's reason; 5xx / 408 / 429 stay transient.
+            val bodyText = resp.body?.string().orEmpty()
+            if (!resp.isSuccessful) {
+                throw classifyHttpFailure(resp.code, bodyText, "/recordings/${row.recordingId}/parts")
             }
-            if (!resp.isSuccessful) throw IOException("/recordings/${row.recordingId}/parts -> ${resp.code}")
-            return parseInitResponse(resp.body?.string().orEmpty(), "/recordings/:id/parts")
+            return parseInitResponse(bodyText, "/recordings/:id/parts")
         }
     }
 
@@ -1055,12 +1250,30 @@ class UploadCoordinator(
             authedJsonRequest("$baseUrl/recordings/${row.recordingId}/finalize", body, row.finalizeIdempotencyKey),
             finalizeCallTimeoutMs,
         ).use { resp ->
-            if (!resp.isSuccessful) throw IOException("/recordings/${row.recordingId}/finalize -> ${resp.code}")
+            // BUG-4 (2026-06-09) — a 4xx from /finalize is a terminal contract
+            // error (404 row-gone / 403 owner / 409 state-conflict / 400 malformed
+            // body) → dead-letter fast with the server's reason; a 5xx / 408 / 429
+            // stays transient (the watchdog-timeout path throws before we get here,
+            // so a hung finalize is still a transient IOException).
+            if (!resp.isSuccessful) {
+                val bodyText = resp.body?.string().orEmpty()
+                throw classifyHttpFailure(resp.code, bodyText, "/recordings/${row.recordingId}/finalize")
+            }
         }
     }
 
     companion object {
         private const val TAG = "HumynUploadCoord"
+
+        /**
+         * Phase 1 (2026-06-10) — prefix stamped into `lastFailureReason` when a
+         * row is parked by an auth-classified 401. The JS reconcile sweep
+         * (`uploadReconcile.ts`) checks for this marker and skips auto-reviving/
+         * draining such rows until a fresh token has been pushed (prevents the
+         * 401 ping-pong). Keep in sync with `AUTH_FAILURE_REASON_PREFIX` in
+         * `apps/mobile/src/services/uploadQueueStore.ts`.
+         */
+        const val AUTH_FAILURE_REASON_PREFIX = "auth: "
         // Wave-2 #7 — debounce dropped 5000 → 500 ms so a fast (~2-s) LocalStack
         // upload emits ~4 ticks (visible bar movement) instead of one. Still
         // 20× under the per-part RTT on CGNAT cellular (Item 4 walk), so the
@@ -1173,6 +1386,17 @@ class UploadCoordinator(
             .build()
     }
 }
+
+/**
+ * Phase 1 (2026-06-10) — a 401 from `/recordings/init`, `/recordings/:id/parts`
+ * or `/recordings/:id/finalize`. NOT a row-level failure: the bearer JWT is
+ * dead (expired, legacy shape, or evicted by the single-device binding) for the
+ * ENTIRE queue. `runWorker` parks the row back to PENDING with an
+ * `auth: <slug>` marker, pauses the queue, and emits `onUploadAuthFailure` so
+ * the JS side can run the eviction UX or silently re-auth + resume. Never
+ * dead-letters, never counts toward NEEDS_ATTENTION.
+ */
+internal class AuthFailureException(val slug: String) : Exception("auth: $slug")
 
 /**
  * Process-lived auth context for the upload pipeline. `HumynUploadModule`

@@ -1,0 +1,37 @@
+[
+  {
+    "make": "Motorola (Lenovo)",
+    "model": "ThinkPhone by Motorola (2023)",
+    "codename": "bronco",
+    "launch_year": 2023,
+    "soc": "Snapdragon 8+ Gen 1 (SM8475)",
+    "android_launch": "13",
+    "android_max": "16",
+    "model_numbers": "XT2309-2 (global); BR retail via Motorola/Lenovo B2B channel",
+    "ultrawide_sensor": "13 MP f/2.2 (1/3.0\", 1.12µm, AF)",
+    "ultrawide_fov_deg": 120,
+    "available_india": false,
+    "available_brazil": true,
+    "price_inr": null,
+    "price_brl": 5499,
+    "notes": "B2B-focused flagship. Brazil launch Mar 2023 at R$5,499 official (Lenovo/Motorola corporate channels, also sold at retail; cash price R$4,839.99 at launch). NOT officially launched in India — Amazon.in/aggregator listings (~Rs 35,999) are grey imports. Android 16 OTA confirmed shipping (build W1U136H.39-17, rollout reported Mar 2026) — input's Android-15 ceiling corrected; 16 is the final major version. Largely discontinued.",
+    "sources": [
+      "https://www.gsmarena.com/motorola_thinkphone-12059.php",
+      "https://canaltech.com.br/smartphone/lenovo-thinkphone-by-motorola-lancamento-brasil-preco-ficha-tecnica-242650/",
+      "https://www.smartprix.com/mobiles/lenovo-thinkphone-ppd1ut98nc1b",
+      "https://www.ytechb.com/android-16-update-rolling-out-to-thinkphone/",
+      "https://www.androidupdatetracker.com/p/motorola-lenovo-thinkphone",
+      "https://github.com/rolandsmeenk/ARCore-devices/blob/master/arcore_devicelist.csv",
+      "https://www.oficinadanet.com.br/smartphones/45226-motorola-lanca-lenovo-thinkphone-brasil",
+      "https://forums.lenovo.com/t5/motorola-edge-30-ultra/3rd-party-camera-apps-successfully-tested/m-p/5171112"
+    ],
+    "gate_ultrawide_dfov": "likely",
+    "gate_hevc_1080p30_cbr": "pass",
+    "gate_imu_100hz": "likely",
+    "gate_realtime_timestamp": "likely",
+    "gate_gms_play_integrity": "pass",
+    "gate_thermal_25min": "likely",
+    "tier": "Likely",
+    "caveats": "Advertised 120° UW (GSMArena-confirmed) is a comfortable FOV pass on paper, BUT Motorola HALs are historically mixed on exposing the ultrawide to third-party Camera2 apps (GameChanger: UW IDs hidden despite native-app access; some Edge-era models report third-party success — Lenovo forum Edge 30 Ultra thread). GCam-port sites claim 0.6x UW switching works on ThinkPhone, but that evidence is templated/low-trust and does not confirm the app's specific CONTROL_ZOOM_RATIO-below-1.0 mechanism vs a separate camera ID — runtime compat-probe must decide. Encoder: Snapdragon 8+ Gen 1 (c2.qti.hevc.encoder) is in the known-reliable Qualcomm 8-series bucket (documented CBR support, timestamp-honoring rate control, no B-frame insertion reports). ARCore-certified (codename bronco appears in the ARCore device list) — strong proxy for sustained ≥100 Hz IMU and REALTIME camera timestamp source, but not in-house measured. Thermal: SD 8+ Gen 1 runs notably cooler than 8 Gen 1 and 1080p30 HEVC is light load; 25-min sustained capture not directly tested. Logistics: Brazil-only official availability (B2B-focused channel), no official India sale, and the device is largely discontinued — fleet acquisition may be hard. Android 16 is the last major OS version."
+  }
+]

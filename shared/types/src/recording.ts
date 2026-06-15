@@ -132,7 +132,16 @@ export const RecordingsInitRequestSchema = z.object({
   // fix (unavailable / partial grant) sends null; pre-1.5.0 clients send
   // nothing. Persisted on the new-row INSERT in init.ts as the queryable mirror
   // (recordings.location jsonb), sibling to the server-set ip_address.
-  location: LocationSchema.nullable().optional(),
+  //
+  // BUG-4 / D-UPLOAD-LOC (2026-06-09) — `.catch(null)` as the OUTERMOST wrapper:
+  // a present-but-INVALID location block (malformed/garbage coords from a future
+  // client or corrupt metadata) coerces to `null` instead of 400-ing the whole
+  // /recordings/init — location is an audit field and must NEVER block the bytes.
+  // Empirically verified (zod 4.4.3): preserves valid objects / explicit-null /
+  // absent (→ undefined → `?? null` in init.ts), and does NOT swallow
+  // sibling-field errors (a malformed required field still 400s). The init route
+  // persists `body.location ?? null` (init.ts), so a coerced-null records cleanly.
+  location: LocationSchema.nullable().optional().catch(null),
 });
 export type RecordingsInitRequest = z.infer<typeof RecordingsInitRequestSchema>;
 

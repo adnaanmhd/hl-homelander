@@ -16,9 +16,13 @@
       LOCKED "coarse-only — no precise GPS" PROJECT.md hard rule (owner sign-off
       `.planning/260604-locked-override-signoff.md` D3). Precise lat/lng is now
       captured per recording, gated in onboarding (PermissionsScreen, D4) and
-      acquired via the HumynLocation native module. The consent-text + DPIA
-      review gate was WAIVED by the owner 2026-06-04 (consent text updated +
-      consent version bumped 1.0.0 → 1.1.0 — precise GPS now ships). The
+      acquired via the HumynLocation native module. BUG-1 (2026-06-09) — the gate
+      is now PRECISE-ONLY: a coarse-only "Approximate" grant is refused in app
+      logic (PermissionsScreen + HumynLocationModule), but COARSE STAYS DECLARED
+      because Android 12+ requires both FINE+COARSE declared to request FINE at
+      all (else the OS ignores the request). The consent-text + DPIA review gate
+      was WAIVED by the owner 2026-06-04 (consent text updated + consent version
+      bumped 1.0.0 → 1.1.0 — precise GPS now ships). The
       verify-merged-manifests.sh FINE ban was lifted
       the same day.
     -->
@@ -70,11 +74,18 @@
       Bug 3 / D3 + D4 (2026-06-04) — precise GPS location for each recording.
       ACCESS_FINE_LOCATION OVERRIDES the formerly-LOCKED coarse-only constraint
       (sign-off D3; consent text updated + version bumped 2026-06-04, owner
-      waived the DPIA gate). COARSE stays declared so
-      an "Approximate"-only grant on Android 12+ still yields a (coarser) fix
-      rather than blocking (D3 partial-grant handling). Gated in onboarding
-      (PermissionsScreen, D4 — block-until-granted) and acquired via the
-      HumynLocation native module (FusedLocationProviderClient).
+      waived the DPIA gate). Gated in onboarding (PermissionsScreen, D4) and
+      acquired via the HumynLocation native module (FusedLocationProviderClient).
+
+      BUG-1 (2026-06-09 — precise-only): COARSE MUST stay declared — Android 12+
+      requires BOTH ACCESS_FINE_LOCATION and ACCESS_COARSE_LOCATION declared (and
+      requested together) to show the Precise/Approximate dialog and grant FINE;
+      declaring FINE alone makes the OS IGNORE the request ("ACCESS_FINE_LOCATION
+      must be requested with ACCESS_COARSE_LOCATION"). COARSE is declared, NOT
+      accepted: a coarse-only "Approximate" grant is refused in app logic
+      (PermissionsScreen requestMultiple→FINE-only gate; HumynLocationModule
+      hasLocationPermission FINE-only) → the user is routed to Settings to grant
+      Precise, and a coarse device never embeds a coarse fix.
     -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />

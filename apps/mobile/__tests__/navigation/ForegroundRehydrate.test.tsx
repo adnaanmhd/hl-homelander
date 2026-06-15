@@ -143,7 +143,12 @@ describe('useForegroundUserRehydrate (Plan 03-03 Task 2 / Pattern 72)', () => {
     expect(mockState.setUser).toHaveBeenCalledTimes(1);
   });
 
-  it('Test 3: no-op when user!=null (short-circuits AppState thrash; T-3.2-03)', async () => {
+  // Phase 2 item 1 (2026-06-10, Bug 3) — the old contract ("no-op when
+  // user!=null") is GONE: an evicted device that only browsed cached screens
+  // never made an authed call and stayed signed-in forever. Now a populated
+  // session still fires a throttled (≥60 s) /me ping so the API client's
+  // maybeHandleEviction can evict within seconds of the app being looked at.
+  it('Test 3: user!=null → throttled session ping (one /me per 60 s; AppState thrash coalesced)', async () => {
     mockState.user = {
       id: 'u1',
       email: 'alice@x.com',
@@ -151,14 +156,51 @@ describe('useForegroundUserRehydrate (Plan 03-03 Task 2 / Pattern 72)', () => {
       avatarUrl: 'https://x/a.jpg',
     };
     mockState.jwt = 'token';
+    fetchMeMock.mockResolvedValue(RESOLVED_ME);
+
+    let nowMs = 1_000_000;
+    const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => nowMs);
+    try {
+      render(<HostComponent />);
+      await new Promise((r) => setTimeout(r, 0));
+      // Mount counts as a "looked at" — one ping fires; the response body is
+      // ignored (no setUser churn on a populated session).
+      expect(fetchMeMock).toHaveBeenCalledTimes(1);
+      expect(mockState.setUser).not.toHaveBeenCalled();
+
+      // Rapid background↔active thrash inside the 60 s window is coalesced.
+      capturedListener?.('active');
+      await new Promise((r) => setTimeout(r, 0));
+      capturedListener?.('active');
+      await new Promise((r) => setTimeout(r, 0));
+      expect(fetchMeMock).toHaveBeenCalledTimes(1);
+
+      // Past the window, the next foreground pings again.
+      nowMs += 61_000;
+      capturedListener?.('active');
+      await new Promise((r) => setTimeout(r, 0));
+      expect(fetchMeMock).toHaveBeenCalledTimes(2);
+      expect(mockState.setUser).not.toHaveBeenCalled();
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
+  it('Test 3b: a failing session ping is swallowed (eviction handling lives in the API client)', async () => {
+    mockState.user = {
+      id: 'u1',
+      email: 'alice@x.com',
+      name: 'Alice',
+      avatarUrl: 'https://x/a.jpg',
+    };
+    mockState.jwt = 'token';
+    fetchMeMock.mockRejectedValue(new Error('GET /me failed: 401 device-evicted'));
 
     render(<HostComponent />);
     await new Promise((r) => setTimeout(r, 0));
-    expect(fetchMeMock).not.toHaveBeenCalled();
-
-    capturedListener?.('active');
-    await new Promise((r) => setTimeout(r, 0));
-    expect(fetchMeMock).not.toHaveBeenCalled();
+    expect(fetchMeMock).toHaveBeenCalledTimes(1);
+    // No throw escaped; the store is untouched by the hook itself (the API
+    // client's maybeHandleEviction owns the eviction side effects).
     expect(mockState.setUser).not.toHaveBeenCalled();
   });
 

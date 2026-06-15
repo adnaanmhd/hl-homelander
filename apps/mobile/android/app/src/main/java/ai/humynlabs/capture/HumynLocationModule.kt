@@ -37,8 +37,9 @@ import java.util.concurrent.atomic.AtomicBoolean
  * `getCurrentFix(timeoutMs)` resolves a fix map
  * `{ lat, lng, accuracy_m, provider, captured_at, label }` (snake_case to match
  * the metadata.json + zod `LocationSchema` shape), or **null** when:
- *   - neither FINE nor COARSE is granted (defensive — the onboarding gate is the
- *     real guard; this never throws / never blocks capture),
+ *   - FINE ("Precise") is not granted (BUG-1 precise-only — a coarse-only
+ *     "Approximate" grant resolves null here; defensive — the onboarding gate is
+ *     the real guard; this never throws / never blocks capture),
  *   - `getCurrentLocation` + the last-known fallback both yield nothing,
  *   - the request times out (default 10 s).
  *
@@ -134,9 +135,13 @@ class HumynLocationModule(reactContext: ReactApplicationContext) :
     }
 
     private fun hasLocationPermission(ctx: Context): Boolean {
+        // BUG-1 (2026-06-09 — precise-only): require FINE ("Precise"). A coarse-only
+        // ("Approximate") grant is INSUFFICIENT — getCurrentFix gates on this first,
+        // so a coarse device resolves a null fix rather than embedding a coarse one.
+        // (COARSE stays DECLARED in the manifest — Android 12+ needs both declared to
+        // request FINE at all — it's just not accepted as a grant here.)
         val fine = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION)
-        val coarse = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION)
-        return fine == PackageManager.PERMISSION_GRANTED || coarse == PackageManager.PERMISSION_GRANTED
+        return fine == PackageManager.PERMISSION_GRANTED
     }
 
     private fun buildFixMap(ctx: Context, loc: Location, provider: String): WritableMap =
@@ -144,7 +149,8 @@ class HumynLocationModule(reactContext: ReactApplicationContext) :
             putDouble("lat", loc.latitude)
             putDouble("lng", loc.longitude)
             // Horizontal accuracy radius (m). Lets the backend audit the precision
-            // actually delivered (a COARSE-only grant yields a larger value).
+            // actually delivered by the fix (BUG-1: a coarse-only grant never
+            // reaches here — hasLocationPermission gates on FINE first).
             putDouble("accuracy_m", if (loc.hasAccuracy()) loc.accuracy.toDouble() else -1.0)
             putString("provider", provider)
             putString("captured_at", isoFromEpochMs(loc.time))

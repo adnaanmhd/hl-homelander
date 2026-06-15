@@ -18,7 +18,9 @@ import eventsPostRoute from './routes/events/post.js';
 import feedbackPostRoute from './routes/feedback/post.js';
 import appVersionGetRoute from './routes/app-version/get.js';
 import { startDsrCron } from './cron/dsr-hard-delete.js';
+import { startThumbnailSweep } from './cron/thumbnail-sweep.js';
 import { verifyConsentTextHash } from './legal/boot-guard.js';
+import { isFfmpegAvailable } from './lib/thumbnail.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   // Plan 01-11 — refuse to start on consent-text drift. MUST run before any
@@ -69,6 +71,43 @@ export async function buildApp(): Promise<FastifyInstance> {
   // (Enh 3 / D1, 2026-06-04: the hash-verify worker, its BullMQ/Redis queue, the
   // SQS poller, the events-outbox plugin, and the verify-sweep cron were all
   // removed. `uploaded` is now terminal success — there is nothing to sweep.)
+
+  // BUG-3 (2026-06-09) — ffmpeg boot probe. Server-side poster thumbnails
+  // (Bug 6 / D5) shell out to ffmpeg at /finalize + in the backfill script; an
+  // image WITHOUT ffmpeg (a pre-Dockerfile-ffmpeg build — DEPLOY-2) silently
+  // degrades every poster to null. Log loudly at startup so the gap is
+  // observable rather than invisible. Skipped under test (no log noise / no
+  // subprocess spawn in the singleFork pool).
+  if (process.env.NODE_ENV !== 'test') {
+    if (isFfmpegAvailable()) {
+      app.log.info('ffmpeg present — server-side poster thumbnails (Bug 6 / D5) enabled');
+    } else {
+      app.log.warn(
+        'ffmpeg NOT found on PATH — server-side poster thumbnails (Bug 6 / D5) are DISABLED; ' +
+          'History falls back to the local ledger / gradient. Rebuild the API image WITH ffmpeg ' +
+          '(apps/api/Dockerfile already installs it — the deployed image may predate that).',
+      );
+    }
+    // Phase 2 item 4 (2026-06-10) — make the single-instance invariant VISIBLE
+    // at boot. The Bug 4 / D2 eviction LRU (auth/installation-binding.ts, 60 s
+    // TTL, per-process) and the hourly in-process thumbnail sweep both assume
+    // ECS desired_count = 1; scaling out silently weakens eviction (a stale
+    // binding can be served from another instance's LRU for up to 60 s) and
+    // duplicates the sweep. Revisit both before any scale-out.
+    app.log.info(
+      'single-instance invariant: installation-binding LRU (60 s TTL) + the thumbnail sweep ' +
+        'assume desired_count = 1 — do not scale out without revisiting both',
+    );
+    // Phase 4 item 1 (2026-06-10, Bug 4) — in-process poster-thumbnail
+    // recovery: backfillThumbnails once at boot + hourly. Replaces the
+    // structurally-unrunnable manual CLI as the recovery path; rows whose
+    // finalize-time generation failed self-heal within one sweep. No-ops
+    // (with a warn) when ffmpeg is absent. GSD_THUMB_SWEEP=off escape hatch
+    // mirrors GSD_DSR_CRON.
+    if (process.env.GSD_THUMB_SWEEP !== 'off') {
+      startThumbnailSweep(app.log);
+    }
+  }
 
   return app;
 }

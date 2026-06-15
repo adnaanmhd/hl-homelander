@@ -28,6 +28,16 @@
  */
 import { NativeEventEmitter, NativeModules, type EmitterSubscription } from 'react-native';
 
+/**
+ * Phase 1 (2026-06-10) — marker prefix the native coordinator stamps into
+ * `lastFailureReason` when a 401 parks a row (mirror of
+ * `UploadCoordinator.AUTH_FAILURE_REASON_PREFIX` — keep in sync). Lives here
+ * on the bridge (the Kotlin-contract module) so both `uploadQueueStore` and
+ * `uploadReconcile` can import it without importing each other (review fix
+ * 2026-06-10 — avoids a service-module cycle).
+ */
+export const AUTH_FAILURE_REASON_PREFIX = 'auth: ';
+
 /** One S3 multipart part — number (1-based), status, ETag (once done), retry count. */
 export type UploadPartState = {
   n: number;
@@ -151,8 +161,14 @@ interface HumynUploadNativeModule {
   ): Promise<void>;
   /** Pause in-flight uploads (UP-10 — HumynCapture.start() calls this). */
   pause(): Promise<void>;
-  /** Resume uploads (UP-10 — HumynCapture.stop() calls this). */
+  /** Resume uploads (UP-10 — HumynCapture.stop() calls this). Clears ONLY the JS-lifecycle pause. */
   resume(): Promise<void>;
+  /**
+   * Review fix (2026-06-10) — clear the coordinator's 401 AUTH pause + kick
+   * the drainer, WITHOUT touching the JS-lifecycle pause (a recording in
+   * progress keeps uploads parked, UP-10). Called by the auth-recovery paths.
+   */
+  resumeAuth(): Promise<void>;
   /** Read all queue rows (the JS side filters to own-rows). Read-only — no abort (UP-11). */
   getQueue(): Promise<UploadQueueRow[]>;
   /**
@@ -180,7 +196,7 @@ interface HumynUploadNativeModule {
    * and every cached part ETag → the drainer pounds /reupload → 409 storm.
    * Trail: `.planning/debug/resolved/uploads-stuck-multi-segment.md`.
    */
-  reviveDeadLetter(recordingId: string): Promise<void>;
+  reviveDeadLetter(recordingId: string): Promise<boolean | null>;
   /**
    * Debug session `.planning/debug/upload-queue-hol-finalizing.md` (Fix C
    * item 4) — manually retry a `NEEDS_ATTENTION` row. Resets `attemptCount`
@@ -251,6 +267,16 @@ export const HumynUpload = {
     ensure().enqueue(recordingId, mp4Path, csvPath, jsonPath, taskId, isPractice, ownerUserId),
   pause: (): Promise<void> => ensure().pause(),
   resume: (): Promise<void> => ensure().resume(),
+  /** Clear the 401 auth-pause + drain — never touches the recording/logout pause (UP-10). */
+  resumeAuth: (): Promise<void> => ensure().resumeAuth(),
+  /** Boot-safe `resumeAuth()` — never throws; no-op when the module is absent. */
+  resumeAuthSafe: async (): Promise<void> => {
+    try {
+      await ensure().resumeAuth();
+    } catch {
+      /* no native module / JSDOM — non-fatal */
+    }
+  },
   getQueue: (): Promise<UploadQueueRow[]> => ensure().getQueue(),
   /** Local-delete on terminal success (renamed from clearUploaded, Enh 3 / D1). */
   clearUploaded: (recordingIds: string[]): Promise<void> => ensure().clearUploaded(recordingIds),
@@ -259,14 +285,23 @@ export const HumynUpload = {
    * Preferred over [reupload] for the cold-start sweep + Home tile tap.
    * Throws if the module is absent — use [reviveDeadLetterSafe] from boot
    * paths (the boot-time variants never throw).
+   *
+   * Phase 1 (2026-06-10): resolves `true` when a row was actually revived;
+   * `null` for the no-op case (missing / non-DEAD_LETTER row) so the History
+   * Retry handler can toast "nothing to retry" instead of failing silently.
    */
-  reviveDeadLetter: (recordingId: string): Promise<void> => ensure().reviveDeadLetter(recordingId),
-  /** Boot-safe `reviveDeadLetter()` — never throws; no-op when the module is unavailable. */
-  reviveDeadLetterSafe: async (recordingId: string): Promise<void> => {
+  reviveDeadLetter: (recordingId: string): Promise<boolean | null> =>
+    ensure().reviveDeadLetter(recordingId),
+  /**
+   * Boot-safe `reviveDeadLetter()` — never throws. Resolves `true` on an
+   * actual revive; `null` on a no-op OR when the module is unavailable.
+   */
+  reviveDeadLetterSafe: async (recordingId: string): Promise<boolean | null> => {
     try {
-      await ensure().reviveDeadLetter(recordingId);
+      return (await ensure().reviveDeadLetter(recordingId)) ?? null;
     } catch {
       /* no native module / JSDOM — non-fatal */
+      return null;
     }
   },
   /**
@@ -319,8 +354,10 @@ export const HumynUpload = {
   openOemAutostart: (): Promise<boolean> => ensure().openOemAutostart(),
 
   // Boot-/screen-safe variants — never throw (a build without the native module,
-  // a JSDOM test, an iOS build where these aren't implemented). Used by
-  // BatteryOptimizationScreen so it renders without the module.
+  // a JSDOM test, an iOS build where these aren't implemented). Used by the
+  // onboarding CompatPassScreen battery ask (relocated from PermissionsScreen
+  // in Phase 5, 2026-06-10 — the ask raced the compat camera probes) + the
+  // Help Center BatteryOptimizationGuide (BUG-5, 2026-06-09).
   /** Safe: `false` (treat as "not exempt — show the prompt") when the module is unavailable. */
   isBatteryOptimizationExemptSafe: async (): Promise<boolean> => {
     try {
@@ -408,6 +445,27 @@ export function onUploadQueueChanged(
  */
 export function onUploadProgress(listener: (e: UploadProgressEvent) => void): EmitterSubscription {
   return emitter().addListener('onUploadProgress', listener);
+}
+
+/**
+ * Phase 1 (2026-06-10) — auth-failure event payload. `slug` is the server's
+ * problem-detail slug from the 401 body: `'device-evicted'` (single-device
+ * binding kicked this install), `'reauth-required'` (legacy/expired claim
+ * shape), or `'unknown'` (unparseable body — treat as plain token expiry).
+ */
+export type UploadAuthFailureEvent = { slug: string };
+
+/**
+ * Phase 1 (2026-06-10) — subscribe to `onUploadAuthFailure`. Fired by the
+ * native coordinator when a 401 from `/init`, `/parts` or `/finalize` parks a
+ * row + pauses the queue. The boot-installed listener
+ * (`services/uploadQueueStore.ts`) runs the eviction UX or a silent re-auth.
+ * Caller MUST `.remove()` the returned subscription on teardown.
+ */
+export function onUploadAuthFailure(
+  listener: (e: UploadAuthFailureEvent) => void,
+): EmitterSubscription {
+  return emitter().addListener('onUploadAuthFailure', listener);
 }
 
 /** Connectivity-change event payload — `online === true` when there's an active default network with INTERNET capability. */

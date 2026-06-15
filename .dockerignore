@@ -1,0 +1,16 @@
+# Keep the API image build hermetic (apps/api/Dockerfile builds from the repo
+# root). Host node_modules are pnpm-symlinked trees: `COPY apps/api ./apps/api`
+# would overlay them onto the image's own `pnpm install --frozen-lockfile`
+# output and the copy fails ("cannot copy to non-directory" on the symlink
+# collision) — and stale host build artifacts must never leak into the image
+# (the in-image `pnpm build` is the only compile that counts).
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+.git
+
+# Never part of the API image; keeps the build context small.
+apps/mobile/android/.gradle
+apps/mobile/android/app/build
+apps/mobile/android/build
+.planning

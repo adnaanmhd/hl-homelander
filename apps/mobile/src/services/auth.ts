@@ -102,60 +102,55 @@ function decodeJwtPayload(jwt: string): JwtPayload {
 }
 
 /**
- * Runs the full Phase 1 sign-in handshake. Returns the JWT + minimal user
- * profile on success; throws with a descriptive message on any failure.
+ * Steps 1–3 of the handshake: acquire the Google ID token + a server nonce +
+ * the Play Integrity token bound to it (or the BYPASS_AUTH mocks). Shared by
+ * [signInWithGoogle] and [silentReauth] (review extraction 2026-06-10 — the
+ * two verbatim copies were a drift hazard); only the Google-token SOURCE
+ * differs, injected via `getGoogleIdToken`. A `null` from the getter means
+ * "no credential available" → returns null (the silent path's soft failure;
+ * the interactive getter throws instead).
  */
-export async function signInWithGoogle(): Promise<AuthSuccess> {
-  const { flavor, applicationId } = getFlavorContext();
-
-  let googleIdToken: string;
-  let integrityToken: string;
-  let nonceId: string;
-
+async function acquireHandshakeInputs(
+  getGoogleIdToken: () => Promise<string | null>,
+): Promise<{ googleIdToken: string; integrityToken: string; nonceId: string } | null> {
   if (Config['BYPASS_AUTH'] === 'true') {
-    googleIdToken = 'mock-google-token';
-    integrityToken = 'mock-integrity-token';
     const nonceRes = await apiClient.postNoBody<NonceResponse>('/auth/nonce');
-    nonceId = nonceRes.nonceId;
-  } else {
-    // 1. Google Sign-In via Credential Manager.
-    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-    const signInResponse = await GoogleSignin.signIn();
-    if (signInResponse.type !== 'success') {
-      throw new Error('google_sign_in_cancelled');
-    }
-    const token = signInResponse.data.idToken;
-    if (!token) {
-      throw new Error('google_sign_in_no_id_token');
-    }
-    googleIdToken = token;
-
-    // 2. Mint a server-side single-use nonce.
-    const nonceRes = await apiClient.postNoBody<NonceResponse>('/auth/nonce');
-    nonceId = nonceRes.nonceId;
-
-    // 3. Request a Play Integrity token bound to that nonce.
-    integrityToken = await requestIntegrityToken(nonceRes.nonce);
+    return {
+      googleIdToken: 'mock-google-token',
+      integrityToken: 'mock-integrity-token',
+      nonceId: nonceRes.nonceId,
+    };
   }
+  const googleIdToken = await getGoogleIdToken();
+  if (!googleIdToken) return null;
+  // Mint a server-side single-use nonce, then a Play Integrity token bound to it.
+  const nonceRes = await apiClient.postNoBody<NonceResponse>('/auth/nonce');
+  const integrityToken = await requestIntegrityToken(nonceRes.nonce);
+  return { googleIdToken, integrityToken, nonceId: nonceRes.nonceId };
+}
 
-  // 4. POST /auth/google. Bug 4 / D2 — send the stable per-install id so the
-  //    server binds the account to THIS device (newest-login-wins) and mints a
-  //    JWT carrying it. A later sign-in on another device evicts this one (the
-  //    next authed request 401s with slug `device-evicted`).
+/**
+ * Step 4 + 5 of the handshake: POST /auth/google (Bug 4 / D2 — carries the
+ * stable per-install id; `silent: true` marks a machine-initiated re-auth the
+ * server must never rebind/create/stamp-consent from — review fix 2026-06-10)
+ * and validate the minted JWT carries the build's (flavor, applicationId)
+ * (D-AUTH-05 belt-and-suspenders). Throws on any failure.
+ */
+async function postAuthGoogle(
+  inputs: { googleIdToken: string; integrityToken: string; nonceId: string },
+  opts: { silent: boolean },
+): Promise<AuthGoogleResponse> {
+  const { flavor, applicationId } = getFlavorContext();
   const installationId = await getInstallationId();
   const authRes = await apiClient.post<AuthGoogleResponse>('/auth/google', {
-    googleIdToken,
-    integrityToken,
+    googleIdToken: inputs.googleIdToken,
+    integrityToken: inputs.integrityToken,
     flavor,
     applicationId,
-    nonceId,
+    nonceId: inputs.nonceId,
     installationId,
+    ...(opts.silent ? { silent: true } : {}),
   });
-
-  // 5. Validate JWT payload — D-AUTH-05 requires the JWT to carry the build's
-  //    (flavor, applicationId). Belt-and-suspenders: the backend cross-checks
-  //    via flavor-allowlist (D-AUTH-01); we re-verify here so a misconfigured
-  //    backend can't quietly accept the wrong pair.
   const payload = decodeJwtPayload(authRes.jwt);
   if (payload.flavor !== flavor) {
     throw new Error(`jwt_flavor_mismatch: expected ${flavor}, got ${payload.flavor}`);
@@ -165,6 +160,37 @@ export async function signInWithGoogle(): Promise<AuthSuccess> {
       `jwt_applicationId_mismatch: expected ${applicationId}, got ${payload.applicationId}`,
     );
   }
+  return authRes;
+}
+
+/**
+ * Runs the full Phase 1 sign-in handshake. Returns the JWT + minimal user
+ * profile on success; throws with a descriptive message on any failure.
+ */
+export async function signInWithGoogle(): Promise<AuthSuccess> {
+  // 1. Google Sign-In via Credential Manager (interactive — throws rather
+  //    than soft-failing, so the null branch below is unreachable).
+  const inputs = await acquireHandshakeInputs(async () => {
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    const signInResponse = await GoogleSignin.signIn();
+    if (signInResponse.type !== 'success') {
+      throw new Error('google_sign_in_cancelled');
+    }
+    const token = signInResponse.data.idToken;
+    if (!token) {
+      throw new Error('google_sign_in_no_id_token');
+    }
+    return token;
+  });
+  if (!inputs) {
+    throw new Error('google_sign_in_no_id_token');
+  }
+
+  // 4. POST /auth/google + validate the minted JWT (D-AUTH-05). Bug 4 / D2 —
+  //    the body carries the stable per-install id so the server binds the
+  //    account to THIS device (newest-login-wins); a later sign-in on another
+  //    device evicts this one (next authed request 401s `device-evicted`).
+  const authRes = await postAuthGoogle(inputs, { silent: false });
 
   // 6. Store JWT — MMKV with encryption flag (instance-level encryptionKey
   //    on the singleton). Key prefix `auth.jwt.v1` is versioned for kill-switch.
@@ -179,7 +205,7 @@ export async function signInWithGoogle(): Promise<AuthSuccess> {
   //     PracticeCompleteScreen derive via decodeGoogleSubFromJwt. Best-effort.
   if (authRes.user.practiceCompletedAt) {
     try {
-      mmkv.set(practiceDoneKey(payload.sub), true);
+      mmkv.set(practiceDoneKey(decodeJwtPayload(authRes.jwt).sub), true);
     } catch {
       /* best-effort seed — must never break sign-in */
     }
@@ -204,6 +230,42 @@ export async function signInWithGoogle(): Promise<AuthSuccess> {
       avatarUrl: authRes.user.avatarUrl,
     },
   };
+}
+
+/**
+ * Phase 1 (2026-06-10) — NON-interactive re-auth for the upload pipeline's
+ * `onUploadAuthFailure` listener (plain token expiry, NOT eviction). Runs the
+ * same handshake as [signInWithGoogle] (shared helpers) but sources the
+ * Google ID token from `GoogleSignin.signInSilently()` — no UI is ever shown
+ * — and POSTs `silent: true` (review fix 2026-06-10): the server refuses to
+ * rebind the single-device binding from a machine-initiated re-auth, so a
+ * drawer phone's background drain can never evict the phone the user is
+ * actively using; a divergent binding comes back 401 `device-evicted`, which
+ * `maybeHandleEviction` inside the API client routes to the eviction UX.
+ * On success the fresh JWT lands in MMKV AND the app store (`setJwt` writes
+ * through), which fires `uploadReconcile`'s jwt-change subscription →
+ * context re-push + auth-resume (never the recording pause — UP-10). Returns
+ * `false` on ANY failure (no saved credential, offline, integrity failure,
+ * eviction) — never throws, never shows UI.
+ */
+export async function silentReauth(): Promise<boolean> {
+  try {
+    const inputs = await acquireHandshakeInputs(async () => {
+      const silent = await GoogleSignin.signInSilently();
+      return silent.type === 'success' ? (silent.data.idToken ?? null) : null;
+    });
+    if (!inputs) return false;
+
+    const authRes = await postAuthGoogle(inputs, { silent: true });
+
+    // setJwt writes through to MMKV AND updates the store slice — the latter
+    // is what re-pushes the upload context + auth-resumes the queue (the
+    // uploadReconcile jwt-change subscription).
+    useAppStore.getState().setJwt(authRes.jwt);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function getStoredJwt(): string | undefined {

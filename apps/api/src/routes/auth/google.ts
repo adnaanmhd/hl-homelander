@@ -190,10 +190,24 @@ export default async function googleAuthRoutes(app: FastifyInstance) {
         integrity_verdict = result.verdict;
       }
 
-      // e. Find-or-create user + write consent_log row (atomic, D-LEGAL-03)
+      // e. Find-or-create user + write consent_log row (atomic, D-LEGAL-03).
+      //
+      // Review fix (2026-06-10) — `body.silent` marks a MACHINE-initiated
+      // re-auth (the upload pipeline's silent token refresh). Three rules,
+      // checked atomically inside the transaction:
+      //   1. silent + account bound to a DIFFERENT installation → 401
+      //      `device-evicted`, NO rebind: newest-LOGIN-wins means interactive
+      //      logins only (a drawer phone's background drain must not steal the
+      //      binding and evict the actively-used phone).
+      //   2. silent + unknown account → 401 (account creation implies consent
+      //      capture, which needs the interactive UI).
+      //   3. silent + same/unset binding → mint a JWT but DON'T stamp consent
+      //      (no consentVersion bump, no consent_log row — the user wasn't
+      //      shown anything) and don't touch the binding.
       const ip = req.ip;
       const ua = (req.headers['user-agent'] ?? '') as string;
-      const userRecord = await db.transaction(async (tx) => {
+      const isSilent = body.silent === true;
+      const txResult = await db.transaction(async (tx) => {
         // Lookup by google_sub
         const found = await tx
           .select()
@@ -204,18 +218,37 @@ export default async function googleAuthRoutes(app: FastifyInstance) {
         let isNewUser = false;
         if (found.length > 0) {
           userId = found[0]!.id;
-          // Update consent denorm to current version (re-accept on text bump)
-          await tx
-            .update(schema.users)
-            .set({
-              consentVersion: CONSENT_VERSION,
-              consentAcceptedAt: new Date(),
-              updatedAt: new Date(),
-              // Bug 4 / D2 — last-writer-wins: bind the account to THIS device.
-              currentInstallationId: body.installationId,
-            })
-            .where(eq(schema.users.id, userId));
+          const boundTo = found[0]!.currentInstallationId;
+          if (isSilent && boundTo != null && boundTo !== body.installationId) {
+            return { evicted: true as const };
+          }
+          if (isSilent) {
+            // Silent + same/unset binding: bind only when unset (first binder
+            // converges; an interactive login elsewhere still wins later).
+            // Never bump consent — the user saw no consent text.
+            if (boundTo == null) {
+              await tx
+                .update(schema.users)
+                .set({ updatedAt: new Date(), currentInstallationId: body.installationId })
+                .where(eq(schema.users.id, userId));
+            }
+          } else {
+            // Update consent denorm to current version (re-accept on text bump)
+            await tx
+              .update(schema.users)
+              .set({
+                consentVersion: CONSENT_VERSION,
+                consentAcceptedAt: new Date(),
+                updatedAt: new Date(),
+                // Bug 4 / D2 — last-writer-wins: bind the account to THIS device.
+                currentInstallationId: body.installationId,
+              })
+              .where(eq(schema.users.id, userId));
+          }
         } else {
+          if (isSilent) {
+            return { evicted: true as const };
+          }
           userId = ulid();
           isNewUser = true;
           await tx.insert(schema.users).values({
@@ -235,24 +268,39 @@ export default async function googleAuthRoutes(app: FastifyInstance) {
           });
           await tx.insert(schema.profiles).values({ userId });
         }
-        // Append consent_log row — every sign-in writes one (initial + every re-accept)
-        await tx.insert(schema.consentLog).values({
-          id: ulid(),
-          userId,
-          consentVersion: CONSENT_VERSION,
-          consentTextHash: CONSENT_TEXT_SHA256,
-          acceptedAt: new Date(),
-          ip,
-          userAgent: ua,
-          buildFlavor: body.flavor,
-        });
+        if (!isSilent) {
+          // Append consent_log row — every INTERACTIVE sign-in writes one
+          // (initial + every re-accept). Silent re-auths never stamp consent.
+          await tx.insert(schema.consentLog).values({
+            id: ulid(),
+            userId,
+            consentVersion: CONSENT_VERSION,
+            consentTextHash: CONSENT_TEXT_SHA256,
+            acceptedAt: new Date(),
+            ip,
+            userAgent: ua,
+            buildFlavor: body.flavor,
+          });
+        }
         const refreshed = await tx
           .select()
           .from(schema.users)
           .where(eq(schema.users.id, userId))
           .limit(1);
-        return { user: refreshed[0]!, isNewUser };
+        return { evicted: false as const, user: refreshed[0]!, isNewUser };
       });
+      if (txResult.evicted) {
+        const pd = buildProblemDetail({
+          slug: PROBLEM_SLUGS.deviceEvicted,
+          title: 'Account is bound to another device',
+          status: 401,
+          detail:
+            'Silent re-auth refused: the account was signed in on another device. Sign in interactively to use it here.',
+          instance: req.id as string,
+        });
+        return reply.status(401).type(PROBLEM_CT).send(pd);
+      }
+      const userRecord = txResult;
 
       // Bug 4 / D2 — the row was just rebound to this device's installationId;
       // drop any cached binding so requireAuth sees the new value on the very

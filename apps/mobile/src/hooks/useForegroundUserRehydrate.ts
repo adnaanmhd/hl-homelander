@@ -22,19 +22,30 @@
 // gender, avatarUrl, …); we project to UserDisplay before calling setUser
 // so the store slice keeps its narrow shape.
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { useAppStore } from '../state/appStore';
 import { fetchMe } from '../services/profileService';
 import { coalesceDisplayName } from '../lib/userDisplayName';
 import { logEvent } from '../util/analytics';
 
+/**
+ * Phase 2 item 1 (2026-06-10) — minimum gap between foreground session pings.
+ * An evicted device should land on Signup "within seconds of being looked
+ * at", but rapid background↔active thrash must not hammer /me (its per-user
+ * rate limit is 60/min; one ping a minute is plenty for eviction latency).
+ */
+const SESSION_PING_MIN_INTERVAL_MS = 60_000;
+
 export function useForegroundUserRehydrate(): void {
+  const lastPingAtRef = useRef(0);
   useEffect(() => {
     const rehydrate = async () => {
       const { user, jwt, setUser } = useAppStore.getState();
-      if (user == null && jwt != null) {
+      if (jwt == null) return;
+      if (user == null) {
         try {
+          lastPingAtRef.current = Date.now();
           const me = await fetchMe();
           setUser({
             id: me.id,
@@ -53,6 +64,24 @@ export function useForegroundUserRehydrate(): void {
             reason: e instanceof Error ? e.name : 'unknown',
           });
         }
+        return;
+      }
+      // Phase 2 item 1 (2026-06-10, Bug 3) — foreground SESSION PING. The
+      // single-device eviction is pull-based (no FCM — LOCKED): before this,
+      // an evicted device that only browsed cached screens never made an
+      // authed call and stayed "signed in" indefinitely. Now every foreground
+      // (throttled to one per 60 s) fires a cheap authed GET /me; on a 401
+      // with the device-evicted / reauth-required slug the API client's
+      // maybeHandleEviction clears the session + routes to Signup. The
+      // response body is deliberately ignored — this is a liveness probe.
+      const now = Date.now();
+      if (now - lastPingAtRef.current < SESSION_PING_MIN_INTERVAL_MS) return;
+      lastPingAtRef.current = now;
+      try {
+        await fetchMe();
+      } catch {
+        // Eviction is handled inside the API client; a network error here
+        // means nothing (the next foreground retries).
       }
     };
     void rehydrate();

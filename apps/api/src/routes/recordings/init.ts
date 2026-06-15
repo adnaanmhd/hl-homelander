@@ -53,6 +53,7 @@ import {
 } from '../../lib/s3-client.js';
 import { RecordingsInitRequestSchema } from '@humyn/shared-types';
 import { buildProblemDetail, PROBLEM_SLUGS } from '../../lib/problem-detail.js';
+import { pgErrorCode, pgErrorConstraint } from '../../lib/pg-error.js';
 
 const PROBLEM_CT = 'application/problem+json';
 
@@ -196,13 +197,7 @@ async function replyExistingRowIdempotent(args: {
 
 /** PG `unique_violation` (SQLSTATE 23505) on the named constraint. */
 function isUniqueViolation(e: unknown, constraint: string): boolean {
-  if (!e || typeof e !== 'object') return false;
-  const cause = (e as { cause?: unknown }).cause;
-  const code = (e as { code?: unknown }).code ?? (cause as { code?: unknown } | null)?.code;
-  const constr =
-    (e as { constraint?: unknown }).constraint ??
-    (cause as { constraint?: unknown } | null)?.constraint;
-  return code === '23505' && constr === constraint;
+  return pgErrorCode(e) === '23505' && pgErrorConstraint(e) === constraint;
 }
 
 export default async function recordingsInitRoute(app: FastifyInstance): Promise<void> {

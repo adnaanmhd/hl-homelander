@@ -1,5 +1,3 @@
-<!-- GSD:project-start source:PROJECT.md -->
-
 ## Project
 
 **Homelander** — codename for **Humyn Labs Capture**. Android-first React Native app that records strict-spec egocentric (head-mounted) video + IMU streams of everyday tasks. Captured data trains physical/embodied AI (VLA/VLN, humanoid robotics). Brand: _Real Humyns. Real Intelligence._ MVP ships as a signed APK direct to users in India + Brazil, ages 18–35, on ₹30K+ phones. (Play Store and iOS App Store channels are deferred to a follow-on milestone — see the descope banner below.)
@@ -42,10 +40,6 @@
 - **No success metrics.** Ship-by-vibe at MVP; no quant gates block phase completion (`strategic-suggestions.md` §1).
 - **Privacy / consent:** `idea-brief.md` §5.2 is canonical. Server logs consent timestamp + version. **Precise location (GPS coordinates) captured per recording (Bug 3 / D3, 2026-06-04 — overrides the formerly-LOCKED coarse-only constraint; consent text updated + consent version bumped `1.0.0` → `1.1.0`, forcing re-consent; partial COARSE grant still records, only full denial blocks).**
 - **Files never re-encoded.** MP4, IMU CSV, metadata JSON travel byte-for-byte device → S3. (The rule covers the three captured payload files; upload hashing + server verification were removed 2026-06-04 — Enh 3 / D1 — and the server-generated poster thumbnail (Bug 6 / D5, `recordings/{userId}/{recordingId}/thumb.jpg`) is a NEW derived object, not a re-encode of the captured bytes.)
-
-<!-- GSD:project-end -->
-
-<!-- GSD:stack-start source:research/STACK.md -->
 
 ## Tech Stack — Pins
 
@@ -132,53 +126,14 @@ Full rationale, OEM sharp edges, version sources, and config recipes: `research/
 - Detox 20.51.1 ↔ RN 0.83 (added in 20.47.0).
 - Fastify 5 ↔ `@fastify/cors@11`, `@fastify/jwt@10`, `@fastify/rate-limit@10`.
 
-<!-- GSD:stack-end -->
-
-<!-- GSD:conventions-start source:CONVENTIONS.md -->
-
 ## Conventions
 
 Conventions not yet established. Will populate as patterns emerge during development.
-
-<!-- GSD:conventions-end -->
-
-<!-- GSD:architecture-start source:ARCHITECTURE.md -->
 
 ## Architecture
 
 Architecture not yet mapped. Follow existing patterns found in the codebase.
 
-<!-- GSD:architecture-end -->
-
-<!-- GSD:skills-start source:skills/ -->
-
 ## Project Skills
 
 No project skills found. Add skills to any of: `.claude/skills/`, `.agents/skills/`, `.cursor/skills/`, `.github/skills/`, or `.codex/skills/` with a `SKILL.md` index file.
-
-<!-- GSD:skills-end -->
-
-<!-- GSD:workflow-start source:GSD defaults -->
-
-## GSD Workflow Enforcement
-
-Before using Edit, Write, or other file-changing tools, start work through a GSD command so planning artifacts and execution context stay in sync.
-
-Entry points:
-
-- `/gsd-quick` — small fixes, doc updates, ad-hoc tasks
-- `/gsd-debug` — investigation and bug fixing
-- `/gsd-execute-phase` — planned phase work
-
-Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
-
-<!-- GSD:workflow-end -->
-
-<!-- GSD:profile-start -->
-
-## Developer Profile
-
-> Profile not yet configured. Run `/gsd-profile-user` to generate your developer profile.
-> This section is managed by `generate-claude-profile` -- do not edit manually.
-
-<!-- GSD:profile-end -->

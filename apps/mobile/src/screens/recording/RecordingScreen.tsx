@@ -82,9 +82,9 @@ import { KEYS } from '../../state/keys';
 import { logEvent } from '../../util/analytics';
 import { HumynUpload } from '../../native/HumynUpload';
 import { decodeGoogleSubFromJwt } from '../../lib/jwtSub';
-import { shouldShowBatteryOptimizationPrompt } from '../onboarding/BatteryOptimizationScreen';
 import { setPendingUploadToast } from '../../state/uploadToastBus';
 import { writeEntry as writeThumbnailLedgerEntry } from '../../services/thumbnailLedger';
+import { preRecordSessionCheck } from '../../services/sessionCheck';
 import { handleSegmentCanceled } from './lib/handleSegmentCanceled';
 
 interface NavigationLike {
@@ -200,10 +200,6 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
   const segMetaRef = useRef<{ recordingId?: string; filenameBase?: string }>({});
   // The signed-in `sub` at capture time (UP-13 owner-pin baked into the upload row).
   const ownerSubRef = useRef<string>(decodeGoogleSubFromJwt(useAppStore.getState().jwt));
-  // Set by onSegmentComplete on the first-ever auto-enqueue when the
-  // battery-optimization walkthrough hasn't been shown yet (UP-09); handleStop's
-  // navigate-to-Home path pushes the BatteryOptimizationScreen modal.
-  const surfaceBatteryPromptRef = useRef(false);
 
   // --- transient screen UI (toast / voice-cue pill) -------------------------
   const [toast, setToast] = useState<{ text: string; visible: boolean }>({
@@ -277,6 +273,12 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
   useEffect(() => {
     dfovMeasuredDeg.current = readCompatUltrawideDfovDeg();
     appVersionRef.current = readAppVersion();
+    // Phase 2 item 2 (2026-06-10, Bug 3) — pre-record session check. Fire one
+    // cheap authed GET before the gate flow: a definitive 401 routes through
+    // the eviction UX (resetToOnboarding unmounts this screen), so an evicted
+    // device can't waste a 10-minute capture that could never upload. Network
+    // errors proceed — offline capture stays legal (the queue holds).
+    void preRecordSessionCheck();
     // Bug 3 / D3 — resolve the precise GPS fix EARLY (at mount) so it's ready by
     // the time the user clears the hand gate and presses Start, WITHOUT adding
     // latency to start(). Best-effort: resolveLocationFix never throws and
@@ -464,17 +466,6 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
           : `${formatContributionDuration(durationMs)} added to your contribution.`;
         setPendingUploadToast(contributionText, 5_000);
         navigateToHome(navigation);
-        // UP-09 — surface the battery-optimization walkthrough ONCE, on the
-        // first-ever auto-enqueue, after landing on Home (not on the recording
-        // surface). The ref was set by the onSegmentComplete hook.
-        if (surfaceBatteryPromptRef.current) {
-          surfaceBatteryPromptRef.current = false;
-          try {
-            navigation.navigate('BatteryOptimization');
-          } catch {
-            /* navigator may not have the route in some builds — non-fatal */
-          }
-        }
         return;
       }
       // Real recording under 3 minutes (Bug 8 + Enh 1 / D6).
@@ -800,11 +791,9 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
   // handed to HumynUpload.enqueue(...) — including the silent 10-min auto-segment
   // cuts — so every segment uploads, not just the final one. The native enqueue
   // refuses practice rows (D-08, Plan 05-04) but we also skip __practice__ on the
-  // JS side. The first-ever enqueue surfaces the BatteryOptimizationScreen once
-  // (gated on shouldShowBatteryOptimizationPrompt(), Plan 05-07) — pushed as a
-  // modal after the recording finishes (we stash a flag here; handleStop's
-  // navigate-away does the actual push so it lands on top of Home, not the
-  // recording surface).
+  // JS side. (BUG-5, 2026-06-09 — the first-upload battery-optimization prompt
+  // that this hook used to stash a flag for was removed; the exemption ask now
+  // lives in onboarding/PermissionsScreen + the Help Center guide.)
   useEffect(() => {
     const startSub = HumynCapture.onSegmentStart((e) => {
       segMetaRef.current = { recordingId: e.recordingId, filenameBase: e.filenameBase };
@@ -831,7 +820,6 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
           /* isPractice= */ false,
           ownerSubRef.current,
         ).catch(() => undefined);
-        if (shouldShowBatteryOptimizationPrompt()) surfaceBatteryPromptRef.current = true;
       } catch {
         /* no HumynUpload native module (iOS / JSDOM) — nothing to enqueue */
       }

@@ -34,6 +34,7 @@ import { hydrate } from './src/state/hydrate';
 import { installBootRecoveryListener } from './src/boot/bootRecoveryListener';
 import { installUploadReconcile } from './src/services/uploadReconcile';
 import { installUploadQueueStore } from './src/services/uploadQueueStore';
+import { installPracticeSyncFlush } from './src/services/practiceSync';
 import { ToastHost } from './src/components/Toast';
 import RootNativeStack from './src/navigation/RootNativeStack';
 import { navigationRef } from './src/navigation/navigationRef';
@@ -80,10 +81,20 @@ export default function App() {
     } catch {
       uploadQueueStoreTeardown = undefined;
     }
+    // Phase 3 (2026-06-10, Bug 2) — flush any pending practice-completion POST
+    // on boot + every foreground (a completion that happened offline / against
+    // the stale server is re-sent instead of lost). Same best-effort shape.
+    let practiceSyncTeardown: (() => void) | undefined;
+    try {
+      practiceSyncTeardown = installPracticeSyncFlush();
+    } catch {
+      practiceSyncTeardown = undefined;
+    }
     return () => {
       teardown();
       uploadReconcileTeardown?.();
       uploadQueueStoreTeardown?.();
+      practiceSyncTeardown?.();
     };
   }, []);
   return (

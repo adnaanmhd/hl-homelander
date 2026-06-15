@@ -25,7 +25,6 @@
 
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useNavigation } from '@react-navigation/native';
 import { useAppStore } from '../state/appStore';
 import { computeInitialRoute } from '../state/initialRoute';
 import { computeCompatSignatureSync } from '../services/compatSignature';
@@ -35,7 +34,6 @@ import RecordingScreen from '../screens/recording/RecordingScreen';
 import { PlayerScreen } from '../screens/history/PlayerScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import PendingUploadsScreen from '../screens/uploads/PendingUploadsScreen';
-import BatteryOptimizationScreen from '../screens/onboarding/BatteryOptimizationScreen';
 import HelpCenterScreen from '../screens/help/HelpCenterScreen';
 import ForceUpgradeScreen from '../screens/force-upgrade/ForceUpgradeScreen';
 import { LogoutModal } from '../components/LogoutModal';
@@ -45,14 +43,11 @@ import TranslatedHeaderTitle from '../components/TranslatedHeaderTitle';
 
 const Root = createNativeStackNavigator();
 
-// Plan 05-08 — the BatteryOptimizationScreen (UP-09) is surfaced once on the
-// first auto-enqueue (RecordingScreen, gated on shouldShowBatteryOptimizationPrompt()).
-// It's a route here so RecordingScreen can `navigation.navigate('BatteryOptimization')`;
-// "Done"/"Skip" pops back to wherever the user was.
-function BatteryOptimizationRoute(): React.JSX.Element {
-  const navigation = useNavigation<{ goBack: () => void; navigate: (r: string) => void }>();
-  return <BatteryOptimizationScreen onDone={() => navigation.goBack()} />;
-}
+// BUG-5 (2026-06-09 — D-BATTERY): the standalone first-upload
+// BatteryOptimizationScreen route + its RecordingScreen trigger were removed.
+// The best-effort exemption ask now fires during onboarding (PermissionsScreen)
+// and the per-vendor OEM autostart walkthrough lives in the Help Center
+// (BatteryOptimizationGuide). No 'BatteryOptimization' route here anymore.
 
 function rootInitialRouteName(): string {
   // Zustand store is hydrated by App.tsx BEFORE this renders, so getState()
@@ -104,13 +99,6 @@ export default function RootNativeStack() {
           "Pending uploads" tile. Header is suppressed (the screen owns its own
           TopBar with a "Pending uploads" centered title). */}
       <Root.Screen name="PendingUploads" component={PendingUploadsScreen} />
-      {/* Plan 05-08 (UP-09) — the first-upload battery-optimization walkthrough,
-          surfaced once by RecordingScreen on the first auto-enqueue. Modal. */}
-      <Root.Screen
-        name="BatteryOptimization"
-        component={BatteryOptimizationRoute}
-        options={{ presentation: 'modal' }}
-      />
       <Root.Screen
         name="HelpCenter"
         component={HelpCenterScreen}

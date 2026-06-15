@@ -1,7 +1,9 @@
 // Plan 03-02 — Visual snapshot for HelpCenterScreen.
 //
 // The baseline catches:
-//   - 3 Accordion headers (Instructions Guide / FAQs / Troubleshooting)
+//   - 4 Accordion headers (Instructions Guide / FAQs / Troubleshooting +
+//     the BUG-5 D-BATTERY "Keep your uploads running" battery-optimization
+//     accordion relocated here from the deleted standalone onboarding modal)
 //   - Contact Support headline + 2 CTAs (Contact Support primary +
 //     Report-a-problem outline)
 //   - Accordions start COLLAPSED — an open-by-default regression would
@@ -86,7 +88,7 @@ import { renderToImage } from './_utils/renderToImage';
 describe('HelpCenterScreen visual', () => {
   afterEach(() => cleanup());
 
-  it('matches baseline (3 accordions collapsed + contact support CTAs)', () => {
+  it('matches baseline (4 accordions collapsed incl. battery + contact support CTAs)', () => {
     const { container } = render(<HelpCenterScreen />);
     const png = renderToImage(container);
     expect(png).toMatchImageSnapshot();

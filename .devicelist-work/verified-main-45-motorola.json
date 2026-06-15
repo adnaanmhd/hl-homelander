@@ -1,0 +1,34 @@
+[
+  {
+    "make": "Motorola",
+    "model": "Moto G87 5G (Brazil: Moto G Max)",
+    "model_numbers": "XT2621-6 (global G87); BR sold as 'moto g max'",
+    "codename": "gmax",
+    "launch_year": 2026,
+    "soc": "MediaTek Dimensity 6400",
+    "android_launch": "16",
+    "android_max": "16",
+    "ultrawide_sensor": "8 MP f/2.2, 1.12µm",
+    "ultrawide_fov_deg": 118,
+    "available_india": false,
+    "available_brazil": true,
+    "price_inr": null,
+    "price_brl": "R$ 2.519,10 (launch, Motorola BR store)",
+    "notes": "Global G87 announced Apr 29 2026, released May 15 2026. 200 MP f/1.8 OIS + 8 MP UW 118° (GSMArena confirmed), 5,000-nit 1.5K AMOLED, IP66/68/69, MIL-STD-810H. Brazil launch as 'Moto G Max' circa Jun 11 2026 (BRL 2,519.10, official store). India price (~Rs 21,999) officially revealed but NOT on sale via Indian channels as of mid-June 2026 - flip india to true once Flipkart sales open; note Rs 21,999 is below the app's Rs 30K+ target band. Stock video caps at 1440p30 / 1080p60 (no 4K). Gyro + accelerometer present per GSMArena.",
+    "sources": [
+      "https://www.gsmarena.com/motorola_moto_g87_5g-14644.php",
+      "https://www.gsmarena.com/moto_g_max_silently_launches_as_a_rebranded_moto_g87-news-73239.php",
+      "https://www.gizmochina.com/2026/06/12/moto-g-max-launched-price-specifications/",
+      "https://www.gizmochina.com/2025/02/15/mediatek-dimensity-6400-launch-specs-features/",
+      "https://www.dealsforindia.com/moto-g87-price-in-india-and-colour-variants-officially-revealed/"
+    ],
+    "gate_ultrawide_dfov": "unknown",
+    "gate_hevc_1080p30_cbr": "unknown",
+    "gate_imu_100hz": "unknown",
+    "gate_realtime_timestamp": "unknown",
+    "gate_gms_play_integrity": "pass",
+    "gate_thermal_25min": "likely",
+    "tier": "Unverified",
+    "caveats": "UW FOV (118°) clears the >=118° bar on paper, but Motorola historically hides ultrawide camera IDs from third-party Camera2 apps despite native-app access (GameChanger finding; only some newer Edge models confirmed open) - no per-model evidence the G87 exposes UW via CONTROL_ZOOM_RATIO <1.0 or a separate public ID; runtime probe required. Dimensity 6400 is a rebadged Dimensity 6300/6100+ (Helio G99 lineage, 6 nm) - budget-MediaTek encoder tier: sibling silicon (Galaxy A15, MT6835/Dimensity 6100+ class) has documented HEVC Surface-input CBR timestamp instability (RootEncoder #1412, unresolved), and WebRTC forces FRAMERATE_ADJUSTMENT on all MTK encoders (rate control assumes configured fps, mis-tracks CBR under frame-rate variance); compat-check MUST verify c2.mtk.hevc.encoder exists and isBitrateModeSupported(CBR)==true, plus track-header 1920x1080 + mean-fps gates already in FinalizeWorker. NOT confirmed on the ARCore certified-devices list as of 2026-06-12 (device too new; Moto G85 also absent) - so neither sustained >=100 Hz IMU nor SENSOR_INFO_TIMESTAMP_SOURCE=REALTIME is verifiable; budget-MTK tier frequently reports UNKNOWN timestamp source. Thermal: 1080p30 HEVC is a light load for this 6 nm low-power SoC in a large 5,200 mAh IP69 chassis - low throttling risk but no sustained-capture evidence. Full GMS + Play Integrity (standard Motorola). Brazil-only for now; India availability pending. Minor source disagreement: charging listed 30W (GSMArena, G87) vs 33W (Gizmochina, G Max)."
+  }
+]

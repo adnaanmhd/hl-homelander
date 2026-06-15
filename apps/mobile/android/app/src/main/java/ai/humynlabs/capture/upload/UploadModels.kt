@@ -245,7 +245,41 @@ data class UploadRow(
      * NEEDS_ATTENTION. NOT persisted when null.
      */
     var lastFailureReason: String? = null,
+    /**
+     * BUG-4 (2026-06-09) — the recording's duration in seconds, sourced from the
+     * bundle's `metadata.json` `metadata.duration_seconds` at enqueue time
+     * ([HumynUploadModule.enqueue] via [readDurationSecondsFromMetadataJson]) and
+     * surfaced to JS through `rowToMap`. The History / Pending-Uploads screens
+     * read it so an IN-FLIGHT (server-unknown) row shows its real length instead
+     * of the "0s" the JS fallback `(durationSeconds ?? 0)` produced when the
+     * native layer never populated it. Best-effort: null when the metadata is
+     * unreadable / pre-this-field — duration display never blocks an upload.
+     * Backward-compatible: missing on disk → null. Not persisted when null.
+     */
+    var durationSeconds: Double? = null,
 ) {
+    /**
+     * Phase 1 item 5 (2026-06-10) — mint fresh per-route Idempotency-Keys.
+     * Called on every row REACTIVATION (`reviveDeadLetter` /
+     * `retryNeedsAttention`) — that's the user-tapped Retry paths AND the
+     * automatic boot/foreground dead-letter revive sweep (`uploadReconcile.ts`)
+     * — so a historically server-cached response under the old key can never
+     * replay against the retry (the pre-06-10 server memoized 4xx responses
+     * for 24 h — a poisoned cache entry would otherwise survive even a server
+     * fix). Safe on BOTH paths because `/recordings/init` + `/:id/parts` +
+     * `/finalize` are SELECT-first idempotent and the server only memoizes
+     * 2xx — a fresh key just re-runs the idempotent handler (review
+     * verification 2026-06-10). The drain loop's own bounded in-place retries
+     * still reuse the stable keys; rotation happens only when a parked row is
+     * put back on the drain path, serialized on the module's single-thread
+     * executor.
+     */
+    fun rotateIdempotencyKeys() {
+        initIdempotencyKey = UUID.randomUUID().toString()
+        partsIdempotencyKey = UUID.randomUUID().toString()
+        finalizeIdempotencyKey = UUID.randomUUID().toString()
+    }
+
     /**
      * Transient in-memory signal from `fromJson` to `UploadQueueStore.read()`:
      * `true` if any of the four `*IdempotencyKey` fields was minted from a
@@ -291,6 +325,9 @@ data class UploadRow(
         if (lastFailureAt > 0L) put("lastFailureAt", lastFailureAt)
         if (lastFailureState != null) put("lastFailureState", lastFailureState)
         if (lastFailureReason != null) put("lastFailureReason", lastFailureReason)
+        // BUG-4 (2026-06-09) — only persist when known (best-effort; a row whose
+        // metadata couldn't be read at enqueue carries null and is simply omitted).
+        if (durationSeconds != null) put("durationSeconds", durationSeconds)
     }
 
     companion object {
@@ -439,12 +476,38 @@ data class UploadRow(
                 } else {
                     null
                 },
+                // BUG-4 (2026-06-09) — backward-compatible: legacy rows pre-date
+                // this field and deserialize with durationSeconds=null.
+                durationSeconds = if (o.has("durationSeconds") && !o.isNull("durationSeconds")) {
+                    o.getDouble("durationSeconds")
+                } else {
+                    null
+                },
             )
             row._migratedOnLoad = migrated
             return row
         }
     }
 }
+
+/**
+ * BUG-4 (2026-06-09) — pull `metadata.duration_seconds` out of a bundle's
+ * `metadata.json` text so [HumynUploadModule.enqueue] can pin it on the
+ * [UploadRow] (→ History / Pending-Uploads show the real recording length on an
+ * in-flight, server-unknown row instead of "0s"). Mirrors the path the upload
+ * coordinator already reads on `/recordings/init`
+ * (`meta.metadata.duration_seconds`). Returns null on ANY parse error or a
+ * missing / non-numeric field — duration display is best-effort and must never
+ * be a reason to fail an enqueue.
+ */
+fun readDurationSecondsFromMetadataJson(jsonText: String): Double? = runCatching {
+    val m = JSONObject(jsonText).optJSONObject("metadata")
+    if (m != null && m.has("duration_seconds") && !m.isNull("duration_seconds")) {
+        m.getDouble("duration_seconds")
+    } else {
+        null
+    }
+}.getOrNull()
 
 /** Serialise a list of rows to a JSON array string. */
 fun rowsToJsonString(rows: List<UploadRow>): String =

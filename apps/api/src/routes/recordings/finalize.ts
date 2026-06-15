@@ -154,6 +154,47 @@ export default async function finalizeRoute(app: FastifyInstance): Promise<void>
       // takedown are post-finalize states the client shouldn't be re-finalizing
       // → still 409 below.)
       if (rec.qaStatus === 'uploaded') {
+        // BUG-3 (2026-06-09) — forward fix on the idempotent-retry path. The
+        // poster column is set in exactly ONE place (the terminal flip below),
+        // which this short-circuit skips — so a row that finalized but never got
+        // a poster (the thumbnail PUT failed, or it finalized before ffmpeg
+        // shipped in the image) could otherwise NEVER recover one on a
+        // re-finalize. When thumbless, attempt generation + persist before
+        // replaying the 200. Best-effort: any failure leaves the column null
+        // (client falls back to local ledger / gradient) and never blocks the
+        // 200. (Most production recovery happens via the one-shot backfill
+        // script, since the device drops a row after its first finalize-200 and
+        // a same-key re-finalize replays the idempotency cache before this
+        // handler even runs — this path covers a fresh-key/cache-expired retry.)
+        if (rec.s3KeyThumbnail === null) {
+          const s3 = getS3Client();
+          const bucket = RECORDINGS_BUCKET();
+          const keys = recordingKeys({ userId, recordingId: rec.id });
+          try {
+            await generatePosterThumbnail({
+              s3,
+              bucket,
+              videoKey: rec.s3KeyVideo,
+              thumbKey: keys.thumbnail,
+            });
+            await db
+              .update(schema.recordings)
+              .set({ s3KeyThumbnail: keys.thumbnail })
+              .where(eq(schema.recordings.id, rec.id));
+            // Phase 4 item 2 (2026-06-10) — success was silent; log the key so
+            // CloudWatch can answer "are thumbnails being generated at all?".
+            req.log.info(
+              { recordingId: rec.id, thumbKey: keys.thumbnail },
+              'poster thumbnail generated (finalize-retry recovery)',
+            );
+            return reply.send(toRecordingResponse({ ...rec, s3KeyThumbnail: keys.thumbnail }));
+          } catch (err) {
+            req.log.warn(
+              { err, recordingId: rec.id },
+              'finalize-retry poster thumbnail generation failed (non-fatal)',
+            );
+          }
+        }
         return reply.send(toRecordingResponse(rec));
       }
       if (!canTransition(rec.qaStatus, 'uploaded')) {
@@ -218,6 +259,9 @@ export default async function finalizeRoute(app: FastifyInstance): Promise<void>
           thumbKey: keys.thumbnail,
         });
         thumbKey = keys.thumbnail;
+        // Phase 4 item 2 (2026-06-10) — success was silent; log the key so
+        // CloudWatch can answer "are thumbnails being generated at all?".
+        req.log.info({ recordingId: rec.id, thumbKey }, 'poster thumbnail generated');
       } catch (err) {
         req.log.warn(
           { err, recordingId: rec.id },

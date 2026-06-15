@@ -1,6 +1,12 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fp from 'fastify-plugin';
-import { isValidIdempotencyKey, hashRequest, lookup, persist } from '../lib/idempotency-store.js';
+import {
+  isValidIdempotencyKey,
+  hashRequest,
+  lookup,
+  persist,
+  remove,
+} from '../lib/idempotency-store.js';
 import { buildProblemDetail, PROBLEM_SLUGS } from '../lib/problem-detail.js';
 
 const HEADER = 'idempotency-key';
@@ -68,18 +74,31 @@ async function idempotencyPlugin(app: FastifyInstance) {
     const requestHash = hashRequest(req.method, req.url, req.body);
     const hit = await lookup(userId, key);
     if (hit) {
-      if (hit.requestHash !== requestHash) {
-        const pd = buildProblemDetail({
-          slug: PROBLEM_SLUGS.idempotencyKeyConflict,
-          title: 'Idempotency-Key reused with different request body',
-          status: 409,
-          detail: 'Same key, different body. Use a fresh UUIDv4.',
-          instance: req.id as string,
-        });
-        return reply.status(409).type(PROBLEM_CT).send(pd);
+      // Review hardening (2026-06-10) — never REPLAY a memoized error either.
+      // The write side skips >=400 since 10ccf89, but an entry stored before
+      // that (or by any future regression) would otherwise pin its 4xx for the
+      // 24 h TTL against the client's stable per-row keys. Treat it as a miss
+      // and purge it (best-effort) so the handler re-executes.
+      if (hit.statusCode >= 400) {
+        try {
+          await remove(userId, key);
+        } catch (err) {
+          req.log.warn({ err }, 'idempotency error-entry purge failed — proceeding as a miss');
+        }
+      } else {
+        if (hit.requestHash !== requestHash) {
+          const pd = buildProblemDetail({
+            slug: PROBLEM_SLUGS.idempotencyKeyConflict,
+            title: 'Idempotency-Key reused with different request body',
+            status: 409,
+            detail: 'Same key, different body. Use a fresh UUIDv4.',
+            instance: req.id as string,
+          });
+          return reply.status(409).type(PROBLEM_CT).send(pd);
+        }
+        // Replay — return original response
+        return reply.status(hit.statusCode).send(hit.responseBody);
       }
-      // Replay — return original response
-      return reply.status(hit.statusCode).send(hit.responseBody);
     }
 
     req.idempotency = { key, userId, requestHash };
@@ -88,22 +107,35 @@ async function idempotencyPlugin(app: FastifyInstance) {
   // After-response hook persists the original response.
   app.addHook('onSend', async (req, reply, payload) => {
     if (!req.idempotency) return payload;
-    if (reply.statusCode >= 500) return payload; // don't memoize server errors
+    // Only memoize SUCCESS. The handlers are SELECT-first idempotent, so only
+    // 2xx replay needs protection; memoizing any error pins a transient
+    // failure under the client's never-rotated key for 24 h. Concretely: a
+    // legacy-JWT device's first post-deploy /recordings/init earns a
+    // `reauth-required` 401 — caching it under the row's initIdempotencyKey
+    // would replay that 401 on every Retry even after re-sign-in.
+    if (reply.statusCode >= 400) return payload;
     let bodyForStorage: unknown;
     try {
       bodyForStorage = typeof payload === 'string' ? JSON.parse(payload) : payload;
     } catch {
       bodyForStorage = payload;
     }
-    await persist({
-      userId: req.idempotency.userId,
-      key: req.idempotency.key,
-      method: req.method,
-      path: req.url,
-      requestHash: req.idempotency.requestHash,
-      statusCode: reply.statusCode,
-      responseBody: bodyForStorage,
-    });
+    try {
+      await persist({
+        userId: req.idempotency.userId,
+        key: req.idempotency.key,
+        method: req.method,
+        path: req.url,
+        requestHash: req.idempotency.requestHash,
+        statusCode: reply.statusCode,
+        responseBody: bodyForStorage,
+      });
+    } catch (err) {
+      // A memoization write failure must never fail a request that already
+      // succeeded (was a /feedback 500 path) — the only cost of skipping is
+      // that an exact retry re-executes an idempotent handler.
+      req.log.warn({ err }, 'idempotency persist failed — response not memoized');
+    }
     return payload;
   });
 }

@@ -11,6 +11,10 @@
 //   - the AppState→active re-fire triggers another reconcileOnce
 //   - installUploadReconcile pushes the auth context (setUploadContextSafe) on
 //     boot + resumes on a jwt change
+//   - review fixes V5/V6 (2026-06-10): auth-parked rows get the resumeAuthSafe
+//     recovery probe (only with a JWT present) and are excluded from the blind
+//     revive/drain; a jwt ROTATION resumes via resumeAuth (auth pause only)
+//     while a sign-in-after-logout resumes via resume (js pause)
 //
 // Mocking: `../../src/services/api` (the authed GET), `../../src/native/HumynUpload`
 // (getQueueSafe / clearUploaded / resume / pause / setUploadContextSafe). The
@@ -29,9 +33,12 @@ const { hooks, appStateListeners } = vi.hoisted(() => ({
     getQueueSafe: vi.fn(),
     clearUploaded: vi.fn().mockResolvedValue(undefined),
     resume: vi.fn().mockResolvedValue(undefined),
+    resumeAuth: vi.fn().mockResolvedValue(undefined),
+    resumeAuthSafe: vi.fn().mockResolvedValue(undefined),
     pause: vi.fn().mockResolvedValue(undefined),
     setUploadContextSafe: vi.fn().mockResolvedValue(undefined),
     drainNowSafe: vi.fn().mockResolvedValue(undefined),
+    reviveDeadLetterSafe: vi.fn().mockResolvedValue(true),
   },
   appStateListeners: [] as ((s: string) => void)[],
 }));
@@ -41,13 +48,17 @@ vi.mock('../../src/services/api', () => ({
 }));
 
 vi.mock('../../src/native/HumynUpload', () => ({
+  AUTH_FAILURE_REASON_PREFIX: 'auth: ',
   HumynUpload: {
     getQueueSafe: hooks.getQueueSafe,
     clearUploaded: hooks.clearUploaded,
     resume: hooks.resume,
+    resumeAuth: hooks.resumeAuth,
+    resumeAuthSafe: hooks.resumeAuthSafe,
     pause: hooks.pause,
     setUploadContextSafe: hooks.setUploadContextSafe,
     drainNowSafe: hooks.drainNowSafe,
+    reviveDeadLetterSafe: hooks.reviveDeadLetterSafe,
   },
 }));
 
@@ -75,9 +86,12 @@ describe('uploadReconcile (Plan 05-08 — VERIFY-06)', () => {
     Object.values(hooks).forEach((h) => h.mockReset());
     hooks.clearUploaded.mockResolvedValue(undefined);
     hooks.resume.mockResolvedValue(undefined);
+    hooks.resumeAuth.mockResolvedValue(undefined);
+    hooks.resumeAuthSafe.mockResolvedValue(undefined);
     hooks.pause.mockResolvedValue(undefined);
     hooks.setUploadContextSafe.mockResolvedValue(undefined);
     hooks.drainNowSafe.mockResolvedValue(undefined);
+    hooks.reviveDeadLetterSafe.mockResolvedValue(true);
     hooks.getQueueSafe.mockResolvedValue([]);
     vi.spyOn(AppState, 'addEventListener').mockImplementation(((
       _event: unknown,
@@ -184,7 +198,28 @@ describe('uploadReconcile (Plan 05-08 — VERIFY-06)', () => {
     useAppStore.setState({ jwt: 'new-jwt' });
     await flush();
     expect(hooks.setUploadContextSafe).toHaveBeenCalled();
+    // null → value = sign-in after a logout: the JS-lifecycle pause clears
+    // (resume), NOT the auth pause (review fix V6 — the pause-reason split).
     expect(hooks.resume).toHaveBeenCalled();
+    expect(hooks.resumeAuth).not.toHaveBeenCalled();
+    teardown();
+  });
+
+  it('a jwt ROTATION (value → value) resumes via resumeAuth only — never the js pause (review fix V6)', async () => {
+    // A silent re-auth landing MID-RECORDING must not clear the recording's
+    // JS-lifecycle pause (UP-10) — rotation clears only the 401 park.
+    hooks.apiGet.mockResolvedValue({ items: [] });
+    secureMmkv.set(KEYS.AUTH_JWT, 'jwt-old');
+    useAppStore.setState({ jwt: 'jwt-old' });
+    const teardown = installUploadReconcile();
+    await flush();
+    hooks.resume.mockClear();
+    hooks.resumeAuth.mockClear();
+    secureMmkv.set(KEYS.AUTH_JWT, 'jwt-rotated');
+    useAppStore.setState({ jwt: 'jwt-rotated' });
+    await flush();
+    expect(hooks.resumeAuth).toHaveBeenCalled();
+    expect(hooks.resume).not.toHaveBeenCalled();
     teardown();
   });
 
@@ -241,5 +276,48 @@ describe('uploadReconcile (Plan 05-08 — VERIFY-06)', () => {
     const cleared = await reconcileOnce();
     expect(cleared).toBe(0);
     expect(hooks.drainNowSafe).not.toHaveBeenCalled();
+  });
+
+  // Review fix V5 (2026-06-10) — auth-parked rows must not strand: the 401
+  // park dies with the process but the row marker is durable, and nothing
+  // else retriggers these rows. With a JWT present the sweep fires the
+  // dedicated resumeAuthSafe probe; they stay OUT of the blind revive/drain.
+  it('auth-parked rows + JWT present → resumeAuthSafe probe; excluded from blind revive/drain (review fixes V5 + Phase 1 item 7)', async () => {
+    secureMmkv.set(KEYS.AUTH_JWT, 'jwt-present');
+    hooks.getQueueSafe.mockResolvedValue([
+      { ...queueRow('R1'), state: 'pending', lastFailureReason: 'auth: device-evicted' },
+      { ...queueRow('R2'), state: 'dead-letter', lastFailureReason: 'auth: reauth-required' },
+    ]);
+    hooks.apiGet.mockResolvedValue({ items: [] });
+    await reconcileOnce();
+    expect(hooks.resumeAuthSafe).toHaveBeenCalledTimes(1);
+    // The auth-marked dead-letter is NOT blind-revived, and auth-marked
+    // pending rows alone never kick the generic drain.
+    expect(hooks.reviveDeadLetterSafe).not.toHaveBeenCalled();
+    expect(hooks.drainNowSafe).not.toHaveBeenCalled();
+  });
+
+  it('auth-parked rows + NO jwt → no resumeAuthSafe (a doomed 401 probe is pointless)', async () => {
+    secureMmkv.remove(KEYS.AUTH_JWT);
+    hooks.getQueueSafe.mockResolvedValue([
+      { ...queueRow('R1'), state: 'pending', lastFailureReason: 'auth: reauth-required' },
+    ]);
+    hooks.apiGet.mockResolvedValue({ items: [] });
+    await reconcileOnce();
+    expect(hooks.resumeAuthSafe).not.toHaveBeenCalled();
+  });
+
+  it('a NON-auth dead-letter still gets the blind revive + drain alongside an auth-parked row', async () => {
+    secureMmkv.set(KEYS.AUTH_JWT, 'jwt-present');
+    hooks.getQueueSafe.mockResolvedValue([
+      { ...queueRow('R1'), state: 'dead-letter', lastFailureReason: 'part PUT failed: 503' },
+      { ...queueRow('R2'), state: 'pending', lastFailureReason: 'auth: device-evicted' },
+    ]);
+    hooks.apiGet.mockResolvedValue({ items: [] });
+    await reconcileOnce();
+    expect(hooks.reviveDeadLetterSafe).toHaveBeenCalledTimes(1);
+    expect(hooks.reviveDeadLetterSafe).toHaveBeenCalledWith('R1');
+    expect(hooks.drainNowSafe).toHaveBeenCalledTimes(1);
+    expect(hooks.resumeAuthSafe).toHaveBeenCalledTimes(1);
   });
 });

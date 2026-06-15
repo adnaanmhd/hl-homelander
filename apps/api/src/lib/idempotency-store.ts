@@ -69,6 +69,18 @@ export async function persist(opts: {
     .onConflictDoNothing();
 }
 
+/**
+ * Review hardening (2026-06-10) — drop a single memoized entry. Used by the
+ * plugin's read-side guard to purge a stored ERROR response (entries that can
+ * only predate the >=400 write-guard or arrive via a future regression) so a
+ * poisoned 4xx can never pin its TTL.
+ */
+export async function remove(userId: string, key: string): Promise<void> {
+  await db
+    .delete(schema.idempotencyKeys)
+    .where(and(eq(schema.idempotencyKeys.userId, userId), eq(schema.idempotencyKeys.key, key)));
+}
+
 export async function gcExpired(): Promise<number> {
   const result = await db
     .delete(schema.idempotencyKeys)

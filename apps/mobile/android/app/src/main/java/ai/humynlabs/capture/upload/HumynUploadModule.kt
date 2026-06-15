@@ -12,6 +12,7 @@ import com.facebook.react.bridge.WritableMap
 import com.facebook.react.module.annotations.ReactModule
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import ai.humynlabs.capture.fgs.HumynForegroundService
+import java.io.File
 import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -99,7 +100,7 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
         // Install the real RCTDeviceEventEmitter-backed emitters on the shared
         // coordinator (it starts with no-op emitters for the FGS / JobService
         // threads that have no JS bridge).
-        runCatching { coordinator.setEmitters(::emitProgress, ::emitQueueChanged) }
+        runCatching { coordinator.setEmitters(::emitProgress, ::emitQueueChanged, ::emitAuthFailure) }
         // Plan 06-12 follow-on (Finding 6) — bridge connectivity changes to
         // JS so the OfflineBanner on Home / History flips on airplane-mode
         // toggle. The listener fires once immediately with the current state
@@ -122,6 +123,14 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
         bgExecutor.execute {
             try {
                 UploadAuthContext.set(apiBaseUrl, bearerToken, sub)
+                // Review fix (2026-06-10) — a token push is the auth-pause's
+                // clear condition: the coordinator parked the queue because the
+                // bearer was dead; JS pushing a (possibly fresh) one re-arms the
+                // drain. A still-dead token costs one 401 round that re-parks +
+                // re-fires onUploadAuthFailure (single-flight silent re-auth on
+                // the JS side). Does NOT touch the JS-lifecycle pause — a
+                // recording in progress keeps uploads parked (UP-10).
+                if (bearerToken != null) UploadControlState.setAuthPaused(false)
                 promise.resolve(null)
             } catch (t: Throwable) {
                 promise.reject("UPLOAD_SET_CONTEXT_FAILED", t.message ?: "setUploadContext failed", t)
@@ -150,6 +159,13 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
     ) {
         bgExecutor.execute {
             try {
+                // BUG-4 (2026-06-09) — pin the recording duration on the row so an
+                // in-flight (server-unknown) row shows its real length in History /
+                // Pending-Uploads instead of "0s". Best-effort: a metadata read
+                // failure yields null and never blocks the enqueue.
+                val durationSeconds =
+                    runCatching { readDurationSecondsFromMetadataJson(File(jsonPath).readText()) }
+                        .getOrNull()
                 val row = UploadRow(
                     recordingId = recordingId,
                     ownerUserId = ownerUserId,
@@ -158,6 +174,7 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
                     jsonPath = jsonPath,
                     taskId = taskId,
                     isPractice = isPractice,
+                    durationSeconds = durationSeconds,
                 )
                 queueStore.enqueue(row)
                 emitQueueChanged()
@@ -192,7 +209,11 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
         }
     }
 
-    /** Resume uploads (UP-10 — HumynCapture.stop() calls this). */
+    /**
+     * Resume uploads (UP-10 — HumynCapture.stop() calls this). Clears ONLY the
+     * JS-lifecycle pause; an auth park (dead token) survives a recording stop
+     * (review fix 2026-06-10 — see [UploadControlState]).
+     */
     @ReactMethod
     fun resume(promise: Promise) {
         bgExecutor.execute {
@@ -204,6 +225,27 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
                 promise.resolve(null)
             } catch (t: Throwable) {
                 promise.reject("UPLOAD_RESUME_FAILED", t.message ?: "resume failed", t)
+            }
+        }
+    }
+
+    /**
+     * Review fix (2026-06-10) — clear the AUTH pause (the coordinator's 401
+     * park) + kick the drainer, WITHOUT touching the JS-lifecycle pause: a
+     * recording in progress keeps uploads parked (UP-10) even when a silent
+     * re-auth lands mid-capture. Called by the JS auth-recovery paths
+     * (`uploadReconcile.pushUploadContext` after a token rotation, and the
+     * foreground reconcile's auth-parked-row recovery).
+     */
+    @ReactMethod
+    fun resumeAuth(promise: Promise) {
+        bgExecutor.execute {
+            try {
+                UploadControlState.setAuthPaused(false)
+                runCatching { coordinator.drain() }
+                promise.resolve(null)
+            } catch (t: Throwable) {
+                promise.reject("UPLOAD_RESUME_AUTH_FAILED", t.message ?: "resumeAuth failed", t)
             }
         }
     }
@@ -302,18 +344,16 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
     fun reviveDeadLetter(recordingId: String, promise: Promise) {
         bgExecutor.execute {
             try {
-                val row = queueStore.read().find { it.recordingId == recordingId }
-                if (row == null || row.state != UploadState.DEAD_LETTER) {
-                    promise.resolve(null)
-                    return@execute
-                }
-                row.state = UploadState.UPLOADING
-                row.deadLetterReason = null
-                queueStore.upsert(row)
-                emitQueueChanged()
-                runCatching { coordinator.drain() }
-                signalUploadActiveBestEffort()
-                promise.resolve(null)
+                // Phase 1 items 3 + 5 (2026-06-10) — the revive logic moved into
+                // UploadCoordinator.reviveDeadLetter so it ALSO resets the
+                // attemptCount/lastFailure* markers (a revived row used to keep
+                // its old backoff and could sit frozen for up to 1 h) and rotates
+                // the per-route Idempotency-Keys. Resolves `true` on an actual
+                // revive; `null` on a no-op (missing / non-DEAD_LETTER row) so the
+                // JS caller can toast "nothing to retry" instead of staying silent.
+                val ok = coordinator.reviveDeadLetter(recordingId)
+                if (ok) signalUploadActiveBestEffort()
+                promise.resolve(if (ok) true else null)
             } catch (t: Throwable) {
                 promise.reject(
                     "UPLOAD_REVIVE_DEAD_LETTER_FAILED",
@@ -377,9 +417,16 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
     /** Open the AOSP "allow unrestricted" prompt (falls back to the settings list). */
     @ReactMethod
     fun requestBatteryOptimizationExemption(promise: Promise) {
+        // Phase 5 (2026-06-10, Bug 5) — capture the host Activity at call time:
+        // launching from it (no NEW_TASK) keeps the system dialog in the app's
+        // task so dismissal returns to the app, not the launcher. Null (app
+        // backgrounded / teardown) falls back to appContext+NEW_TASK inside
+        // the helper. (RN 0.83: the getter lives on ReactContext, not on
+        // ReactContextBaseJavaModule.)
+        val activity = reactApplicationContext.currentActivity
         bgExecutor.execute {
             try {
-                BatteryOptimizationHelper.requestExempt(reactApplicationContext)
+                BatteryOptimizationHelper.requestExempt(reactApplicationContext, activity)
                 promise.resolve(null)
             } catch (t: Throwable) {
                 promise.reject("BATT_OPT_REQUEST_FAILED", t.message ?: "requestBatteryOptimizationExemption failed", t)
@@ -470,6 +517,24 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    /**
+     * Phase 1 (2026-06-10) — emit `onUploadAuthFailure({ slug })` when the
+     * coordinator classifies a 401 (queue paused, row parked). The JS listener
+     * (`uploadQueueStore.ts` installer) runs the eviction UX for
+     * `device-evicted` / `reauth-required`, or a silent re-auth + context
+     * re-push + `resume()` for plain expiry.
+     */
+    private fun emitAuthFailure(slug: String) {
+        runCatching {
+            reactApplicationContext
+                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                .emit(
+                    "onUploadAuthFailure",
+                    Arguments.createMap().apply { putString("slug", slug) },
+                )
+        }
+    }
+
     /** Emit `onUploadQueueChanged` with the current queue snapshot. */
     private fun emitQueueChanged() {
         runCatching {
@@ -546,6 +611,10 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
         putDouble("enqueuedAt", r.enqueuedAt.toDouble())
         putDouble("lastProgressAt", r.lastProgressAt.toDouble())
         if (r.deadLetterReason != null) putString("deadLetterReason", r.deadLetterReason)
+        // BUG-4 (2026-06-09) — surface the recording duration so the History /
+        // Pending-Uploads rows render the real length on an in-flight row
+        // (UploadQueueRow.durationSeconds → `(durationSeconds ?? 0)` no longer 0s).
+        if (r.durationSeconds != null) putDouble("durationSeconds", r.durationSeconds!!)
         // Debug session `upload-queue-hol-finalizing` Fix C item 4 — surface
         // the failure markers to JS so the History UI's NEEDS_ATTENTION Retry
         // copy can render a reason-specific label.
@@ -564,7 +633,7 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
         // FGS / the UIDT JobService) — do NOT shut it down on a catalyst reload;
         // just detach the JS-bridge emitters so a torn-down ReactContext isn't
         // touched. A fresh module instance reinstalls them in its init.
-        runCatching { coordinator.setEmitters({ _, _, _ -> }, { }) }
+        runCatching { coordinator.setEmitters({ _, _, _ -> }, { }, { }) }
         // Plan 06-12 follow-on (Finding 6) — unregister our connectivity
         // listener so a stale ReactContext doesn't keep receiving callbacks.
         runCatching { coordinator.removeConnectivityListener(connectivityListener) }
@@ -573,14 +642,33 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
 }
 
 /**
- * Process-lived paused flag for the upload pipeline. `HumynUploadModule.pause()`
- * / `resume()` flip it; `UploadCoordinator` (Plan 05-06) reads it. Lives at
- * module scope (not in the bridge instance) so it survives a catalyst reload.
+ * Process-lived paused flags for the upload pipeline. Lives at module scope
+ * (not in the bridge instance) so it survives a catalyst reload.
+ *
+ * Review fix (2026-06-10) — split into TWO ORed reasons. With the single
+ * shared flag, the two pause owners punched through each other:
+ *  - a recording stop's `resume()` cleared the coordinator's 401 park and
+ *    re-drained every row against a known-dead token (one doomed 401 burst +
+ *    a full silent-re-auth handshake per recording stop);
+ *  - a successful silent re-auth's `resume()` could unpause uploads while a
+ *    recording was in progress (UP-10 violation — the CPU/network-contention
+ *    class that historically regressed `imu_video_drift`).
+ *
+ * `jsPaused`: the JS-lifecycle pause (recording in progress / logged out).
+ * Bridge `pause()`/`resume()` flip it — nothing else.
+ * `authPaused`: the coordinator parked the queue on a 401 (Phase 1, Bug 1).
+ * Cleared ONLY by a fresh-token `setUploadContext(bearer != null)` or
+ * `resumeAuth()` — never by the JS-lifecycle `resume()`.
  */
 internal object UploadControlState {
     @Volatile
-    private var paused: Boolean = false
+    private var jsPaused: Boolean = false
 
-    fun setPaused(value: Boolean) { paused = value }
-    fun isPaused(): Boolean = paused
+    @Volatile
+    private var authPaused: Boolean = false
+
+    fun setPaused(value: Boolean) { jsPaused = value }
+    fun setAuthPaused(value: Boolean) { authPaused = value }
+    fun isPaused(): Boolean = jsPaused || authPaused
+    fun isAuthPaused(): Boolean = authPaused
 }

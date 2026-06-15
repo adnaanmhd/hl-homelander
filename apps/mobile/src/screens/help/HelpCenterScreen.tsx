@@ -3,8 +3,9 @@
  *
  * Layout:
  *   - 3 stacked AccordionItems in HELP-01 order: Instructions Guide / FAQs /
- *     Troubleshooting. All start collapsed.
- *   - Below the third accordion: a Contact Support headline + two CTAs —
+ *     Troubleshooting, then a 4th (BUG-5 / D-BATTERY) "Keep your uploads running"
+ *     battery-optimization accordion → BatteryOptimizationGuide. All start collapsed.
+ *   - Below the accordions: a Contact Support headline + two CTAs —
  *     "Contact Support" (mailto:support@humynlabs.ai) and "Report a problem"
  *     (opens the ReportProblemSheet).
  *
@@ -34,6 +35,7 @@ import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
 import { spacing } from '../../ui/tokens';
 import { AccordionItem } from '../../components/AccordionItem';
 import { ReportProblemSheet } from '../../components/ReportProblemSheet';
+import { BatteryOptimizationGuide } from './BatteryOptimizationGuide';
 import { Markdown } from './markdown';
 import { loadHelpContent } from './contentLoader';
 
@@ -70,6 +72,16 @@ export function HelpCenterScreen(): React.JSX.Element {
             {renderAccordion(acc)}
           </AccordionItem>
         ))}
+
+        {/* BUG-5 (2026-06-09 — D-BATTERY): the OEM (MIUI/ColorOS/…) autostart +
+            AOSP battery-exemption walkthrough, relocated here from the deleted
+            standalone first-upload modal. Owner-sanctioned extra accordion;
+            reuses the existing AccordionItem + batteryOpt.* copy (no new design
+            tokens/strings). The one-shot exemption ASK now also fires during
+            onboarding (PermissionsScreen); this is the durable reference. */}
+        <AccordionItem title={t('batteryOpt.title')} testID="accordion-battery">
+          <BatteryOptimizationGuide />
+        </AccordionItem>
 
         <Text variant="body" tone="secondary" style={styles.contactHeadline}>
           {content.contactSupport.headline}
