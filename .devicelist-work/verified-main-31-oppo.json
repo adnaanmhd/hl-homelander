@@ -1,0 +1,60 @@
+[
+  {
+    "make": "Oppo",
+    "model": "Reno 15 Pro Mini 5G",
+    "model_numbers": "CPH2813 (IN)",
+    "launch_year": 2026,
+    "soc": "MediaTek Dimensity 8450",
+    "android_launch": "16",
+    "android_max": "16",
+    "ultrawide_sensor": "50 MP Samsung JN5, f/2.0, 16mm, AF",
+    "ultrawide_fov_deg": 116,
+    "available_india": true,
+    "available_brazil": false,
+    "price_inr": "~Rs 59,999 (12/256 launch; Rs 64,999 12/512)",
+    "price_brl": null,
+    "notes": "India launch confirmed: announced 2026-01-08, on sale 2026-01-13. Compact 6.32\" flagship-midranger: 200 MP main (OIS) + 50 MP 3.5x tele + 50 MP UW 116deg (AF), 6,200 mAh / 80W. ColorOS 16 / Android 16. GSMArena currently lists 12/256 at Rs 59,490 vs Rs 59,999 launch price.",
+    "sources": [
+      "https://www.gsmarena.com/oppo_reno15_pro_mini_5g-14393.php",
+      "https://www.91mobiles.com/oppo-reno15-pro-mini-price-in-india",
+      "https://www.oppo.com/in/smartphones/series-reno/reno15-pro-mini/specs/"
+    ],
+    "gate_ultrawide_dfov": "unknown",
+    "gate_hevc_1080p30_cbr": "unknown",
+    "gate_imu_100hz": "likely",
+    "gate_realtime_timestamp": "unknown",
+    "gate_gms_play_integrity": "pass",
+    "gate_thermal_25min": "likely",
+    "tier": "Unverified",
+    "caveats": "UW hardware passes on paper (116deg, marginal 112-117 band, AF) BUT Oppo/ColorOS is a known-restricted OEM: third-party Camera2 apps are blocked from auxiliary lenses (no separate UW ID, GCam package-name loophole does not work; Oppo's sanctioned route is its proprietary CameraUnit SDK) — no evidence ColorOS 16 lifts this, so CONTROL_ZOOM_RATIO zoom-out reaching the UW must be confirmed by on-device runtime probe before listing higher. HEVC encoder is MediaTek Dimensity 8000-family class: mixed reliability — MTK encoders ignore frame timestamps (WebRTC forces FRAMERATE_ADJUSTMENT) so CBR target tracking under variable frame delivery is a real risk; runtime isBitrateModeSupported(CBR) check required. ARCore certification not yet confirmed for the Reno 15 series (line history Reno4->Reno11 certified; absence may be page lag) — IMU likely fine on a Rs 60K near-flagship, but SENSOR_INFO_TIMESTAMP_SOURCE=REALTIME unverified. Thermal: efficient 4nm SoC but compact 6.32\" chassis untested for 25-min sustained capture. India only — Oppo has no official Brazil channel."
+  },
+  {
+    "make": "Oppo",
+    "model": "Reno 15C 5G",
+    "model_numbers": "CPH2801 (IN)",
+    "launch_year": 2026,
+    "soc": "Snapdragon 6 Gen 1 (SM6450)",
+    "android_launch": "16",
+    "android_max": "16",
+    "ultrawide_sensor": "8 MP, f/2.2, 16mm (1/4.0\", 1.12um)",
+    "ultrawide_fov_deg": 112,
+    "available_india": true,
+    "available_brazil": false,
+    "price_inr": "~Rs 34,999 (8/256 launch; Rs 37,999 12/256)",
+    "price_brl": null,
+    "notes": "India launch confirmed: announced 2026-02-04, on sale 2026-02-05. 50 MP main (OIS) + 8 MP UW 112deg + 2 MP macro, 7,000 mAh Si/C / 80W, IP69 — effectively the Reno 14 F formula for India. ColorOS 16 / Android 16.",
+    "sources": [
+      "https://www.gsmarena.com/oppo_reno15c_5g_(india)-14513.php",
+      "https://gadgets.beebom.com/news/oppo-reno-15c-launched-in-india-key-specs-price-availability",
+      "https://www.oppo.com/in/smartphones/series-reno/reno15c/specs/"
+    ],
+    "gate_ultrawide_dfov": "unknown",
+    "gate_hevc_1080p30_cbr": "likely",
+    "gate_imu_100hz": "unknown",
+    "gate_realtime_timestamp": "unknown",
+    "gate_gms_play_integrity": "pass",
+    "gate_thermal_25min": "likely",
+    "tier": "Unverified",
+    "caveats": "UW FOV is 112deg — the absolute bottom of the marginal band; computed dFOV could land under the 110deg gate, and the 8 MP 1/4\" sensor is entry-class. On top of that, Oppo/ColorOS blocks third-party Camera2 access to auxiliary lenses (package-name loophole ineffective; CameraUnit SDK is the sanctioned route) — UW reachability via CONTROL_ZOOM_RATIO must be proven by on-device probe. Encoder is the bright spot: Snapdragon 6 Gen 1 uses the reliable Qualcomm Venus/IRIS HEVC block (documented CBR support, timestamp-driven rate control). IMU/timestamp unverified: Rs 35K mid-tier, ARCore certification not confirmed for this model (Oppo cert coverage is patchy below flagship Reno/Find tiers); mid-tier devices historically split between 50 Hz and 100 Hz sustained gyro, and SENSOR_INFO_TIMESTAMP_SOURCE may report UNKNOWN. Thermal likely OK (efficient 4nm SoC, large 7,000 mAh body, IP69). India only — Oppo has no official Brazil channel."
+  }
+]

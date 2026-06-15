@@ -1,0 +1,105 @@
+[
+  {
+    "make": "Xiaomi",
+    "model": "Xiaomi 15T Pro",
+    "launch_year": 2025,
+    "soc": "MediaTek Dimensity 9400+",
+    "android_launch": "15",
+    "android_max": "16",
+    "available_india": false,
+    "available_brazil": true,
+    "ultrawide_sensor": "12 MP, f/2.2, 15mm (OV13B-class)",
+    "ultrawide_fov_deg": 120,
+    "price_inr": null,
+    "price_brl": "~R$ 8.000-9.000 (launch R$ 8.999,99, 12/512)",
+    "notes": "Official Brazil launch 2 Oct 2025 at R$ 8.999,99 alongside the 15T (confirmed: mi.com/br listing exists; Exame/TudoCelular coverage). Not officially sold in India as of June 2026 (rumor sites claimed an expected Oct 2025 India launch that never materialized). Leica triple cam with 5x periscope. HyperOS 3 / Android 16. UW spec (12 MP f/2.2 15mm 120 deg) and Dimensity 9400+ confirmed via GSMArena + mi.com.",
+    "sources": [
+      "https://www.tudocelular.com/novos-produtos/noticias/n240900/xiaomi-15t-pro-lancamento-brasil-precos.html",
+      "https://www.tecmundo.com.br/celular/407523-xiaomi-15t-e-xiaomi-15t-pro-sao-lancados-no-brasil-a-partir-de-r-75-mil.htm",
+      "https://www.gsmarena.com/xiaomi_15t_pro_5g-14178.php",
+      "https://www.mi.com/br/product/xiaomi-15t-pro/",
+      "https://exame.com/tecnologia/xiaomi-15t-pro-chega-ao-brasil-por-r-8-999-enquanto-modelo-basico-custa-r-7-499/"
+    ],
+    "gate_ultrawide_dfov": "unknown",
+    "gate_hevc_1080p30_cbr": "likely",
+    "gate_imu_100hz": "likely",
+    "gate_realtime_timestamp": "likely",
+    "gate_gms_play_integrity": "pass",
+    "gate_thermal_25min": "likely",
+    "tier": "Likely",
+    "caveats": "Advertised UW FOV 120 deg is a comfortable spec pass, but Xiaomi HALs are known-restricted for third-party Camera2 aux-lens access (Xiaomi has stated only one back camera is supported for third parties; some recent models DO accept CONTROL_ZOOM_RATIO <1.0 zoom-out per Open Camera ticket #1096) - runtime probe of the logical back camera's zoom-ratio lower bound is mandatory before trusting the UW gate. MediaTek Dimensity encoder family ignores frame timestamps for rate control (WebRTC forces FRAMERATE_ADJUSTMENT on all MTK encoders) - CBR target can drift under variable frame delivery; compat-check must verify isBitrateModeSupported(CBR) on c2.mtk.hevc.encoder, though Dimensity 9400+ is the flagship tier (better than the risky budget Dimensity bucket). Not yet on the ARCore certified list snapshot (every prior Xiaomi T flagship 11T-14T is certified - almost certainly page lag, so IMU/REALTIME-timestamp gates rated likely, not pass). Brazil-only for our geos; no official India launch.",
+    "flags": [
+      "India availability ambiguity: some rumor sites claimed an expected 29 Oct 2025 India launch; no official mi.com/in listing found - kept available_india=false",
+      "Absent from ARCore device-list snapshot (likely page lag; 14T Pro certified)"
+    ]
+  },
+  {
+    "make": "Xiaomi",
+    "model": "Xiaomi 17 Ultra",
+    "launch_year": 2026,
+    "soc": "Snapdragon 8 Elite Gen 5 (SM8850-AC)",
+    "android_launch": "16",
+    "android_max": "16",
+    "available_india": true,
+    "available_brazil": false,
+    "model_numbers": "25128PNA1G, 2512BPNDAG (global); India launch SKU",
+    "ultrawide_sensor": "50 MP, f/2.2, 14mm, 1/2.76\", 0.64µm, dual-pixel PDAF",
+    "ultrawide_fov_deg": 115,
+    "price_inr": "Rs 1,39,999 (16/512)",
+    "price_brl": null,
+    "notes": "Global launch 28 Feb 2026 (MWC); India launch 11 March 2026 at Rs 1,39,999 (confirmed: mi.com/in listing, 91mobiles, Smartprix). 1-inch main + 200 MP 75-100mm continuous-zoom periscope, AF ultrawide. UW spec confirmed via GSMArena: 50 MP f/2.2 14mm 115 deg dual-pixel PDAF. Not expected to launch in Brazil per TechTudo (June 2026). Ships Android 16 / HyperOS 3.",
+    "sources": [
+      "https://www.gsmarena.com/xiaomi_17_ultra_5g-14380.php",
+      "https://www.91mobiles.com/hub/xiaomi-17-series-launched-india-price-specifications-release-date/",
+      "https://www.techtudo.com.br/guia/2026/03/xiaomi-17-ultra-preco-e-ficha-tecnica-do-celular-com-cameras-leica-edmobile.ghtml",
+      "https://www.mi.com/in/product/xiaomi-17-ultra/"
+    ],
+    "gate_ultrawide_dfov": "unknown",
+    "gate_hevc_1080p30_cbr": "pass",
+    "gate_imu_100hz": "likely",
+    "gate_realtime_timestamp": "likely",
+    "gate_gms_play_integrity": "pass",
+    "gate_thermal_25min": "likely",
+    "tier": "Likely",
+    "caveats": "UW advertised at 115 deg - inside the marginal 112-117 band, so even if reachable the computed diagonal FOV may land close to the 110 deg runtime floor after Camera2 crop/processing; AF on the UW is a plus for the fixed-focus capture path. Xiaomi third-party Camera2 aux-camera restriction applies (mixed-by-model; some HALs accept CONTROL_ZOOM_RATIO <1.0, many hide sub-cameras) - runtime probe required. Snapdragon 8 Elite Gen 5 encoder is in the reliable Qualcomm 8-series bucket (documented CBR support, timestamp-driven rate control, no B-frame insertion reports). Not yet on the ARCore certified list snapshot (brand-new flagship; prior Xiaomi flagships certified - treat as page lag; Snapdragon-flagship pattern is REALTIME timestamp source essentially always). Large vapor-chamber flagship; 1080p30 HEVC is a light load - no sustain data yet, rated likely. India-official; no Brazil launch.",
+    "flags": [
+      "UW FOV 115 deg = marginal band (112-117) - verify computed dFOV on hardware before promoting to Supported",
+      "Absent from ARCore device-list snapshot (new flagship; likely page lag)"
+    ]
+  },
+  {
+    "make": "Xiaomi",
+    "model": "Redmi K50i 5G",
+    "launch_year": 2022,
+    "soc": "MediaTek Dimensity 8100",
+    "android_launch": "12",
+    "android_max": "13",
+    "available_india": true,
+    "available_brazil": false,
+    "codename": "xaga family (Redmi Note 11T Pro / Poco X4 GT twin)",
+    "model_numbers": "22041216I (IN)",
+    "ultrawide_sensor": "8 MP, f/2.2",
+    "ultrawide_fov_deg": 120,
+    "price_inr": "Rs 25,999 (launch, July 2022; discontinued)",
+    "price_brl": null,
+    "notes": "India launch July 2022 at Rs 25,999 (144 Hz LCD, 64 MP main; specs confirmed via mi.com/in + GSMArena: 8 MP f/2.2 120 deg UW, Dimensity 8100, shipped Android 12). The only post-2020 Redmi K-series phone officially sold in India. GSMArena: final update Android 13 / MIUI 14. Not sold in Brazil. Discontinued. Explicitly present on the ARCore certified-devices list (as are its xaga twins Redmi Note 11T Pro and POCO X4 GT).",
+    "sources": [
+      "https://www.gsmarena.com/xiaomi_redmi_k50i-11653.php",
+      "https://www.gsmarena.com/redmi_k50i_5g_goes_official_with_dimensity_8100_and_144hz_lcd-news-55122.php",
+      "https://www.mi.com/in/product/redmi-k50i/specs/",
+      "https://developers.google.com/ar/devices"
+    ],
+    "gate_ultrawide_dfov": "unknown",
+    "gate_hevc_1080p30_cbr": "likely",
+    "gate_imu_100hz": "likely",
+    "gate_realtime_timestamp": "likely",
+    "gate_gms_play_integrity": "pass",
+    "gate_thermal_25min": "likely",
+    "tier": "Unverified",
+    "caveats": "Biggest risk is UW reachability: Redmi mid-tier HALs historically expose only main+front to third-party Camera2 apps (Redmi Note 9 precedent: Open Camera sees main+front only) and Xiaomi officially does not support >1 back camera for third parties - the 120 deg UW spec passes on paper but is quite likely unreachable via CONTROL_ZOOM_RATIO; runtime probe will decide. ARCore certified (explicitly listed), so IMU >=100 Hz and REALTIME camera timestamps are well supported by the cert proxy. Dimensity 8100 sits in the mixed MTK bucket: capable upper-mid encoder, but MTK rate control assumes the configured fps instead of frame timestamps (CBR drift risk) - verify isBitrateModeSupported(CBR). Efficient 5nm SoC, large LCD body - thermal sustain plausible but unmeasured. Discontinued 2022 device on Android 13 max (fine for the Android 11+ zoom-ratio requirement). Launch price Rs 25,999 is below the Rs 30K+ target band - users on this device are off-persona even if it passes.",
+    "flags": [
+      "ARCore certification confirmed by direct lookup (strong IMU/timestamp signal)",
+      "Launch price below the Rs 30K+ MVP device floor"
+    ]
+  }
+]

@@ -1,0 +1,32 @@
+[
+  {
+    "make": "Micromax",
+    "model": "In Note 2",
+    "model_numbers": "E7446 (India)",
+    "codename": "E7446",
+    "launch_year": 2022,
+    "soc": "MediaTek Helio G95 (MT6785V/CD, 12 nm)",
+    "android_launch": "11",
+    "android_max": "11",
+    "ultrawide_sensor": "5 MP f/2.2 ultrawide; 48MP main + 2MP macro + 2MP depth",
+    "ultrawide_fov_deg": 115,
+    "available_india": true,
+    "available_brazil": false,
+    "price_inr": 13490,
+    "price_brl": null,
+    "notes": "Announced Jan 25 2022, released Jan 30 2022 at ~Rs 13,490 (Flipkart). Stock Android 11; no OS upgrade ever shipped (brand effectively dormant since 2022). UW 115deg per GSMArena (spot-checked 2026-06-12; GSMArena also confirms gyro + accelerometer present and video capped at 1080p@30fps). GSMArena status still reads 'Available' but brand dormancy makes spares/support risky. IMU/timestamp risk VERY HIGH. NOT ARCore certified (verified against the ARCore device-list mirror). Price is far below the app's Rs 30K+ target band.",
+    "sources": [
+      "https://www.gsmarena.com/micromax_in_note_2-11332.php",
+      "https://www.oispice.com/micromax-in-note-2-pros-and-cons/",
+      "https://github.com/rolandsmeenk/ARCore-devices"
+    ],
+    "gate_ultrawide_dfov": "unknown",
+    "gate_hevc_1080p30_cbr": "unknown",
+    "gate_imu_100hz": "unknown",
+    "gate_realtime_timestamp": "unknown",
+    "gate_gms_play_integrity": "pass",
+    "gate_thermal_25min": "unknown",
+    "tier": "Unverified",
+    "caveats": "Marginal advertised UW FOV (115deg, inside the 112-117 marginal band) on a low-res 5MP sensor; third-party Camera2 reachability of the ultrawide (sub-1.0 CONTROL_ZOOM_RATIO or separate public ID) is completely unverified on Micromax's stock-Android HAL and budget HALs commonly hide aux cameras - must runtime-probe. Helio G95 is budget-tier MediaTek: HEVC HW-encode presence/CBR compliance unconfirmed (recon intel flags Helio G-series as risky - OMX.MTK encoders ignore frame timestamps / framerate-assumed rate control; sibling budget MTK shows encoder timestamp jitter), and the phone's own pipeline tops out at exactly 1080p30 with no headroom. NOT ARCore certified, so no camera-IMU timing calibration guarantee: SENSOR_INFO_TIMESTAMP_SOURCE likely UNKNOWN and sustained >=100 Hz gyro unproven (budget tier frequently caps ~50 Hz). Android 11 max forever (API 30 floor met but zero security updates; brand dormant since 2022, spares/support risky). GMS + Play Store present (pass). 25-min thermal sustain untested on this 12nm SoC/chassis. Launch price ~Rs 13,490 - well below the Rs 30K+ device band the app targets."
+  }
+]

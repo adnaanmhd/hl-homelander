@@ -1,0 +1,35 @@
+[
+  {
+    "make": "Motorola",
+    "model": "Moto G23",
+    "codename": "penangf",
+    "launch_year": 2023,
+    "soc": "MediaTek Helio G85 (MT6769Z)",
+    "android_launch": "13",
+    "android_max": "14",
+    "model_numbers": "XT2333-1 / XT2333-3 / XT2333-4 / XT2333-5 (BR retail = XT2333 family; MaisCelular lists -1/-3/-4 fichas for Brazil)",
+    "ultrawide_sensor": "5 MP f/2.2",
+    "ultrawide_fov_deg": 118,
+    "available_india": false,
+    "available_brazil": true,
+    "price_inr": null,
+    "price_brl": null,
+    "notes": "Global announce Jan 24, 2023 (Europe first, then select LatAm/Asia markets). Brazil launch Feb 6, 2023 at R$1,599 (4/128, alongside Moto E13); later street promos as low as R$759. NOT officially launched in India — Indian aggregator 'price in India ₹19,999' pages are speculative autogen; no Motorola India listing or reputable IN launch coverage found. Android 14 shipped Jun 2024 (build UHA34.29_060201, ~1.53GB) as the single promised OS update — confirmed final. Discontinued.",
+    "sources": [
+      "https://www.gsmarena.com/motorola_moto_g23-12088.php",
+      "https://www.tudocelular.com/mercado/noticias/n201082/motorola-moto-g23-e13-lancados-brasil.html",
+      "https://www.ytechb.com/moto-g23-starts-receiving-android-14-update/",
+      "https://www.mediatek.com/products/smartphones/mediatek-helio-g85",
+      "https://phonedb.net/index.php?c=motorola_moto_g23_2023_standard_edition_global_dual_sim_td-lte_128gb_xt2333-3__motorola_penangf&id=22110&m=device",
+      "https://www.maiscelular.com.br/modelos/motorola/moto-g23/"
+    ],
+    "gate_ultrawide_dfov": "unknown",
+    "gate_hevc_1080p30_cbr": "unknown",
+    "gate_imu_100hz": "unknown",
+    "gate_realtime_timestamp": "unknown",
+    "gate_gms_play_integrity": "pass",
+    "gate_thermal_25min": "unknown",
+    "tier": "Unverified",
+    "caveats": "ENCODER RISK (the deciding unknown): Helio G85 does advertise hardware H.265/HEVC encode (MediaTek official spec: H.264 + H.265/HEVC encode, 2K@30 / 1080p60) — unlike the Helio G37 — but budget-MTK rate control ignores frame timestamps (WebRTC forces FRAMERATE_ADJUSTMENT) and CBR compliance is undocumented on this tier; compat-check must verify c2.mtk.hevc.encoder exists AND isBitrateModeSupported(CBR) AND 1920x1080 surface deliverability. UW 118° meets the comfort bar on paper but is a tiny 5 MP f/2.2 unit; third-party CONTROL_ZOOM_RATIO reachability unconfirmed (Motorola budget HALs historically hid aux camera IDs from third-party Camera2 apps) — runtime probe decides. Gyro IS present (verified vs GSMArena — many budget Motos lack one), but the device is NOT on the ARCore certified list, so ≥100 Hz sustained IMU and SENSOR_INFO_TIMESTAMP_SOURCE=REALTIME are both unverified. 25-min thermal unvalidated (1080p30 is a light load and the 12nm G85 is modest, but zero evidence). Brazil-only fleet relevance — not officially sold in India despite aggregator pages claiming ₹19,999."
+  }
+]

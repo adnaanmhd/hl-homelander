@@ -14,15 +14,20 @@ These three files travel **byte-for-byte** from the phone to cloud storage — t
 **never re-encoded or modified** server-side. What the phone wrote is exactly what the
 training pipeline reads.
 
-There are **two places data lands**, and they answer different questions:
+There are **three places data lands**, and they answer different questions:
 
-| Store                   | Contains                                                                         | Use it for                                                                |
-| ----------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| **PostgreSQL**          | One row per user, recording, task, contribution, event… (metadata + bookkeeping) | Dashboards, analytics, funnels, fleet health — **this is what you query** |
-| **S3 (object storage)** | The actual `video.mp4` / `imu.csv` / `metadata.json` payload files               | The training-data lake — large binary/CSV files, consumed by ML pipelines |
+| Store                   | Contains                                                                         | Use it for                                                                                                       |
+| ----------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **PostgreSQL**          | One row per user, recording, task, contribution, event… (metadata + bookkeeping) | Operational queries, fleet health, the server-side `events` mirror — **this is what you query for ground-truth** |
+| **S3 (object storage)** | The actual `video.mp4` / `imu.csv` / `metadata.json` payload files               | The training-data lake — large binary/CSV files, consumed by ML pipelines                                        |
+| **GA4 + BigQuery**      | Client behavioral events (the GA4 stream) + its daily BigQuery export            | Product funnels, activation/retention, feature usage — see [§12](#12-analytics-events--funnels-ga4--bigquery)    |
 
-Postgres is the **index**; S3 is the **content**. A recording row in Postgres carries the
-S3 keys (`s3_key_video`, `s3_key_imu`, `s3_key_metadata`) pointing at its files.
+Postgres is the **index**, S3 is the **content**, and GA4/BigQuery is the **behavioral
+stream**. A recording row in Postgres carries the S3 keys (`s3_key_video`, `s3_key_imu`,
+`s3_key_metadata`) pointing at its files. The Postgres `events` table is the **server-side
+mirror** of the money-path events that also flow to GA4 — so the upload / finalize / eviction
+funnel tail stays trustworthy even when client events are lost on flaky networks (see
+[§12](#12-analytics-events--funnels-ga4--bigquery)).
 
 ---
 
@@ -473,6 +478,23 @@ PK is `(user_id, bucket_date)`. Maintained by a DB trigger as recordings reach `
 
 _Indexes:_ `(user_id, occurred_at)`, `name`.
 
+**Ingest contract (`POST /events`, API-11 — `apps/api/src/routes/events/post.ts`):** authed
+(`requireAuth`); `user_id` = JWT `sub`, `flavor` from the JWT; one row per call; returns
+`201 { id }`. The event **`name` is validated against the `EVENT_NAMES` allowlist** in
+`@humyn/shared-types` — unknown names are rejected `400`. Schema-creep guards (T-1.8-05):
+**≤32 property keys**, **≤4 KB** serialized `properties`, and **each value is a string ≤256
+chars** (`EventCreateSchema` — note: string-only, so numeric params like `duration_ms` must
+be stringified to travel this path). Per-user rate limit **600/min** (~10/s), keyed on JWT
+`sub`. ⚠ This server allowlist (14 generic names) is **separate from and not in sync with**
+the mobile client's 62-event allowlist — see [§12.7](#127-allowlist-status-two-disjoint-lists).
+
+**This table is also the server-side mirror of the money-path funnel events**
+(`srv_user_signed_in`, `srv_recording_finalized`, `srv_device_evicted`, …): the relevant API
+handlers insert these rows **directly** (not via `POST /events`, so they bypass the route's
+allowlist gate — `name` is a plain `varchar(80)` with no DB-level enum), capturing the
+upload / finalize / eviction tail even when the client's GA4 event is lost. Full catalog:
+[§12](#12-analytics-events--funnels-ga4--bigquery).
+
 ### `task_requests` — user-suggested new tasks
 
 | Column                | Type                                  | Notes           |
@@ -636,20 +658,20 @@ sequenceDiagram
 
 ## 10. Data references
 
-| Question                                 | Where                                                                         |
-| ---------------------------------------- | ----------------------------------------------------------------------------- |
-| How many users signed up?                | `users` (filter `deleted_at IS NULL` for active)                              |
-| A user's recordings + their video files  | `recordings WHERE user_id = …`, then `s3_key_video`                           |
-| Only _usable_ recordings                 | `recordings WHERE qa_status IN ('uploaded','verified')` (`verified` = legacy) |
-| Recordings per day / contribution time   | `contributions` (pre-aggregated, UTC daily)                                   |
-| Lifetime totals per user                 | `profiles`                                                                    |
-| Most-recorded tasks                      | `recordings` joined to `tasks`, group by `task_id`                            |
-| Capture quality (fps/res/drift/IMU rate) | `recordings` drift columns + the per-segment `metadata.json` in S3            |
-| Funnels / feature usage / retention      | `events` (filter by `name`, parse `properties` jsonb)                         |
-| Hash-mismatch / re-upload rate           | _n/a — removed with the hash-verify flow (Enh 3 / D1, 2026-06-04)_            |
-| Consent audit trail                      | `consent_log` (one row per sign-in)                                           |
-| New-task demand                          | `task_requests`                                                               |
-| The raw motion data for training         | `imu.csv` in S3 (skip header row)                                             |
+| Question                                 | Where                                                                                                                                                                               |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| How many users signed up?                | `users` (filter `deleted_at IS NULL` for active)                                                                                                                                    |
+| A user's recordings + their video files  | `recordings WHERE user_id = …`, then `s3_key_video`                                                                                                                                 |
+| Only _usable_ recordings                 | `recordings WHERE qa_status IN ('uploaded','verified')` (`verified` = legacy)                                                                                                       |
+| Recordings per day / contribution time   | `contributions` (pre-aggregated, UTC daily)                                                                                                                                         |
+| Lifetime totals per user                 | `profiles`                                                                                                                                                                          |
+| Most-recorded tasks                      | `recordings` joined to `tasks`, group by `task_id`                                                                                                                                  |
+| Capture quality (fps/res/drift/IMU rate) | `recordings` drift columns + the per-segment `metadata.json` in S3                                                                                                                  |
+| Funnels / feature usage / retention      | **GA4 + BigQuery** for the client behavioral stream (see [§12](#12-analytics-events--funnels-ga4--bigquery)); the Postgres `events` table mirrors the money-path (`srv_*`) outcomes |
+| Hash-mismatch / re-upload rate           | _n/a — removed with the hash-verify flow (Enh 3 / D1, 2026-06-04)_                                                                                                                  |
+| Consent audit trail                      | `consent_log` (one row per sign-in)                                                                                                                                                 |
+| New-task demand                          | `task_requests`                                                                                                                                                                     |
+| The raw motion data for training         | `imu.csv` in S3 (skip header row)                                                                                                                                                   |
 
 **Joining users to their videos (the common one):**
 
@@ -690,7 +712,196 @@ ORDER BY r.captured_at DESC;
    run analysis against a dev DB that someone is testing on; re-seed first.
 8. **MVP scope:** `liveness_score` and `vector(384)` semantic search exist in the schema but
    are **descoped/unused at MVP** — `liveness_score` will usually be null.
+9. **The client analytics layer and the server `events` table are two disjoint pipelines.**
+   The mobile `logEvent` wrapper (62 screen-specific names) currently only fills the on-device
+   telemetry ring — GA4 emit is stubbed — while `POST /events` gates on a different 14-name
+   server allowlist with string-only props. They are not wired together today. See [§12](#12-analytics-events--funnels-ga4--bigquery).
 
-```
+---
 
-```
+## 12. Analytics, events & funnels (GA4 + BigQuery)
+
+> _Added 2026-06-14._ Single source of truth for the analytics event catalog + funnels;
+> mirrors **`analytics-events-funnels.xlsx`** (repo root). **Destination:** client behavioral
+> analytics is **Firebase Analytics (GA4)** with **BigQuery export**; the Postgres
+> [`events`](#events--behavioral--funnel-analytics) table is the **server-side mirror** for
+> money-path outcomes. **Identity:** `setUserId(<server user UUID>)` + `installation_id`.
+> **GA4 collection is ON from first launch** (`analytics_collection_enabled = true`) — _not_
+> gated on the consent modal (owner decision; India DPDP / Brazil LGPD posture is covered by
+> the launch consent text). Behavioral funnels are built in **GA4 Funnel Exploration**; deep
+> funnels and any funnel with a server step are built in **BigQuery SQL**, joined to
+> `recordings` / `users` on `user_id`.
+
+### 12.1 The two emit paths (today's reality)
+
+| Path                               | Code                                                                               | Sink                                                                     | State                                                                                                                                                                                                                                                                     |
+| ---------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Client `logEvent(name, props)`** | `apps/mobile/src/util/analytics.ts`                                                | on-device telemetryRing (HELP-05 diagnostic) **+ GA4** → BigQuery export | Single call site, allowlist-gated at runtime, props typed `string \| number \| boolean`. ⚠ The GA4 `analytics().logEvent` emit is the plan-02-09 handoff and is **still stubbed** — today it only appends to the telemetryRing, and it does **not** call `POST /events`. |
+| **Server `events` row**            | `POST /events` (`apps/api/src/routes/events/post.ts`) **or** direct handler insert | Postgres `events` table → BigQuery                                       | `POST /events` is the client-driven ingest (contract in [§7](#7-full-ddl--every-table-every-column)); the `srv_*` money-path events are written **directly** by API handlers (bypassing the route allowlist).                                                             |
+
+### 12.2 Identity & user properties
+
+`setUserId(<server user UUID — NOT the raw Google sub>)`. GA4 auto-collects country / device
+model / app version. User properties:
+
+| Property                   | Value                                              | Why                                                            |
+| -------------------------- | -------------------------------------------------- | -------------------------------------------------------------- |
+| `installation_id`          | UUID generated at install (MMKV `INSTALLATION_ID`) | reinstall / device-eviction churn                              |
+| `app_flavor`               | `apk` \| `playstore`                               | exclude internal/test builds via a GA4 internal-traffic filter |
+| `consent_version`          | FNV-1a hash of the canonical terms text            | consent-version cohorts (bumps force re-consent)               |
+| `locale` / `chosen_locale` | `en` \| …                                          | India/Brazil, English-only at MVP                              |
+| `compat_passed`            | `true` \| `false`                                  | segment funnels by device capability                           |
+
+### 12.3 Common params (ride on most events)
+
+Omitted from the per-event rows in §12.5 for readability — **assume them present**:
+
+- `installation_id` + `chosen_locale` — every post-launch event.
+- `user_email` — every **authenticated** (post-sign-in) event. ⚠ **PII change** — see [§12.4](#124-pii-posture-updated).
+- `network_type` (`wifi` \| `cellular` \| `offline`) — every event.
+- `is_practice` (`true` \| `false`) — every recording/upload event (practice is refused at enqueue, D-08, and must stay separable).
+
+### 12.4 PII posture (updated)
+
+The legacy guard (T-2.4-01, the `analytics.ts` header comment) forbids passing **email, name,
+task name, search-query text, recording filename** in event props. **This spec deliberately
+relaxes the email rule:** `user_email` is now an intended identity param on authenticated
+events (per the `.xlsx`). **Still forbidden:** task NAME, search QUERY text, recording
+filename, raw `lat`/`lng`. ⚠ When GA4 is wired, update the `analytics.ts` PII-guard comment
+and the plan-checker grep so `user_email` isn't flagged as a violation.
+
+### 12.5 The four funnels
+
+(common params per §12.3 omitted; **NEW** = not yet in either allowlist — see §12.7; **(ADD)** = new param on an event that already exists.)
+
+**Funnel 1 — Activation (install → first successful upload)**
+
+| Step | Event                                                                                                   | Source   | Event-specific params                                           | Role / notes                                                                                                                                             |
+| ---- | ------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | `first_open`, `session_start`                                                                           | GA4 auto | —                                                               | Install + session boundary.                                                                                                                              |
+| 2    | `splash_shown`                                                                                          | client   | —                                                               | App launched.                                                                                                                                            |
+| 3    | `locale_chosen`                                                                                         | client   | —                                                               | First-launch language pick.                                                                                                                              |
+| 4    | `signup_started` / `signup_terms_opened` / `signup_consent_checked`                                     | client   | —                                                               | Signup + consent scroll-gate.                                                                                                                            |
+| 4    | `consent_shown`                                                                                         | client   | `consent_version`                                               | **NEW** — consent modal shown; needed to measure scroll-gate dropoff.                                                                                    |
+| 4    | `consent_agreed`                                                                                        | client   | `consent_version`, `time_to_agree_ms` (ADD)                     | Consent persisted; gates Continue-with-Google.                                                                                                           |
+| 5    | `signup_google_started` / `signup_google_completed`                                                     | client   | —                                                               | Google sheet → JWT minted.                                                                                                                               |
+| 5    | `signup_google_failed`                                                                                  | client   | `reason`                                                        | Sign-in error / cancel.                                                                                                                                  |
+| 5    | `signup_device_evicted_notice`                                                                          | client   | —                                                               | Newest-login-wins superseded this device.                                                                                                                |
+| 6    | `permission_camera_*` / `permission_mic_*`                                                              | client   | `result`                                                        | Camera / mic gates.                                                                                                                                      |
+| 6    | `permission_location_*`                                                                                 | client   | `result` (+`partial`)                                           | Precise-location gate; coarse-only ⇒ `partial`.                                                                                                          |
+| 6    | `permission_settings_opened`                                                                            | client   | `permission`                                                    | **NEW** — "Open Settings" recovery after a denial.                                                                                                       |
+| 7    | `compat_started` / `compat_check_passed` / `compat_completed`                                           | client   | —                                                               | EncoderProbe → ImuProbe → DeviceCaps.                                                                                                                    |
+| 7    | `compat_check_failed`                                                                                   | client   | `fail_reason` (ADD: `encoder`\|`imu_hz`\|`device_caps`)         | Terminal device rejection — key India/Brazil fleet-kill signal.                                                                                          |
+| 8    | `battery_exemption_requested/_granted/_denied`                                                          | client   | —                                                               | **NEW** — CompatPass battery-optimisation ask.                                                                                                           |
+| 9    | `rig_tutorial_shown` / `rig_no_rig_link_tapped`                                                         | client   | —                                                               | Rig walkthrough.                                                                                                                                         |
+| 10   | `practice_intro_shown` / `practice_started` / `practice_complete_shown` / `practice_complete_continued` | client   | —                                                               | Practice tutorial.                                                                                                                                       |
+| 11   | `srv_user_signed_in`                                                                                    | server   | `user_id`, `installation_id`, `is_new_user`, `evicted_previous` | Authoritative activation anchor.                                                                                                                         |
+| 12   | **first upload** (milestone)                                                                            | BigQuery | —                                                               | Derive as the first `upload_completed` / `srv_recording_finalized` per `user_id` (the client can't know "first ever" across reinstalls; the server can). |
+
+**Funnel 2 — Task discovery (browse/search → capture started).** _Every event here is **NEW**._
+
+| Step | Event                                                  | Source | Event-specific params                        | Role / notes                                               |
+| ---- | ------------------------------------------------------ | ------ | -------------------------------------------- | ---------------------------------------------------------- |
+| 1    | `tasks_view`                                           | client | `source` (`tab`\|`home_tile`)                | Tasks surface opened.                                      |
+| 2    | `task_category_selected`                               | client | `category`                                   | Category pill.                                             |
+| 2    | `task_list_paginated`                                  | client | `page`, `category`                           | Next page (50 of 65).                                      |
+| 2    | `task_search_performed`                                | client | `query_length`, `result_count`, `latency_ms` | Lexical search (debounced; log on results, no query text). |
+| 2    | `task_search_no_results`                               | client | `query_length`                               | Catalog-gap signal.                                        |
+| 3    | `task_card_tapped`                                     | client | `task_id`, `category`, `position`, `source`  | Card tapped in the grid.                                   |
+| 3    | `task_details_viewed`                                  | client | `task_id`, `category`, `source`              | Details sheet opened.                                      |
+| 3    | `task_request_sheet_opened` / `task_request_submitted` | client | `source` (`footer`\|`empty_state`)           | "Request a task" — demand signal.                          |
+| 4    | `task_capture_started`                                 | client | `task_id`, `category`, `source`              | **Conversion** — handoff into the Recording screen.        |
+
+**Funnel 3 — Capture success (recording-screen open → upload finalized; the money path)**
+
+| Step | Event                                         | Source | Event-specific params                                                                      | Role / notes                                                                                                                              |
+| ---- | --------------------------------------------- | ------ | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | `recording_screen_opened`                     | client | `task_id`                                                                                  | **NEW** — funnel entry (capture "attempt" = a screen visit, per decision).                                                                |
+| 2    | `rotate_prompt_shown`                         | client | —                                                                                          | **NEW** — portrait → rotate-to-landscape gate.                                                                                            |
+| 2    | `landscape_detected`                          | client | `time_to_landscape_ms`                                                                     | **NEW** — rig-fumbling friction before Start is possible.                                                                                 |
+| 3    | `record_start_pressed`                        | client | `task_id`                                                                                  | **NEW** — the true Start tap.                                                                                                             |
+| 3    | `pre_flight_failed`                           | client | `reason` (`thermal`\|`storage`\|`battery`)                                                 | **NEW** — device distress kicked back to ready.                                                                                           |
+| 4    | `recording_gate_started`                      | client | `locale`, `task_id` (ADD)                                                                  | MediaPipe hand-gate poll begins.                                                                                                          |
+| 4    | `recording_gate_passed`                       | client | `gate_wait_ms`, `poll_count`, `miss_count` (ADD)                                           | 2 consecutive 2-hand frames — rig-placement UX quality.                                                                                   |
+| 4    | `recording_gate_skipped`                      | client | `gate_wait_ms` (ADD)                                                                       | User tapped Skip (HAND-10).                                                                                                               |
+| 4    | `recording_gate_bypassed`                     | client | —                                                                                          | HandDetector native module unavailable.                                                                                                   |
+| 5    | `recording_start_failed`                      | client | `reason`                                                                                   | **NEW** — CAPTURE_START_FAILED → back to ready.                                                                                           |
+| 5    | `recording_started`                           | client | `recording_id`, `task_id` (ADD)                                                            | Encoder up, first frame written.                                                                                                          |
+| 5    | `recording_orientation_lost`                  | client | `substate`                                                                                 | **NEW** — left landscape mid-pre-record; gate reset.                                                                                      |
+| 5    | `battery_alert_shown` / `thermal_alert_shown` | client | `elapsed_ms`                                                                               | **NEW** — capture overlays.                                                                                                               |
+| 6    | `recording_stopped`                           | client | `reason`, `duration_ms`, `segment_count`, `task_id` (ADD)                                  | `reason` ∈ {background, orientation, phone_call, battery_critical, storage_full, permission_revoked, thermal, practice_hard_cap, logout}. |
+| 6    | `recording_stop_failed`                       | client | `reason`                                                                                   | `HumynCapture.stop()` rejected.                                                                                                           |
+| 7    | `segment_finalized`                           | client | `recording_id`, `segment_index`, `duration_ms`, `mean_fps`, `drift_max_ms`, `drift_p99_ms` | **NEW** — FinalizeWorker passed; carries fleet-health drift telemetry (2026-05-12 owner decision) for free.                               |
+| 7    | `segment_canceled`                            | client | `recording_id`, `reason`, `duration_ms`, `mean_fps`                                        | **NEW** — `reason` ∈ {fps_dropped, resolution_dropped, insufficient_frames, too_short}. The cancel-gate dropout step.                     |
+| 7    | `recording_too_short`                         | client | —                                                                                          | <3 min non-practice OR <60 s practice.                                                                                                    |
+| 8    | `upload_enqueued`                             | client | `recording_id`, `task_id`, `bytes_total`, `duration_s`                                     | **NEW** — queued (practice refused at enqueue, D-08).                                                                                     |
+| 8    | `upload_started`                              | client | `recording_id`, `attempt_count`                                                            | **NEW** — multipart upload begins.                                                                                                        |
+| 8    | `upload_retry`                                | client | `recording_id`, `attempt_count`, `failure_state`, `failure_reason`                         | **NEW** — auto-retry (e.g. `failure_state=FINALIZING`).                                                                                   |
+| 8    | `upload_paused` / `upload_resumed`            | client | `reason` (`recording`\|`auth`\|`connectivity`)                                             | **NEW** — queue pause/resume.                                                                                                             |
+| 8    | `upload_auth_failure`                         | client | `slug` (`device-evicted`\|`reauth-required`\|`unknown`)                                    | **NEW** — 401 on init/parts/finalize; row parked, queue paused.                                                                           |
+| 8    | `upload_needs_attention`                      | client | `recording_id`, `attempt_count`, `last_failure_reason`                                     | **NEW** — auto-retries exhausted; manual retry available.                                                                                 |
+| 8    | `upload_dead_letter`                          | client | `recording_id`, `dead_letter_reason`                                                       | **NEW** — permanent rejection (409/403/missing bundle).                                                                                   |
+| 8    | `history_row_retry`                           | client | `recording_id`, `reason`                                                                   | Manual `reviveDeadLetter` / `retryNeedsAttention`.                                                                                        |
+| 9    | `upload_completed`                            | client | `recording_id`, `bytes_total`, `elapsed_ms`, `attempt_count`                               | **NEW** — terminal success on `/finalize` 200 (client view).                                                                              |
+| 9    | `srv_recording_finalized`                     | server | `user_id`, `recording_id`, `bytes`, `duration_s`, `ms_since_init`                          | Trustworthy funnel tail — client `upload_completed` undercounts on flaky networks.                                                        |
+
+**Funnel 4 — Retention / repeat capture** (mostly derived in BigQuery)
+
+| Step | Event                                                                      | Source   | Event-specific params   | Role / notes                                         |
+| ---- | -------------------------------------------------------------------------- | -------- | ----------------------- | ---------------------------------------------------- |
+| 1    | `session_start`                                                            | GA4 auto | —                       | Return-visit signal → D1/D7/D30 retention.           |
+| 2    | `home_view` / `home_tile_filter_changed`                                   | client   | `tile`, `value`         | Home engagement.                                     |
+| 3    | `history_view` / `history_filter_changed` / `history_row_opened`           | client   | `value`, `recording_id` | History engagement.                                  |
+| 3    | `pending_uploads_view`                                                     | client   | `pending_count`         | **NEW** — pending-uploads queue screen.              |
+| 4    | time-to-2nd-upload, uploads/user/week                                      | BigQuery | —                       | Derived from `srv_recording_finalized`.              |
+| 5    | `srv_device_evicted`                                                       | server   | `user_id`               | Eviction churn input (→ churn if no return session). |
+| 5    | `profile_logout` / `profile_delete_requested` / `profile_delete_confirmed` | client   | —                       | Voluntary / hard churn.                              |
+
+### 12.6 Server-emitted money-path events (written directly to the `events` table)
+
+These reuse the existing `events` table — the API handlers insert rows **directly** (not via
+`POST /events`), so the funnel tail survives client loss. The `name` values are `srv_*`; they
+should also be added to the `@humyn/shared-types` allowlist for consistency (see §12.7), but
+the direct insert isn't blocked by it.
+
+| Event                     | Trigger                                   | `properties`                                                              | Why server-side                                                                            |
+| ------------------------- | ----------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `srv_user_signed_in`      | `POST /auth/google`                       | `user_id`, `installation_id`, `is_new_user`, `evicted_previous`           | Activation anchor; `evicted_previous` distinguishes phone-upgrade from credential-sharing. |
+| `srv_consent_accepted`    | `POST /auth/google` (consent_log)         | `user_id`, `consent_version`                                              | LEGAL-02 record.                                                                           |
+| `srv_recording_init`      | `POST /recordings/init`                   | `user_id`, `recording_id`, `task_id`, `bytes_expected`, `has_calibration` | Upload intent the client may never report if it dies mid-upload.                           |
+| `srv_recording_finalized` | `POST /recordings/:id/finalize` (200)     | `user_id`, `recording_id`, `bytes`, `duration_s`, `ms_since_init`         | Trustworthy upload-success tail.                                                           |
+| `srv_device_evicted`      | `requireAuth` 401 (installation mismatch) | `user_id`                                                                 | Only the server sees the eviction.                                                         |
+| `srv_feedback_received`   | `POST /feedback`                          | `user_id`, `category`                                                     | Confirms feedback landed even if the client request looked like it failed.                 |
+
+### 12.7 Allowlist status (two disjoint lists)
+
+There are **two allowlists, and they are not in sync** — reconciling them is prerequisite work
+for any of the funnels above:
+
+- **Client** — `EVENT_NAMES` in `apps/mobile/src/util/analytics.ts`: **62 screen-specific
+  events** wired today (splash/version, signup, permission, compat, onboarding, practice,
+  recording-gate, recording, profile, help, home, history, locale groups). Props typed
+  `string | number | boolean`.
+- **Server** — `EVENT_NAMES` in `shared/types/src/events.ts` (the `POST /events` gate):
+  **14 generic events** — `app_started`, `sign_in_attempted`, `sign_in_succeeded`,
+  `sign_in_failed`, `task_browsed`, `task_searched`, `recording_started`,
+  `recording_completed`, `recording_uploaded`, `task_request_submitted`, `feedback_opened`,
+  `feedback_submitted`, `app_backgrounded`, `app_foregrounded`. Props **string-only, ≤256 chars**.
+
+The two lists **overlap on only two names** (`recording_started`, `task_request_submitted`).
+The funnel spec in §12.5 uses the **client** naming; almost none of those names exist in the
+server allowlist, and the `srv_*` money-path names exist in neither. **To realize these funnels
+you must:** (1) wire the client `logEvent` GA4 emit (plan 02-09), (2) extend the client
+`EVENT_NAMES` with the **NEW** events, and (3) extend the shared-types `EVENT_NAMES` with the
+`srv_*` names (and any client events you also want mirrored to Postgres via `POST /events`,
+remembering to stringify numeric props for that path).
+
+### 12.8 Decisions (from `analytics-events-funnels.xlsx` → Notes)
+
+- **GA4 collection ON from launch** (`analytics_collection_enabled = true`) — not gated on consent.
+- **Drift telemetry rides analytics** — `drift_max_ms` / `drift_p99_ms` / `mean_fps` on `segment_finalized` give the fleet-health drift dashboard with no extra pipeline.
+- **Practice = same event names + `is_practice` flag** (not a separate namespace).
+- **Server-event transport = the Postgres `events` table, joined in BigQuery** (not GA4 Measurement Protocol).
+- **Allowlist hygiene = additive** — keep existing names verbatim; only add.
+- **Capture "attempt" = a Recording-screen visit** (`recording_screen_opened`), with `record_start_pressed` as a downstream step.
+- **Eviction attribution** — flag the evicting sign-in with `evicted_previous = true` on `srv_user_signed_in`.
