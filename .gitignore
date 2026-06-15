@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Local scratch — transient working notes / resume prompts, never commit
+new.md
+
 # Build artifacts
 dist/
 *.tsbuildinfo
@@ -81,3 +84,46 @@ tools/node_modules/
 !/walks/
 !/walks/*/
 !/walks/*/REPORT.md
+
+# ── GSD baseline (auto-generated) ──
+.gsd
+.gsd-id
+.mcp.json
+.bg-shell/
+Thumbs.db
+nul
+nul.*
+con
+con.*
+prn
+prn.*
+aux
+aux.*
+com[1-9]
+com[1-9].*
+lpt[1-9]
+lpt[1-9].*
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.code-workspace
+.env.*
+!.env.example
+.next/
+build/
+__pycache__/
+*.pyc
+.venv/
+venv/
+target/
+vendor/
+*.log
+.cache/
+tmp/
+
+# Third-party skill tooling — locally installed by a skill manager (sources +
+# hashes tracked in skills-lock.json). Re-fetchable; not part of this repo's code.
+.agents/
+skills-lock.json

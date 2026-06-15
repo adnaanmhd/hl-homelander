@@ -14,8 +14,9 @@
 //   - gate confirmed via Skip → NO vibrate, NO 'Recording started' cue, but
 //     set(0.05) STILL called + HumynCapture.start STILL called (HAND-07)
 //   - practice recording stopped → HumynCapture.stop() + nav toward PracticeComplete
-//   - real recording stopped ≥60s → showToast(…added to your contribution.) + nav toward MainTabs
-//   - real recording stopped <60s → showToast('Recording too short — discarded.') + RESET_FOR_FRESH
+//   - real recording stopped ≥3min → showToast(…added to your contribution.) + nav toward MainTabs
+//   - real recording stopped <3min → showToast('Recording too short — discarded.') + RESET_FOR_FRESH
+//     (Bug 8 + Enh 1 / D6 raised the floor 60s → 180s)
 //   - checkStartGuards blocked → showToast(toast) + back to 'ready' (REC-16)
 
 import React from 'react';
@@ -24,7 +25,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Vibration } from 'react-native';
 // Wave-1.5 Item 5 — the contribution toast moved from RecordingScreen's
 // local `<Toast>` host to the global ToastHost via the deliver-on-Home bus.
-// The ≥60s post-stop test (§7h) drains the bus instead of asserting an
+// The ≥3min post-stop test (§7h) drains the bus instead of asserting an
 // in-screen `recording-toast` element.
 import {
   drainPendingUploadToast,
@@ -60,9 +61,26 @@ const {
   mockParentNavigate,
   mockParentReset,
   lifecycleCallbacksRef,
+  mockOnSegmentComplete,
+  segmentCompleteCbRef,
+  mockUploadEnqueue,
+  mockUploadPause,
+  mockUploadResume,
 } = vi.hoisted(() => {
   const deviceOrientationListeners: Array<(o: string) => void> = [];
+  // Bug 9 (260604) — capture the onSegmentComplete handler the screen
+  // subscribes so a test can fire a synthetic SegmentCompleteEvent and assert
+  // the auto-enqueue keys the upload on `e.taskId`, not the route closure.
+  const segmentCompleteCbRef = { current: null as null | ((e: unknown) => void) };
   return {
+    mockOnSegmentComplete: vi.fn((cb: (e: unknown) => void) => {
+      segmentCompleteCbRef.current = cb;
+      return { remove: vi.fn() };
+    }),
+    segmentCompleteCbRef,
+    mockUploadEnqueue: vi.fn().mockResolvedValue(undefined),
+    mockUploadPause: vi.fn().mockResolvedValue(undefined),
+    mockUploadResume: vi.fn().mockResolvedValue(undefined),
     mockLogEvent: vi.fn(),
     mockSpeakCue: vi.fn(),
     mockPickVoice: vi.fn().mockResolvedValue(undefined),
@@ -122,11 +140,30 @@ vi.mock('../../../src/lib/ttsVoice', () => ({
 
 vi.mock('../../../src/native/HumynScreenBrightness', () => ({ set: mockBrightnessSet }));
 
+// Bug 2 (260604) — force the live-preview to be "available" so the mount-gate
+// `(active || stop-confirm) && isLivePreviewAvailable()` is exercisable. We keep
+// the REAL `HumynLivePreviewView` component (the global RN shim renders it as a
+// div that maps accessibilityLabel → aria-label, so it's queryable) and only
+// override `isLivePreviewAvailable`, which is otherwise false in the unit-test
+// env (native module absent).
+vi.mock('../../../src/native/HumynLivePreviewView', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/native/HumynLivePreviewView')>();
+  return { ...actual, isLivePreviewAvailable: () => true };
+});
+
+vi.mock('../../../src/native/HumynUpload', () => ({
+  HumynUpload: {
+    enqueue: mockUploadEnqueue,
+    pause: mockUploadPause,
+    resume: mockUploadResume,
+  },
+}));
+
 vi.mock('../../../src/native/HumynCapture', () => ({
   start: mockHcStart,
   stop: mockHcStop,
   onSegmentStart: mockHcEvtSub,
-  onSegmentComplete: mockHcEvtSub,
+  onSegmentComplete: mockOnSegmentComplete,
   // Quick task 260517-p5g CAPTURE-QA-04 — RecordingScreen now subscribes
   // to onSegmentCanceled (see RecordingScreen.tsx). The mock returns the
   // same removable-subscription shape as the other helpers.
@@ -292,6 +329,16 @@ beforeEach(() => {
     if (i >= 0) deviceOrientationListeners.splice(i, 1);
   });
   deviceOrientationListeners.length = 0;
+  // Bug 9 — re-prime the capturing onSegmentComplete + upload mocks (clearAllMocks
+  // drops implementations, same as the orientation mocks above).
+  mockOnSegmentComplete.mockImplementation((cb: (e: unknown) => void) => {
+    segmentCompleteCbRef.current = cb;
+    return { remove: vi.fn() };
+  });
+  mockUploadEnqueue.mockResolvedValue(undefined);
+  mockUploadPause.mockResolvedValue(undefined);
+  mockUploadResume.mockResolvedValue(undefined);
+  segmentCompleteCbRef.current = null;
   _routeParams = { taskId: '__practice__', taskName: 'Practice — 60 sec', isPractice: true };
   __test_resetUploadToastBus();
 });
@@ -376,7 +423,10 @@ describe('RecordingScreen chrome (substate-driven)', () => {
     expect(screen.getByLabelText('recording-stop')).toBeTruthy();
   });
 
-  it('stop-confirm renders the StopConfirmModal with the LOCKED body copy', async () => {
+  it('stop-confirm renders the StopConfirmModal with the 3-minute body copy', async () => {
+    // Bug 8 + Enh 1 / D6 (2026-06-04): owner raised the floor 1 min → 3 min;
+    // the modal body now states "3 minutes" (sign-off-backed deviation from
+    // the formerly-LOCKED "under 1 minute" copy).
     await act(async () => {
       render(
         <RecordingScreen
@@ -385,7 +435,7 @@ describe('RecordingScreen chrome (substate-driven)', () => {
       );
     });
     expect(screen.getByText('Stop recording?')).toBeTruthy();
-    expect(screen.getByText('Recordings under 1 minute are discarded.')).toBeTruthy();
+    expect(screen.getByText('Recordings under 3 minutes are discarded.')).toBeTruthy();
   });
 });
 
@@ -471,6 +521,43 @@ describe('RecordingScreen — orientation + brightness lifecycle (REC-01 / REC-0
     expect(screen.queryByLabelText('stop-confirm-modal')).toBeNull();
     fireEvent.click(screen.getByLabelText('recording-close'));
     expect(screen.getByLabelText('stop-confirm-modal')).toBeTruthy();
+  });
+});
+
+describe('Bug 2 (260604) — live preview stays mounted across stop-confirm', () => {
+  it('preview present in active, stays mounted through X_PRESSED → stop-confirm → Keep recording', async () => {
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('active', { startedAt: 0, durationMs: 5000 })}
+        />,
+      );
+    });
+    // Mounted during active.
+    expect(screen.getByLabelText('recording-live-preview')).toBeTruthy();
+
+    // (x) → X_PRESSED → stop-confirm: the recording is STILL running, so the
+    // preview MUST stay mounted (unmount → fresh SurfaceTexture → "Surface was
+    // abandoned" on re-attach → black preview = the reported bug).
+    fireEvent.click(screen.getByLabelText('recording-close'));
+    expect(screen.getByLabelText('stop-confirm-modal')).toBeTruthy();
+    expect(screen.getByLabelText('recording-live-preview')).toBeTruthy();
+
+    // "Keep recording" → STOP_CONFIRM_CANCEL → active: preview never unmounted.
+    fireEvent.click(screen.getByLabelText('stop-confirm-keep'));
+    expect(screen.queryByLabelText('stop-confirm-modal')).toBeNull();
+    expect(screen.getByLabelText('recording-live-preview')).toBeTruthy();
+  });
+
+  it('preview is mounted when rendered directly in the stop-confirm substate', async () => {
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('stop-confirm', { startedAt: 0, durationMs: 5000 })}
+        />,
+      );
+    });
+    expect(screen.getByLabelText('recording-live-preview')).toBeTruthy();
   });
 });
 
@@ -561,14 +648,15 @@ describe('RecordingScreen — §7h post-stop routing', () => {
     });
   });
 
-  it('real recording ≥60s stopped → uploadToastBus carries the contribution toast (5s) + nav toward MainTabs', async () => {
+  it('real recording ≥3min stopped → uploadToastBus carries the contribution toast (5s) + nav toward MainTabs', async () => {
     // Wave-1.5 Item 5 — the contribution toast no longer renders in
     // RecordingScreen's local `<Toast>` host (it would die when
     // `navigateToHome` unmounts the screen). RecordingScreen now calls
     // `setPendingUploadToast(text, 5_000)` BEFORE `navigateToHome`;
     // HomeSkeletonScreen drains it on mount and fires the global ToastHost
     // (App.tsx:78). The assertion is the bus carries the right payload + the
-    // ≥60s nav lands on MainTabs.
+    // ≥3min nav lands on MainTabs. (Bug 8 + Enh 1 / D6: floor 60s → 180s, so
+    // this fixture is now 200_000 ms to stay above the threshold.)
     _routeParams = {
       taskId: 'cooking_chop',
       taskName: 'Chop vegetables',
@@ -579,7 +667,7 @@ describe('RecordingScreen — §7h post-stop routing', () => {
     await act(async () => {
       render(
         <RecordingScreen
-          __test_initialState={stateIn('active', { startedAt: 0, durationMs: 75_000 })}
+          __test_initialState={stateIn('active', { startedAt: 0, durationMs: 200_000 })}
         />,
       );
     });
@@ -596,7 +684,7 @@ describe('RecordingScreen — §7h post-stop routing', () => {
     expect(pending!.durationMs).toBe(5_000);
   });
 
-  it('real recording <60s stopped → showToast("Recording too short — discarded.") + RESET_FOR_FRESH (back to the landscape gate)', async () => {
+  it('real recording <3min stopped → showToast("Recording too short — discarded.") + RESET_FOR_FRESH (back to the landscape gate)', async () => {
     _routeParams = {
       taskId: 'cooking_chop',
       taskName: 'Chop vegetables',
@@ -618,9 +706,36 @@ describe('RecordingScreen — §7h post-stop routing', () => {
     await waitFor(() => expect(screen.getByLabelText('rotate-prompt')).toBeTruthy());
   });
 
+  it('real recording in the 60s–3min band (2 min) manually stopped → too short — discarded, NOT Home (Bug 8 + Enh 1 / D6 — would have uploaded before the floor raise)', async () => {
+    // The core D6 behavior change: a 2-minute recording was ≥60s (old floor)
+    // so it used to navigate Home + enqueue; under the 180_000 ms floor it is
+    // now discarded with the "too short" toast + RESET_FOR_FRESH. (The real
+    // upload guard is the native FinalizeWorker TooShort gate — this asserts
+    // the client-side post-stop UX routes correctly at the new threshold.)
+    _routeParams = {
+      taskId: 'cooking_chop',
+      taskName: 'Chop vegetables',
+      taskCategory: 'cooking',
+      taskSetting: 'indoor',
+      isPractice: false,
+    };
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('active', { startedAt: 0, durationMs: 120_000 })}
+        />,
+      );
+    });
+    fireEvent.click(screen.getByLabelText('recording-stop'));
+    await waitFor(() => expect(screen.getByText('Recording too short — discarded.')).toBeTruthy());
+    await waitFor(() => expect(screen.getByLabelText('rotate-prompt')).toBeTruthy());
+    // It did NOT navigate Home (the pre-D6 behavior for a ≥60s clip).
+    expect(mockParentNavigate.mock.calls.some((c) => c[0] === 'MainTabs')).toBe(false);
+  });
+
   // --- D-05 — device-distress mid-record stop → Home, not the on-screen reset --
 
-  it('real recording <60s stopped by battery_critical → Home (MainTabs), NOT RESET_FOR_FRESH', async () => {
+  it('real recording <3min stopped by battery_critical → Home (MainTabs), NOT RESET_FOR_FRESH', async () => {
     _routeParams = {
       taskId: 'cooking_chop',
       taskName: 'Chop vegetables',
@@ -646,7 +761,7 @@ describe('RecordingScreen — §7h post-stop routing', () => {
     expect(screen.queryByLabelText('rotate-prompt')).toBeNull();
   });
 
-  it('real recording <60s stopped by thermal abort → Home (MainTabs), NOT RESET_FOR_FRESH', async () => {
+  it('real recording <3min stopped by thermal abort → Home (MainTabs), NOT RESET_FOR_FRESH', async () => {
     _routeParams = {
       taskId: 'cooking_chop',
       taskName: 'Chop vegetables',
@@ -670,7 +785,7 @@ describe('RecordingScreen — §7h post-stop routing', () => {
     expect(screen.queryByLabelText('rotate-prompt')).toBeNull();
   });
 
-  it('a NORMAL sub-60s manual discard still does RESET_FOR_FRESH (stays on screen — D-05 leaves it)', async () => {
+  it('a NORMAL sub-3min manual discard still does RESET_FOR_FRESH (stays on screen — D-05 leaves it)', async () => {
     _routeParams = {
       taskId: 'cooking_chop',
       taskName: 'Chop vegetables',
@@ -734,5 +849,89 @@ describe('RecordingScreen — start guards (REC-16)', () => {
       render(<RecordingScreen __test_initialState={stateIn('pre-flight')} />);
     });
     await waitFor(() => expect(screen.getByLabelText('gate-ring')).toBeTruthy());
+  });
+});
+
+describe('Bug 9 (260604) — segment-complete enqueues under the segment’s own taskId', () => {
+  // enqueue signature: (recordingId, mp4, csv, json, taskId, isPractice, ownerSub)
+  const TASK_ARG_INDEX = 4;
+  const fireSegmentComplete = (taskId: string): Promise<void> =>
+    act(async () => {
+      segmentCompleteCbRef.current?.({
+        segmentId: 'seg1',
+        recordingId: 'rec1',
+        taskId,
+        mp4Path: '/cache/rec1.mp4',
+        csvPath: '/cache/rec1.csv',
+        jsonPath: '/cache/rec1.json',
+        durationMs: 200_000,
+        drift: { max: 1, mean: 1, p99: 1 },
+        imuMinRateHzObservedP1: 200,
+        thumbnailPath: null,
+      });
+    });
+
+  it('uses the event taskId (the session task), NOT the route closure', async () => {
+    _routeParams = {
+      taskId: 'cooking_chop',
+      taskName: 'Chop vegetables',
+      taskCategory: 'cooking',
+      taskSetting: 'indoor',
+      isPractice: false,
+    };
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('active', { startedAt: 0, durationMs: 200_000 })}
+        />,
+      );
+    });
+    expect(segmentCompleteCbRef.current).toBeTruthy();
+    // The route shows cooking_chop, but the finalized segment belongs to a
+    // DIFFERENT task (e.g. a late finalize after the route was reused).
+    await fireSegmentComplete('laundry_fold');
+    expect(mockUploadEnqueue).toHaveBeenCalledTimes(1);
+    const args = mockUploadEnqueue.mock.calls[0]!;
+    expect(args[0]).toBe('rec1');
+    expect(args[TASK_ARG_INDEX]).toBe('laundry_fold');
+  });
+
+  it('falls back to the route taskId when the native payload omits it (older build)', async () => {
+    _routeParams = {
+      taskId: 'cooking_chop',
+      taskName: 'Chop vegetables',
+      taskCategory: 'cooking',
+      taskSetting: 'indoor',
+      isPractice: false,
+    };
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('active', { startedAt: 0, durationMs: 200_000 })}
+        />,
+      );
+    });
+    await fireSegmentComplete(''); // empty → `e.taskId || taskId` falls back
+    expect(mockUploadEnqueue).toHaveBeenCalledTimes(1);
+    expect(mockUploadEnqueue.mock.calls[0]![TASK_ARG_INDEX]).toBe('cooking_chop');
+  });
+
+  it('never enqueues when the segment’s own task is practice', async () => {
+    _routeParams = {
+      taskId: 'cooking_chop',
+      taskName: 'Chop vegetables',
+      taskCategory: 'cooking',
+      taskSetting: 'indoor',
+      isPractice: false,
+    };
+    await act(async () => {
+      render(
+        <RecordingScreen
+          __test_initialState={stateIn('active', { startedAt: 0, durationMs: 200_000 })}
+        />,
+      );
+    });
+    await fireSegmentComplete('__practice__');
+    expect(mockUploadEnqueue).not.toHaveBeenCalled();
   });
 });

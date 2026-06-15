@@ -46,7 +46,9 @@ class SidecarManagerTest {
         contributorInfo = ContributorInfo("Alice", "alice@example.com", 26, "female", true),
         startGate = StartGate("hand_detection", true, false, false, 3420, 5, 400),
         captureDeviceInfoPartial = CaptureDeviceInfoPartial(
-            "phone", "Pixel 10a", "android", "19.4.2", "1.0.0", 115.0, null, "Bangalore, India",
+            "phone", "Pixel 10a", "android", "19.4.2", "1.0.0", 115.0, null,
+            // Bug 3 / D3 — precise LocationFix (round-trips through the sidecar).
+            LocationFix(12.9716, 77.5946, 8.5, "fused", "2026-05-05T00:30:19.500+05:30", "Bangalore, India"),
         ),
     )
 

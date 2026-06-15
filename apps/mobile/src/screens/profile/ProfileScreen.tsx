@@ -16,20 +16,23 @@
 // Tap → TextInput → blur fires PATCH /me with optimistic UI; revert via
 // the translated `profile.errors.couldNotUpdate` Alert on failure.
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, ScrollView, StyleSheet, Image, Alert, TextInput } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  Image,
+  Alert,
+  TextInput,
+  ActivityIndicator,
+} from 'react-native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { Text } from '../../ui/primitives/Text';
 import { Pressable } from '../../ui/primitives/Pressable';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
 import { colors, spacing, radii, typography } from '../../ui/tokens';
-import {
-  fetchMe,
-  patchMe,
-  fetchLifetimeContribution,
-  type MeResponse,
-} from '../../services/profileService';
+import { fetchMe, patchMe, fetchLifetimeContribution } from '../../services/profileService';
 import { formatDuration } from '../../services/durationFormatter';
 import { getFlavorContext } from '../../native/AppFlavor';
 import { useAppStore } from '../../state/appStore';
@@ -65,6 +68,14 @@ const PAYMENTS_BODY =
 // single source of truth.
 const GENDER_OPTIONS: string[] = ['Male', 'Female', "Don't want to disclose"];
 
+// Bug 10 (2026-06-04) — lifetime-block loading deadline. `/me` renders the
+// screen immediately (fast PK read); the lifetime `/contributions` aggregate can
+// be slow for heavy contributors, so cap its spinner at 13s (inside the 12–15s
+// window from the plan) then surface an inline error + Retry instead of an
+// indefinite spinner. The api.ts transport abort (~30s) is the hard backstop;
+// this is the UX deadline that self-heals on the next focus / Retry / upload.
+const LIFETIME_DEADLINE_MS = 13_000;
+
 interface ProfileLocal {
   name: string;
   age: number | null;
@@ -76,6 +87,9 @@ interface ProfileLocal {
 export function ProfileScreen(): React.JSX.Element {
   const nav = useNavigation<{ navigate: (route: string) => void }>();
   const setUser = useAppStore((s) => s.setUser);
+  // Bug 11 (2026-06-04) — refetch the lifetime block when the upload queue
+  // mutates (a finalized upload changes the server-side contribution totals).
+  const contributionsVersion = useAppStore((s) => s.contributionsVersion);
   // Phase 7 plan 07-04 — useTranslation for the Language row label + sheet
   // title; i18n.language drives both the Native-name right-side value AND
   // the formatDate locale for the Joined row.
@@ -85,12 +99,31 @@ export function ProfileScreen(): React.JSX.Element {
   const [lifetime, setLifetime] = useState<{ totalSeconds: number; taskCount: number } | null>(
     null,
   );
+  // Bug 10 — the lifetime block loads independently of `/me` with its own
+  // status, so a slow `/contributions` never blocks the (fast) `/me` render:
+  // 'loading' → spinner, 'ready' → numeric, 'error' → inline error + Retry.
+  // The error state is only surfaced while `lifetime` is still null — a
+  // background refetch that fails keeps showing the last-good numeric.
+  const [lifetimeStatus, setLifetimeStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  // `/me` failure → whole-screen error (it's the screen's identity read). A
+  // `/contributions` failure does NOT set this — it only flips lifetimeStatus.
   const [error, setError] = useState<string | null>(null);
   // Head-level inline edit (Task 1 of quick-260510-005). Mirrors the
   // InlineEditField pattern but lives directly in the head so the user can
   // tap the displayed name (which has the "tap to edit" caption).
   const [headEditing, setHeadEditing] = useState(false);
   const [headDraft, setHeadDraft] = useState('');
+  // Bug 10 — guard async setState after unmount, and supersede a stale lifetime
+  // resolve when a newer load (Retry / focus / contributions bump) is in flight
+  // (the slow first request must not clobber a fresher one's result).
+  const mountedRef = useRef(true);
+  const lifetimeReqRef = useRef(0);
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+    },
+    [],
+  );
 
   // PROF-05 — build identifier footer. getFlavorContext() throws if the native
   // module isn't registered (web / unmocked unit tests); guard with a try so a
@@ -107,38 +140,92 @@ export function ProfileScreen(): React.JSX.Element {
     /* native module not registered (test env); footer shows defaults. */
   }
 
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([fetchMe(), fetchLifetimeContribution()])
-      .then(([meRes, contribRes]: [MeResponse, { totalSeconds: number; taskCount: number }]) => {
-        if (cancelled) return;
-        setMe({
-          name: meRes.name,
-          age: meRes.age,
-          gender: meRes.gender,
-          createdAt: meRes.createdAt,
-          avatarUrl: meRes.avatarUrl,
-        });
-        // Write-through to the shared user slice so TopBar (Home) can read
-        // the Google avatar without re-fetching /me. This also self-heals
-        // existing sessions that pre-date the user-slice introduction —
-        // visiting Profile once populates the store for subsequent Home
-        // mounts.
-        setUser({
-          id: meRes.id,
-          email: meRes.email,
-          name: coalesceDisplayName(meRes.name, meRes.email),
-          avatarUrl: meRes.avatarUrl,
-        });
-        setLifetime({ totalSeconds: contribRes.totalSeconds, taskCount: contribRes.taskCount });
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'load_failed');
+  // Bug 10 — `/me` is the fast PK read that renders the screen. On success it
+  // also write-throughs to the shared user slice so TopBar (Home) can read the
+  // Google avatar without re-fetching /me (self-heals sessions that pre-date the
+  // user-slice introduction). A failure sets the whole-screen error.
+  const loadMe = useCallback(async () => {
+    try {
+      const meRes = await fetchMe();
+      if (!mountedRef.current) return;
+      setMe({
+        name: meRes.name,
+        age: meRes.age,
+        gender: meRes.gender,
+        createdAt: meRes.createdAt,
+        avatarUrl: meRes.avatarUrl,
       });
-    return () => {
-      cancelled = true;
-    };
+      setUser({
+        id: meRes.id,
+        email: meRes.email,
+        name: coalesceDisplayName(meRes.name, meRes.email),
+        avatarUrl: meRes.avatarUrl,
+      });
+      setError(null);
+    } catch (e: unknown) {
+      if (mountedRef.current) setError(e instanceof Error ? e.message : 'load_failed');
+    }
   }, [setUser]);
+
+  // Bug 10 — the (possibly slow) lifetime aggregate loads independently with a
+  // 13s UX deadline. `lifetimeReqRef` makes the latest call win: a stale resolve
+  // (or its deadline) no-ops once a newer load supersedes it.
+  const loadLifetime = useCallback(async () => {
+    const reqId = (lifetimeReqRef.current += 1);
+    // NOTE: do NOT setState('loading') synchronously here. loadLifetime runs
+    // inside the useFocusEffect callback, which some test mocks invoke DURING
+    // render — a render-phase setState there loops ("Too many re-renders").
+    // The initial spinner comes from the useState('loading') seed; Retry
+    // (a press handler, not render) re-enters 'loading' via onRetryLifetime; a
+    // background refetch keeps the current numeric (lifetime != null wins in
+    // render), so an explicit 'loading' reset isn't needed.
+    let settled = false;
+    const deadline = setTimeout(() => {
+      if (!settled && mountedRef.current && lifetimeReqRef.current === reqId) {
+        setLifetimeStatus('error');
+      }
+    }, LIFETIME_DEADLINE_MS);
+    try {
+      const contribRes = await fetchLifetimeContribution();
+      settled = true;
+      clearTimeout(deadline);
+      if (!mountedRef.current || lifetimeReqRef.current !== reqId) return;
+      setLifetime({ totalSeconds: contribRes.totalSeconds, taskCount: contribRes.taskCount });
+      setLifetimeStatus('ready');
+    } catch {
+      settled = true;
+      clearTimeout(deadline);
+      if (mountedRef.current && lifetimeReqRef.current === reqId) setLifetimeStatus('error');
+    }
+  }, []);
+
+  // Bug 10 — render off `/me` immediately; the lifetime block fills in lazily.
+  // useFocusEffect (not a mount-only effect) so a transient `/contributions`
+  // failure self-heals the next time the user opens Profile. Promise.allSettled
+  // so neither leg blocks or rejects the other.
+  useFocusEffect(
+    useCallback(() => {
+      void Promise.allSettled([loadMe(), loadLifetime()]);
+      return undefined;
+    }, [loadMe, loadLifetime]),
+  );
+
+  // Bug 11 — refetch the lifetime block when the upload queue mutates
+  // (debounced ~1.5s; skip the initial 0 — the focus effect already loaded).
+  useEffect(() => {
+    if (contributionsVersion === 0) return undefined;
+    const id = setTimeout(() => {
+      void loadLifetime();
+    }, 1500);
+    return () => clearTimeout(id);
+  }, [contributionsVersion, loadLifetime]);
+
+  const onRetryLifetime = useCallback(() => {
+    // Press handler (NOT render) — safe to set 'loading' so the spinner returns
+    // when retrying from the error state.
+    setLifetimeStatus('loading');
+    void loadLifetime();
+  }, [loadLifetime]);
 
   const saveField = useCallback(
     async (key: 'name' | 'age' | 'gender', next: string | null) => {
@@ -189,12 +276,15 @@ export function ProfileScreen(): React.JSX.Element {
       </ScreenContainer>
     );
   }
-  if (!me || !lifetime) {
+  // Bug 10 — gate the whole-screen loading on `/me` ONLY (the fast PK read).
+  // The lifetime block renders its own spinner / numeric / error+Retry below,
+  // so a slow `/contributions` no longer holds the entire screen on "Loading…".
+  if (!me) {
     return (
       <ScreenContainer accessibilityLabel="Profile screen">
         <View accessibilityLabel="profile-loading" style={styles.loadingWrap}>
           <Text variant="body" tone="tertiary" style={styles.loadingLine}>
-            Loading…
+            {t('common.loading')}
           </Text>
         </View>
       </ScreenContainer>
@@ -260,17 +350,43 @@ export function ProfileScreen(): React.JSX.Element {
         )}
       </View>
 
-      {/* Lifetime block — PROF-03 (44 px / 700 mono numeric + caption) */}
+      {/* Lifetime block — PROF-03 (44 px / 700 mono numeric + caption).
+          Bug 10 — renders independently of `/me`: the numeric once `/contributions`
+          resolves, a spinner while it loads, or an inline error + Retry once the
+          13s deadline passes — never an indefinite spinner. A background refetch
+          with data already present keeps showing the data. */}
       <View style={styles.lifetime} accessibilityLabel="profile-lifetime">
-        <Text variant="lifetimeNumber" style={styles.lifetimeNumeric}>
-          {formatDuration(lifetime.totalSeconds)}
-        </Text>
-        <Text variant="caption" tone="secondary">
-          {t('profile.lifetime.contributed')}
-        </Text>
-        <Text variant="caption" tone="secondary">
-          {t('profile.lifetime.acrossNTasks', { count: lifetime.taskCount })}
-        </Text>
+        {lifetime != null ? (
+          <>
+            <Text variant="lifetimeNumber" style={styles.lifetimeNumeric}>
+              {formatDuration(lifetime.totalSeconds)}
+            </Text>
+            <Text variant="caption" tone="secondary">
+              {t('profile.lifetime.contributed')}
+            </Text>
+            <Text variant="caption" tone="secondary">
+              {t('profile.lifetime.acrossNTasks', { count: lifetime.taskCount })}
+            </Text>
+          </>
+        ) : lifetimeStatus === 'error' ? (
+          <View accessibilityLabel="profile-lifetime-error" style={styles.lifetimeError}>
+            <Text variant="caption" tone="secondary">
+              {t('profile.lifetime.loadError')}
+            </Text>
+            <Pressable
+              onPress={onRetryLifetime}
+              accessibilityRole="button"
+              accessibilityLabel="profile-lifetime-retry"
+              style={styles.lifetimeRetry}
+            >
+              <Text variant="caption" style={styles.lifetimeRetryLabel}>
+                {t('common.retry')}
+              </Text>
+            </Pressable>
+          </View>
+        ) : (
+          <ActivityIndicator accessibilityLabel="profile-lifetime-loading" color={colors.accent} />
+        )}
       </View>
 
       {/* Earnings card — PROF-02 (verbatim copy) */}
@@ -434,6 +550,25 @@ const styles = StyleSheet.create({
     fontSize: 44,
     fontVariant: ['tabular-nums'],
     color: colors.text,
+  },
+  // Bug 10 — inline lifetime-block error + Retry (shown after the 13s deadline
+  // when the aggregate hasn't loaded). Reuses existing chip-style tokens — no
+  // new design tokens.
+  lifetimeError: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.m,
+  },
+  lifetimeRetry: {
+    paddingHorizontal: spacing.m,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.chip,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  lifetimeRetryLabel: {
+    color: colors.accent,
+    fontFamily: typography.fontFamily.semibold,
   },
   earningsCard: {
     borderWidth: 1.5,

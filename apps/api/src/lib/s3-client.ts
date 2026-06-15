@@ -39,6 +39,7 @@ export function recordingKeys(opts: { userId: string; recordingId: string }): {
   video: string;
   imu: string;
   metadata: string;
+  thumbnail: string;
   prefix: string;
 } {
   const base = `recordings/${opts.userId}/${opts.recordingId}`;
@@ -46,6 +47,9 @@ export function recordingKeys(opts: { userId: string; recordingId: string }): {
     video: `${base}/video.mp4`,
     imu: `${base}/imu.csv`,
     metadata: `${base}/metadata.json`,
+    // Bug 6 / D5 — server-generated poster JPEG (NOT a captured artifact; the
+    // MP4/IMU/metadata still travel byte-for-byte). Derived at /finalize.
+    thumbnail: `${base}/thumb.jpg`,
     prefix: `${base}/`,
   };
 }

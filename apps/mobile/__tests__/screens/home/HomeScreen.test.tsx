@@ -220,6 +220,8 @@ const { mockState, mockQueue, hooks, mockSetters } = vi.hoisted(() => ({
     softUpgradeAvailable: null as { latest: string } | null,
     user: null as MockUser,
     jwt: 'jwt-token' as string | null,
+    uploadProgressById: {} as Record<string, number>,
+    contributionsVersion: 0,
     homeRange: 'today' as 'today' | 'yesterday' | 'this-week' | 'this-month' | 'all' | 'custom',
     homeRangeCustom: null as { start: string; end: string } | null,
   },
@@ -240,6 +242,12 @@ vi.mock('../../../src/state/appStore', () => ({
       softUpgradeAvailable: mockState.softUpgradeAvailable,
       user: mockState.user,
       jwt: mockState.jwt,
+      // Bug 7 — pending uploads + progress now read from the store slice. Wire
+      // `uploadQueue` to the existing `mockQueue.rows` fixture so the pending-
+      // upload tests keep seeding rows the same way.
+      uploadQueue: mockQueue.rows,
+      uploadProgressById: mockState.uploadProgressById,
+      contributionsVersion: mockState.contributionsVersion,
       homeRange: mockState.homeRange,
       homeRangeCustom: mockState.homeRangeCustom,
       setHomeRange: (r: string) => {
@@ -333,6 +341,8 @@ afterEach(() => {
   mockState.softUpgradeAvailable = null;
   mockState.user = null;
   mockState.jwt = 'jwt-token';
+  mockState.uploadProgressById = {};
+  mockState.contributionsVersion = 0;
   mockState.homeRange = 'today';
   mockState.homeRangeCustom = null;
   mockQueue.rows = [];

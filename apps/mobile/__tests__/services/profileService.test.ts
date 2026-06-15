@@ -21,11 +21,41 @@ vi.mock('../../src/services/api', () => ({
 }));
 
 import { fetchMe, patchMe, fetchLifetimeContribution } from '../../src/services/profileService';
+import { secureMmkv } from '../../src/state/mmkv';
+import { KEYS, practiceDoneKey } from '../../src/state/keys';
 
 beforeEach(() => {
   getMock.mockReset();
   patchMock.mockReset();
 });
+
+function jwtWithSub(sub: string): string {
+  const b64 = Buffer.from(JSON.stringify({ sub }))
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  return `h.${b64}.s`;
+}
+
+function meBody(extra: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: '1',
+    email: 'a@b.c',
+    name: 'A',
+    age: null,
+    gender: null,
+    avatarUrl: null,
+    consentVersion: 'v1',
+    flavor: 'apkRollout',
+    applicationId: 'ai.humynlabs.capture.apk',
+    deletedAt: null,
+    deleteGraceUntil: null,
+    createdAt: '2026-05-01T00:00:00Z',
+    practiceCompletedAt: null,
+    ...extra,
+  };
+}
 
 describe('profileService', () => {
   it('fetchMe calls GET /me and returns the body', async () => {
@@ -84,5 +114,19 @@ describe('profileService', () => {
     const r = await fetchLifetimeContribution();
     expect(r.totalSeconds).toBe(0);
     expect(r.taskCount).toBe(0);
+  });
+
+  it('Bug 5 / D7: fetchMe seeds the local practice-done flag when the server says completed', async () => {
+    secureMmkv.set(KEYS.AUTH_JWT, jwtWithSub('seed-sub-1'));
+    getMock.mockResolvedValue(meBody({ practiceCompletedAt: '2026-06-01T00:00:00.000Z' }));
+    await fetchMe();
+    expect(secureMmkv.getBoolean(practiceDoneKey('seed-sub-1'))).toBe(true);
+  });
+
+  it('Bug 5 / D7: fetchMe does NOT seed the flag when practiceCompletedAt is null', async () => {
+    secureMmkv.set(KEYS.AUTH_JWT, jwtWithSub('seed-sub-2'));
+    getMock.mockResolvedValue(meBody({ practiceCompletedAt: null }));
+    await fetchMe();
+    expect(secureMmkv.getBoolean(practiceDoneKey('seed-sub-2'))).toBeFalsy();
   });
 });

@@ -19,10 +19,12 @@ set -euo pipefail
 #      (Play Console auto-rejects).
 #   2. Smuggling POST_NOTIFICATIONS into either flavor (PROJECT.md hard rule —
 #      no notifications channel at MVP).
-#   3. Smuggling ACCESS_FINE_LOCATION into either flavor (PROJECT.md hard rule —
-#      coarse only). ACCESS_COARSE_LOCATION (PERM-03) is intentionally declared
-#      in the base manifest as of plan 02-14; the runtime prompt is gated to
-#      Phase 4's first-recording flow via apps/mobile/src/services/locationPermission.ts.
+#
+# Bug 3 / D3 (2026-06-04): the ACCESS_FINE_LOCATION ban was LIFTED — precise GPS
+# now ships (owner sign-off D3; overrides the formerly-LOCKED coarse-only rule;
+# consent text updated + version bumped 2026-06-04, owner waived the DPIA gate). Both FINE + COARSE are declared in the base
+# manifest and gated in onboarding (PermissionsScreen, D4). This gate no longer
+# asserts FINE's absence.
 #
 # T-1.9-01 + T-2.10-01 + T-2.10-02 + T-2.10-03 mitigation (also paired with
 # acceptance criteria that grep the BASE manifest at code-review time).
@@ -96,8 +98,9 @@ REQUIRED_BASE_PERMS=(
   "android.permission.FOREGROUND_SERVICE_DATA_SYNC"
   "android.permission.INTERNET"
   "android.permission.ACCESS_NETWORK_STATE"
-  # PERM-03 (plan 02-14) — coarse-only location declaration. Runtime prompt
-  # is gated to Phase 4's first-recording flow via locationPermission.ts.
+  # PERM-03 (Bug 3 / D3, 2026-06-04) — precise FINE (+ COARSE fallback) location.
+  # Runtime prompt gated in onboarding (PermissionsScreen, D4); the old
+  # coarse-only locationPermission.ts helper was removed.
   "android.permission.ACCESS_COARSE_LOCATION"
   # COMPAT-02 (Phase 2 quick-260510-001) — IMU compat probe samples sensors at
   # the fastest available rate. Android 12+ (API 31+) requires this normal
@@ -112,10 +115,10 @@ REQUIRED_BASE_PERMS=(
 # above already cover that case, so this list deliberately excludes it.
 FORBIDDEN_BASE_PERMS=(
   "android.permission.POST_NOTIFICATIONS"
-  "android.permission.ACCESS_FINE_LOCATION"
-  # ACCESS_COARSE_LOCATION (PERM-03) is intentionally allowed as of plan 02-14;
-  # see apps/mobile/src/services/locationPermission.ts for the helper that
-  # Phase 4's first-recording flow will call.
+  # Bug 3 / D3 (2026-06-04): ACCESS_FINE_LOCATION removed from the forbidden list
+  # — precise GPS now ships (sign-off D3). Both FINE + COARSE location are
+  # intentionally declared in the base manifest and gated in onboarding
+  # (PermissionsScreen) + acquired via the HumynLocation native module.
 )
 
 # Match only on actual <uses-permission ...> lines (scope away from XML

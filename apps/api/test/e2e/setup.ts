@@ -114,7 +114,6 @@ afterAll(async () => {
   // Best-effort cleanup. We tolerate any individual delete failing because the
   // worker may already be tearing down its DB pool.
   try {
-    await db.delete(schema.recordingsToVerify);
     await db.delete(schema.recordings);
     await db.delete(schema.consentLog);
     await db.delete(schema.events);

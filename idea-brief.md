@@ -89,7 +89,7 @@ Phone is mounted on a **head rig** (provided externally). All footage is therefo
 ### 5.2 Sign Up
 
 1. **Sign-up screen** — Humyn Labs logo + tagline. Primary CTA: _"Continue with Google"_. Below the button: consent checkbox **pre-checked**, label _"I have read and agree to the Terms of Use"_. Terms link opens a popup containing:
-   > _"I consent and agree to upload videos of myself and/or others who consent to be recorded; performing certain daily activities/tasks. This content will be used to develop / train AI models and for research purposes. I confirm that I am 18 years or older and have the necessary permissions to share this content. I confirm that no one being recorded is a minor. I consent to my approximate location and IP address being captured alongside each recording. I understand that my data will be stored securely and used in accordance with Humyn's Privacy Policy."_
+   > _"I consent and agree to upload videos of myself and/or others who consent to be recorded; performing certain daily activities/tasks. This content will be used to develop / train AI models and for research purposes. I confirm that I am 18 years or older and have the necessary permissions to share this content. I confirm that no one being recorded is a minor. I consent to my precise location (GPS coordinates) and IP address being captured alongside each recording. I understand that my data will be stored securely and used in accordance with Humyn's Privacy Policy."_
 2. User taps **Continue with Google** → standard Google sign-in flow.
 3. On success: fetch `name`, `email`, `birthday`/`age`, `gender` from Google. The last two scopes are restricted and frequently empty — those fields are **nullable**; the user can complete them later from the Profile screen.
 4. **Play Integrity** verification runs at sign-in (lightweight; rejects rooted devices and non-Play-Store builds).
@@ -100,15 +100,15 @@ Phone is mounted on a **head rig** (provided externally). All footage is therefo
 
 Requested at first launch as the user enters each feature (Android 11+ does not support batched one-shot permissions). Order of prompts:
 
-| Permission                                    | When prompted                           | Manifest                                    |
-| --------------------------------------------- | --------------------------------------- | ------------------------------------------- |
-| Camera                                        | Before compatibility check              | `android.permission.CAMERA`                 |
-| Microphone (kept — see note¹)                 | Before compatibility check              | `android.permission.RECORD_AUDIO`           |
-| Sensors (gyro/accel)                          | Declared only; no runtime prompt needed | manifest-only                               |
-| Location (coarse)                             | Before first recording                  | `android.permission.ACCESS_COARSE_LOCATION` |
-| Foreground service (camera + mic + data sync) | Manifest-only on Android 14+            | `FOREGROUND_SERVICE_*`                      |
-| Wake lock                                     | Manifest-only                           | `WAKE_LOCK`                                 |
-| Network state                                 | Manifest-only                           | `ACCESS_NETWORK_STATE`                      |
+| Permission                                    | When prompted                             | Manifest                                  |
+| --------------------------------------------- | ----------------------------------------- | ----------------------------------------- |
+| Camera                                        | Before compatibility check                | `android.permission.CAMERA`               |
+| Microphone (kept — see note¹)                 | Before compatibility check                | `android.permission.RECORD_AUDIO`         |
+| Sensors (gyro/accel)                          | Declared only; no runtime prompt needed   | manifest-only                             |
+| Location (precise — Bug 3 / D3)               | In onboarding alongside Camera + Mic (D4) | `android.permission.ACCESS_FINE_LOCATION` |
+| Foreground service (camera + mic + data sync) | Manifest-only on Android 14+              | `FOREGROUND_SERVICE_*`                    |
+| Wake lock                                     | Manifest-only                             | `WAKE_LOCK`                               |
+| Network state                                 | Manifest-only                             | `ACCESS_NETWORK_STATE`                    |
 
 > **Note ¹** — `RECORD_AUDIO` permission is still requested even though audio capture is disabled (per 2026-05-11 banner). Two reasons: (a) the foreground service type bitmask retains the `microphone` bit (Android FGS validation requires `RECORD_AUDIO` whenever that bit is declared in the manifest, regardless of whether AudioRecord is ever started), and (b) a future re-enable doesn't need a permission-prompt schema migration. Mic permission is granted but never used.
 

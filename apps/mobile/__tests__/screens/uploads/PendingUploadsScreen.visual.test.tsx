@@ -29,7 +29,12 @@ vi.mock('../../../src/lib/jwtSub', () => ({
 }));
 
 vi.mock('../../../src/state/appStore', () => {
-  const stub = { jwt: 'jwt-token' } as Record<string, unknown>;
+  // Bug 7 — PendingUploads reads rows + progress from the store slice; the
+  // visual fixtures seed rows via `__test_rows`, so these are empty defaults.
+  const stub = { jwt: 'jwt-token', uploadQueue: [], uploadProgressById: {} } as Record<
+    string,
+    unknown
+  >;
   function useAppStore<T>(selector: (s: typeof stub) => T): T {
     return selector(stub);
   }
@@ -59,11 +64,12 @@ function row(over: Partial<UploadQueueRow>): UploadQueueRow {
   };
 }
 
+// Enh 3 / D1 (2026-06-04): 'awaiting-verify' / 'verified' queue states removed.
 const ALL_VARIANTS: UploadQueueRow[] = [
   row({ recordingId: 'r1', state: 'uploading' }),
-  row({ recordingId: 'r2', state: 'awaiting-verify' }),
+  row({ recordingId: 'r2', state: 'finalizing' }),
   row({ recordingId: 'r3', state: 'dead-letter', deadLetterReason: 'too many retries' }),
-  row({ recordingId: 'r4', state: 'verified' }),
+  row({ recordingId: 'r4', state: 'needs-attention' }),
 ];
 
 describe('PendingUploadsScreen visual (Plan 05-08)', () => {

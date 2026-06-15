@@ -60,14 +60,7 @@ import { decodeGoogleSubFromJwt } from '../../lib/jwtSub';
 import { formatDuration } from '../../services/durationFormatter';
 import { fetchContributionsAggregate, fetchLifetime } from '../../services/contributionsApi';
 import { computeRange, type NamedRange } from '../../services/timeRange';
-import {
-  HumynUpload,
-  onConnectivityChanged,
-  onUploadProgress,
-  onUploadQueueChanged,
-  type UploadProgressEvent,
-  type UploadQueueRow,
-} from '../../native/HumynUpload';
+import { HumynUpload, onConnectivityChanged, type UploadQueueRow } from '../../native/HumynUpload';
 import { drainPendingUploadToast } from '../../state/uploadToastBus';
 import { showToast } from '../../components/Toast';
 import { reconcileOnce } from '../../services/uploadReconcile';
@@ -79,7 +72,8 @@ interface LifetimeSlim {
   durationMs: number;
   recordingCount: number;
   taskCount: number;
-  // Strict count of `practice = false AND qa_status = 'verified'` recordings —
+  // Strict count of non-practice recordings at terminal success — server-side
+  // `practice = false AND qa_status IN ('uploaded','verified')` (Enh 3 / D1) —
   // the trigger for the HomeHero "Hi {first_name}." greeting (Plan 06-12
   // follow-on, owner directive 2026-05-14). Read from /contributions; defaults
   // to 0 for old payloads / cold-mount empty state.
@@ -128,9 +122,9 @@ function rowMeta(row: UploadQueueRow): string {
 }
 
 function chipVariantFor(row: UploadQueueRow): UploadStatusChipVariant {
+  // Enh 3 / D1 (2026-06-04): no 'awaiting-verify' / 'verified' states — a row that
+  // reached terminal success is deleted from the queue on /finalize 200.
   switch (row.state) {
-    case 'awaiting-verify':
-      return 'verifying';
     case 'dead-letter':
     case 'needs-attention':
       // Debug session `.planning/debug/upload-queue-hol-finalizing.md`
@@ -139,8 +133,6 @@ function chipVariantFor(row: UploadQueueRow): UploadStatusChipVariant {
       // is for DEAD_LETTER rows whose retry exhaustion is fully transient);
       // users open History and manually tap Retry on the chip-failed row.
       return 'failed';
-    case 'verified':
-      return 'success';
     default:
       return 'progress';
   }
@@ -221,8 +213,19 @@ export default function HomeScreen(): React.JSX.Element {
     return head.length > 0 ? head : null;
   }, [user?.name]);
 
-  const [pendingRows, setPendingRows] = useState<UploadQueueRow[]>([]);
-  const [progressById, setProgressById] = useState<Record<string, number>>({});
+  // Bug 7 (2026-06-04) — pending uploads + progress now read from the single
+  // app-lifetime store slice (fed by `installUploadQueueStore()` at boot)
+  // instead of a per-screen `onUploadQueueChanged` / `onUploadProgress`
+  // subscription. Filtered to the signed-in user (UP-13 owner-pin); the
+  // `currentSub === ''` gate avoids dropping rows during a null-`sub` window
+  // (the raw queue persists in the store and re-filters when `sub` resolves).
+  const uploadQueue = useAppStore((s) => s.uploadQueue);
+  const progressById = useAppStore((s) => s.uploadProgressById);
+  const contributionsVersion = useAppStore((s) => s.contributionsVersion);
+  const pendingRows = useMemo<UploadQueueRow[]>(
+    () => (currentSub ? uploadQueue.filter((r) => r.ownerUserId === currentSub) : []),
+    [uploadQueue, currentSub],
+  );
 
   // HOME-01..04 — lifetime + aggregate snapshots.
   const [lifetime, setLifetime] = useState<LifetimeSlim>(LIFETIME_ZERO);
@@ -252,36 +255,6 @@ export default function HomeScreen(): React.JSX.Element {
   // FilterSheet visibility.
   const [filterOpen, setFilterOpen] = useState<boolean>(false);
 
-  const mine = useCallback(
-    (all: UploadQueueRow[]) => all.filter((r) => r.ownerUserId === currentSub),
-    [currentSub],
-  );
-
-  // ---------------------------------------------------------------------
-  // Pending Uploads subscriptions — PRESERVED VERBATIM from HomeSkeletonScreen.
-  // ---------------------------------------------------------------------
-  useEffect(() => {
-    let mounted = true;
-    HumynUpload.getQueueSafe()
-      .then((all) => {
-        if (mounted) setPendingRows(mine(all));
-      })
-      .catch(() => undefined);
-    const sub = onUploadQueueChanged((all) => {
-      if (mounted) setPendingRows(mine(all));
-    });
-    const subProgress = onUploadProgress((e: UploadProgressEvent) => {
-      if (!mounted) return;
-      const pct = e.bytesTotal > 0 ? (e.bytesUploaded / e.bytesTotal) * 100 : 0;
-      setProgressById((prev) => ({ ...prev, [e.recordingId]: pct }));
-    });
-    return () => {
-      mounted = false;
-      sub.remove();
-      subProgress.remove();
-    };
-  }, [mine]);
-
   // Drain post-recording contribution toast (Phase-5 Item 5).
   useEffect(() => {
     const pending = drainPendingUploadToast();
@@ -290,7 +263,10 @@ export default function HomeScreen(): React.JSX.Element {
     }
   }, []);
 
-  // Wave-2 #6 — verified-event auto-poll while Home is focused.
+  // Reconcile backstop poll while Home is focused. (Enh 3 / D1, 2026-06-04: was
+  // the "verified-event auto-poll"; there are no verified events now —
+  // reconcileOnce() runs the GET /recordings terminal-success backstop that
+  // clears any local queue row the server already has as 'uploaded'.)
   useFocusEffect(
     useCallback(() => {
       const tick = () => {
@@ -372,6 +348,22 @@ export default function HomeScreen(): React.JSX.Element {
   useEffect(() => {
     void reloadAggregate();
   }, [reloadAggregate]);
+
+  // Bug 11 (2026-06-04) — auto-refresh contributions when the upload queue
+  // mutates, so the hero + tiles update without a manual pull-to-refresh. A
+  // queue mutation correlates with the server-side count change at
+  // `/recordings/init` (and at terminal success the row is dropped). The store
+  // bumps `contributionsVersion` on each mutation; debounce ~1.5s so a burst of
+  // progress-driven bumps collapses into one reload. Skip the initial 0 — the
+  // focus effect already loads on cold mount.
+  useEffect(() => {
+    if (contributionsVersion === 0) return undefined;
+    const id = setTimeout(() => {
+      void reloadLifetime();
+      void reloadAggregate();
+    }, 1500);
+    return () => clearTimeout(id);
+  }, [contributionsVersion, reloadLifetime, reloadAggregate]);
 
   const onPullRefresh = useCallback(async (): Promise<void> => {
     setRefreshing(true);

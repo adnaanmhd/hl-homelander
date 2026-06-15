@@ -41,10 +41,10 @@ import java.util.concurrent.atomic.AtomicReference
  *      transfer would kill it).
  *   3. **FINALIZING reconciliation.** Before re-POSTing `/finalize` on a row
  *      already in `FINALIZING`, the worker first `GET /recordings/:id` — if
- *      the server says `qa_status ∈ {uploaded, verified}`, the row is marked
- *      `AWAITING_VERIFY` locally and the worker moves on (no re-finalize). This
- *      is what would have recovered `01KRVPP7RKSYXD3DK2H5KKXYXA` on the walk
- *      without a process-kill.
+ *      the server says `qa_status` is uploaded/verified, the row's local bundle
+ *      is deleted + the queue row dropped and the worker moves on (no
+ *      re-finalize). This is what would have recovered
+ *      `01KRVPP7RKSYXD3DK2H5KKXYXA` on the walk without a process-kill.
  *   4. **NEEDS_ATTENTION terminal-but-recoverable state.** After
  *      [NEEDS_ATTENTION_THRESHOLD] (default 6) automatic recovery attempts on a
  *      single row, the worker transitions it to [UploadState.NEEDS_ATTENTION]
@@ -63,10 +63,7 @@ import java.util.concurrent.atomic.AtomicReference
  *      re-/init for a still-`pending` row returns the SAME `uploadId`, so a lost
  *      `201` self-heals), or `POST /recordings/:id/parts` (a re-drain, Plan
  *      05-09 — re-presign URLs against the EXISTING video+IMU multipart uploads,
- *      no `CreateMultipartUpload`, preserves already-DONE parts' ETags), or
- *      `POST /recordings/:id/reupload` (the FIRST drain of a hash-mismatch
- *      re-upload — Plan 05-08 sets `reupload` state; `row.reupload` is cleared
- *      right after so a re-drain of *that* takes the `/parts` branch too) — with
+ *      no `CreateMultipartUpload`, preserves already-DONE parts' ETags) — with
  *      `partsCount = partsCountFor(videoSizeBytes, chunkBytesForNetwork(isCellular))`
  *      decided ONCE here and pinned on the row → gets `partUrls` / `imuPartUrls`
  *      / `metadataUrl` / `uploadId` / `imuUploadId`. (UP-01, UP-04)
@@ -79,8 +76,8 @@ import java.util.concurrent.atomic.AtomicReference
  *      persisted into the queue row ([UploadQueueStore.upsert]) and a DEBOUNCED
  *      progress event is emitted (≤ once per 5 s per row). (UP-03)
  *   4. `POST /recordings/:id/finalize` with `{ videoParts, imuParts, imuUploadId }`.
- *   5. Mark the row `AWAITING_VERIFY` — it stays in the queue until a
- *      `verified` / `re-upload` event clears it (Plan 05-08). On a
+ *   5. Terminal success — delete the local bundle + drop the queue row (Enh 3 /
+ *      D1, 2026-06-04: `uploaded` is terminal, no on-device verify wait). On a
  *      non-retryable error ([DeadLetterException]) mark `DEAD_LETTER`. (UP-14)
  *
  * Pause / owner safety:
@@ -102,7 +99,7 @@ import java.util.concurrent.atomic.AtomicReference
  * [UploadAuthContext] — the JWT lives in encrypted MMKV which is awkward to read
  * from Kotlin, so the bridge injects it instead (and refreshes it on `resume()`).
  * Presigned S3 PUTs carry NO bearer (they're presigned); only `/init`,
- * `/finalize`, `/reupload`, `GET /recordings/:id` get the
+ * `/finalize`, `GET /recordings/:id` get the
  * `Authorization: Bearer` header.
  */
 class UploadCoordinator(
@@ -251,7 +248,7 @@ class UploadCoordinator(
 
     /**
      * `true` if the durable queue still has at least one row that isn't already
-     * `VERIFIED`, `DEAD_LETTER`, or `NEEDS_ATTENTION` — i.e. there's automated
+     * `DEAD_LETTER` or `NEEDS_ATTENTION` — i.e. there's automated
      * transfer work outstanding. Used by `HumynForegroundService` to decide
      * whether to keep the upload FGS alive (Plan 05-07's 5-min idle stop + the
      * Android-15 `onTimeout` → UIDT handoff), and by `UploadJobService` to
@@ -265,8 +262,7 @@ class UploadCoordinator(
      */
     fun queueHasWork(): Boolean =
         queueStore.read().any {
-            it.state != UploadState.VERIFIED &&
-                it.state != UploadState.DEAD_LETTER &&
+            it.state != UploadState.DEAD_LETTER &&
                 it.state != UploadState.NEEDS_ATTENTION
         }
 
@@ -444,15 +440,14 @@ class UploadCoordinator(
 
     /**
      * Debug session `upload-queue-hol-finalizing` — true iff the row should be
-     * picked up by an automatic drain attempt. Skips:
-     *  - terminal states (VERIFIED, DEAD_LETTER, NEEDS_ATTENTION) — these
-     *    require either a server-side event or an explicit user-driven retry;
-     *  - AWAITING_VERIFY — the row is waiting on a server `verified` event,
-     *    not on the device.
+     * picked up by an automatic drain attempt. Skips the terminal-but-
+     * recoverable states (DEAD_LETTER, NEEDS_ATTENTION) — these require an
+     * explicit user-driven retry. Enh 3 / D1 (2026-06-04): there is no longer
+     * an AWAITING_VERIFY / VERIFIED wait state — `/finalize` 200 deletes the
+     * bundle + drops the row inline, so a finalized row leaves the queue
+     * entirely instead of parking on-device.
      */
     private fun isEligibleForAutomaticDrain(row: UploadRow): Boolean = when (row.state) {
-        UploadState.AWAITING_VERIFY,
-        UploadState.VERIFIED,
         UploadState.DEAD_LETTER,
         UploadState.NEEDS_ATTENTION,
         -> false
@@ -579,24 +574,19 @@ class UploadCoordinator(
         // POSTed /finalize before but never confirmed the response (it 5xx'd,
         // hung past the watchdog, or the response was lost over a flaky link).
         // Before re-POSTing, ask the server what it thinks: if it already shows
-        // `qa_status ∈ {uploaded, verified}`, the recording is done — we can
-        // mark this row AWAITING_VERIFY locally and bail. This is what would
+        // `qa_status` in {uploaded, verified}, the recording is done — we
+        // delete the local bundle + drop the row and bail. This is what would
         // have recovered `01KRVPP7RKSYXD3DK2H5KKXYXA` on the 2026-05-18 walk
-        // without a process kill: server-side verified, client just hadn't
+        // without a process kill: server-side finalized, client just hadn't
         // learned.
         if (row.state == UploadState.FINALIZING) {
             val serverQa = runCatching { getRecordingQaStatus(baseUrl, row.recordingId) }.getOrNull()
-            if (serverQa == "verified" || serverQa == "uploaded") {
-                Log.i(
-                    TAG,
-                    "row ${row.recordingId} FINALIZING reconciled — server qa_status=$serverQa, " +
-                        "skipping re-finalize and marking AWAITING_VERIFY",
-                )
-                row.state = UploadState.AWAITING_VERIFY
-                row.lastProgressAt = System.currentTimeMillis()
-                queueStore.upsert(row)
-                emitQueueChanged()
-                lastEmitMs.remove(row.recordingId)
+            if (serverQa == "uploaded" || serverQa == "verified") {
+                // Server already finalized — `uploaded` is terminal success
+                // (Enh 3 / D1). Delete the local bundle + drop the row inline,
+                // exactly as the /finalize-200 tail does; no on-device verify
+                // wait. Legacy `verified` rows are still read as success.
+                completeAndCleanup(row, "FINALIZING reconciled — server qa_status=$serverQa")
                 return
             }
             // Else: server still says `pending` (or returned 4xx — null), or
@@ -606,12 +596,11 @@ class UploadCoordinator(
             // dead-letters cleanly.
         }
 
-        // 1. /init (or /reupload, or — on a re-drain — /:id/parts) — decide
-        //    partsCount ONCE on the first call and pin it (`row.partsCount` /
-        //    `row.chunkBytes`); a re-drain re-issues fresh (non-expired) presigned
-        //    URLs against the EXISTING video+IMU multipart uploads but KEEPS the
-        //    row's per-part {etag,status} (a DONE part is never re-PUT, UP-04).
-        val wasReupload = row.reupload // Plan 05-08's "re-upload after hash-mismatch" marker — captured BEFORE the `when` reads it
+        // 1. /init (or, on a re-drain, /:id/parts) — decide partsCount ONCE on
+        //    the first call and pin it (`row.partsCount` / `row.chunkBytes`); a
+        //    re-drain re-issues fresh (non-expired) presigned URLs against the
+        //    EXISTING video+IMU multipart uploads but KEEPS the row's per-part
+        //    {etag,status} (a DONE part is never re-PUT, UP-04).
         if (row.chunkBytes == null) {
             row.chunkBytes = chunkBytesForNetwork(networkMonitor.isCellular())
         }
@@ -628,15 +617,12 @@ class UploadCoordinator(
         }
         if (row.imuParts.isEmpty()) row.imuParts.add(PartState(1))
 
-        // re-upload (hash-mismatch) first → /recordings/:id/reupload (mints fresh ids; the reupload @ReactMethod
-        // already reset every part to PENDING + dropped cached ETags — Plan 05-08; we clear row.reupload right
-        // after so a re-drain of this row preserves its DONE parts' ETags via /parts, not another /reupload).
-        // Otherwise: a re-drain (row.uploadId != null) → /recordings/:id/parts (re-presign against the EXISTING
-        // video+IMU uploadIds — keeps already-DONE parts' ETags valid; UP-04). First drain (row.uploadId == null)
-        // → /recordings/init (idempotent since Plan 05-09 — a re-/init returns the SAME uploadId, so a lost 201
-        // self-heals).
+        // A re-drain (row.uploadId != null) takes /recordings/:id/parts (re-presign
+        // against the EXISTING video+IMU uploadIds — keeps already-DONE parts'
+        // ETags valid; UP-04). First drain (row.uploadId == null) takes
+        // /recordings/init (idempotent since Plan 05-09 — a re-/init returns the
+        // SAME uploadId, so a lost 201 self-heals).
         val initResp: InitResponse = when {
-            row.reupload -> postReupload(baseUrl, row, partsCount)
             row.uploadId != null -> postRePresign(baseUrl, row, partsCount)
             else -> postInit(baseUrl, row, jsonFile, partsCount)
         }
@@ -648,16 +634,6 @@ class UploadCoordinator(
         // determinate-progress bar + percent chip; without an emit here the JS
         // side stays on the stale `pending` snapshot, the bar never renders.
         emitQueueChanged()
-
-        // Clear the re-upload marker IMMEDIATELY — now that the fresh /reupload ids are persisted, a subsequent
-        // re-drain of this same row (process-killed mid-flight) must take the /recordings/:id/parts branch
-        // (re-presign against those ids → preserves any re-upload parts that have already landed) instead of
-        // calling /reupload again (fresh ids → orphaned ETags → /finalize InvalidPart → spin forever — CR-01 on
-        // the re-upload path, WARNING 4). The redundant row.reupload = false in the success tail is harmless.
-        if (wasReupload) {
-            row.reupload = false
-            queueStore.upsert(row)
-        }
 
         if (isPaused()) { Log.d(TAG, "drainNow paused at after-init, row=${row.recordingId}"); return }
 
@@ -746,17 +722,36 @@ class UploadCoordinator(
         queueStore.upsert(row)
         // Wave-2 #7 — pair with the UPLOADING-state emit above so JS sees the
         // row's transition out of `uploading` (which drops the in-flight bar)
-        // BEFORE the AWAITING_VERIFY emit lands. Without it the bar can briefly
-        // jump back to "Uploading… %" between FINALIZING and AWAITING_VERIFY
-        // on slow networks where finalize takes more than a paint frame.
+        // BEFORE the row is dropped. Without it the bar can briefly jump back
+        // to "Uploading… %" between FINALIZING and removal on slow networks
+        // where finalize takes more than a paint frame.
         emitQueueChanged()
         postFinalize(baseUrl, row)
 
-        // 5. AWAITING_VERIFY — stays in the queue until a verified/re-upload event (Plan 05-08).
-        row.state = UploadState.AWAITING_VERIFY
-        row.reupload = false // a successful (re-)upload clears the marker
-        row.lastProgressAt = System.currentTimeMillis()
-        queueStore.upsert(row)
+        // 5. Terminal success (Enh 3 / D1, 2026-06-04). `/finalize` 200 means
+        //    `uploaded` is the terminal success state server-side — there is no
+        //    on-device verify wait anymore. Delete the local bundle (mp4 + IMU
+        //    csv + metadata json, NOT the thumbnail) and drop the queue row.
+        completeAndCleanup(row, "finalize 200")
+    }
+
+    /**
+     * Enh 3 / D1 (2026-06-04) — terminal-success cleanup. `/finalize` returning
+     * 200 (or a FINALIZING-reconcile finding the server already at `qa_status`
+     * in {uploaded, verified}) is the end of the line: `uploaded` is the
+     * terminal success state server-side, there is no on-device verify wait
+     * anymore. Delete the local bundle (mp4 + IMU csv + metadata json) + drop
+     * the queue row, then emit so every JS subscriber re-reads the queue
+     * without the now-finished row.
+     *
+     * The THUMBNAIL is deliberately preserved — History renders it from the
+     * local thumbnail ledger until Bug 6 (server-generated thumbnails) ships.
+     * This is what the removed `verified`-event handler used to do; the
+     * coordinator now does it inline the moment finalize succeeds.
+     */
+    private fun completeAndCleanup(row: UploadRow, why: String) {
+        Log.i(TAG, "row ${row.recordingId} uploaded ($why) — deleting local bundle + dropping row")
+        queueStore.deleteLocalAndRemove(row.recordingId)
         emitQueueChanged()
         lastEmitMs.remove(row.recordingId)
     }
@@ -787,7 +782,7 @@ class UploadCoordinator(
     }
 
     // -------------------------------------------------------------------------
-    // HTTP — /init, /reupload, /finalize, presigned PUTs
+    // HTTP — /init, /finalize, presigned PUTs
     // -------------------------------------------------------------------------
 
     private data class PartUrl(val partNumber: Int, val url: String)
@@ -805,8 +800,7 @@ class UploadCoordinator(
      * — the API's global idempotency pre-handler (apps/api/src/plugins/
      * idempotency.ts) rejects every POST/PATCH without one with a 400. Per-route
      * key — `row.initIdempotencyKey` for `/init`, `row.partsIdempotencyKey` for
-     * `/parts`, `row.finalizeIdempotencyKey` for `/finalize`,
-     * `row.reuploadIdempotencyKey` for `/reupload`. Per-route split closes
+     * `/parts`, `row.finalizeIdempotencyKey` for `/finalize`. Per-route split closes
      * Wave-1.5 Item 1 (the server caches by `(user_id, key)` + hashes
      * `(method,path,body)` for equality — a single per-row key reused across
      * routes hits a 409 on the second route, the bug observed 2026-05-13 on
@@ -880,8 +874,9 @@ class UploadCoordinator(
      * /recordings/:id`, returning the server's current `qa_status` string
      * (or null on any failure — caller treats null as "I don't know, proceed
      * with re-finalize"). Used to short-circuit a stuck FINALIZING row: if the
-     * server already shows `verified` or `uploaded`, the client can move the
-     * row to AWAITING_VERIFY without re-POSTing /finalize.
+     * server already shows `uploaded` or `verified`, the client deletes the
+     * local bundle + drops the row (terminal success) without re-POSTing
+     * /finalize.
      *
      * Returns null on:
      *  - 4xx response (recording doesn't exist server-side, owner mismatch,
@@ -923,11 +918,12 @@ class UploadCoordinator(
     private fun postInit(baseUrl: String, row: UploadRow, jsonFile: File, partsCount: Int): InitResponse {
         // The /recordings/init body (per shared/types RecordingsInitRequestSchema):
         // recordingId, taskId (26-char ULID), practice, partsCount, durationMs,
-        // fileSha256, imuSha256, fileSizeBytes, imuSizeBytes, capturedAt (ISO).
-        // We read the SHAs/sizes/timestamp out of the metadata JSON produced by
-        // MetadataComposer at capture time (top-level `recording_id`, nested
-        // `metadata.{file_sha256, imu_sha256, file_size_bytes, imu_size_bytes,
-        // duration_seconds, start_timestamp}`); recordingId/taskId come from the row.
+        // fileSizeBytes, imuSizeBytes, capturedAt (ISO). We read the sizes/
+        // timestamp out of the metadata JSON produced by MetadataComposer at
+        // capture time (top-level `recording_id`, nested `metadata.{
+        // file_size_bytes, imu_size_bytes, duration_seconds, start_timestamp}`);
+        // recordingId/taskId come from the row. (Enh 3 / D1, 2026-06-04:
+        // file_sha256 / imu_sha256 removed — no upload hashing anymore.)
         val meta = JSONObject(jsonFile.readText())
         val m = meta.optJSONObject("metadata") ?: JSONObject()
         val body = JSONObject().apply {
@@ -936,8 +932,6 @@ class UploadCoordinator(
             put("practice", row.isPractice)
             put("partsCount", partsCount)
             put("durationMs", Math.round((m.optDouble("duration_seconds", 0.0)) * 1000.0))
-            put("fileSha256", m.optString("file_sha256", ""))
-            put("imuSha256", m.optString("imu_sha256", ""))
             put("fileSizeBytes", m.optLong("file_size_bytes", File(row.mp4Path).length()))
             put("imuSizeBytes", m.optLong("imu_size_bytes", File(row.csvPath).length()))
             put("capturedAt", m.optString("start_timestamp", ""))
@@ -950,6 +944,16 @@ class UploadCoordinator(
             // are tolerated. Omitted for pre-1.2.0 metadata with no
             // `calibration` key (the server's zod field is .nullable().optional()).
             meta.optJSONObject("calibration")?.let { put("calibration", it) }
+            // Bug 3 / D3 (2026-06-04) — forward the metadata.json precise-GPS
+            // block { lat, lng, accuracy_m, provider, captured_at, label } so the
+            // server persists it as the queryable mirror (recordings.location
+            // jsonb). It lives NESTED under `capture_device_info.location` (not
+            // top-level like calibration). Omitted when the segment had no fix
+            // (the block is JSON null) — the server's zod field is
+            // .nullable().optional(), so a missing key persists as null.
+            meta.optJSONObject("capture_device_info")
+                ?.optJSONObject("location")
+                ?.let { put("location", it) }
         }
         executeTracked(authedJsonRequest("$baseUrl/recordings/init", body, row.initIdempotencyKey)).use { resp ->
             // Post-CR-02 (Plan 05-09) `/recordings/init` is idempotent: a re-/init for an existing `pending` row
@@ -968,41 +972,6 @@ class UploadCoordinator(
         }
     }
 
-    private fun postReupload(baseUrl: String, row: UploadRow, partsCount: Int): InitResponse {
-        // POST /recordings/:id/reupload — body is just { partsCount } (Plan 05-05).
-        val body = JSONObject().put("partsCount", partsCount)
-        executeTracked(authedJsonRequest("$baseUrl/recordings/${row.recordingId}/reupload", body, row.reuploadIdempotencyKey)).use { resp ->
-            // 409 self-heal: the server gates /reupload on qa_status='hash-mismatch'.
-            // A 409 here means the row is in some OTHER state — almost always still
-            // 'pending' — because a stray Retry tap on a non-DEAD_LETTER row, or a
-            // re-delivered `re-upload` server event, flipped row.reupload=true even
-            // though the server never reached hash-mismatch. Without this self-heal
-            // the row is permanently trapped: drain → /reupload → 409 → 3-retry
-            // transient backoff → next row → comes back → 409 again, forever (mixed
-            // with 429s from the per-user 30/min rate limiter on /reupload).
-            //
-            // Clear the flag here so the NEXT drain takes the /init branch — /init
-            // is idempotent for an existing pending row (the SELECT-first guard at
-            // init.ts:270-286 returns the SAME s3UploadId via replyExistingRowIdempotent),
-            // every part is re-PUT, /finalize is called, the row drains cleanly.
-            // The local mp4/csv/json are still on disk so a re-PUT is always possible.
-            //
-            // We still throw IOException so the CURRENT drain attempt is treated as
-            // a transient failure and the per-row backoff fires before the /init
-            // retry — keeps the server from getting hammered.
-            //
-            // Trail: .planning/debug/resolved/uploads-stuck-multi-segment.md
-            // (2026-05-16 demo) — the 17-row /reupload→409 storm closed by this fix.
-            if (resp.code == 409) {
-                row.reupload = false
-                queueStore.upsert(row)
-                throw IOException("/recordings/${row.recordingId}/reupload -> 409 (cleared row.reupload — next drain takes the /init self-heal path)")
-            }
-            if (!resp.isSuccessful) throw IOException("/recordings/${row.recordingId}/reupload -> ${resp.code}")
-            return parseInitResponse(resp.body?.string().orEmpty(), "/recordings/:id/reupload")
-        }
-    }
-
     /**
      * Re-drain path (Plan 05-09's `POST /recordings/:id/parts`): re-presign the video + IMU part URLs against
      * the EXISTING multipart uploads — NO `CreateMultipartUpload`, NO DB write, NO state change — so every
@@ -1011,7 +980,7 @@ class UploadCoordinator(
      * `imuUploadId` unchanged. A `404` (row gone) / `409` (row no longer `pending` — `/finalize` already
      * consumed the upload, or an ops takedown) is terminal: the upload can't be resumed against that upload-id
      * and the server won't re-presign → `DeadLetterException` (the row dead-letters → chip-failed → the user can
-     * Retry, which routes through `reupload` if the server is in `hash-mismatch`). A `5xx` / network error is
+     * Retry from History via `reviveDeadLetter`). A `5xx` / network error is
      * transient (the next drain retries).
      */
     private fun postRePresign(baseUrl: String, row: UploadRow, partsCount: Int): InitResponse {
@@ -1028,7 +997,7 @@ class UploadCoordinator(
     }
 
     /**
-     * Parse a `/recordings/init` | `/recordings/:id/reupload` | `/recordings/:id/parts` JSON body into an
+     * Parse a `/recordings/init` | `/recordings/:id/parts` JSON body into an
      * [InitResponse]. On a near-miss non-JSON body (e.g. a proxy error page that happens to embed presigned URLs
      * with `X-Amz-Signature` query params), `org.json.JSONException` carries a snippet of the body in its message
      * — re-throw a body-free `IOException` carrying only the static [label] so the transient-error log in

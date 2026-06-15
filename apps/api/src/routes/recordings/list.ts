@@ -6,8 +6,11 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { and, desc, eq, ne, sql, type SQL } from 'drizzle-orm';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { db, schema } from '../../db/index.js';
 import { buildProblemDetail, PROBLEM_SLUGS } from '../../lib/problem-detail.js';
+import { getS3Client, RECORDINGS_BUCKET, PRESIGNED_TTL_SECONDS } from '../../lib/s3-client.js';
 import type { z } from 'zod';
 import { RecordingsListQuerySchema, RecordingsListResponseSchema } from './schemas.js';
 
@@ -136,6 +139,7 @@ export default async function recordingsListRoute(app: FastifyInstance): Promise
           qaStatus: schema.recordings.qaStatus,
           durationMs: schema.recordings.durationMs,
           createdAt: schema.recordings.createdAt,
+          s3KeyThumbnail: schema.recordings.s3KeyThumbnail,
         })
         .from(schema.recordings)
         .where(and(...where))
@@ -143,13 +147,34 @@ export default async function recordingsListRoute(app: FastifyInstance): Promise
         .limit(limit + 1);
 
       const hasMore = rows.length > limit;
-      const items = (hasMore ? rows.slice(0, limit) : rows).map((r) => ({
-        recording_id: r.id,
-        task_id: r.taskId,
-        qa_status: r.qaStatus as 'pending' | 'uploaded' | 'verified' | 'hash-mismatch' | 'rejected',
-        duration_ms: r.durationMs,
-        created_at: r.createdAt.toISOString(),
-      }));
+      const pageRows = hasMore ? rows.slice(0, limit) : rows;
+      // Bug 6 / D5 — presign a short-TTL GET for each row's server poster JPEG
+      // (null when the row has no server thumbnail; the client then uses its local
+      // ledger thumb or the gradient placeholder). Presigning is local crypto, so
+      // it's cheap even for a full page of rows.
+      const s3 = getS3Client();
+      const bucket = RECORDINGS_BUCKET();
+      const items = await Promise.all(
+        pageRows.map(async (r) => ({
+          recording_id: r.id,
+          task_id: r.taskId,
+          qa_status: r.qaStatus as
+            | 'pending'
+            | 'uploaded'
+            | 'verified'
+            | 'hash-mismatch'
+            | 'rejected',
+          duration_ms: r.durationMs,
+          created_at: r.createdAt.toISOString(),
+          thumbnail_url: r.s3KeyThumbnail
+            ? await getSignedUrl(
+                s3,
+                new GetObjectCommand({ Bucket: bucket, Key: r.s3KeyThumbnail }),
+                { expiresIn: PRESIGNED_TTL_SECONDS },
+              )
+            : null,
+        })),
+      );
       const body: RecordingsListResponse = {
         items,
         next_cursor: hasMore ? items[items.length - 1]!.recording_id : null,

@@ -8,8 +8,8 @@
 //   - TASK-10 no-results empty state (SearchX + "send a request" link)
 //   - Footer "Can't find a task? Send request →" link
 //   - TaskDetailsSheet + SendRequestSheet wired
-//   - __DEV__ long-press affordance preserved verbatim from TasksPlaceholderScreen
-//     (Phase 4 D-NAV-02 — keeps the non-practice debug entry to Recording).
+//   (The Phase-4 __DEV__ long-press debug entry + its dev-seed task were removed
+//    2026-06-04, Enh 2 / D8 — use a real task to reach Recording.)
 //
 // Data sources (already shipped — Phase 1 backend + Phase 6 Wave 3 service
 // wrappers):
@@ -20,7 +20,7 @@
 // Wire-shape:
 //   - Tap card → open TaskDetailsSheet (state lifted here for both sheets)
 //   - Tap footer link / empty-state link → open SendRequestSheet
-//   - Start Recording (from sheet) → navigation.navigate('Recording', {...})
+//   - Start Recording (from sheet) → navigation.push('Recording', {...}) (Bug 9)
 //
 // MainTabs.tsx swap is owned by Plan 06-09 (atomically swaps all 3 tabs to
 // avoid same-wave file conflicts) — until then the new TasksScreen is an
@@ -35,7 +35,6 @@ import { useTranslation } from 'react-i18next';
 
 import ScreenContainer from '../../ui/primitives/ScreenContainer';
 import { Text } from '../../ui/primitives/Text';
-import { Pressable } from '../../ui/primitives/Pressable';
 import { TopBar } from '../../components/TopBar';
 import { TaskCard } from '../../components/TaskCard';
 import { TaskCategoryPills, type TaskCategoryPill } from '../../components/TaskCategoryPills';
@@ -52,18 +51,6 @@ import {
 
 import { TaskDetailsSheet } from './TaskDetailsSheet';
 import { SendRequestSheet } from './SendRequestSheet';
-
-// Hardcoded canonical dev-seed task — keep in lockstep with DEV_TASK_ID in
-// `apps/api/scripts/seed-dev-task.ts`. Lives behind a __DEV__ long-press on
-// the TopBar (Phase 4 D-NAV-02 — non-practice debug entry to RecordingScreen).
-// Production builds Metro-dead-code-eliminate the entire affordance.
-const DEBUG_TEST_TASK = {
-  taskId: '01HVDEVSEEDTASK00000000000',
-  taskName: 'Dev — Chop vegetables',
-  isPractice: false,
-  taskCategory: 'cooking',
-  taskSetting: 'indoor',
-} as const;
 
 type RecordingNav = {
   navigate: (route: string, params?: Record<string, unknown>) => void;
@@ -188,7 +175,13 @@ export function TasksScreen(): React.JSX.Element {
       // first render — no need to touch the RecordingScreen state.taskName chain.
       setDetailsOpen(false);
       setTimeout(() => {
-        navigation.navigate('Recording', {
+        // Bug 9 (260604) — `push`, not `navigate`. `navigate` REUSES an existing
+        // Recording route (updating params without remounting), which let the
+        // useReducer initial state + a re-subscribed onSegmentComplete drift onto
+        // different tasks. `push` always mounts a fresh instance so the reducer
+        // state and params stay in lockstep. (The native `e.taskId` binding above
+        // is the primary fix; this keeps the screen state itself consistent.)
+        navigation.push('Recording', {
           taskId: task.id,
           taskName: localizeTaskName(task.name, i18n.language),
           taskCategory: task.category,
@@ -238,15 +231,6 @@ export function TasksScreen(): React.JSX.Element {
     [openTaskDetails, i18n.language],
   );
 
-  // __DEV__ long-press affordance — preserved verbatim from
-  // TasksPlaceholderScreen.tsx (Phase 4 D-NAV-02). Lives behind the entire
-  // `__DEV__` guard so Metro dead-code-eliminates it in release builds.
-  const onDebugLongPress = __DEV__
-    ? () => {
-        navigation.push('Recording', { ...DEBUG_TEST_TASK });
-      }
-    : undefined;
-
   // emit tasks_view (on mount only)
   useEffect(() => {
     // analytics adapter — Plan 06-10
@@ -254,17 +238,7 @@ export function TasksScreen(): React.JSX.Element {
 
   return (
     <ScreenContainer accessibilityLabel="Tasks screen" padding={0}>
-      {__DEV__ ? (
-        <Pressable
-          onLongPress={onDebugLongPress}
-          delayLongPress={800}
-          accessibilityLabel="tasks-debug-hitbox"
-        >
-          <TopBar {...topBarProps} />
-        </Pressable>
-      ) : (
-        <TopBar {...topBarProps} />
-      )}
+      <TopBar {...topBarProps} />
 
       <View style={styles.searchWrap}>
         <SearchInput

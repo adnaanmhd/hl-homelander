@@ -10,14 +10,12 @@
 // (`<UploadStatusChip>`) mapped from `row.state`:
 //
 //   uploading / finalizing  → progress    ("Uploading…" / "Uploading… 47%")
-//   awaiting-verify         → verifying   ("Uploaded — verifying…")  ← distinct
-//                              label so the user isn't told it's still
-//                              transferring while it's in the verify queue
 //   dead-letter             → failed      ("Upload failed") + a "Retry" Pressable
-//                              → HumynUpload.reupload(recordingId)
-//   pending / verified      → progress / success (success is transient — the
-//                              row is dropped the moment the bundle is verified,
-//                              D-10 discretion — so `success` only flashes)
+//                              → HumynUpload.reviveDeadLetterSafe(recordingId)
+//   pending                 → progress (queued)
+//   (Enh 3 / D1, 2026-06-04: the 'awaiting-verify' / 'verified' states + the
+//   reupload() path are gone — 'uploaded' is terminal success and the row is
+//   deleted from the queue on the /finalize 200, so no "verifying" chip exists.)
 //   (coordinator offline)   → paused-offline ("Paused — no Wi-Fi") — the one new
 //                              chip variant; the LIVE offline signal is a Phase-6
 //                              item (deferred alongside the Home tile's offline
@@ -28,18 +26,20 @@
 // No abort/stop affordance anywhere — uploads are not user-abortable (UP-11).
 // The only interactive element is the per-row "Retry" on a dead-letter row.
 //
-// Data: `HumynUpload.getQueueSafe()` once on mount + an `onUploadQueueChanged`
-// subscription + an `onUploadProgress` subscription — all `.remove()`'d on
-// unmount (the bridge's "caller MUST .remove()" contract). Rows are filtered to
-// `ownerUserId === currentSub` (UP-13 owner-pin / T-5-08-03 — never show another
-// user's rows on a shared phone). `currentSub` is decoded from the in-memory JWT
+// Data (Bug 7, 2026-06-04): rows + progress come from the single app-lifetime
+// store slice (`appStore.uploadQueue` / `uploadProgressById`), fed by ONE
+// `onUploadQueueChanged` / `onUploadProgress` subscription installed at boot
+// (`services/uploadQueueStore.ts`). This screen no longer subscribes itself —
+// it reads the store reactively. Rows are filtered to `ownerUserId ===
+// currentSub` (UP-13 owner-pin / T-5-08-03 — never show another user's rows on a
+// shared phone). `currentSub` is decoded from the in-memory JWT
 // (`decodeGoogleSubFromJwt` — never used for an authz decision, only a local
 // filter).
 //
 // Screen-shell convention mirrors `HistoryPlaceholderScreen.tsx`:
 // `<ScreenContainer><TopBar {...useTabTopBarProps()} /> ...`.
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { ScreenContainer } from '../../ui/primitives/ScreenContainer';
@@ -50,13 +50,7 @@ import { colors, radii, spacing, typography } from '../../ui/tokens';
 import { useAppStore } from '../../state/appStore';
 import { decodeGoogleSubFromJwt } from '../../lib/jwtSub';
 import { formatDuration } from '../../services/durationFormatter';
-import {
-  HumynUpload,
-  onUploadProgress,
-  onUploadQueueChanged,
-  type UploadProgressEvent,
-  type UploadQueueRow,
-} from '../../native/HumynUpload';
+import { HumynUpload, type UploadQueueRow } from '../../native/HumynUpload';
 import { UploadStatusChip, type UploadStatusChipVariant } from '../../components/UploadStatusChip';
 
 /** Pull the `{base}.mp4` filename from an absolute path (POSIX or platform-agnostic). */
@@ -80,22 +74,20 @@ function chipVariantFor(row: UploadQueueRow, offline: boolean): UploadStatusChip
     (row.state === 'pending' || row.state === 'uploading' || row.state === 'finalizing')
   )
     return 'paused-offline';
+  // Enh 3 / D1 (2026-06-04): no 'awaiting-verify' / 'verified' states — a row that
+  // reached terminal success is deleted from the queue on /finalize 200.
   switch (row.state) {
     case 'uploading':
     case 'finalizing':
     case 'pending':
       return 'progress';
-    case 'awaiting-verify':
-      return 'verifying';
     case 'dead-letter':
     case 'needs-attention':
       // Debug session `.planning/debug/upload-queue-hol-finalizing.md`
       // (Fix C item 4) — both terminal-blocking states render the same
       // chip-failed visual; the retry handler dispatches different native
-      // methods (reupload vs retryNeedsAttention) per `onRetry`.
+      // methods (reviveDeadLetter vs retryNeedsAttention) per `onRetry`.
       return 'failed';
-    case 'verified':
-      return 'success';
     default:
       return 'progress';
   }
@@ -118,51 +110,28 @@ export default function PendingUploadsScreen({
   const offline = __test_offlineOverride === true;
   const { t } = useTranslation();
 
-  // Quick task 260517-p5g CAPTURE-QA-05 — defensive filter: skip any row
-  // whose `cancelReason` is set. This should never happen at runtime
-  // (UploadQueueStore.enqueue refuses canceled rows + RecordingScreen
-  // is the primary gate that never calls HumynUpload.enqueue for them),
-  // but a future native-side regression that ever lets one through is
-  // belt-and-braces caught here so Pending Uploads NEVER renders a
-  // canceled segment as in-flight.
-  const mine = useCallback(
-    (all: UploadQueueRow[]) =>
-      all.filter((r) => r.ownerUserId === currentSub && r.cancelReason == null),
-    [currentSub],
-  );
-
-  const [rows, setRows] = useState<UploadQueueRow[]>(() =>
-    __test_rows
-      ? __test_rows.filter((r) => r.ownerUserId === currentSub && r.cancelReason == null)
-      : [],
-  );
-  const [progressById, setProgressById] = useState<Record<string, number>>({});
-
-  useEffect(() => {
-    let mounted = true;
-    // The test/Phase-6 hatch seeds rows synchronously; don't let the initial
-    // getQueueSafe() clobber them.
-    if (__test_rows == null) {
-      HumynUpload.getQueueSafe()
-        .then((all) => {
-          if (mounted) setRows(mine(all));
-        })
-        .catch(() => undefined);
-    }
-    const s1 = onUploadQueueChanged((all) => {
-      if (mounted) setRows(mine(all));
-    });
-    const s2 = onUploadProgress((e: UploadProgressEvent) => {
-      if (!mounted) return;
-      const pct = e.bytesTotal > 0 ? (e.bytesUploaded / e.bytesTotal) * 100 : 0;
-      setProgressById((prev) => ({ ...prev, [e.recordingId]: pct }));
-    });
-    return () => {
-      mounted = false;
-      s1.remove();
-      s2.remove();
-    };
-  }, [mine, __test_rows]);
+  // Bug 7 (2026-06-04) — rows + progress now read from the single app-lifetime
+  // store slice (fed by `installUploadQueueStore()` at boot) instead of a
+  // per-screen `onUploadQueueChanged` / `onUploadProgress` subscription.
+  //
+  // Quick task 260517-p5g CAPTURE-QA-05 — defensive filter: skip any row whose
+  // `cancelReason` is set. This should never happen at runtime
+  // (UploadQueueStore.enqueue refuses canceled rows + RecordingScreen is the
+  // primary gate that never calls HumynUpload.enqueue for them), but a future
+  // native-side regression that ever lets one through is belt-and-braces caught
+  // here so Pending Uploads NEVER renders a canceled segment as in-flight. The
+  // `currentSub === ''` gate avoids dropping rows during a null-`sub` window
+  // (UP-13 owner-pin — the raw queue persists in the store and re-filters when
+  // `sub` resolves). `__test_rows` keeps the synchronous test-seed hatch and
+  // takes precedence over the live store snapshot.
+  const uploadQueue = useAppStore((s) => s.uploadQueue);
+  const progressById = useAppStore((s) => s.uploadProgressById);
+  const rows = useMemo<UploadQueueRow[]>(() => {
+    const source = __test_rows ?? uploadQueue;
+    return currentSub
+      ? source.filter((r) => r.ownerUserId === currentSub && r.cancelReason == null)
+      : [];
+  }, [uploadQueue, currentSub, __test_rows]);
 
   const onRetry = useCallback((recordingId: string, deviceState: UploadQueueRow['state']) => {
     // Dispatch by current device state:
@@ -171,14 +140,16 @@ export default function PendingUploadsScreen({
     //     reset attemptCount + transition to UPLOADING/PENDING via
     //     HumynUpload.retryNeedsAttention. The coordinator's automatic
     //     drain loop picks the row up again.
-    //   - 'dead-letter' OR anything else: UP-16 — flip the row's re-upload
-    //     state natively; the coordinator re-PUTs from the still-present
-    //     local copy via POST /recordings/:id/reupload.
+    //   - 'dead-letter' OR anything else: re-enter the drain loop via
+    //     HumynUpload.reviveDeadLetterSafe() — re-PUTs from the still-present
+    //     local copy via /parts (preserving DONE ETags) or the idempotent /init
+    //     self-heal, then /finalize. (Enh 3 / D1, 2026-06-04: the old
+    //     reupload() → POST /recordings/:id/reupload path was removed.)
     if (deviceState === 'needs-attention') {
       void HumynUpload.retryNeedsAttentionSafe(recordingId);
       return;
     }
-    HumynUpload.reupload(recordingId).catch(() => undefined);
+    void HumynUpload.reviveDeadLetterSafe(recordingId);
   }, []);
 
   const renderRow = useCallback(

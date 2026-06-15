@@ -248,6 +248,40 @@ describe('HistoryRow (Plan 06-09)', () => {
     expect(queryByLabelText('history-row-thumb-fallback')).toBeNull();
   });
 
+  it('Bug 6 / D5 — renders the REMOTE poster when no local ledger thumb but row.thumbnailUrl is set', () => {
+    const { getByLabelText, queryByLabelText } = render(
+      <HistoryRow
+        row={makeRow({
+          thumbnailUrl: 'https://s3.example/recordings/u/rec-1/thumb.jpg?X-Amz-Signature=abc',
+        })}
+        ledgerEntry={null}
+        offline={false}
+        onTap={() => undefined}
+      />,
+    );
+    const img = getByLabelText('history-row-thumb-remote');
+    const uri = img.getAttribute('data-uri') ?? '';
+    expect(uri).toContain('https://s3.example/recordings/u/rec-1/thumb.jpg');
+    // Neither the local-file thumb nor the gradient placeholder is shown.
+    expect(queryByLabelText('history-row-thumb')).toBeNull();
+    expect(queryByLabelText('history-row-thumb-fallback')).toBeNull();
+  });
+
+  it('Bug 6 / D5 — the local ledger thumb takes precedence over row.thumbnailUrl', () => {
+    const ledger = makeLedgerEntry('/data/recordings/rec-1/thumb.jpg');
+    const { getByLabelText, queryByLabelText } = render(
+      <HistoryRow
+        row={makeRow({ thumbnailUrl: 'https://s3.example/remote.jpg' })}
+        ledgerEntry={ledger}
+        offline={false}
+        onTap={() => undefined}
+      />,
+    );
+    expect(getByLabelText('history-row-thumb').getAttribute('data-uri') ?? '').toContain('file://');
+    // The remote image is NOT rendered when the local ledger thumb exists.
+    expect(queryByLabelText('history-row-thumb-remote')).toBeNull();
+  });
+
   it('renders the gradient + first-letter fallback when the ledger entry is null (D-04)', () => {
     const { getByLabelText, queryByLabelText } = render(
       <HistoryRow

@@ -25,6 +25,14 @@ export interface SegmentStartEvent {
 export interface SegmentCompleteEvent {
   segmentId: string;
   recordingId: string;
+  /**
+   * Bug 9 (260604) — the task this segment was recorded under, copied from the
+   * sidecar at capture-start (mirrors `SegmentCanceledEvent.taskId`). The JS
+   * auto-enqueue keys the upload's task on THIS value, not a render closure over
+   * `route.params.taskId`, so a late segment-complete fired after the Recording
+   * route was reused for another task can't be uploaded under the wrong name.
+   */
+  taskId: string;
   /** Absolute filesystem path to the finalized fragmented MP4. */
   mp4Path: string;
   /** Absolute path to the IMU sidecar CSV. */
@@ -67,7 +75,12 @@ export interface SegmentCompleteEvent {
  * entry then deletes the MP4 + CSV + metadata JSON bundle files from
  * cacheDir (write-then-delete).
  */
-export type SegmentCancelReason = 'fps_dropped' | 'resolution_dropped' | 'insufficient_frames';
+export type SegmentCancelReason =
+  | 'fps_dropped'
+  | 'resolution_dropped'
+  | 'insufficient_frames'
+  // Bug 8 + Enh 1 / D6 (2026-06-04): non-practice segment under the 3-min floor.
+  | 'too_short';
 
 export interface SegmentCanceledEvent {
   /** ULID for the canceled segment. */

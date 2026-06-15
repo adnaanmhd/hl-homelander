@@ -23,10 +23,7 @@ describe('UploadStatusChip — 07-11 G-09', () => {
     cleanup();
   });
 
-  it('verifying variant renders en.json `uploadChip.verifying`', () => {
-    render(<UploadStatusChip variant="verifying" />);
-    expect(screen.getByText(enCatalog.uploadChip.verifying)).toBeTruthy();
-  });
+  // (Enh 3 / D1, 2026-06-04: the 'verifying' variant was removed.)
 
   it('failed variant renders en.json `uploadChip.failed`', () => {
     render(<UploadStatusChip variant="failed" />);
@@ -60,7 +57,6 @@ describe('UploadStatusChip — 07-11 G-09', () => {
     );
     expect(source).toContain('useTranslation');
     expect(source).toContain("progress: 'uploadChip.uploading'");
-    expect(source).toContain("verifying: 'uploadChip.verifying'");
     expect(source).toContain("failed: 'uploadChip.failed'");
     expect(source).toContain("success: 'uploadChip.success'");
     expect(source).toContain("'paused-offline': 'uploadChip.pausedOffline'");

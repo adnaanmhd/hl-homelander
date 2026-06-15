@@ -112,7 +112,7 @@ vi.mock('react-native', async () => {
 });
 
 function makeCanceledRow(
-  reason: 'fps_dropped' | 'resolution_dropped' | 'insufficient_frames',
+  reason: 'fps_dropped' | 'resolution_dropped' | 'insufficient_frames' | 'too_short',
   over: Partial<HistoryRowItem> = {},
 ): HistoryRowItem {
   return {
@@ -168,6 +168,21 @@ describe('HistoryRow canceled-segment rendering (CAPTURE-QA-05)', () => {
     const { getByLabelText } = render(
       <HistoryRow
         row={makeCanceledRow('insufficient_frames')}
+        ledgerEntry={null}
+        offline={false}
+        onTap={() => undefined}
+      />,
+    );
+    expect(getByLabelText('history-row-canceled-reason').textContent).toBe(
+      'Canceled — recording too short',
+    );
+    expect(getByLabelText('upload-status-chip-failed')).toBeTruthy();
+  });
+
+  it('Test C2 — cancel.reason="too_short" renders "Canceled — recording too short" (Bug 8 + Enh 1 / D6)', () => {
+    const { getByLabelText } = render(
+      <HistoryRow
+        row={makeCanceledRow('too_short')}
         ledgerEntry={null}
         offline={false}
         onTap={() => undefined}
@@ -248,10 +263,12 @@ describe('HistoryRow canceled-segment rendering (CAPTURE-QA-05)', () => {
 });
 
 describe('cancelReasonLabel (pure-fn)', () => {
-  it('returns the three reason-specific strings (CAPTURE-QA-05)', () => {
+  it('returns the reason-specific strings (CAPTURE-QA-05 + Bug 8 / D6)', () => {
     expect(cancelReasonLabel('fps_dropped')).toBe('Canceled — frame rate dropped');
     expect(cancelReasonLabel('resolution_dropped')).toBe('Canceled — resolution dropped');
     expect(cancelReasonLabel('insufficient_frames')).toBe('Canceled — recording too short');
+    // too_short (3-min floor) shares the "recording too short" copy.
+    expect(cancelReasonLabel('too_short')).toBe('Canceled — recording too short');
   });
 });
 

@@ -51,6 +51,7 @@ import { Button } from '../../ui/primitives/Button';
 import { colors, spacing } from '../../ui/tokens';
 import { useAppStore } from '../../state/appStore';
 import { decodeGoogleSubFromJwt } from '../../lib/jwtSub';
+import { postPracticeComplete } from '../../services/profileService';
 import { logEvent } from '../../util/analytics';
 import Confetti from './components/Confetti';
 
@@ -98,6 +99,11 @@ export default function PracticeCompleteScreen() {
     // MMKV; computeInitialRoute reads it at the next boot to skip the
     // tutorial). Never log `sub` (T-4.6-03).
     useAppStore.getState().setPracticeDone(sub);
+    // Bug 5 / D7 — persist completion server-side so the tutorial is skipped on
+    // all future devices/reinstalls. Best-effort + non-blocking: navigation must
+    // not wait on the network, and the next sign-in's /me read re-seeds the local
+    // flag if this write was lost. Independent of the practice clip uploading.
+    void postPracticeComplete().catch(() => undefined);
     logEvent('practice_complete_continued');
     // MainTabs is a RootNativeStack route — reset on the parent navigator
     // when present (we are nested inside OnboardingStack); fall back to the

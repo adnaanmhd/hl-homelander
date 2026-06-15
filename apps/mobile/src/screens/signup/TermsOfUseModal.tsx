@@ -48,7 +48,7 @@ export const TERMS_OF_USE_TEXT =
   'performing certain daily activities/tasks. This content will be used to develop / train AI ' +
   'models and for research purposes. I confirm that I am 18 years or older and have the ' +
   'necessary permissions to share this content. I confirm that no one being recorded is a minor. ' +
-  'I consent to my approximate location and IP address being captured alongside each recording. ' +
+  'I consent to my precise location (GPS coordinates) and IP address being captured alongside each recording. ' +
   "I understand that my data will be stored securely and used in accordance with Humyn's Privacy Policy.";
 
 export interface TermsOfUseModalProps {

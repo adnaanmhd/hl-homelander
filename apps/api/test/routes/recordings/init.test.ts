@@ -10,7 +10,6 @@ import { ulid } from 'ulid';
 import { eq, sql } from 'drizzle-orm';
 import { db, schema } from '../../../src/db/index.js';
 import { recordingKeys } from '../../../src/lib/s3-client.js';
-import { getQueue, getRedisConnection } from '../../../src/lib/queue.js';
 import { buildApp } from '../../../src/app.js';
 
 const HAS_LOCALSTACK = !!process.env.AWS_ENDPOINT_URL;
@@ -28,6 +27,7 @@ function tok(sub: string = USER_ID): string {
       applicationId: 'ai.humynlabs.capture',
       integrity_verdict: 'passed',
       token_version: 1,
+      installationId: 'inst-test',
     },
     process.env.JWT_SIGNING_SECRET!,
     { algorithm: 'HS256', expiresIn: '24h' },
@@ -43,9 +43,6 @@ function idemKey(): string {
 
 async function cleanup(): Promise<void> {
   for (const uid of [USER_ID, OTHER_USER_ID]) {
-    await db
-      .delete(schema.recordingsToVerify)
-      .where(sql`recording_id IN (SELECT id FROM recordings WHERE user_id = ${uid})`);
     await db.delete(schema.recordings).where(eq(schema.recordings.userId, uid));
     await db.delete(schema.idempotencyKeys).where(eq(schema.idempotencyKeys.userId, uid));
   }
@@ -57,8 +54,6 @@ const initPayload = (recordingId: string, partsCount = 1) => ({
   practice: false,
   partsCount,
   durationMs: 1000,
-  fileSha256: 'a'.repeat(64),
-  imuSha256: 'b'.repeat(64),
   fileSizeBytes: 1024,
   imuSizeBytes: 64,
   capturedAt: new Date().toISOString(),
@@ -79,6 +74,7 @@ beforeAll(async () => {
         name: 'InitIP',
         consentVersion: '1.0.0',
         consentAcceptedAt: new Date(),
+        currentInstallationId: 'inst-test',
         flavor: 'playStore',
         applicationId: 'ai.humynlabs.capture',
       })
@@ -97,16 +93,6 @@ afterAll(async () => {
   await db.delete(schema.users).where(eq(schema.users.id, OTHER_USER_ID));
   await db.delete(schema.tasks).where(eq(schema.tasks.id, TASK_ID));
   await app.close();
-  try {
-    await getQueue().close();
-  } catch {
-    /* not opened */
-  }
-  try {
-    getRedisConnection().disconnect();
-  } catch {
-    /* not opened */
-  }
 });
 
 describeIf('POST /recordings/init — server-populated ip_address (UP-18)', () => {
@@ -122,8 +108,6 @@ describeIf('POST /recordings/init — server-populated ip_address (UP-18)', () =
         practice: false,
         partsCount: 1,
         durationMs: 1000,
-        fileSha256: 'a'.repeat(64),
-        imuSha256: 'b'.repeat(64),
         fileSizeBytes: 1024,
         imuSizeBytes: 64,
         capturedAt: new Date().toISOString(),
@@ -190,8 +174,6 @@ describeIf('POST /recordings/init — idempotency (CR-02)', () => {
       practice: false,
       qaStatus: 'pending',
       durationMs: 1000,
-      fileSha256: 'c'.repeat(64),
-      imuSha256: 'd'.repeat(64),
       fileSizeBytes: 1024,
       imuSizeBytes: 64,
       s3KeyVideo: keys.video,
@@ -212,8 +194,6 @@ describeIf('POST /recordings/init — idempotency (CR-02)', () => {
     const body = res.json();
     expect(body.uploadId).toBeUndefined();
     expect(body.s3UploadId).toBeUndefined();
-    expect(body.fileSha256).toBeUndefined();
-    expect(body.imuSha256).toBeUndefined();
   });
 
   it('a /init for a recordingId whose row is in a non-pending state → 409 with "Cannot re-init from state <qaStatus>"', async () => {
@@ -226,8 +206,6 @@ describeIf('POST /recordings/init — idempotency (CR-02)', () => {
       practice: false,
       qaStatus: 'uploaded',
       durationMs: 1000,
-      fileSha256: 'a'.repeat(64),
-      imuSha256: 'b'.repeat(64),
       fileSizeBytes: 1024,
       imuSizeBytes: 64,
       s3KeyVideo: keys.video,

@@ -17,11 +17,15 @@ import java.io.File
  * Plan 03-06 — flips the Wave 0 stub for CAP-16 to GREEN.
  *
  * Tests `MetadataComposer.compose()` output:
- *   1. `schema_version == "1.1.0"` (D-IMU-02 bump from 1.0.0).
+ *   1. `schema_version == "1.5.0"` (Bug 3 / D3 bump from 1.4.0 — changes
+ *      `capture_device_info.location` from a coarse string label to the precise
+ *      [LocationFix] object { lat, lng, accuracy_m, provider, captured_at,
+ *      label }; the prior 1.4.0 bump dropped the sha fields).
  *   2. Top-level + nested key set EQUALS the canonical
- *      `video_metadata_v1_1_0_template.json` fixture (T-3.5-01: schema-creep
+ *      `video_metadata_v1_5_0_template.json` fixture (T-3.5-01: schema-creep
  *      detection — adding a metadata field without bumping schema_version
- *      fails this assertion at PR time).
+ *      fails this assertion at PR time). The non-null `location` fixture locks
+ *      the nested location key structure.
  *   3. `imu_min_rate_hz_observed_p1` is the only new field vs schema 1.0.0.
  *   4. `start_gate` carries verbatim from the sidecar (CAP-10).
  *   5. Locked spec values from `idea-brief.md §2.1` are hard-coded
@@ -79,13 +83,21 @@ class MetadataSchemaConformanceTest {
             appVersion = "1.0.0",
             dfovDegrees = 115.0,
             ipAddress = null,
-            location = "Bangalore, India",
+            // Bug 3 / D3 — precise LocationFix (schema 1.5.0). The non-null
+            // fixture locks the nested key structure; the null path is covered
+            // by `location renders as JSON null when unavailable` below.
+            location = LocationFix(
+                lat = 12.9716,
+                lng = 77.5946,
+                accuracyM = 8.5,
+                provider = "fused",
+                capturedAt = "2026-05-05T00:30:19.500+05:30",
+                label = "Bangalore, India",
+            ),
         ),
     )
 
     private fun fixtureMetrics() = MetadataComposer.FinalizeMetrics(
-        mp4Sha = "9af2b5a1c0d8e7f63b1c4d2a89e0fd71b3a4c5d6e7f80912a3b4c5d6e7f8c1e4",
-        csvSha = "3c7e1f8b6a5d4c2e90b7a3c1d5e4f8a692bc34d56e78f90a1b2c3d4e5f6a792ab",
         mp4SizeBytes = 4_402_341_478L,
         csvSizeBytes = 218_914L,
         drift = MetadataComposer.Drift(maxMs = 0.7, meanMs = 0.18, p99Ms = 0.5, warmupFramesSkipped = 150),
@@ -125,8 +137,8 @@ class MetadataSchemaConformanceTest {
 
     private fun loadTemplate(): JSONObject {
         val stream = javaClass.classLoader!!
-            .getResourceAsStream("video_metadata_v1_3_0_template.json")
-            ?: error("video_metadata_v1_3_0_template.json fixture not on classpath")
+            .getResourceAsStream("video_metadata_v1_5_0_template.json")
+            ?: error("video_metadata_v1_5_0_template.json fixture not on classpath")
         return JSONObject(stream.bufferedReader().use { it.readText() })
     }
 
@@ -143,9 +155,9 @@ class MetadataSchemaConformanceTest {
     }
 
     @Test
-    fun `composer output schema_version is 1_3_0`() {
+    fun `composer output schema_version is 1_5_0`() {
         val out = MetadataComposer.compose(fixtureSidecar(), fixtureMetrics())
-        assertEquals("1.3.0", out.getString("schema_version"))
+        assertEquals("1.5.0", out.getString("schema_version"))
     }
 
     @Test
@@ -153,12 +165,54 @@ class MetadataSchemaConformanceTest {
         val out = MetadataComposer.compose(fixtureSidecar(), fixtureMetrics())
         val template = loadTemplate()
         assertEquals(
-            "Composer key set must equal the schema-1.3.0 template key set " +
+            "Composer key set must equal the schema-1.5.0 template key set " +
                 "(T-3.5-01: schema-creep guard). Includes the additive top-level " +
-                "`calibration` block (camera + cam_imu_extrinsics) — quick 260522-elm.",
+                "`calibration` block (camera + cam_imu_extrinsics) — quick 260522-elm — " +
+                "and the precise `capture_device_info.location` object — Bug 3 / D3.",
             keySet(template),
             keySet(out),
         )
+    }
+
+    @Test
+    fun `composer emits the precise location object when the sidecar carries a fix`() {
+        // Bug 3 / D3 — the non-null fixture LocationFix flows lat/lng/accuracy_m/
+        // provider/captured_at/label into the nested capture_device_info.location
+        // block (schema 1.5.0). Proves the object shape + value pass-through.
+        val out = MetadataComposer.compose(fixtureSidecar(), fixtureMetrics())
+        val loc = out.getJSONObject("capture_device_info").getJSONObject("location")
+        assertEquals(12.9716, loc.getDouble("lat"), 0.0001)
+        assertEquals(77.5946, loc.getDouble("lng"), 0.0001)
+        assertEquals(8.5, loc.getDouble("accuracy_m"), 0.0001)
+        assertEquals("fused", loc.getString("provider"))
+        assertEquals("2026-05-05T00:30:19.500+05:30", loc.getString("captured_at"))
+        assertEquals("Bangalore, India", loc.getString("label"))
+    }
+
+    @Test
+    fun `location renders as JSON null when unavailable`() {
+        // Bug 3 / D3 — a null fix (partial COARSE grant with no last-known, or a
+        // timed-out request) emits capture_device_info.location as JSON null, not
+        // an empty object and not the string "null".
+        val sidecar = fixtureSidecar().copy(
+            captureDeviceInfoPartial = fixtureSidecar().captureDeviceInfoPartial.copy(location = null),
+        )
+        val out = MetadataComposer.compose(sidecar, fixtureMetrics())
+        val cd = out.getJSONObject("capture_device_info")
+        assertTrue(cd.isNull("location"))
+    }
+
+    @Test
+    fun `location label renders as JSON null when no reverse-geocode label`() {
+        // Bug 3 / D3 — lat/lng present but label null (Geocoder failed / offline).
+        val fix = LocationFix(12.9716, 77.5946, 8.5, "gps", "2026-05-05T00:30:19.500+05:30", null)
+        val sidecar = fixtureSidecar().copy(
+            captureDeviceInfoPartial = fixtureSidecar().captureDeviceInfoPartial.copy(location = fix),
+        )
+        val out = MetadataComposer.compose(sidecar, fixtureMetrics())
+        val loc = out.getJSONObject("capture_device_info").getJSONObject("location")
+        assertEquals("gps", loc.getString("provider"))
+        assertTrue(loc.isNull("label"))
     }
 
     @Test
@@ -367,7 +421,7 @@ class MetadataSchemaConformanceTest {
         assertFalse(".partial residue must NOT exist after a clean write", partial.exists())
         // Round-trip parse — file is valid JSON with the bumped schema_version.
         val reloaded = JSONObject(target.readText())
-        assertEquals("1.3.0", reloaded.getString("schema_version"))
+        assertEquals("1.5.0", reloaded.getString("schema_version"))
         assertNotNull(reloaded.getJSONObject("metadata"))
         assertNotNull(reloaded.getJSONObject("calibration"))
     }

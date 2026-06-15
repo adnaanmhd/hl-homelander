@@ -36,8 +36,10 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm prune --prod --no-optiona
 FROM public.ecr.aws/docker/library/node:22.11.0-alpine AS runner
 WORKDIR /app
 
-# Install runtime utilities (like curl for EKS liveness/readiness check probes)
-RUN apk add --no-cache curl
+# Install runtime utilities: curl for liveness/readiness probes; ffmpeg for the
+# Bug 6 / D5 server-side poster-thumbnail generation at /recordings/:id/finalize
+# (best-effort — its absence just degrades to no server thumbnail).
+RUN apk add --no-cache curl ffmpeg
 
 ENV NODE_ENV=production
 ENV PORT=8080

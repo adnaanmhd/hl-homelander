@@ -6,7 +6,7 @@
 // §10 policy table (read idea-brief.md §10 directly — this is the mapping):
 //
 //   AppState 'background'/'inactive' mid-record (substate==='active')
-//     → onStop('background')                    // upload if ≥60s, else discard (REC-12)
+//     → onStop('background')                    // upload if ≥3min, else discard (REC-12; D6 floor 60s→180s)
 //   audio-focus sustained 'loss' while active
 //     → onStop('phone_call')                    // answered call / done (REC-12)
 //   audio-focus 'transient_loss' while active   → arm a ~7s timer:
@@ -114,9 +114,9 @@ export type StopReason =
 
 export type LifecycleCallbacks = {
   /** Stop the active recording. The screen wires this to HumynCapture.stop()
-   *  then routes per §7h (practice → PracticeComplete; real ≥60s → toast
-   *  "{Hh Mm} added to your contribution." + Home; real <60s → toast
-   *  "Recording too short — discarded." + ready). */
+   *  then routes per §7h (practice → PracticeComplete; real ≥3min → toast
+   *  "{Hh Mm} added to your contribution." + Home; real <3min → toast
+   *  "Recording too short — discarded." + ready — Bug 8 + Enh 1 / D6). */
   onStop: (reason: StopReason) => void;
   /** Show a transient toast on the recording surface. */
   showToast: (text: string) => void;

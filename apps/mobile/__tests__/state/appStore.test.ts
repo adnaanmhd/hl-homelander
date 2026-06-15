@@ -8,6 +8,7 @@
 // behaviour (set/clear of state + MMKV side-effects).
 import { describe, it, expect, beforeEach } from 'vitest';
 import type { CompatResult } from '@humyn/shared-types';
+import type { UploadQueueRow } from '../../src/native/HumynUpload';
 
 import { useAppStore } from '../../src/state/appStore';
 import { secureMmkv } from '../../src/state/mmkv';
@@ -129,5 +130,55 @@ describe('useAppStore', () => {
     // Idempotent — a second call is a no-op (still true, no throw).
     useAppStore.getState().setPracticeDone('sub-A');
     expect(secureMmkv.getBoolean(practiceDoneKey('sub-A'))).toBe(true);
+  });
+
+  it('Test 5: upload-queue slice setters (Bug 7 + Bug 11) are transient + monotonic', () => {
+    useAppStore.setState({ uploadQueue: [], uploadProgressById: {}, contributionsVersion: 0 });
+
+    const rows = [
+      { recordingId: 'r1', ownerUserId: 'sub-A', state: 'uploading' },
+      { recordingId: 'r2', ownerUserId: 'sub-A', state: 'pending' },
+    ] as unknown as UploadQueueRow[];
+    useAppStore.getState().setUploadQueue(rows);
+    expect(useAppStore.getState().uploadQueue).toHaveLength(2);
+
+    // setUploadProgress merges one recording's percent without clobbering others.
+    useAppStore.getState().setUploadProgress('r1', 25);
+    useAppStore.getState().setUploadProgress('r2', 80);
+    useAppStore.getState().setUploadProgress('r1', 50); // overwrite r1
+    expect(useAppStore.getState().uploadProgressById).toEqual({ r1: 50, r2: 80 });
+
+    // bumpContributionsVersion is monotonic.
+    const v0 = useAppStore.getState().contributionsVersion;
+    useAppStore.getState().bumpContributionsVersion();
+    useAppStore.getState().bumpContributionsVersion();
+    expect(useAppStore.getState().contributionsVersion).toBe(v0 + 2);
+
+    // Transient — these slices never write to MMKV (reseeded from the native
+    // queue on every cold boot). No persistent key is created for them.
+    expect(secureMmkv.getString('app.uploadQueue.v1')).toBeUndefined();
+  });
+
+  it('Test 6: setUploadQueue GCs uploadProgressById down to live recordingIds (Bug 7)', () => {
+    useAppStore.setState({ uploadQueue: [], uploadProgressById: {}, contributionsVersion: 0 });
+    const rows = [
+      { recordingId: 'r1', ownerUserId: 'sub-A' },
+      { recordingId: 'r2', ownerUserId: 'sub-A' },
+    ] as unknown as UploadQueueRow[];
+    useAppStore.getState().setUploadQueue(rows);
+    useAppStore.getState().setUploadProgress('r1', 50);
+    useAppStore.getState().setUploadProgress('r2', 80);
+    expect(useAppStore.getState().uploadProgressById).toEqual({ r1: 50, r2: 80 });
+
+    // r1 completes and drops from the queue → its progress entry is pruned so
+    // the map can't grow unbounded across a session.
+    useAppStore.getState().setUploadQueue([rows[1]!]);
+    expect(useAppStore.getState().uploadProgressById).toEqual({ r2: 80 });
+
+    // A queue update with nothing to prune keeps the SAME map reference (no
+    // spurious re-render for progress consumers).
+    const ref = useAppStore.getState().uploadProgressById;
+    useAppStore.getState().setUploadQueue([rows[1]!]);
+    expect(useAppStore.getState().uploadProgressById).toBe(ref);
   });
 });

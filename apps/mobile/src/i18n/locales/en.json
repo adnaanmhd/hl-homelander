@@ -24,6 +24,8 @@
     "taglineAccent": " Real Intelligence."
   },
   "signup": {
+    "deviceEvicted": "Signed out — your account was used on another device.",
+    "reauthRequired": "Signed out — please sign in again.",
     "tagline": "Real Humyns. Real Intelligence.",
     "pitchLine1": "Record real moments.",
     "pitchLine2": "Train real intelligence.",
@@ -40,15 +42,16 @@
     }
   },
   "permissions": {
-    "titleIdle": "Camera & Mic\nPermissions",
-    "titleRecovery": "Camera & Mic\nare required",
+    "titleIdle": "Camera, Mic\n& Location",
+    "titleRecovery": "Camera, Mic & Location\nare required",
     "bodyIdle": "Used only while you hit record",
-    "bodyDenied": "Camera & Mic are required. Open Settings to enable.",
+    "bodyDenied": "Camera, Mic & Location are required. Open Settings to enable.",
     "bodyPartialPrefix": "{{name}} access is required. Open Settings to enable.",
     "buttonAllow": "Allow access",
     "buttonOpenSettings": "Open Settings",
     "cameraName": "Camera",
-    "microphoneName": "Microphone"
+    "microphoneName": "Microphone",
+    "locationName": "Location"
   },
   "compat": {
     "running": {
@@ -183,7 +186,6 @@
   },
   "uploadChip": {
     "uploading": "Uploading…",
-    "verifying": "Uploaded — verifying…",
     "failed": "Upload failed",
     "success": "✓ Uploaded",
     "pausedOffline": "Paused — no Wi-Fi"
@@ -414,7 +416,8 @@
     },
     "lifetime": {
       "contributed": "contributed",
-      "acrossNTasks": "Across {{count}} tasks"
+      "acrossNTasks": "Across {{count}} tasks",
+      "loadError": "Couldn't load your total."
     },
     "fields": {
       "name": "Name",
@@ -458,7 +461,7 @@
   "terms": {
     "consent": {
       "modalTitle": "Terms of Use",
-      "body": "I consent and agree to upload videos of myself and/or others who consent to be recorded; performing certain daily activities/tasks. This content will be used to develop / train AI models and for research purposes. I confirm that I am 18 years or older and have the necessary permissions to share this content. I confirm that no one being recorded is a minor. I consent to my approximate location and IP address being captured alongside each recording. I understand that my data will be stored securely and used in accordance with Humyn's Privacy Policy."
+      "body": "I consent and agree to upload videos of myself and/or others who consent to be recorded; performing certain daily activities/tasks. This content will be used to develop / train AI models and for research purposes. I confirm that I am 18 years or older and have the necessary permissions to share this content. I confirm that no one being recorded is a minor. I consent to my precise location (GPS coordinates) and IP address being captured alongside each recording. I understand that my data will be stored securely and used in accordance with Humyn's Privacy Policy."
     }
   },
   "errors": {

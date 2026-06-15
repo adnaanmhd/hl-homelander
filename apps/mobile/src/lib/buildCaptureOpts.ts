@@ -20,12 +20,13 @@
 // (Phase 2 D-COMPAT-05 already validates it's positive); `startGate.{passed,
 // skipped,bypassed,durationMs}` from the gate result; `startGate.{consecutive
 // HitsRequired,platformCadenceMs}` from `readGateConfig()` (HAND-11); `location`
-// is always `null` (coarse location is not attached at MVP); `appVersion` from
-// the AppFlavor native module's `versionName` (the Phase-1 versioning script's
-// `BuildConfig.VERSION_NAME` — bare semver for playStore, `-apk`-suffixed for
-// apkRollout).
+// is the precise GPS fix resolved by the HumynLocation native module (Bug 3 /
+// D3 — overrides the formerly-LOCKED coarse-only constraint), or `null` when
+// the fix was unavailable; `appVersion` from the AppFlavor native module's
+// `versionName` (the Phase-1 versioning script's `BuildConfig.VERSION_NAME` —
+// bare semver for playStore, `-apk`-suffixed for apkRollout).
 
-import type { CaptureSessionOpts } from '@humyn/shared-types';
+import type { CaptureSessionOpts, Location } from '@humyn/shared-types';
 
 /** The narrow `CaptureSessionOpts.contributor.gender` enum. */
 type NarrowGender = 'male' | 'female' | 'non-binary' | 'prefer-not-to-say';
@@ -62,6 +63,12 @@ export interface BuildCaptureOptsArgs {
     /** True iff the verified `/me` consent state is present (NOT a hardcoded literal). */
     consentPresent: boolean;
   };
+  /**
+   * Bug 3 / D3 — the precise GPS fix resolved (HumynLocation) before start(),
+   * or `null` when unavailable (a partial COARSE grant with no last-known fix,
+   * or a timed-out request). Embedded verbatim into `metadata.json`.
+   */
+  location: Location | null;
   appVersion: string;
 }
 
@@ -114,7 +121,7 @@ export function buildCaptureOpts(args: BuildCaptureOptsArgs): CaptureSessionOpts
       consecutiveHitsRequired: args.gateConfig.targetHits,
       platformCadenceMs: args.gateConfig.cadenceMs,
     },
-    location: null,
+    location: args.location,
     appVersion: args.appVersion,
     dfovDegrees: args.compat.ultrawideDfovMeasuredDeg,
   };

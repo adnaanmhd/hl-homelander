@@ -63,11 +63,10 @@ export const taskRequestStatusEnum = pgEnum('task_request_status', [
   'accepted',
 ]);
 
-// Server→client recording-status events (Plan 05-03). The hash-verify worker
-// appends a row when it flips qa_status: 'verified' (hashes matched) or
-// 're-upload' (hash-mismatch — the client must re-upload). Delivered via the
-// `events-outbox` onSend hook (Plan 05-05); the client de-dups on (recording_id, event_type).
-export const recordingEventTypeEnum = pgEnum('recording_event_type', ['verified', 're-upload']);
+// (Enh 3 / D1, 2026-06-04: the `recording_event_type` enum + recording_events_outbox
+// + recordings_to_verify were removed with the hash-verify flow. The qa_status enum
+// keeps its legacy 'verified' / 'hash-mismatch' values — Postgres can't cheaply drop
+// enum values — but nothing writes them anymore; they're read as success synonyms.)
 
 // === Tables ===
 
@@ -91,6 +90,18 @@ export const users = pgTable(
     // Tracking
     flavor: flavorEnum('flavor').notNull(),
     applicationId: text('application_id').notNull(),
+    // Bug 4 / D2 (2026-06-04) — single-device newest-login-wins. The most-recent
+    // sign-in's installationId; requireAuth 401s any JWT whose installationId
+    // diverges. Nullable: pre-Bug-4 rows carry NULL until the next sign-in
+    // (their legacy JWTs lack the claim and are forced to re-sign-in). Overrides
+    // LOCKED D-AUTH-03 (stateless 30-day JWT, no denylist).
+    currentInstallationId: text('current_installation_id'),
+    // Bug 5 / D7 (2026-06-04) — practice-tutorial completion, server-side. Set
+    // once (idempotent) when the user reaches PracticeComplete; surfaced on
+    // GET /me so a fresh install / new device skips the tutorial forever
+    // (the client seeds its local ONB-08 flag from this). Nullable: pre-Bug-5
+    // rows + users who haven't finished practice carry NULL.
+    practiceCompletedAt: timestamp('practice_completed_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -167,8 +178,8 @@ export const recordings = pgTable(
     qaStatus: qaStatusEnum('qa_status').notNull().default('pending'),
     // Capture spec — verbatim from video_metadata.json
     durationMs: integer('duration_ms').notNull(),
-    fileSha256: varchar('file_sha256', { length: 64 }).notNull(), // hex
-    imuSha256: varchar('imu_sha256', { length: 64 }).notNull(),
+    // (Enh 3 / D1, 2026-06-04: file_sha256 / imu_sha256 removed — upload
+    // verification + all hashing dropped; migration 0011 drops the columns.)
     fileSizeBytes: bigint('file_size_bytes', { mode: 'number' }).notNull(),
     imuSizeBytes: bigint('imu_size_bytes', { mode: 'number' }).notNull(),
     // Drift figures (drift_metrics memory)
@@ -182,17 +193,29 @@ export const recordings = pgTable(
     // pre-1.2.0 segments send nothing. Non-indexed telemetry — not
     // authorization-bearing (T-elm-02).
     calibration: jsonb('calibration'),
+    // Bug 3 / D3 (2026-06-04) — precise GPS block { lat, lng, accuracy_m,
+    // provider, captured_at, label } mirrored from metadata.json's
+    // `capture_device_info.location` (schema 1.5.0) as queryable jsonb.
+    // Nullable: a segment with no fix, or a pre-1.5.0 client, sends null.
+    // Overrides the formerly-LOCKED coarse-only constraint (sign-off D3;
+    // consent + DPIA is a ship gate). Non-indexed; sibling to ip_address.
+    location: jsonb('location'),
     // Storage references
     s3KeyVideo: text('s3_key_video').notNull(),
     s3KeyImu: text('s3_key_imu').notNull(),
     s3KeyMetadata: text('s3_key_metadata').notNull(),
+    // Bug 6 / D5 (2026-06-04) — server-generated poster JPEG for cross-device
+    // History thumbnails (recordings/{userId}/{recordingId}/thumb.jpg). Nullable +
+    // best-effort: NULL when ffmpeg generation failed at /finalize or for legacy
+    // rows; the client then falls back to its local ledger thumb / gradient.
+    s3KeyThumbnail: text('s3_key_thumbnail'),
     // Liveness — populated in Phase 5; nullable here
     livenessScore: integer('liveness_score'), // stored as 0..100 integer (display as /100)
     // Timestamps
     capturedAt: timestamp('captured_at', { withTimezone: true }).notNull(),
     uploadStartedAt: timestamp('upload_started_at', { withTimezone: true }),
     uploadCompletedAt: timestamp('upload_completed_at', { withTimezone: true }),
-    verifiedAt: timestamp('verified_at', { withTimezone: true }),
+    // (Enh 3 / D1: verified_at removed — no verify step; migration 0011 drops it.)
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     // For ip_address null-from-client + server-populated (UP-18)
     ipAddress: text('ip_address'),
@@ -206,6 +229,12 @@ export const recordings = pgTable(
     userCapturedIdx: index('recordings_user_captured_idx').on(t.userId, t.capturedAt),
     qaStatusIdx: index('recordings_qa_status_idx').on(t.qaStatus),
     taskIdx: index('recordings_task_idx').on(t.taskId),
+    // Bug 10 (2026-06-04) — covering index for the two /contributions per-user
+    // scans (WHERE user_id = ? AND qa_status …, aggregating duration_ms + task_id).
+    // The INCLUDE (duration_ms, task_id) payload is expressed in migration 0016
+    // only — drizzle-orm 0.45 has no `.include()` builder — so this declaration
+    // is the (user_id, qa_status) prefix; the migration is the source of truth.
+    userQaIdx: index('recordings_user_qa_idx').on(t.userId, t.qaStatus),
   }),
 );
 
@@ -326,42 +355,9 @@ export const authNonces = pgTable(
   }),
 );
 
-// recordings_to_verify — Postgres queue stub for the Phase 5 hash-verify worker.
-// At Phase 1 we only INSERT here when /finalize runs; Phase 5 adds the BullMQ-style
-// drain logic (CONTEXT D-HOST-04: Redis stand-up deferred to Phase 5).
-export const recordingsToVerify = pgTable('recordings_to_verify', {
-  recordingId: varchar('recording_id', { length: 26 })
-    .primaryKey()
-    .references(() => recordings.id, { onDelete: 'cascade' }),
-  enqueuedAt: timestamp('enqueued_at', { withTimezone: true }).notNull().defaultNow(),
-  attempts: integer('attempts').notNull().default(0),
-});
-
-// recording_events_outbox — server→client recording-status events (Plan 05-03).
-// The hash-verify worker writes a row inside the same transaction that flips
-// qa_status; the `events-outbox` onSend hook (Plan 05-05) drains undelivered
-// rows for the authenticated user and attaches them to the response, then marks
-// delivered_at. The partial index `WHERE delivered_at IS NULL` (in the migration
-// SQL — Drizzle can't express partial indexes) keeps the drain query cheap.
-export const recordingEventsOutbox = pgTable(
-  'recording_events_outbox',
-  {
-    id: varchar('id', { length: 26 }).primaryKey(), // ULID
-    userId: varchar('user_id', { length: 26 })
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    recordingId: varchar('recording_id', { length: 26 })
-      .notNull()
-      .references(() => recordings.id, { onDelete: 'cascade' }),
-    eventType: recordingEventTypeEnum('event_type').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    deliveredAt: timestamp('delivered_at', { withTimezone: true }),
-  },
-  (t) => ({
-    // The partial WHERE delivered_at IS NULL lives in the migration SQL.
-    userCreatedIdx: index('recording_events_outbox_user_created_idx').on(t.userId, t.createdAt),
-  }),
-);
+// (Enh 3 / D1, 2026-06-04: `recordings_to_verify` and `recording_events_outbox`
+// were removed with the hash-verify flow — migration 0011 drops both tables +
+// the recording_event_type enum. `uploaded` is now terminal success.)
 
 // takedown_log — append-only audit row per processed ANPD/DPB takedown request
 // (D-LEGAL-04). Migration 0005 creates this table; Phase 1 enforces append-only

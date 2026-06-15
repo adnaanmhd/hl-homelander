@@ -46,11 +46,21 @@ function row(over: Partial<UploadQueueRow>): UploadQueueRow {
 
 const { mockQueue, mockState, hooks } = vi.hoisted(() => ({
   mockQueue: { rows: [] as UploadQueueRow[] },
-  mockState: { jwt: 'jwt-token' as string | null },
+  // Bug 7 — PendingUploads now reads rows + progress from the store slice (fed
+  // by the boot installer) instead of a local subscription. `uploadQueue` seeds
+  // the live path; `uploadProgressById` seeds per-recording upload percent.
+  mockState: {
+    jwt: 'jwt-token' as string | null,
+    uploadQueue: [] as UploadQueueRow[],
+    uploadProgressById: {} as Record<string, number>,
+  },
   hooks: {
     queueChangedRemove: vi.fn(),
     progressRemove: vi.fn(),
-    reupload: vi.fn().mockResolvedValue(undefined),
+    // Enh 3 / D1 (2026-06-04): dead-letter Retry routes through reviveDeadLetterSafe
+    // (was reupload — the /reupload endpoint + method were removed).
+    reviveDeadLetterSafe: vi.fn().mockResolvedValue(undefined),
+    retryNeedsAttentionSafe: vi.fn().mockResolvedValue(false),
     // Wave-1.5 Item 4 — capture the onUploadProgress listener so tests can fire it.
     progressListener: null as
       | ((e: { recordingId: string; bytesUploaded: number; bytesTotal: number }) => void)
@@ -61,7 +71,8 @@ const { mockQueue, mockState, hooks } = vi.hoisted(() => ({
 vi.mock('../../../src/native/HumynUpload', () => ({
   HumynUpload: {
     getQueueSafe: vi.fn(async () => mockQueue.rows),
-    reupload: hooks.reupload,
+    reviveDeadLetterSafe: hooks.reviveDeadLetterSafe,
+    retryNeedsAttentionSafe: hooks.retryNeedsAttentionSafe,
   },
   onUploadQueueChanged: vi.fn(() => ({ remove: hooks.queueChangedRemove })),
   onUploadProgress: vi.fn(
@@ -87,10 +98,14 @@ describe('PendingUploadsScreen (Plan 05-08)', () => {
     cleanup();
     mockQueue.rows = [];
     mockState.jwt = 'jwt-token';
+    mockState.uploadQueue = [];
+    mockState.uploadProgressById = {};
     hooks.queueChangedRemove.mockReset();
     hooks.progressRemove.mockReset();
-    hooks.reupload.mockReset();
-    hooks.reupload.mockResolvedValue(undefined);
+    hooks.reviveDeadLetterSafe.mockReset();
+    hooks.reviveDeadLetterSafe.mockResolvedValue(undefined);
+    hooks.retryNeedsAttentionSafe.mockReset();
+    hooks.retryNeedsAttentionSafe.mockResolvedValue(false);
     hooks.progressListener = null;
   });
 
@@ -110,15 +125,11 @@ describe('PendingUploadsScreen (Plan 05-08)', () => {
     expect(getByLabelText('upload-status-chip-progress')).toBeTruthy();
   });
 
-  it('maps awaiting-verify → "Uploaded — verifying…" (distinct label)', () => {
-    const { getByLabelText, getByText } = render(
-      <PendingUploadsScreen __test_rows={[row({ state: 'awaiting-verify' })]} />,
-    );
-    expect(getByLabelText('upload-status-chip-verifying')).toBeTruthy();
-    expect(getByText('Uploaded — verifying…')).toBeTruthy();
-  });
+  // (Enh 3 / D1, 2026-06-04: 'awaiting-verify' / 'verified' queue states +
+  // the 'verifying' chip were removed — a row that reaches terminal success is
+  // deleted from the queue on /finalize 200.)
 
-  it('maps dead-letter → "Upload failed" + a Retry button that calls HumynUpload.reupload', () => {
+  it('maps dead-letter → "Upload failed" + a Retry button that calls reviveDeadLetterSafe', () => {
     const { getByLabelText } = render(
       <PendingUploadsScreen
         __test_rows={[
@@ -128,15 +139,7 @@ describe('PendingUploadsScreen (Plan 05-08)', () => {
     );
     expect(getByLabelText('upload-status-chip-failed')).toBeTruthy();
     fireEvent.click(getByLabelText('pending-upload-retry'));
-    expect(hooks.reupload).toHaveBeenCalledWith('recX');
-  });
-
-  it('maps verified → "✓ Uploaded" (transient success chip)', () => {
-    const { getByLabelText, getByText } = render(
-      <PendingUploadsScreen __test_rows={[row({ state: 'verified' })]} />,
-    );
-    expect(getByLabelText('upload-status-chip-success')).toBeTruthy();
-    expect(getByText('✓ Uploaded')).toBeTruthy();
+    expect(hooks.reviveDeadLetterSafe).toHaveBeenCalledWith('recX');
   });
 
   it('renders "Paused — no Wi-Fi" on in-flight rows when offline (the one new variant)', () => {
@@ -160,8 +163,8 @@ describe('PendingUploadsScreen (Plan 05-08)', () => {
     expect(getByLabelText('pending-upload-name').textContent).toBe('20260512_101500_001.mp4');
   });
 
-  it('reflects only own-sub rows from the live getQueueSafe() path', async () => {
-    mockQueue.rows = [
+  it('reflects only own-sub rows from the store queue (UP-13 owner-pin)', async () => {
+    mockState.uploadQueue = [
       row({ recordingId: 'mine', ownerUserId: SUB }),
       row({ recordingId: 'theirs', ownerUserId: 'sub-bob' }),
     ];
@@ -183,36 +186,32 @@ describe('PendingUploadsScreen (Plan 05-08)', () => {
     expect(queryByText(/cancel/i)).toBeNull();
   });
 
-  it('.remove()s the onUploadQueueChanged / onUploadProgress subscriptions on unmount', () => {
-    const { unmount } = render(<PendingUploadsScreen />);
-    unmount();
-    expect(hooks.queueChangedRemove).toHaveBeenCalledTimes(1);
-    expect(hooks.progressRemove).toHaveBeenCalledTimes(1);
-  });
+  // Bug 7 (2026-06-04) — the screen no longer subscribes to
+  // onUploadQueueChanged / onUploadProgress directly (the single boot installer
+  // does, covered by `__tests__/services/uploadQueueStore.test.ts`). The former
+  // ".remove() on unmount" leak-contract test moved with the subscription.
 
-  // Wave-1.5 Item 4 — live progress bar.
+  // Wave-1.5 Item 4 — live progress bar (now fed by the store's progress map).
 
-  it('renders the sibling progress bar when an uploading row gets a progress event', async () => {
-    const { act } = await import('@testing-library/react');
+  it('renders the sibling progress bar at the stored percent for an uploading row', () => {
+    // Bug 7 — progress comes from the store slice (set by the boot installer's
+    // onUploadProgress handler), keyed by recordingId. 47 → width: 47%.
+    mockState.uploadProgressById = { rec1: 47 };
     const { getByLabelText } = render(
       <PendingUploadsScreen __test_rows={[row({ state: 'uploading', recordingId: 'rec1' })]} />,
     );
-    // Fire a synthetic onUploadProgress event at 47%.
-    act(() => {
-      hooks.progressListener?.({ recordingId: 'rec1', bytesUploaded: 47, bytesTotal: 100 });
-    });
     const fill = getByLabelText('pending-upload-progress-fill');
     // RN-Web renders style entries as inline CSS; the dynamic width comes through verbatim.
     const inline = (fill as HTMLElement).getAttribute('style') ?? '';
     expect(inline).toMatch(/width:\s*47%/);
   });
 
-  it('progress bar does NOT render for awaiting-verify / verified / dead-letter rows', async () => {
+  it('progress bar does NOT render for finalizing / dead-letter / needs-attention rows', async () => {
     const { queryByLabelText } = render(
       <PendingUploadsScreen
         __test_rows={[
-          row({ recordingId: 'r1', state: 'awaiting-verify' }),
-          row({ recordingId: 'r2', state: 'verified' }),
+          row({ recordingId: 'r1', state: 'finalizing' }),
+          row({ recordingId: 'r2', state: 'needs-attention' }),
           row({ recordingId: 'r3', state: 'dead-letter' }),
         ]}
       />,
@@ -230,14 +229,11 @@ describe('PendingUploadsScreen (Plan 05-08)', () => {
     expect(queryByLabelText('pending-upload-progress-fill')).toBeNull();
   });
 
-  it('chip percent label reads "Uploading… 47%" when a progress event is fired (47 of 100 bytes)', async () => {
-    const { act } = await import('@testing-library/react');
+  it('chip percent label reads "Uploading… 47%" from the stored progress percent', async () => {
+    mockState.uploadProgressById = { rec1: 47 };
     const { findByText } = render(
       <PendingUploadsScreen __test_rows={[row({ state: 'uploading', recordingId: 'rec1' })]} />,
     );
-    act(() => {
-      hooks.progressListener?.({ recordingId: 'rec1', bytesUploaded: 47, bytesTotal: 100 });
-    });
     expect(await findByText(/Uploading… 47%/)).toBeTruthy();
   });
 });

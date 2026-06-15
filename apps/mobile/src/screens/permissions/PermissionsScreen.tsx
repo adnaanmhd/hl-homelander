@@ -1,10 +1,10 @@
 /**
  * @doc PermissionsScreen — Phase 2 plan 02-10 PERM-01/02 implementation.
  *
- * Walks the user through Camera + Microphone permission prompts in sequence
- * (the OS prompt is modal, so they must be requested one at a time) and on
- * full grant transitions to the Compat route. Denied / blocked outcomes flip
- * the screen into the §4.1.1 recovery state where the only path forward is
+ * Walks the user through Camera + Microphone + Location permission prompts in
+ * sequence (the OS prompt is modal, so they must be requested one at a time)
+ * and on full grant transitions to the Compat route. Denied / blocked outcomes
+ * flip the screen into the §4.1.1 recovery state where the only path forward is
  * "Open Settings".
  *
  * Copy is verbatim from design-spec §3a (idle) and §4.1.1 (recovery). The
@@ -16,14 +16,19 @@
  *                          ↘ denied / partial → (tap) openSettings()
  *
  * Analytics:
- *   permission_camera_requested / _granted / _denied
- *   permission_mic_requested    / _granted / _denied
+ *   permission_camera_requested   / _granted / _denied
+ *   permission_mic_requested      / _granted / _denied
+ *   permission_location_requested / _granted / _denied
  *
- * PERM-03 (coarse Location) is intentionally NOT prompted here — deferred to
- * Phase 4 per CONTEXT.md.
+ * Bug 3 / D3 + D4 (2026-06-04): precise Location (ACCESS_FINE_LOCATION) joined
+ * the gate alongside Camera + Mic — block-until-granted parity. A partial
+ * "Approximate" (COARSE) grant still satisfies the gate (D3); only a full denial
+ * blocks. Overrides the formerly-LOCKED coarse-only constraint + the prior
+ * "PERM-03 deferred to Phase 4" stance (sign-off D3; consent + DPIA is a ship
+ * gate). The old coarse-only `services/locationPermission.ts` helper was removed.
  *
- * iOS analogue lives in Phase 7: PERMISSIONS.IOS.CAMERA / .MICROPHONE swap
- * in conditionally on Platform.OS.
+ * iOS analogue lives in Phase 7: PERMISSIONS.IOS.CAMERA / .MICROPHONE /
+ * .LOCATION_WHEN_IN_USE swap in conditionally on Platform.OS.
  */
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet, Platform, AppState } from 'react-native';
@@ -54,6 +59,18 @@ const CAMERA_PERMISSION: Permission =
   Platform.OS === 'ios' ? PERMISSIONS.IOS.CAMERA : PERMISSIONS.ANDROID.CAMERA;
 const MIC_PERMISSION: Permission =
   Platform.OS === 'ios' ? PERMISSIONS.IOS.MICROPHONE : PERMISSIONS.ANDROID.RECORD_AUDIO;
+// Bug 3 / D3 + D4 (2026-06-04) — precise Location, requested FINE. On Android
+// 12+ the user may grant only "Approximate" (COARSE); per D3 that partial grant
+// still records (a coarser fix) — only a FULL denial blocks. So the gate treats
+// FINE-granted OR COARSE-granted as satisfied; COARSE is checked as the fallback.
+const LOCATION_PERMISSION: Permission =
+  Platform.OS === 'ios'
+    ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
+    : PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
+const COARSE_LOCATION_PERMISSION: Permission =
+  Platform.OS === 'ios'
+    ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
+    : PERMISSIONS.ANDROID.ACCESS_COARSE_LOCATION;
 
 interface NavigationLike {
   replace(route: string): void;
@@ -65,9 +82,10 @@ export default function PermissionsScreen() {
   const { t } = useTranslation();
 
   const [state, setState] = useState<ScreenState>('idle');
-  const [missing, setMissing] = useState<{ camera: boolean; mic: boolean }>({
+  const [missing, setMissing] = useState<{ camera: boolean; mic: boolean; location: boolean }>({
     camera: false,
     mic: false,
+    location: false,
   });
 
   // quick-260510-007 — Settings round-trip re-check.
@@ -102,17 +120,23 @@ export default function PermissionsScreen() {
   useEffect(() => {
     let cancelled = false;
     const checkAndAdvance = async () => {
-      const [camResult, micResult] = await Promise.all([
+      const [camResult, micResult, fineResult, coarseResult] = await Promise.all([
         check(CAMERA_PERMISSION),
         check(MIC_PERMISSION),
+        check(LOCATION_PERMISSION),
+        check(COARSE_LOCATION_PERMISSION),
       ]);
       if (cancelled) return;
       const camGranted = camResult === RESULTS.GRANTED;
       const micGranted = micResult === RESULTS.GRANTED;
-      if (camGranted && micGranted) {
+      // Bug 3 / D3 — FINE OR COARSE counts (a partial "Approximate" grant still
+      // records; only a full denial blocks).
+      const locGranted = fineResult === RESULTS.GRANTED || coarseResult === RESULTS.GRANTED;
+      if (camGranted && micGranted && locGranted) {
         setPermsGranted({
           camera: true,
           mic: true,
+          location: true,
           grantedAt: new Date().toISOString(),
         });
         navigation.replace('Compat');
@@ -122,9 +146,10 @@ export default function PermissionsScreen() {
       // 'idle' stays 'idle' (the user hasn't tapped Allow yet, so flipping
       // to 'denied' would prematurely surface §4.1.1 copy).
       if (stateRef.current === 'denied' || stateRef.current === 'partial') {
-        const newMissing = { camera: !camGranted, mic: !micGranted };
+        const newMissing = { camera: !camGranted, mic: !micGranted, location: !locGranted };
+        const allMissing = newMissing.camera && newMissing.mic && newMissing.location;
         setMissing(newMissing);
-        setState(newMissing.camera && newMissing.mic ? 'denied' : 'partial');
+        setState(allMissing ? 'denied' : 'partial');
       }
     };
     checkAndAdvance();
@@ -171,10 +196,28 @@ export default function PermissionsScreen() {
       logEvent('permission_mic_denied', { result: String(micResult) });
     }
 
-    if (camGranted && micGranted) {
+    // ---- Location (Bug 3 / D4 — sequential, after mic) ----
+    // Request FINE; on Android 12+ the user may grant only "Approximate"
+    // (COARSE), which leaves FINE denied — per D3 that partial grant still
+    // records, so we re-check COARSE and treat either as granted.
+    logEvent('permission_location_requested');
+    const locResult = await request(LOCATION_PERMISSION);
+    let locGranted = locResult === RESULTS.GRANTED;
+    if (!locGranted) {
+      const coarseResult = await check(COARSE_LOCATION_PERMISSION);
+      locGranted = coarseResult === RESULTS.GRANTED;
+    }
+    if (locGranted) {
+      logEvent('permission_location_granted');
+    } else {
+      logEvent('permission_location_denied', { result: String(locResult) });
+    }
+
+    if (camGranted && micGranted && locGranted) {
       setPermsGranted({
         camera: true,
         mic: true,
+        location: true,
         grantedAt: new Date().toISOString(),
       });
       // Onboarding stack route name is "Compat" (CompatRunningScreen) —
@@ -183,9 +226,10 @@ export default function PermissionsScreen() {
       return;
     }
 
-    const newMissing = { camera: !camGranted, mic: !micGranted };
+    const newMissing = { camera: !camGranted, mic: !micGranted, location: !locGranted };
+    const allMissing = newMissing.camera && newMissing.mic && newMissing.location;
     setMissing(newMissing);
-    setState(newMissing.camera && newMissing.mic ? 'denied' : 'partial');
+    setState(allMissing ? 'denied' : 'partial');
   }, [navigation, setPermsGranted, state]);
 
   // ---------------------------------------------------------------------
@@ -202,9 +246,13 @@ export default function PermissionsScreen() {
   //                 which Settings toggle to flip
   let body: string;
   if (state === 'partial') {
+    // Name the first still-missing permission (camera → mic → location) so the
+    // user knows which Settings toggle to flip (Bug 3 / D4 added location).
     const missingName = missing.camera
       ? t('permissions.cameraName')
-      : t('permissions.microphoneName');
+      : missing.mic
+        ? t('permissions.microphoneName')
+        : t('permissions.locationName');
     body = t('permissions.bodyPartialPrefix', { name: missingName });
   } else if (state === 'denied') {
     body = t('permissions.bodyDenied');

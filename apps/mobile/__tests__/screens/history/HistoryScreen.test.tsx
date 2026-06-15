@@ -27,6 +27,7 @@ import React from 'react';
 import { render, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { RecordingsListItem } from '@humyn/shared-types';
+import type { UploadQueueRow } from '../../../src/native/HumynUpload';
 
 // Per-file react-native shim (RefreshControl + Modal-visible-gate). Same
 // pattern as HomeScreen.test.tsx — see that file's header for the
@@ -220,6 +221,12 @@ const { mockState, mockSetters } = vi.hoisted(() => ({
   mockState: {
     historyRange: 'all' as 'today' | 'yesterday' | 'this-week' | 'this-month' | 'all' | 'custom',
     historyRangeCustom: null as { start: string; end: string } | null,
+    // Bug 7 — History now reads the upload queue + progress from the store
+    // slice (fed by the boot installer) instead of a per-screen subscription.
+    jwt: null as string | null,
+    uploadQueue: [] as UploadQueueRow[],
+    uploadProgressById: {} as Record<string, number>,
+    contributionsVersion: 0,
   },
   mockSetters: {
     setHistoryRange: vi.fn(),
@@ -232,6 +239,10 @@ vi.mock('../../../src/state/appStore', () => ({
     selector({
       historyRange: mockState.historyRange,
       historyRangeCustom: mockState.historyRangeCustom,
+      jwt: mockState.jwt,
+      uploadQueue: mockState.uploadQueue,
+      uploadProgressById: mockState.uploadProgressById,
+      contributionsVersion: mockState.contributionsVersion,
       setHistoryRange: (r: string) => {
         mockSetters.setHistoryRange(r);
         mockState.historyRange = r as typeof mockState.historyRange;
@@ -242,6 +253,12 @@ vi.mock('../../../src/state/appStore', () => ({
         mockState.historyRange = 'custom';
       },
     }),
+}));
+
+// Bug 7 — decode a deterministic sub so device-queue rows filter to the
+// signed-in user. `null` jwt → '' (the default for the existing server-row tests).
+vi.mock('../../../src/lib/jwtSub', () => ({
+  decodeGoogleSubFromJwt: (jwt: string | null) => (jwt ? 'sub-alice' : ''),
 }));
 
 const {
@@ -311,6 +328,10 @@ afterEach(() => {
   cleanup();
   mockState.historyRange = 'all';
   mockState.historyRangeCustom = null;
+  mockState.jwt = null;
+  mockState.uploadQueue = [];
+  mockState.uploadProgressById = {};
+  mockState.contributionsVersion = 0;
   mockSetters.setHistoryRange.mockClear();
   mockSetters.setHistoryRangeCustom.mockClear();
   fetchRecordingsMock.mockReset();
@@ -468,5 +489,76 @@ describe('HistoryScreen (Plan 06-09)', () => {
     const fallbacks = baseElement.querySelectorAll('[aria-label="history-row-thumb-fallback"]');
     expect(imgs.length).toBe(1);
     expect(fallbacks.length).toBe(1);
+  });
+
+  it('renders a device-queue row seeded in the store, with NO local subscription (Bug 7)', async () => {
+    // Bug 7 — the upload was enqueued into the store (by the boot installer)
+    // while History was unmounted/frozen. History reads `uploadQueue` from the
+    // store on mount and synthesizes the in-flight row immediately — there is
+    // no `onUploadQueueChanged` subscription on this screen anymore, so this is
+    // the "enqueue while unmounted → focus → row present" guarantee.
+    mockState.historyRange = 'all';
+    mockState.jwt = 'jwt-token'; // decodes to 'sub-alice' via the jwtSub mock
+    mockState.uploadQueue = [
+      {
+        recordingId: 'dev-rec-1',
+        ownerUserId: 'sub-alice',
+        mp4Path: '/data/dev-rec-1.mp4',
+        csvPath: '/data/dev-rec-1.csv',
+        jsonPath: '/data/dev-rec-1.json',
+        taskId: 'task-1',
+        isPractice: false,
+        state: 'uploading',
+        videoParts: [],
+        imuParts: [],
+        metadataPut: 'pending',
+        enqueuedAt: 1_717_000_000_000,
+        lastProgressAt: 1_717_000_000_000,
+      },
+    ];
+    // No server rows — the only row is the synthesized device-queue row.
+    fetchRecordingsMock.mockResolvedValue({ items: [], next_cursor: null });
+    fetchTasksMock.mockResolvedValue({
+      items: [{ id: 'task-1', name: 'Make tea' }],
+      nextCursor: null,
+    });
+    groupByDayMock.mockImplementation(
+      <T,>(rows: T[]): Array<{ title: string; data: T[] }> =>
+        rows.length ? [{ title: 'Today', data: rows }] : [],
+    );
+    const { findByLabelText } = render(<HistoryScreen />);
+    expect(await findByLabelText('history-row')).toBeTruthy();
+  });
+
+  it("does NOT render another user's device-queue row (UP-13 owner-pin)", async () => {
+    mockState.historyRange = 'all';
+    mockState.jwt = 'jwt-token'; // 'sub-alice'
+    mockState.uploadQueue = [
+      {
+        recordingId: 'dev-rec-bob',
+        ownerUserId: 'sub-bob', // different owner
+        mp4Path: '/data/dev-rec-bob.mp4',
+        csvPath: '/data/dev-rec-bob.csv',
+        jsonPath: '/data/dev-rec-bob.json',
+        taskId: 'task-1',
+        isPractice: false,
+        state: 'uploading',
+        videoParts: [],
+        imuParts: [],
+        metadataPut: 'pending',
+        enqueuedAt: 1_717_000_000_000,
+        lastProgressAt: 1_717_000_000_000,
+      },
+    ];
+    mockState.historyRange = 'all';
+    fetchRecordingsMock.mockResolvedValue({ items: [], next_cursor: null });
+    groupByDayMock.mockImplementation(
+      <T,>(rows: T[]): Array<{ title: string; data: T[] }> =>
+        rows.length ? [{ title: 'Today', data: rows }] : [],
+    );
+    const { findByLabelText, queryByLabelText } = render(<HistoryScreen />);
+    // Empty state renders (the bob row is filtered out → no rows at all).
+    await findByLabelText('history-empty');
+    expect(queryByLabelText('history-row')).toBeNull();
   });
 });

@@ -33,8 +33,8 @@ import java.io.File
  *       require a shadow assertion the Robolectric API doesn't expose
  *       cleanly).
  *
- * `application = Application::class` matches `HashStreamerTest` — bypasses
- * `MainApplication.onCreate`'s SoLoader.init NPE under Robolectric.
+ * `application = Application::class` matches `MetadataSchemaConformanceTest` —
+ * bypasses `MainApplication.onCreate`'s SoLoader.init NPE under Robolectric.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33], application = Application::class)

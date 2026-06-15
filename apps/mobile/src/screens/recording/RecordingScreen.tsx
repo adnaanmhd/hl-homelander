@@ -25,9 +25,10 @@
  *   - HAND-11 RemoteConfig gate reads (readGateConfig); HAND-14 analytics
  *   - REC-01 Orientation.lockToLandscape() on mount / unlockAllOrientations() on
  *     unmount; REC-08 HumynScreenBrightness.set(-1) on stop AND unmount
- *   - the §7h post-stop routing (practice → PracticeComplete; real ≥60s → toast
- *     "{Hh Mm} added to your contribution." + Home; real <60s → toast +
- *     RESET_FOR_FRESH); REC-05 re-press starts fresh; REC-16 start guards
+ *   - the §7h post-stop routing (practice → PracticeComplete; real ≥3min → toast
+ *     "{Hh Mm} added to your contribution." + Home; real <3min → toast +
+ *     RESET_FOR_FRESH — Bug 8 + Enh 1 / D6 raised the floor 60s → 180s);
+ *     REC-05 re-press starts fresh; REC-16 start guards
  *   - `useRecordingLifecycle` mount (plan 04-08) with onStop/showToast/voiceCue/setAlert
  *
  * `__test_initialState`: a render-only escape hatch — the visual baselines + the
@@ -71,6 +72,8 @@ import { useLivePreviewStateMachine } from '../../lib/livePreviewState';
 import { pickAndSetLocaleVoice, speakCue } from '../../lib/ttsVoice';
 import { formatContributionDuration } from '../../lib/durationFormat';
 import { buildCaptureOpts } from '../../lib/buildCaptureOpts';
+import { resolveLocationFix } from '../../native/HumynLocation';
+import type { Location } from '@humyn/shared-types';
 import { readGateConfig, GATE_DEFAULTS, type GateConfig } from '../../lib/remoteConfigGate';
 import { getFlavorContext } from '../../native/AppFlavor';
 import { useAppStore } from '../../state/appStore';
@@ -259,6 +262,10 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
   // --- compat dfov + app version (read once at mount) -----------------------
   const dfovMeasuredDeg = useRef<number | null>(null);
   const appVersionRef = useRef<string>('1.0.0');
+  // Bug 3 / D3 — the precise GPS fix for the in-flight session, resolved at
+  // gate-pass (HumynLocation) and embedded into metadata.json by start(). Null
+  // until resolved / when the fix is unavailable.
+  const locationFixRef = useRef<Location | null>(null);
   // pickAndSetLocaleVoice + Orientation lock + cacheDir sweep — once on mount.
   // Plan 07-06 (I18N-06 / D-31): the recording-cue voice now resolves against
   // the user's active locale (read here from i18n.language at mount). For the
@@ -270,6 +277,19 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
   useEffect(() => {
     dfovMeasuredDeg.current = readCompatUltrawideDfovDeg();
     appVersionRef.current = readAppVersion();
+    // Bug 3 / D3 — resolve the precise GPS fix EARLY (at mount) so it's ready by
+    // the time the user clears the hand gate and presses Start, WITHOUT adding
+    // latency to start(). Best-effort: resolveLocationFix never throws and
+    // resolves null when unavailable. Skipped for practice (never uploads).
+    // Location permission was granted upstream in onboarding (PermissionsScreen,
+    // D4) before this screen is reachable.
+    if (!isPractice) {
+      resolveLocationFix()
+        .then((fix) => {
+          locationFixRef.current = fix;
+        })
+        .catch(() => undefined);
+    }
     pickAndSetLocaleVoice(i18n.language).catch(() => undefined);
     Orientation.lockToLandscape();
     // Sweep stragglers from a crashed previous gate session (Security V8/V12 —
@@ -367,7 +387,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
       const practice = stateRef.current.isPractice;
       // D-05 — a device-distress stop (battery ≤5% / thermal abort) routes the
       // user to Home (or PracticeComplete mid-practice — see below) instead of
-      // back to the on-screen 'ready'/'rotate-prompt' reset; a NORMAL sub-60s
+      // back to the on-screen 'ready'/'rotate-prompt' reset; a NORMAL sub-3min
       // manual discard keeps its current RESET_FOR_FRESH behaviour.
       const isDeviceDistress = _reason === 'battery_critical' || _reason === 'thermal';
       // End the reducer state first so the chrome stops the timer immediately.
@@ -375,7 +395,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
       // IN-09 — capture the stop() rejection rather than swallowing it. A
       // 'no_active_session' reject is harmless (the gate→record handoff hasn't
       // brought up a session yet); a real reject means the segment may not have
-      // finalized — we log it and, on the real-recording ≥60s path, surface a
+      // finalized — we log it and, on the real-recording ≥3min path, surface a
       // "finalizing failed" toast instead of claiming a clean save.
       const stopErr = await HumynCapture.stop()
         .then(() => null)
@@ -400,11 +420,11 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         /* no HumynUpload native module — nothing to pause/resume */
       }
       await HumynScreenBrightness.set(-1).catch(() => undefined);
-      // The two navigate-away paths (practice → PracticeComplete, real ≥60s →
+      // The two navigate-away paths (practice → PracticeComplete, real ≥3min →
       // Home) must unlock orientation HERE, synchronously, before navigating —
       // relying on the screen's unmount cleanup left the next screen stuck in
       // landscape after a recording auto-stop (smoke walk, debug session
-      // handgate-never-passes). The real-<60s path is the exception: it stays
+      // handgate-never-passes). The real-<3min path is the exception: it stays
       // on this screen and goes back to 'rotate-prompt' (RESET_FOR_FRESH), so
       // it must STAY landscape-locked (readable rotate-prompt; no 2nd take in
       // portrait) — that branch deliberately does NOT unlock.
@@ -419,11 +439,15 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         navigateToPracticeComplete(navigation);
         return;
       }
-      if (durationMs >= 60_000) {
-        // ≥60s real recording — the segment IS saved (HumynCapture finalized it),
-        // so even a device-distress stop here keeps the "added to your contribution"
-        // toast and navigates Home (this branch already did that — D-05 leaves it).
-        // The segment was auto-enqueued by the onSegmentComplete hook above.
+      if (durationMs >= 180_000) {
+        // Bug 8 + Enh 1 / D6 (2026-06-04): threshold 60_000 → 180_000 (3-min
+        // floor). ≥3min real recording — the segment IS saved (HumynCapture
+        // finalized it AND the native FinalizeWorker TooShort gate passed it),
+        // so even a device-distress stop here keeps the "added to your
+        // contribution" toast and navigates Home (this branch already did that
+        // — D-05 leaves it). The segment was auto-enqueued by the
+        // onSegmentComplete hook above. NOTE: the native gate is the real
+        // upload guard; this client check only routes the post-stop UX.
         Orientation.unlockAllOrientations();
         logEvent('recording_stopped', { ...(isDeviceDistress ? { reason: _reason } : {}) });
         speakCue(t('recording.cue.stopped'));
@@ -453,7 +477,7 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         }
         return;
       }
-      // Real recording under 1 minute.
+      // Real recording under 3 minutes (Bug 8 + Enh 1 / D6).
       if (isDeviceDistress) {
         // D-05 — battery ≤5% / thermal abort: don't drop the user back on the
         // 'ready' substate one tap from another (doomed) recording; finalize+discard
@@ -465,8 +489,9 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
         navigateToHome(navigation);
         return;
       }
-      // Normal sub-60s manual discard — the screen shows the toast then returns to
-      // the landscape gate for a fresh attempt (REC-05); it STAYS landscape-locked.
+      // Normal sub-3min manual discard (Bug 8 + Enh 1 / D6) — the screen shows
+      // the "too short — discarded" toast then returns to the landscape gate for
+      // a fresh attempt (REC-05); it STAYS landscape-locked.
       logEvent('recording_too_short');
       showToast(t('recording.toasts.tooShort'));
       handlingStopRef.current = false;
@@ -715,6 +740,9 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
             gender: null,
             consentPresent: u.consent != null,
           },
+          // Bug 3 / D3 — the precise GPS fix captured for THIS session (resolved
+          // at gate-pass via HumynLocation; null when the fix was unavailable).
+          location: locationFixRef.current,
           appVersion: appVersionRef.current,
         });
         const r = await HumynCapture.start(opts);
@@ -783,14 +811,23 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
     });
     const completeSub = HumynCapture.onSegmentComplete((e) => {
       segMetaRef.current = { ...segMetaRef.current, recordingId: e.recordingId };
-      if (isPractice || taskId === '__practice__') return; // D-08 — practice never uploads
+      // Bug 9 (260604) — bind the upload's task to the SEGMENT, not the render
+      // closure. `e.taskId` is copied from the sidecar at capture-start, so a
+      // late segment-complete (e.g. the final auto-segment finalizing after the
+      // user re-entered the Recording route for a different task) enqueues under
+      // the task it was actually recorded under. Fall back to the closure only
+      // for older native builds that omit the field (empty string).
+      const segmentTaskId = e.taskId || taskId;
+      // D-08 — practice never uploads (guard on the screen mode AND the
+      // segment's own task, so a stray practice segment can't slip through).
+      if (isPractice || segmentTaskId === '__practice__') return;
       try {
         void HumynUpload.enqueue(
           e.recordingId,
           e.mp4Path,
           e.csvPath,
           e.jsonPath,
-          taskId,
+          segmentTaskId,
           /* isPractice= */ false,
           ownerSubRef.current,
         ).catch(() => undefined);
@@ -974,8 +1011,21 @@ export default function RecordingScreen({ __test_initialState }: RecordingScreen
           / onRemoveTarget swap code stays as defense for any edge case where
           the view does remount, but on the common path it now fires exactly
           once. */}
-      {state.substate === 'active' && isLivePreviewAvailable() ? (
+      {/* Bug 2 fix (260604): keep the preview mounted through 'stop-confirm'
+          too. Pressing (x) → 'stop-confirm' (recording is STILL running); the
+          StopConfirmModal renders on top. Previously this gate unmounted the
+          preview on entering 'stop-confirm', so "Keep recording"
+          (STOP_CONFIRM_CANCEL → 'active') remounted a FRESH SurfaceTexture that
+          failed to re-attach to the live Camera2 session ("Surface was
+          abandoned") → black preview. Spanning both substates keeps the one
+          SurfaceTexture attached for the whole recording. Mirrors the Stop-row
+          gate below (`active || stop-confirm`). The modal scrim hides the
+          preview during the confirm, so opacity/brightness behaviour is
+          unchanged. */}
+      {(state.substate === 'active' || state.substate === 'stop-confirm') &&
+      isLivePreviewAvailable() ? (
         <HumynLivePreviewView
+          accessibilityLabel="recording-live-preview"
           style={{
             ...StyleSheet.absoluteFillObject,
             opacity: brightnessState === 'dimmed' ? 0 : 1,

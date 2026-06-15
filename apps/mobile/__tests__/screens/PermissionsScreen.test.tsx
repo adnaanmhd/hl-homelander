@@ -1,17 +1,21 @@
-// PermissionsScreen unit tests — design-spec §3a (Camera & Mic) + §4.1.1
-// (Denied recovery state). Phase 2 plan 02-10, Task 2.
+// PermissionsScreen unit tests — design-spec §3a (Camera, Mic & Location) +
+// §4.1.1 (Denied recovery state). Phase 2 plan 02-10, Task 2; Bug 3 / D4
+// (2026-06-04) added precise Location as a third gated permission.
 //
 // Behaviour matrix:
 //   1. Initial mount renders title / body / "Allow access" button verbatim.
-//   2. Happy path → request CAMERA then RECORD_AUDIO sequentially; both
-//      granted → setPermsGranted persisted + navigation.replace('Compat').
-//   3. Camera denied → 'denied' state with §4.1.1 recovery copy + "Open
+//   2. Happy path → request CAMERA → RECORD_AUDIO → ACCESS_FINE_LOCATION
+//      sequentially; all granted → setPermsGranted persisted +
+//      navigation.replace('Compat'). 2b: a COARSE-only "Approximate" grant
+//      still satisfies the gate (D3).
+//   3. All denied → 'denied' state with §4.1.1 recovery copy + "Open
 //      Settings" CTA that calls openSettings().
-//   4. Camera granted but mic denied → 'partial' state — copy specifies the
-//      missing permission ("Microphone").
+//   4. Partial grants → 'partial' state naming the first missing permission
+//      ("Microphone" / "Location").
 //   5. BLOCKED is treated identically to DENIED (Open Settings is the only
 //      recovery path).
-//   6. Analytics: granted path fires *_granted events; denial fires *_denied.
+//   6. Analytics: granted path fires *_granted events; denial fires *_denied
+//      (camera / mic / location).
 //
 // The screen is the *only* call site of `request(PERMISSIONS.ANDROID.CAMERA)`
 // + `request(PERMISSIONS.ANDROID.RECORD_AUDIO)` in the Phase 2 codebase, so
@@ -99,7 +103,7 @@ describe('PermissionsScreen', () => {
     // matcher normalizes whitespace, so query by aria-label and assert on
     // raw textContent to preserve the embedded \n.
     const titleNode = getByLabelText('permissions title');
-    expect(titleNode.textContent).toBe('Camera & Mic\nPermissions');
+    expect(titleNode.textContent).toBe('Camera, Mic\n& Location');
 
     const bodyNode = getByLabelText('permissions body');
     // Plan 03-11 (A1) — body tightened to a single runtime-tooltip line.
@@ -109,8 +113,12 @@ describe('PermissionsScreen', () => {
     expect(getByLabelText('Allow access')).toBeTruthy();
   });
 
-  it('Test 2: happy path — Camera + Mic granted sequentially → setPermsGranted + navigation.replace(Compat)', async () => {
-    requestMock.mockResolvedValueOnce(RESULTS.GRANTED).mockResolvedValueOnce(RESULTS.GRANTED);
+  it('Test 2: happy path — Camera + Mic + Location granted sequentially → setPermsGranted + navigation.replace(Compat)', async () => {
+    // Bug 3 / D4 — Location joined the gate. Three sequential GRANTED requests.
+    requestMock
+      .mockResolvedValueOnce(RESULTS.GRANTED)
+      .mockResolvedValueOnce(RESULTS.GRANTED)
+      .mockResolvedValueOnce(RESULTS.GRANTED);
 
     const { getByLabelText } = render(<PermissionsScreen />);
     fireEvent.click(getByLabelText('Allow access'));
@@ -119,37 +127,71 @@ describe('PermissionsScreen', () => {
       expect(mockReplace).toHaveBeenCalledWith('Compat');
     });
 
-    // Sequential ordering: CAMERA before RECORD_AUDIO (the OS prompt is
-    // modal — they can't be requested concurrently).
-    expect(requestMock).toHaveBeenCalledTimes(2);
+    // Sequential ordering: CAMERA → RECORD_AUDIO → ACCESS_FINE_LOCATION (the OS
+    // prompt is modal — they can't be requested concurrently). FINE granted, so
+    // the COARSE-fallback check is never reached.
+    expect(requestMock).toHaveBeenCalledTimes(3);
     expect(requestMock).toHaveBeenNthCalledWith(1, PERMISSIONS.ANDROID.CAMERA);
     expect(requestMock).toHaveBeenNthCalledWith(2, PERMISSIONS.ANDROID.RECORD_AUDIO);
+    expect(requestMock).toHaveBeenNthCalledWith(3, PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
 
-    // Persisted via setPermsGranted with both flags true + grantedAt ISO string.
+    // Persisted via setPermsGranted with all three flags true + grantedAt ISO.
     expect(mockSetPermsGranted).toHaveBeenCalledTimes(1);
     const arg = mockSetPermsGranted.mock.calls[0]?.[0] as {
       camera: boolean;
       mic: boolean;
+      location: boolean;
       grantedAt: string;
     };
     expect(arg.camera).toBe(true);
     expect(arg.mic).toBe(true);
+    expect(arg.location).toBe(true);
     expect(typeof arg.grantedAt).toBe('string');
     // ISO 8601 round-trip
     expect(Number.isNaN(Date.parse(arg.grantedAt))).toBe(false);
   });
 
-  it('Test 3: camera denied → §4.1.1 recovery copy + "Open Settings" CTA fires openSettings()', async () => {
-    requestMock.mockResolvedValueOnce(RESULTS.DENIED).mockResolvedValueOnce(RESULTS.DENIED);
+  it('Test 2b: Location "Approximate" (FINE denied, COARSE granted) still satisfies the gate (Bug 3 / D3)', async () => {
+    // Android 12+ partial grant: request(FINE) → DENIED, but a follow-up
+    // check(COARSE) → GRANTED. Per D3 the coarser fix still records, so the gate
+    // passes and location is persisted true.
+    requestMock
+      .mockResolvedValueOnce(RESULTS.GRANTED) // camera
+      .mockResolvedValueOnce(RESULTS.GRANTED) // mic
+      .mockResolvedValueOnce(RESULTS.DENIED); // FINE location denied
+    // check(COARSE) → GRANTED, everything else DENIED. This keeps the mount
+    // checkAndAdvance from auto-advancing (camera+mic still read DENIED there)
+    // while the click handler's COARSE fallback reads GRANTED.
+    checkMock.mockImplementation(async (perm) =>
+      perm === PERMISSIONS.ANDROID.ACCESS_COARSE_LOCATION ? RESULTS.GRANTED : RESULTS.DENIED,
+    );
+
+    const { getByLabelText } = render(<PermissionsScreen />);
+    fireEvent.click(getByLabelText('Allow access'));
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('Compat'));
+    const arg = mockSetPermsGranted.mock.calls[0]?.[0] as { location: boolean };
+    expect(arg.location).toBe(true);
+  });
+
+  it('Test 3: all denied → §4.1.1 recovery copy + "Open Settings" CTA fires openSettings()', async () => {
+    // Camera + Mic + Location all denied (the COARSE fallback also reads the
+    // DENIED default), so the screen lands on the full-denial recovery copy.
+    requestMock
+      .mockResolvedValueOnce(RESULTS.DENIED)
+      .mockResolvedValueOnce(RESULTS.DENIED)
+      .mockResolvedValueOnce(RESULTS.DENIED);
 
     const { getByLabelText, findByLabelText } = render(<PermissionsScreen />);
     fireEvent.click(getByLabelText('Allow access'));
 
-    // After both denied results, the screen transitions to denied recovery
-    // state — verify the body says Camera & Mic are required (verbatim from
-    // §4.1.1), CTA is "Open Settings", and navigation.replace was NOT called.
+    // After all denied results, the screen transitions to denied recovery
+    // state — verify the body names all three (verbatim from §4.1.1), CTA is
+    // "Open Settings", and navigation.replace was NOT called.
     const bodyNode = await findByLabelText('permissions body');
-    expect(bodyNode.textContent).toBe('Camera & Mic are required. Open Settings to enable.');
+    expect(bodyNode.textContent).toBe(
+      'Camera, Mic & Location are required. Open Settings to enable.',
+    );
 
     const settingsBtn = getByLabelText('Open Settings');
     expect(settingsBtn).toBeTruthy();
@@ -163,38 +205,69 @@ describe('PermissionsScreen', () => {
     });
   });
 
-  it('Test 4: camera granted, mic denied → partial state names "Microphone" as the missing perm', async () => {
-    requestMock.mockResolvedValueOnce(RESULTS.GRANTED).mockResolvedValueOnce(RESULTS.DENIED);
+  it('Test 4: camera + location granted, mic denied → partial state names "Microphone"', async () => {
+    // camera GRANTED, mic DENIED, location(FINE) GRANTED → partial; the first
+    // still-missing permission (camera → mic → location) is the Microphone.
+    requestMock
+      .mockResolvedValueOnce(RESULTS.GRANTED)
+      .mockResolvedValueOnce(RESULTS.DENIED)
+      .mockResolvedValueOnce(RESULTS.GRANTED);
 
     const { getByLabelText, findByLabelText } = render(<PermissionsScreen />);
     fireEvent.click(getByLabelText('Allow access'));
 
     const bodyNode = await findByLabelText('permissions body');
     // Partial state copy MUST name the missing permission so the user knows
-    // which Settings toggle to flip. With camera granted + mic denied, the
-    // missing one is the Microphone.
+    // which Settings toggle to flip. With camera+location granted + mic denied,
+    // the missing one is the Microphone.
     expect(bodyNode.textContent).toContain('Microphone');
     expect(getByLabelText('Open Settings')).toBeTruthy();
     expect(mockReplace).not.toHaveBeenCalled();
     expect(mockSetPermsGranted).not.toHaveBeenCalled();
   });
 
-  it('Test 5: BLOCKED is treated as denied — Open Settings is the only recovery', async () => {
-    requestMock.mockResolvedValueOnce(RESULTS.BLOCKED).mockResolvedValueOnce(RESULTS.BLOCKED);
+  it('Test 4b: camera + mic granted, location denied → partial state names "Location" (Bug 3 / D4)', async () => {
+    // camera GRANTED, mic GRANTED, location(FINE) DENIED, COARSE fallback DENIED
+    // (default) → partial; the first still-missing permission is Location.
+    requestMock
+      .mockResolvedValueOnce(RESULTS.GRANTED)
+      .mockResolvedValueOnce(RESULTS.GRANTED)
+      .mockResolvedValueOnce(RESULTS.DENIED);
 
     const { getByLabelText, findByLabelText } = render(<PermissionsScreen />);
     fireEvent.click(getByLabelText('Allow access'));
 
-    // BLOCKED on both should land on the same denied-recovery copy as DENIED.
     const bodyNode = await findByLabelText('permissions body');
-    expect(bodyNode.textContent).toBe('Camera & Mic are required. Open Settings to enable.');
+    expect(bodyNode.textContent).toContain('Location');
+    expect(getByLabelText('Open Settings')).toBeTruthy();
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockSetPermsGranted).not.toHaveBeenCalled();
+  });
+
+  it('Test 5: BLOCKED is treated as denied — Open Settings is the only recovery', async () => {
+    requestMock
+      .mockResolvedValueOnce(RESULTS.BLOCKED)
+      .mockResolvedValueOnce(RESULTS.BLOCKED)
+      .mockResolvedValueOnce(RESULTS.BLOCKED);
+
+    const { getByLabelText, findByLabelText } = render(<PermissionsScreen />);
+    fireEvent.click(getByLabelText('Allow access'));
+
+    // BLOCKED on all three should land on the same full-denial recovery copy.
+    const bodyNode = await findByLabelText('permissions body');
+    expect(bodyNode.textContent).toBe(
+      'Camera, Mic & Location are required. Open Settings to enable.',
+    );
     expect(getByLabelText('Open Settings')).toBeTruthy();
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it('Test 6: analytics — granted path fires *_granted events; denial fires *_denied', async () => {
-    // First: full grant → both granted events
-    requestMock.mockResolvedValueOnce(RESULTS.GRANTED).mockResolvedValueOnce(RESULTS.GRANTED);
+    // First: full grant → all three granted events (incl. location)
+    requestMock
+      .mockResolvedValueOnce(RESULTS.GRANTED)
+      .mockResolvedValueOnce(RESULTS.GRANTED)
+      .mockResolvedValueOnce(RESULTS.GRANTED);
 
     const { getByLabelText, unmount } = render(<PermissionsScreen />);
     fireEvent.click(getByLabelText('Allow access'));
@@ -205,31 +278,37 @@ describe('PermissionsScreen', () => {
     expect(eventNames).toContain('permission_camera_granted');
     expect(eventNames).toContain('permission_mic_requested');
     expect(eventNames).toContain('permission_mic_granted');
+    expect(eventNames).toContain('permission_location_requested');
+    expect(eventNames).toContain('permission_location_granted');
     expect(eventNames).not.toContain('permission_camera_denied');
     expect(eventNames).not.toContain('permission_mic_denied');
+    expect(eventNames).not.toContain('permission_location_denied');
 
-    // Reset and re-mount: full denial → both denied events.
+    // Reset and re-mount: full denial → all three denied events.
     unmount();
     mockLogEvent.mockReset();
     requestMock
       .mockReset()
       .mockResolvedValueOnce(RESULTS.DENIED)
-      .mockResolvedValueOnce(RESULTS.BLOCKED);
+      .mockResolvedValueOnce(RESULTS.BLOCKED)
+      .mockResolvedValueOnce(RESULTS.DENIED);
 
     const { getByLabelText: getByLabelText2 } = render(<PermissionsScreen />);
     fireEvent.click(getByLabelText2('Allow access'));
     await waitFor(() => expect(mockLogEvent).toHaveBeenCalled());
-    // Allow the second await (mic) to resolve.
+    // Allow the third await (location) to resolve.
     await waitFor(() => {
       const names = mockLogEvent.mock.calls.map((c) => c[0]);
-      expect(names).toContain('permission_mic_denied');
+      expect(names).toContain('permission_location_denied');
     });
 
     const denyEventNames = mockLogEvent.mock.calls.map((c) => c[0]);
     expect(denyEventNames).toContain('permission_camera_denied');
     expect(denyEventNames).toContain('permission_mic_denied');
+    expect(denyEventNames).toContain('permission_location_denied');
     expect(denyEventNames).not.toContain('permission_camera_granted');
     expect(denyEventNames).not.toContain('permission_mic_granted');
+    expect(denyEventNames).not.toContain('permission_location_granted');
   });
 
   // quick-260510-007 — Settings round-trip re-check.
@@ -263,9 +342,12 @@ describe('PermissionsScreen', () => {
       return { remove: () => undefined };
     }) as unknown as typeof AppState.addEventListener);
 
-    // Step 1: user lands on screen, taps Allow, denies both → 'denied' state.
-    requestMock.mockResolvedValueOnce(RESULTS.DENIED).mockResolvedValueOnce(RESULTS.DENIED);
-    // First check (mount) returns DENIED for both — user really hasn't
+    // Step 1: user lands on screen, taps Allow, denies all three → 'denied'.
+    requestMock
+      .mockResolvedValueOnce(RESULTS.DENIED)
+      .mockResolvedValueOnce(RESULTS.DENIED)
+      .mockResolvedValueOnce(RESULTS.DENIED);
+    // First check (mount) returns DENIED for all — user really hasn't
     // granted yet, so no auto-advance, screen stays mounted.
     const { getByLabelText, findByLabelText } = render(<PermissionsScreen />);
     fireEvent.click(getByLabelText('Allow access'));

@@ -14,6 +14,12 @@ export const AuthGoogleRequestSchema = z.object({
   flavor: FlavorSchema,
   applicationId: z.string().min(1),
   nonceId: z.string().length(26),
+  // Bug 4 / D2 (2026-06-04) — the stable per-install id (UUID v4 from the
+  // client's getInstallationId()). Binds the account to the most-recent device:
+  // the server writes it onto users.current_installation_id on each sign-in and
+  // requireAuth 401s a prior device whose JWT installationId no longer matches
+  // (newest-login-wins). Overrides LOCKED D-AUTH-03 (stateless, no denylist).
+  installationId: z.string().min(1).max(128),
 });
 export type AuthGoogleRequest = z.infer<typeof AuthGoogleRequestSchema>;
 
@@ -27,6 +33,11 @@ export const AuthGoogleResponseSchema = z.object({
     flavor: FlavorSchema,
     applicationId: z.string(),
     consentVersion: z.string(),
+    // Bug 5 / D7 (2026-06-04) — practice-tutorial completion timestamp (or null).
+    // Returned at sign-in so the client deterministically seeds its local ONB-08
+    // flag (no extra /me round-trip) and a returning user on a fresh install /
+    // new device skips the tutorial on FIRST launch (CompatPass → MainTabs).
+    practiceCompletedAt: z.string().datetime().nullable(),
   }),
 });
 export type AuthGoogleResponse = z.infer<typeof AuthGoogleResponseSchema>;

@@ -352,8 +352,8 @@ Per-check duration: 700 ms. Total ~4.9 s. Each transition updates ring stroke (`
                           │
 stopped (decide branch):
   - practice → practice-done screen
-  - real && duration < 60s → toast "Recording too short — discarded.", reset to ready
-  - real && duration ≥ 60s → toast "{Hh Mm} added", commit upload, return to home
+  - real && duration < 180s (3 min — floor raised from 60s on 2026-06-04, Bug 8 + Enh 1 / D6) → toast "Recording too short — discarded.", reset to ready
+  - real && duration ≥ 180s (3 min) → toast "{Hh Mm} added", commit upload, return to home
 ```
 
 State data:
@@ -669,7 +669,7 @@ Errors return RFC 7807 `application/problem+json`. Idempotency: `Idempotency-Key
 | Send Request — Sample video | optional, ≤ 30 s, ≤ 50 MB, MIME `video/*`                                                                                                                                                                                                                                                                                                                                                  |
 | Custom date range           | both required, `from ≤ to ≤ today`; max range 365 days                                                                                                                                                                                                                                                                                                                                     |
 | Profile age                 | optional, 18 ≤ age ≤ 99 (consent stipulates 18+)                                                                                                                                                                                                                                                                                                                                           |
-| Recording (real)            | discarded if duration < 60 s                                                                                                                                                                                                                                                                                                                                                               |
+| Recording (real)            | discarded if duration < 3 min (180 s) — raised from 60 s on 2026-06-04 (Bug 8 + Enh 1 / D6)                                                                                                                                                                                                                                                                                                |
 | Practice recording          | auto-stop at 60 s; not counted in contribution                                                                                                                                                                                                                                                                                                                                             |
 | `Task.instructions`         | required, 1 ≤ length ≤ 3. All bullets must be task-specific — reject any row where a bullet matches one of the four universal-rule strings (case-insensitive substring match on "hands in frame", "mount the device", "well-lit", "close all other apps") since those rules are owned by the `UniversalRules.Block`, not by per-task copy. Reject at seed time if either constraint fails. |
 
@@ -808,7 +808,7 @@ Battery: 20-min recording session should not drain > 8 %; if it does, raise the 
 
 - Recordings encrypted at rest (AES-256-GCM) and in transit (TLS 1.3).
 - Token stored in Keychain / Keystore; never in JS-accessible storage on web.
-- Only "approximate location" (≥ neighbourhood — coarse) attached to recordings; no precise lat/lng leaves device.
+- **Precise location (GPS coordinates) attached to recordings** (Bug 3 / D3, 2026-06-04 — overrides the formerly coarse-only rule; consent text updated + consent version bumped). A partial COARSE grant still records a coarser fix; only a full denial blocks.
 - Consent timestamps logged server-side with version of terms text accepted.
 - Account delete: 30-day soft delete window; after window, hard delete user record + recording metadata. Recordings already used for training stay (clearly disclosed in terms).
 - Player URLs are signed and expire (recommend 5 minutes); no download path; HTML inline footer "View only — not downloadable" must be enforced server-side too.

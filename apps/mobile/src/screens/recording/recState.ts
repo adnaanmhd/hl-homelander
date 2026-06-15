@@ -315,7 +315,7 @@ export function recReducer(state: RecState, action: RecAction): RecState {
     //      landscape gate — otherwise stopping a take, rotating to portrait,
     //      and tapping record again starts a portrait recording (debug session
     //      handgate-never-passes). The screen also keeps the landscape lock
-    //      across this transition (handleStop no longer unlocks on the <60s
+    //      across this transition (handleStop no longer unlocks on the <3min
     //      path — only the unmount cleanup / pre-record goBack unlocks).
     case 'RESET_FOR_FRESH':
       if (state.substate !== 'stopped') return state;

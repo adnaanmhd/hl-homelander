@@ -14,6 +14,10 @@
 //     visible at the `start(opts)` call site.
 
 import { z } from 'zod';
+// Bug 3 / D3 (2026-06-04) — the precise-GPS block shared with the
+// /recordings/init wire shape (single source of truth for the lat/lng/
+// accuracy_m/provider/captured_at/label object the Kotlin bridge parses).
+import { LocationSchema } from './recording.js';
 
 export const CaptureSessionOptsSchema = z.object({
   taskId: z.string().min(1),
@@ -41,7 +45,11 @@ export const CaptureSessionOptsSchema = z.object({
     consecutiveHitsRequired: z.number().int().positive(),
     platformCadenceMs: z.number().int().positive(),
   }),
-  location: z.string().nullable(), // coarse, JS pre-resolves
+  // Bug 3 / D3 (2026-06-04): was `z.string().nullable()` (coarse label). Now the
+  // precise GPS object resolved by the HumynLocation native module before
+  // start(); null when the fix was unavailable. The Kotlin bridge re-validates
+  // this exact shape (CaptureSessionOptsBridge.parseLocation).
+  location: LocationSchema.nullable(),
   // Semver shape — `MAJOR.MINOR.PATCH` with optional pre-release/build
   // suffix. Matches the BuildConfig.VERSION_NAME values produced by the
   // Phase 1 versioning script (plan 01-10) — playStore values are bare

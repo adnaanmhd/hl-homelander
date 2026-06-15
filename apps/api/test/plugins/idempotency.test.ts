@@ -17,6 +17,7 @@ function tok(): string {
       applicationId: 'ai.humynlabs.capture.apk',
       integrity_verdict: 'bypassed_apk',
       token_version: 1,
+      installationId: 'inst-test',
     },
     process.env.JWT_SIGNING_SECRET!,
     { algorithm: 'HS256', expiresIn: '24h' },
@@ -29,11 +30,26 @@ beforeAll(async () => {
   app.post('/_test/echo-authed', { preHandler: [app.requireAuth] }, async (req, reply) => {
     return reply.status(200).send({ echoed: (req.body as { value?: unknown })?.value ?? null });
   });
-  // Clean up any prior state
+  // Clean up any prior state, then seed the test user. Bug 4 / D2: requireAuth
+  // now resolves users.current_installation_id, so an authed route 401s unless a
+  // row exists whose binding matches the JWT's installationId.
   await db.delete(schema.idempotencyKeys).where(eq(schema.idempotencyKeys.userId, TEST_USER_ID));
+  await db.delete(schema.users).where(eq(schema.users.id, TEST_USER_ID));
+  await db.insert(schema.users).values({
+    id: TEST_USER_ID,
+    googleSub: 'g-idem-test',
+    email: 'idem@e.com',
+    name: 'Idem',
+    consentVersion: '1.0.0',
+    consentAcceptedAt: new Date(),
+    currentInstallationId: 'inst-test',
+    flavor: 'apkRollout',
+    applicationId: 'ai.humynlabs.capture.apk',
+  });
 });
 afterAll(async () => {
   await db.delete(schema.idempotencyKeys).where(eq(schema.idempotencyKeys.userId, TEST_USER_ID));
+  await db.delete(schema.users).where(eq(schema.users.id, TEST_USER_ID));
   await app.close();
 });
 

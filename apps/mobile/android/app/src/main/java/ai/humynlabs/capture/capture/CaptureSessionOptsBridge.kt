@@ -41,7 +41,10 @@ data class CaptureSessionOpts(
     val contributor: Contributor,
     val isPractice: Boolean,
     val startGate: StartGateOpts,
-    val location: String?,
+    // Bug 3 / D3 (2026-06-04): was `String?` (coarse label). Now the precise
+    // [LocationFix] resolved by the JS side (HumynLocation native module) before
+    // start(); null when the fix was unavailable.
+    val location: LocationFix?,
     val appVersion: String,
     val dfovDegrees: Double,
 )
@@ -126,7 +129,7 @@ object CaptureSessionOptsBridge {
             platformCadenceMs = platformCadenceMs,
         )
 
-        val location = if (map.isNull("location")) null else map.getString("location")
+        val location = if (map.isNull("location")) null else parseLocation(map)
         val appVersion = requireString(map, "appVersion").also {
             require(SEMVER.matches(it)) { "invalid_opts: appVersion" }
         }
@@ -152,4 +155,27 @@ object CaptureSessionOptsBridge {
 
     private fun requireNonEmpty(map: ReadableMap, key: String): String =
         requireString(map, key).also { require(it.isNotEmpty()) { "invalid_opts: $key" } }
+
+    /**
+     * Bug 3 / D3 — parse the precise `location` ReadableMap into a [LocationFix].
+     * Defense-in-depth: a malformed location block (wrong type / missing field)
+     * throws `invalid_opts: location` rather than corrupting the sidecar. The
+     * caller has already confirmed `!map.isNull("location")`.
+     */
+    private fun parseLocation(map: ReadableMap): LocationFix {
+        val loc = map.getMap("location")
+            ?: throw IllegalArgumentException("invalid_opts: location")
+        val provider = loc.getString("provider")
+        require(!provider.isNullOrEmpty()) { "invalid_opts: location.provider" }
+        val capturedAt = loc.getString("captured_at")
+        require(!capturedAt.isNullOrEmpty()) { "invalid_opts: location.captured_at" }
+        return LocationFix(
+            lat = loc.getDouble("lat"),
+            lng = loc.getDouble("lng"),
+            accuracyM = loc.getDouble("accuracy_m"),
+            provider = provider,
+            capturedAt = capturedAt,
+            label = if (loc.isNull("label")) null else loc.getString("label"),
+        )
+    }
 }

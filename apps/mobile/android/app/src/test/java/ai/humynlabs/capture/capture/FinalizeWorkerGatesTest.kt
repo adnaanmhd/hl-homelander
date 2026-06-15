@@ -156,6 +156,94 @@ class FinalizeWorkerGatesTest {
         assertEquals(720, r.height)
     }
 
+    // --- decideCancelReason — the 3-min minimum-duration floor (D6) ------
+    // Bug 8 + Enh 1 / D6 (2026-06-04): a NON-practice segment shorter than
+    // MIN_SEGMENT_MS (180_000 ms = 3 min) cancels with `too_short`. Practice
+    // segments are exempt. The duration is passed separately from the video
+    // timestamps (it's the elapsedRealtimeNanos delta), so all clips below
+    // use a healthy 30fps / 1080p frame snapshot and vary only durationMs +
+    // isPractice.
+
+    @Test
+    fun `Test H — non-practice segment under 3 min returns TooShort`() {
+        val ts = fpsTimestamps(meanFps = 30.0, count = 600)
+        val result = FinalizeWorker.decideCancelReason(
+            videoTimestampsNs = ts,
+            muxedWidth = 1920,
+            muxedHeight = 1080,
+            durationMs = 120_000.0,
+            isPractice = false,
+        )
+        assertEquals(CancelReason.TooShort, result)
+    }
+
+    @Test
+    fun `Test I — practice segment under 3 min is exempt (returns null)`() {
+        val ts = fpsTimestamps(meanFps = 30.0, count = 600)
+        val result = FinalizeWorker.decideCancelReason(
+            videoTimestampsNs = ts,
+            muxedWidth = 1920,
+            muxedHeight = 1080,
+            durationMs = 120_000.0,
+            isPractice = true,
+        )
+        assertNull(result)
+    }
+
+    @Test
+    fun `Test J — non-practice segment at exactly 3 min passes (boundary)`() {
+        // Gate is `durationMs < MIN_SEGMENT_MS`, so exactly-at-floor passes.
+        val ts = fpsTimestamps(meanFps = 30.0, count = 600)
+        val atFloor = FinalizeWorker.decideCancelReason(
+            ts, 1920, 1080, FinalizeWorker.MIN_SEGMENT_MS, false,
+        )
+        assertNull(atFloor)
+        // 4 min — comfortably over the floor — also passes.
+        val overFloor = FinalizeWorker.decideCancelReason(
+            ts, 1920, 1080, 240_000.0, false,
+        )
+        assertNull(overFloor)
+    }
+
+    @Test
+    fun `Test K — TooShort wins over fps and resolution failures`() {
+        // A short clip that ALSO has bad fps + bad resolution still reports
+        // too_short — the user-actionable "record ≥3 min" message — per the
+        // D6 gate ordering (TooShort runs before fps/res).
+        val ts = fpsTimestamps(meanFps = 20.0, count = 100)
+        val result = FinalizeWorker.decideCancelReason(
+            videoTimestampsNs = ts,
+            muxedWidth = 1280,
+            muxedHeight = 720,
+            durationMs = 60_000.0,
+            isPractice = false,
+        )
+        assertEquals(CancelReason.TooShort, result)
+    }
+
+    @Test
+    fun `Test L — insufficient frames wins over TooShort`() {
+        // N<2 short-circuits before the duration gate even on a short
+        // non-practice clip (the degenerate case must fire first).
+        val result = FinalizeWorker.decideCancelReason(
+            videoTimestampsNs = longArrayOf(1_000_000L),
+            muxedWidth = 1920,
+            muxedHeight = 1080,
+            durationMs = 1_000.0,
+            isPractice = false,
+        )
+        assertEquals(CancelReason.InsufficientFrames, result)
+    }
+
+    @Test
+    fun `Test M — default durationMs param does not trip the floor`() {
+        // The orthogonal fps/res/frame tests call decideCancelReason with no
+        // durationMs; the Double.MAX_VALUE default must pass the floor so
+        // those tests stay focused on their own gate.
+        val ts = fpsTimestamps(meanFps = 30.0, count = 30)
+        assertNull(FinalizeWorker.decideCancelReason(ts, 1920, 1080))
+    }
+
     // --- CancelReason.code stable bridge contract -----------------------
 
     @Test
@@ -166,6 +254,7 @@ class FinalizeWorkerGatesTest {
             "resolution_dropped",
             CancelReason.ResolutionDropped(0, 0).code,
         )
+        assertEquals("too_short", CancelReason.TooShort.code)
     }
 
     // --- readMuxedResolution — exercises the test seam ------------------
@@ -314,6 +403,93 @@ class EncoderProbeResolutionDeliverableShapeTest {
             resolutionDeliverable = true,
         )
         assertTrue(r.resolutionDeliverable)
+    }
+}
+
+/**
+ * Bug D6-1 (2026-06-05) — sub-3-min recordings behave CONSISTENTLY.
+ *
+ * Before this fix two duration floors gave different feedback:
+ *   - CaptureSession's `MIN_KEPT_DURATION_MS = 60_000` discarded a sub-60s SOLE
+ *     segment WITHOUT running FinalizeWorker → no `onSegmentCanceled` → no
+ *     "Canceled — recording too short" History row (toast only).
+ *   - FinalizeWorker's `MIN_SEGMENT_MS = 180_000` (D6) gate turned a
+ *     [60s, 180s) recording into a `too_short` cancel WITH a History row.
+ *
+ * The fix routes the sub-60s sole-segment discard through
+ * [CaptureSession.shouldEmitTooShortOnDiscard]: a NON-practice sub-60s sole
+ * segment now also emits `onSegmentCanceled(too_short)` (then deletes its
+ * artifacts), producing the same History row as the [60s, 180s) band. Practice
+ * segments stay exempt.
+ *
+ * The end-to-end `CaptureSession.stop()` path can't run under Robolectric (it
+ * needs a real Camera2 device / MediaCodec / muxer), so we exercise the pure
+ * decision predicate — the same function `stop()` calls. The emitted payload
+ * shape for [CancelReason.TooShort] (reason="too_short", null
+ * meanFps/width/height) is locked by `FinalizeWorkerGatesTest` above.
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33], application = Application::class)
+class CaptureSessionTooShortDiscardTest {
+
+    @Test
+    fun `non-practice sub-60s sole segment emits too_short on discard`() {
+        // 30s recording, sole segment, real task → History cancel row.
+        assertTrue(
+            CaptureSession.shouldEmitTooShortOnDiscard(
+                segmentsCompleted = 0,
+                durationMs = 30_000L,
+                isPractice = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `practice sub-60s sole segment is exempt (no too_short emit)`() {
+        // Practice never produces History rows / never uploads (ONB-04).
+        assertFalse(
+            CaptureSession.shouldEmitTooShortOnDiscard(
+                segmentsCompleted = 0,
+                durationMs = 30_000L,
+                isPractice = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `a segment at or over the 60s discard floor is not discarded here`() {
+        // ≥60s sole segments take the FinalizeWorker path instead (where the
+        // [60s,180s) band hits the D6 MIN_SEGMENT_MS gate → too_short there).
+        // The discard-time too_short emit must NOT also fire for them.
+        assertFalse(
+            CaptureSession.shouldEmitTooShortOnDiscard(0, 60_000L, isPractice = false),
+        )
+        assertFalse(
+            CaptureSession.shouldEmitTooShortOnDiscard(0, 90_000L, isPractice = false),
+        )
+    }
+
+    @Test
+    fun `a trailing sub-60s segment of a multi-segment session is kept (not canceled)`() {
+        // segmentsCompleted > 0 means the session already auto-segmented at the
+        // 10-min cap → the recording is ≥10 min of real captured data; a short
+        // trailing segment is kept (CAP-09 independent upload units), never
+        // discarded, so no too_short emit.
+        assertFalse(
+            CaptureSession.shouldEmitTooShortOnDiscard(
+                segmentsCompleted = 1,
+                durationMs = 30_000L,
+                isPractice = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `the discarded sub-60s cancel reason is TooShort with the documented null payload`() {
+        // Lock the emitted reason code + the null meanFps/width/height contract
+        // for the TooShort branch the discard path now drives (same payload the
+        // FinalizeWorker [60s,180s) path emits).
+        assertEquals("too_short", CancelReason.TooShort.code)
     }
 }
 

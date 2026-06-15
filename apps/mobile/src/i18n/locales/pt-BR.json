@@ -24,6 +24,8 @@
     "taglineAccent": " Inteligência de verdade."
   },
   "signup": {
+    "deviceEvicted": "Sessão encerrada — sua conta foi usada em outro dispositivo.",
+    "reauthRequired": "Sessão encerrada — entre novamente.",
     "tagline": "Humanos de verdade. Inteligência de verdade.",
     "pitchLine1": "Grave momentos reais.",
     "pitchLine2": "Treine inteligência de verdade.",
@@ -186,7 +188,6 @@
   },
   "uploadChip": {
     "uploading": "Enviando…",
-    "verifying": "Enviado — conferindo…",
     "failed": "Falha no envio",
     "success": "✓ Enviado",
     "pausedOffline": "Pausado — sem Wi-Fi"
@@ -465,7 +466,7 @@
   "terms": {
     "consent": {
       "modalTitle": "Termos de Uso",
-      "body": "Eu autorizo e concordo em enviar vídeos meus e/ou de outras pessoas que consentem em ser gravadas; realizando certas atividades/tarefas do dia a dia. Esse conteúdo vai ser usado pra desenvolver / treinar modelos de IA e pra fins de pesquisa. Confirmo que tenho 18 anos ou mais e tenho as permissões necessárias pra compartilhar esse conteúdo. Confirmo que nenhuma pessoa sendo gravada é menor de idade. Autorizo que minha localização aproximada e endereço IP sejam capturados junto com cada gravação. Entendo que meus dados vão ser guardados com segurança e usados de acordo com a Política de Privacidade da Humyn."
+      "body": "Eu autorizo e concordo em enviar vídeos meus e/ou de outras pessoas que consentem em ser gravadas; realizando certas atividades/tarefas do dia a dia. Esse conteúdo vai ser usado pra desenvolver / treinar modelos de IA e pra fins de pesquisa. Confirmo que tenho 18 anos ou mais e tenho as permissões necessárias pra compartilhar esse conteúdo. Confirmo que nenhuma pessoa sendo gravada é menor de idade. Autorizo que minha localização precisa (coordenadas GPS) e endereço IP sejam capturados junto com cada gravação. Entendo que meus dados vão ser guardados com segurança e usados de acordo com a Política de Privacidade da Humyn."
     }
   },
   "errors": {

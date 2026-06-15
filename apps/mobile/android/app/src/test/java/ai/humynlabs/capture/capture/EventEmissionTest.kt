@@ -67,13 +67,16 @@ class EventEmissionTest {
     }
 
     @Test
-    fun `onSegmentComplete payload contains drift map durationMs imuMinRateHzObservedP1`() {
+    fun `onSegmentComplete payload contains taskId drift map durationMs imuMinRateHzObservedP1`() {
         val driftMap = JavaOnlyMap().apply {
             putDouble("max", 0.7); putDouble("mean", 0.18); putDouble("p99", 0.5)
         }
         val payload = JavaOnlyMap().apply {
             putString("segmentId", "g1")
             putString("recordingId", "r1")
+            // Bug 9 (260604) — the segment's own task, copied from the sidecar so
+            // the JS auto-enqueue keys the upload on it instead of a render closure.
+            putString("taskId", "cooking_chop")
             putString("mp4Path", "/x.mp4")
             putString("csvPath", "/x.csv")
             putString("jsonPath", "/x.json")
@@ -83,6 +86,7 @@ class EventEmissionTest {
         }
         assertEquals("g1", payload.getString("segmentId"))
         assertEquals("r1", payload.getString("recordingId"))
+        assertEquals("cooking_chop", payload.getString("taskId"))
         assertEquals("/x.mp4", payload.getString("mp4Path"))
         assertEquals("/x.csv", payload.getString("csvPath"))
         assertEquals("/x.json", payload.getString("jsonPath"))

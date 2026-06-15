@@ -78,7 +78,7 @@
         {
           "kind": "qa",
           "question": "Why does the app need my location?",
-          "answer": "Approximate location helps us understand the diversity of recordings in our dataset. We use coarse location only — never precise GPS."
+          "answer": "We capture your precise location (GPS coordinates) with each recording to understand the geographic diversity of our dataset. You consent to this at sign-in, and it's covered by our Privacy Policy."
         },
         {
           "kind": "qa",

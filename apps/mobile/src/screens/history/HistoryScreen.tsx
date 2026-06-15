@@ -69,20 +69,17 @@ import {
   type ThumbnailLedgerEntry,
 } from '../../services/thumbnailLedger';
 import { fetchTasks } from '../../services/tasksApi';
-import {
-  HumynUpload,
-  onConnectivityChanged,
-  onUploadQueueChanged,
-  onUploadProgress,
-  type UploadProgressEvent,
-  type UploadQueueRow,
-} from '../../native/HumynUpload';
+import { HumynUpload, onConnectivityChanged, type UploadQueueRow } from '../../native/HumynUpload';
 import { decodeGoogleSubFromJwt } from '../../lib/jwtSub';
 import { logEvent } from '../../util/analytics';
 
-/** Map the on-device `UploadQueueRow.state` to the HistoryRow device-state type — strip 'verified' (those rows are already cleared from the queue / fully reflected by server qaStatus). */
+/**
+ * Map the on-device `UploadQueueRow.state` to the HistoryRow device-state type.
+ * Enh 3 / D1 (2026-06-04): the unions are now identical (no 'verified' /
+ * 'awaiting-verify') — a row that reached terminal success is deleted from the
+ * queue, so it's fully reflected by the server `qaStatus`.
+ */
 function toDeviceState(s: UploadQueueRow['state']): HistoryRowDeviceState | undefined {
-  if (s === 'verified') return undefined;
   return s;
 }
 
@@ -160,6 +157,9 @@ function toRowItem(r: RecordingsListItem, taskNameById: Record<string, string>):
     durationMs: r.duration_ms,
     createdAt: r.created_at,
     qaStatus: r.qa_status,
+    // Bug 6 / D5 — cross-device server poster JPEG; HistoryRow uses it as the
+    // fallback when this device has no local ledger thumbnail.
+    thumbnailUrl: r.thumbnail_url ?? null,
     verifiedAtIso: null, // server payload doesn't carry verifiedAt; fallback to createdAt at render.
   };
 }
@@ -191,35 +191,27 @@ export function HistoryScreen(): React.JSX.Element {
   // Owner-directive 2026-05-16 — History merges in-flight device-queue rows
   // alongside server rows so the Home tile's "tap to view all" leads here and
   // the user sees uploading segments with live progress bars, not just the
-  // already-verified set. `deviceRows` mirrors HumynUpload.getQueue() filtered
-  // to the current user; `progressById` carries byte-progress percent for the
-  // actively uploading recordingId. Same subscription pattern as HomeScreen
-  // (lines 245-265) — keep them in sync.
+  // already-verified set.
+  //
+  // Bug 7 (2026-06-04) — `deviceRows` / `progressById` now read from the single
+  // app-lifetime store slice (fed by `installUploadQueueStore()` at boot)
+  // instead of a per-screen `onUploadQueueChanged` / `onUploadProgress`
+  // subscription. History is lazy-mounted + frozen-on-blur in the bottom-tab
+  // navigator, so a local listener didn't exist (and MISSED every enqueue) until
+  // the tab was first focused — the boot-installed store survives lazy-mount /
+  // freeze and re-renders this screen on change. The `currentSub === ''` gate
+  // avoids dropping a freshly-enqueued row during a null-`sub` window: the raw
+  // queue persists in the store, so the filter re-derives (rows reappear) the
+  // instant `sub` resolves — nothing is permanently lost (UP-13 owner-pin).
   const jwt = useAppStore((s) => s.jwt);
   const currentSub = useMemo(() => decodeGoogleSubFromJwt(jwt), [jwt]);
-  const [deviceRows, setDeviceRows] = useState<UploadQueueRow[]>([]);
-  const [progressById, setProgressById] = useState<Record<string, number>>({});
-  useEffect(() => {
-    let mounted = true;
-    HumynUpload.getQueueSafe()
-      .then((all) => {
-        if (mounted) setDeviceRows(all.filter((r) => r.ownerUserId === currentSub));
-      })
-      .catch(() => undefined);
-    const sub = onUploadQueueChanged((all) => {
-      if (mounted) setDeviceRows(all.filter((r) => r.ownerUserId === currentSub));
-    });
-    const subProgress = onUploadProgress((e: UploadProgressEvent) => {
-      if (!mounted) return;
-      const pct = e.bytesTotal > 0 ? (e.bytesUploaded / e.bytesTotal) * 100 : 0;
-      setProgressById((prev) => ({ ...prev, [e.recordingId]: pct }));
-    });
-    return () => {
-      mounted = false;
-      sub.remove();
-      subProgress.remove();
-    };
-  }, [currentSub]);
+  const uploadQueue = useAppStore((s) => s.uploadQueue);
+  const progressById = useAppStore((s) => s.uploadProgressById);
+  const contributionsVersion = useAppStore((s) => s.contributionsVersion);
+  const deviceRows = useMemo<UploadQueueRow[]>(
+    () => (currentSub ? uploadQueue.filter((r) => r.ownerUserId === currentSub) : []),
+    [uploadQueue, currentSub],
+  );
 
   // HOME/HIST-10 offline signal — Plan 06-12 follow-on (Finding 6, owner
   // directive 2026-05-14) wires to the native NetworkMonitor's connectivity
@@ -339,6 +331,22 @@ export function HistoryScreen(): React.JSX.Element {
     void loadFirstPage();
   }, [loadFirstPage]);
 
+  // Bug 7 — refetch the server list when the upload queue mutates (debounced).
+  // A queue mutation that marks a row terminal (uploaded → dropped from the
+  // queue on /finalize 200) means the recording now exists server-side;
+  // refetching `/recordings` promotes the synthesized in-flight device row to
+  // its authoritative server row (correct duration, qaStatus, thumbnail). The
+  // store's `contributionsVersion` bumps on every queue change; debounce ~1.5s
+  // so a burst of progress-driven mutations collapses into a single refetch.
+  // Skip the initial 0 — the focus effect already fetches on cold mount.
+  useEffect(() => {
+    if (contributionsVersion === 0) return undefined;
+    const id = setTimeout(() => {
+      void loadFirstPage();
+    }, 1500);
+    return () => clearTimeout(id);
+  }, [contributionsVersion, loadFirstPage]);
+
   const onPullRefresh = useCallback(async (): Promise<void> => {
     setRefreshing(true);
     try {
@@ -395,11 +403,11 @@ export function HistoryScreen(): React.JSX.Element {
     const serverIds = new Set(rawRows.map((r) => r.recording_id));
     const deviceRowIdSet = new Set(deviceRows.map((r) => r.recordingId));
     const serverRows = rawRows.map((r) => toRowItem(r, taskNameById) as HistoryRowGroupable);
-    // Synthesize a HistoryRowItem for every device-queue row that isn't on
-    // the server yet AND isn't already in a `verified` end-state (those are
-    // about to be cleared by the verified event; the server row covers them).
+    // Synthesize a HistoryRowItem for every device-queue row that isn't on the
+    // server yet. (Enh 3 / D1: a row that reached terminal success is deleted
+    // from the queue on /finalize 200, so there's no end-state to exclude.)
     const synthesized: HistoryRowGroupable[] = deviceRows
-      .filter((r) => !serverIds.has(r.recordingId) && r.state !== 'verified')
+      .filter((r) => !serverIds.has(r.recordingId))
       .map(
         (r): HistoryRowGroupable => ({
           id: r.recordingId,
@@ -496,12 +504,14 @@ export function HistoryScreen(): React.JSX.Element {
   //     `HumynUpload.retryNeedsAttention` which resets the attempt
   //     counter + transitions back into the automatic drain loop.
   //
-  //   - device state === 'dead-letter' OR no device row (server-only
-  //     qa_status ∈ {hash-mismatch, rejected}): route through
-  //     `HumynUpload.reupload()` which the coordinator dispatches to
-  //     POST /recordings/:id/reupload (server accepts hash-mismatch →
-  //     mints fresh upload ids → device re-PUTs every part → /finalize
-  //     → re-verify). This is the historic Plan 05-08 path.
+  //   - device state === 'dead-letter': route through
+  //     `HumynUpload.reviveDeadLetterSafe()` — the SAFE revival primitive that
+  //     re-enters the drain loop via /parts (preserving DONE part ETags) or the
+  //     idempotent /init self-heal, then /finalize. (Enh 3 / D1, 2026-06-04:
+  //     the old `reupload()` → POST /recordings/:id/reupload path was removed
+  //     with the hash-verify flow; there is no hash-mismatch state anymore, and
+  //     a server-only rejected row has no local bundle to re-PUT — reviveDeadLetter
+  //     is a no-op there, which is correct.)
   // ---------------------------------------------------------------------
   const onRowRetry = useCallback(
     (r: HistoryRowItem) => {
@@ -517,7 +527,7 @@ export function HistoryScreen(): React.JSX.Element {
       if (isNeedsAttention) {
         void HumynUpload.retryNeedsAttentionSafe(r.id);
       } else {
-        void HumynUpload.reupload(r.id).catch(() => undefined);
+        void HumynUpload.reviveDeadLetterSafe(r.id);
       }
     },
     [deviceRowsById],

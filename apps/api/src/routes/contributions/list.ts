@@ -51,19 +51,39 @@ export default async function contributionsListRoute(app: FastifyInstance): Prom
       // Lifetime aggregate — direct from recordings (D-LEGAL-04 takedown filter).
       // `verified_non_practice_count` is the stricter count driving the Home
       // hero greeting (Plan 06-12 follow-on, owner directive 2026-05-14): only
-      // non-practice recordings that have been QA-verified count toward it.
-      // Computed in the same SELECT as a FILTER aggregate so we don't pay a
-      // second round-trip.
-      const totals = await db.execute(sql`
-        SELECT
-          COALESCE(SUM(duration_ms), 0)::bigint AS duration_ms,
-          COALESCE(COUNT(*), 0)::int AS recording_count,
-          COALESCE(COUNT(DISTINCT task_id), 0)::int AS task_count,
-          COALESCE(COUNT(*) FILTER (WHERE practice = false AND qa_status = 'verified'), 0)::int
-            AS verified_non_practice_count
-        FROM recordings
-        WHERE user_id = ${sub} AND qa_status NOT IN ('takedown', 'rejected')
-      `);
+      // non-practice recordings that reached terminal success count toward it.
+      // Enh 3 / D1 (2026-06-04): `uploaded` IS terminal success now, so it counts;
+      // legacy `verified` rows (pre-Enh-3, no longer written) remain a success
+      // synonym. Computed as a FILTER aggregate to avoid a second round-trip.
+      // Bug 10 (2026-06-04) — run the two per-user scans concurrently (they were
+      // sequential). Both hit the recordings_user_qa_idx covering index
+      // (migration 0016) so each is an index range/only scan, not a heap scan.
+      const [totals, perTask] = await Promise.all([
+        db.execute(sql`
+          SELECT
+            COALESCE(SUM(duration_ms), 0)::bigint AS duration_ms,
+            COALESCE(COUNT(*), 0)::int AS recording_count,
+            COALESCE(COUNT(DISTINCT task_id), 0)::int AS task_count,
+            COALESCE(COUNT(*) FILTER (
+              WHERE practice = false AND qa_status IN ('uploaded', 'verified')
+            ), 0)::int AS verified_non_practice_count
+          FROM recordings
+          WHERE user_id = ${sub} AND qa_status NOT IN ('takedown', 'rejected')
+        `),
+        // Top 10 tasks by recording count.
+        db.execute(sql`
+          SELECT
+            r.task_id,
+            t.name AS task_name,
+            COUNT(*)::int AS recording_count,
+            COALESCE(SUM(r.duration_ms), 0)::bigint AS duration_ms
+          FROM recordings r JOIN tasks t ON t.id = r.task_id
+          WHERE r.user_id = ${sub} AND r.qa_status NOT IN ('takedown', 'rejected')
+          GROUP BY r.task_id, t.name
+          ORDER BY recording_count DESC, r.task_id ASC
+          LIMIT 10
+        `),
+      ]);
       const totalRows = (totals as unknown as { rows: TotalsRow[] }).rows;
       const totalRow = totalRows[0] ?? {
         duration_ms: 0,
@@ -71,20 +91,6 @@ export default async function contributionsListRoute(app: FastifyInstance): Prom
         task_count: 0,
         verified_non_practice_count: 0,
       };
-
-      // Top 10 tasks by recording count.
-      const perTask = await db.execute(sql`
-        SELECT
-          r.task_id,
-          t.name AS task_name,
-          COUNT(*)::int AS recording_count,
-          COALESCE(SUM(r.duration_ms), 0)::bigint AS duration_ms
-        FROM recordings r JOIN tasks t ON t.id = r.task_id
-        WHERE r.user_id = ${sub} AND r.qa_status NOT IN ('takedown', 'rejected')
-        GROUP BY r.task_id, t.name
-        ORDER BY recording_count DESC, r.task_id ASC
-        LIMIT 10
-      `);
       const perTaskRows = (perTask as unknown as { rows: PerTaskRow[] }).rows;
 
       const body = ContributionsLifetimeSchema.parse({

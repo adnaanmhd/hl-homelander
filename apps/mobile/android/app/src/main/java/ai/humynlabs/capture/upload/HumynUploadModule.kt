@@ -30,9 +30,11 @@ import java.util.concurrent.atomic.AtomicBoolean
  *  - [getQueue] — the JS Pending-Uploads UI reads the queue rows (the JS side
  *    filters to own-rows). Read-only — UP-11: there is intentionally no
  *    user-driven abort affordance on the bridge at all.
- *  - [clearVerified] — the app-launch reconciliation sweep (Plan 05-08;
- *    UP-15 / VERIFY-06) calls this with the recordingIds the server reported
- *    `verified`; the local mp4/csv/json are unlinked and the rows dropped.
+ *  - [clearUploaded] — the reconcile backstop (`uploadReconcile.ts`) calls this
+ *    with the recordingIds the server reports terminal-success (`uploaded`); the
+ *    local mp4/csv/json are unlinked and the rows dropped. (Enh 3 / D1: the
+ *    coordinator already does this inline at `/finalize` 200 — this is the
+ *    catch-up sweep for stale local rows.)
  *  - [retryNeedsAttention] — debug session
  *    `.planning/debug/upload-queue-hol-finalizing.md` (Fix C item 4) — the
  *    History UI's per-row Retry affordance for `NEEDS_ATTENTION` rows.
@@ -109,7 +111,7 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
 
     /**
      * Push the auth context the coordinator needs for `/recordings/init`,
-     * `/finalize`, `/reupload`: the API base URL (`react-native-config`
+     * `/finalize`: the API base URL (`react-native-config`
      * `API_BASE_URL`), the current bearer JWT (from encrypted MMKV on the JS
      * side), and the signed-in user's `sub`. The JS side calls this on launch,
      * after sign-in, and on resume (to refresh a rotated token). Presigned S3
@@ -252,141 +254,41 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * On the app-launch reconciliation sweep (Plan 05-08; UP-15 / VERIFY-06):
-     * mark each recordingId VERIFIED, unlink its local mp4/csv/json, drop the
-     * row. Local files are NEVER deleted before this point.
+     * Enh 3 / D1 (2026-06-04) — reconcile backstop. For each recordingId the
+     * server reports terminal-success (`uploaded`), unlink its local
+     * mp4/csv/json and drop the row. The coordinator already does this inline
+     * the instant `/finalize` returns 200; this catch-up sweep
+     * (`uploadReconcile.ts`) only fires for ids whose local row somehow
+     * outlived its upload (a process kill between finalize 200 and the inline
+     * cleanup, a row finalized on another device, etc). The THUMBNAIL is
+     * preserved (see [UploadQueueStore.deleteLocalAndRemove]).
      */
     @ReactMethod
-    fun clearVerified(recordingIds: ReadableArray, promise: Promise) {
+    fun clearUploaded(recordingIds: ReadableArray, promise: Promise) {
         bgExecutor.execute {
             try {
                 for (i in 0 until recordingIds.size()) {
                     val id = recordingIds.getString(i) ?: continue
-                    queueStore.markVerifiedAndDeleteLocal(id)
+                    queueStore.deleteLocalAndRemove(id)
                 }
                 emitQueueChanged()
                 promise.resolve(null)
             } catch (t: Throwable) {
-                promise.reject("UPLOAD_CLEAR_VERIFIED_FAILED", t.message ?: "clearVerified failed", t)
+                promise.reject("UPLOAD_CLEAR_UPLOADED_FAILED", t.message ?: "clearUploaded failed", t)
             }
         }
     }
 
     /**
-     * Flip a queue row into its re-upload state (Plan 05-08; UP-16). Driven by
-     * a server `re-upload` event (after a `hash-mismatch`) AND the dead-letter
-     * "Retry" affordance on the Pending Uploads screen. Wave-1.5 Item 2 splits
-     * the handler into two branches:
-     *
-     *   • **Worker-fired re-upload (server `qa_status='hash-mismatch'`)** —
-     *     state ∈ {PENDING, UPLOADING, FINALIZING, AWAITING_VERIFY} OR
-     *     (state == DEAD_LETTER && row.reupload == true): full reset
-     *     (state → PENDING, reupload=true, clear uploadId/imuUploadId/parts/
-     *     etags/metadataPut/deadLetterReason). The drainer then takes the
-     *     `postReupload` branch (`POST /recordings/:id/reupload`); the server
-     *     accepts because qa_status='hash-mismatch'. Re-PUTs every part from
-     *     the still-present local copy. partsCount / chunkBytes stay pinned.
-     *
-     *   • **Client-side dead-letter (server `qa_status='pending'` still,
-     *     uploadId set)** — `state == DEAD_LETTER && uploadId != null &&
-     *     !reupload`: LOCAL reset. state → UPLOADING; deadLetterReason cleared;
-     *     uploadId / imuUploadId / videoParts / imuParts / metadataPut KEPT
-     *     UNCHANGED so the drainer's `when` (UploadCoordinator.kt) takes the
-     *     `postRePresign` branch (`POST /recordings/:id/parts`) — re-presigns
-     *     video+IMU against the EXISTING multipart upload, every already-DONE
-     *     part keeps its ETag (UP-04, CR-02 idempotent re-presign path).
-     *     POSTing `/reupload` here would 409 (server rejects re-upload on a
-     *     non-hash-mismatch row — `apps/api/src/routes/recordings/reupload.ts:
-     *     125-138` checks `rec.qaStatus !== 'hash-mismatch'`). This is the
-     *     2026-05-13 walk's recording `01KRFXGAWCMVQ89PJ2PBXSVAKK` failure
-     *     mode being closed.
-     *
-     *   • **VERIFIED** — no-op (resolve null).
-     *
-     * No-op (resolves null) if the row doesn't exist. The local mp4/csv/json
-     * are NOT touched in either branch.
-     */
-    @ReactMethod
-    fun reupload(recordingId: String, promise: Promise) {
-        bgExecutor.execute {
-            try {
-                val row = queueStore.read().find { it.recordingId == recordingId }
-                if (row == null) {
-                    promise.resolve(null)
-                    return@execute
-                }
-                when {
-                    row.state == UploadState.VERIFIED -> {
-                        // VERIFIED — no-op. The row is about to be cleared by the verified-event handler.
-                        promise.resolve(null)
-                        return@execute
-                    }
-                    row.state == UploadState.DEAD_LETTER && row.uploadId != null && !row.reupload -> {
-                        // Wave-1.5 Item 2 — client-side dead-letter on a server-side
-                        // qa_status='pending' row (transient PUT failure during /init→parts;
-                        // the 2026-05-13 walk recording 01KRFXGAWCMVQ89PJ2PBXSVAKK). LOCAL reset:
-                        // state→UPLOADING, clear deadLetterReason, KEEP uploadId/imuUploadId/parts/
-                        // etags/metadataPut so the drainer's when takes the postRePresign branch
-                        // (/recordings/:id/parts) — already-DONE parts keep their ETags (UP-04).
-                        // POSTing /reupload here would 409 — the server requires qa_status=
-                        // 'hash-mismatch'.
-                        row.state = UploadState.UPLOADING
-                        row.deadLetterReason = null
-                    }
-                    else -> {
-                        // Worker-fired re-upload (server qa_status='hash-mismatch') OR retry of a
-                        // non-dead-lettered row. Full reset: drainer takes the postReupload branch
-                        // (POST /recordings/:id/reupload), server accepts on hash-mismatch.
-                        //
-                        // ROTATE the three per-route idempotency keys (Wave-1.5 Item 1's split was
-                        // scoped to retries within ONE upload session; a hash-mismatch re-upload is
-                        // logically a NEW session for /init/parts/finalize even though it shares the
-                        // row). Without rotation the post-reupload /finalize replays the SAME key
-                        // against a different (uploadId, parts) body → server's idempotency cache
-                        // 409s in 4 ms before the route handler runs. See debug session
-                        // .planning/debug/reupload-finalize-409.md (2026-05-13). reuploadIdempotencyKey
-                        // is NOT rotated — /reupload is one-shot per re-upload cycle and replay with
-                        // the same body ({partsCount}) is correct idempotent behavior.
-                        row.reupload = true
-                        row.state = UploadState.PENDING
-                        row.uploadId = null
-                        row.imuUploadId = null
-                        row.metadataPut = PartStatus.PENDING
-                        row.deadLetterReason = null
-                        row.initIdempotencyKey = UUID.randomUUID().toString()
-                        row.partsIdempotencyKey = UUID.randomUUID().toString()
-                        row.finalizeIdempotencyKey = UUID.randomUUID().toString()
-                        for (p in row.videoParts) { p.status = PartStatus.PENDING; p.etag = null; p.retryCount = 0 }
-                        for (p in row.imuParts) { p.status = PartStatus.PENDING; p.etag = null; p.retryCount = 0 }
-                    }
-                }
-                queueStore.upsert(row)
-                emitQueueChanged()
-                runCatching { coordinator.drain() }
-                signalUploadActiveBestEffort()
-                promise.resolve(null)
-            } catch (t: Throwable) {
-                promise.reject("UPLOAD_REUPLOAD_FAILED", t.message ?: "reupload failed", t)
-            }
-        }
-    }
-
-    /**
-     * SAFE dead-letter revival primitive — preferred over [reupload] for the
-     * cold-start auto-revive sweep (`uploadReconcile.ts`) + the Home pending-
-     * uploads tile tap. Closes the FULL-RESET footgun on [reupload]: when the
-     * row already has `reupload == true` (set by a prior stray Retry tap on a
-     * non-DEAD_LETTER row, or a re-delivered server `re-upload` event),
-     * [reupload]'s else-branch destructively wipes `uploadId` + every cached
-     * part ETag and the drainer then pounds `/recordings/:id/reupload` until
-     * the server's per-user rate limit kicks in. See debug session
+     * SAFE dead-letter revival primitive — the dead-letter recovery path for
+     * the cold-start auto-revive sweep (`uploadReconcile.ts`) + the Home
+     * pending-uploads tile tap. See debug session
      * `.planning/debug/resolved/uploads-stuck-multi-segment.md`.
      *
-     * Unlike [reupload], this operates ONLY on `DEAD_LETTER` rows. It performs
-     * the LOCAL-RESET branch UNCONDITIONALLY: state → UPLOADING,
-     * deadLetterReason cleared. `uploadId` / `imuUploadId` / `videoParts` /
-     * `imuParts` / `metadataPut` / `reupload` are KEPT UNCHANGED so the
-     * drainer's `when` (UploadCoordinator.kt:318-322) takes either:
+     * Operates ONLY on `DEAD_LETTER` rows. It performs a LOCAL reset
+     * UNCONDITIONALLY: state -> UPLOADING, deadLetterReason cleared. `uploadId` /
+     * `imuUploadId` / `videoParts` / `imuParts` / `metadataPut` are KEPT
+     * UNCHANGED so the drainer's `when` (UploadCoordinator.kt) takes either:
      *   - `/parts` re-presign (when uploadId is set — preserves DONE part ETags,
      *     UP-04), OR
      *   - the idempotent `/init` self-heal (when uploadId is null — re-mints
@@ -644,7 +546,6 @@ class HumynUploadModule(reactContext: ReactApplicationContext) :
         putDouble("enqueuedAt", r.enqueuedAt.toDouble())
         putDouble("lastProgressAt", r.lastProgressAt.toDouble())
         if (r.deadLetterReason != null) putString("deadLetterReason", r.deadLetterReason)
-        putBoolean("reupload", r.reupload)
         // Debug session `upload-queue-hol-finalizing` Fix C item 4 — surface
         // the failure markers to JS so the History UI's NEEDS_ATTENTION Retry
         // copy can render a reason-specific label.

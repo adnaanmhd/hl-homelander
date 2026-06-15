@@ -100,7 +100,8 @@ data class CaptureDeviceInfoPartial(
     val appVersion: String,
     val dfovDegrees: Double,
     val ipAddress: String?,
-    val location: String?,
+    // Bug 3 / D3 (2026-06-04): was `String?` (coarse label) → precise [LocationFix].
+    val location: LocationFix?,
 )
 
 object SidecarManager {
@@ -158,7 +159,11 @@ object SidecarManager {
                     .put("app_version", payload.captureDeviceInfoPartial.appVersion)
                     .put("dfov_degrees", payload.captureDeviceInfoPartial.dfovDegrees)
                     .put("ip_address", payload.captureDeviceInfoPartial.ipAddress ?: JSONObject.NULL)
-                    .put("location", payload.captureDeviceInfoPartial.location ?: JSONObject.NULL),
+                    .put(
+                        "location",
+                        payload.captureDeviceInfoPartial.location
+                            ?.let { LocationJson.toJson(it) } ?: JSONObject.NULL,
+                    ),
             )
             // Quick task 260517-p5g CAPTURE-QA-03 — recorded surface rotation
             // for the segment, captured at session start. Stamped into
@@ -263,7 +268,7 @@ object SidecarManager {
                     cd.getString("app_version"),
                     cd.getDouble("dfov_degrees"),
                     if (cd.isNull("ip_address")) null else cd.getString("ip_address"),
-                    if (cd.isNull("location")) null else cd.getString("location"),
+                    if (cd.isNull("location")) null else LocationJson.fromJson(cd.getJSONObject("location")),
                 ),
                 // Quick task 260517-p5g CAPTURE-QA-03 — backward-compatible:
                 // older sidecars (pre-2026-05-17) without this key default

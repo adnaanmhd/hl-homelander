@@ -16,10 +16,8 @@ import jwt from 'jsonwebtoken';
 import { db, schema } from '../../../src/db/index.js';
 
 export async function truncateTestTables(): Promise<void> {
-  // Order matters — child tables before parents. recordings_to_verify FKs
-  // recordings; recordings/consentLog/profiles FK users; idempotency_keys FKs
-  // users; events/feedback FK users.
-  await db.delete(schema.recordingsToVerify);
+  // Order matters — child tables before parents. recordings/consentLog/profiles
+  // FK users; idempotency_keys FKs users; events/feedback FK users.
   await db.delete(schema.recordings);
   await db.delete(schema.consentLog);
   await db.delete(schema.events);
@@ -51,6 +49,7 @@ export async function signInTestUser(
     name: 'E2E Test',
     consentVersion: '1.0.0',
     consentAcceptedAt: new Date(),
+    currentInstallationId: 'inst-test',
     flavor,
     applicationId,
   });
@@ -67,6 +66,7 @@ export async function signInTestUser(
       // production sets one or the other based on evaluateIntegrity()'s verdict.
       integrity_verdict: flavor === 'apkRollout' ? 'bypassed_apk' : 'passed',
       token_version: 1,
+      installationId: 'inst-test',
     },
     secret,
     { algorithm: 'HS256', expiresIn: '24h' },

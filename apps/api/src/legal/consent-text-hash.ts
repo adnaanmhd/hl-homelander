@@ -6,4 +6,4 @@
 // hash regenerator before tests so any consent-text mutation without a paired
 // hash refresh fails the build (W7).
 export const CONSENT_TEXT_SHA256 =
-  '1c78b1ed6cf3211ab4f3e438d47bfcad34e91fbe9cff1e70ee4c2f3fbcc2c56f';
+  '6c7dfcc73aa8fb3c7008a067b12deb9b3220c0ff8ab7457b319ca2296f605d35';

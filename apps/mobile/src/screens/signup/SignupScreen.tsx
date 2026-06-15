@@ -73,6 +73,11 @@ function consentVersionFromText(text: string): string {
   return (h >>> 0).toString(16);
 }
 
+// Invariant (Bug 3 / D3 follow-up): client re-consent is driven by THIS FNV hash
+// of the client-rendered TERMS_OF_USE_TEXT, which is INDEPENDENT of the server's
+// semver CONSENT_VERSION (apps/api/.../legal/consent-text.ts). To force a global
+// re-consent you MUST change the client-rendered text (so this hash changes) —
+// bumping only the server semver will NOT re-prompt the client.
 const CONSENT_VERSION = consentVersionFromText(TERMS_OF_USE_TEXT);
 
 export default function SignupScreen() {
@@ -81,6 +86,7 @@ export default function SignupScreen() {
   const setConsent = useAppStore((s) => s.setConsent);
   const setUser = useAppStore((s) => s.setUser);
   const consentRecord = useAppStore((s) => s.consent);
+  const clearDeviceEvicted = useAppStore((s) => s.clearDeviceEvicted);
   const { t } = useTranslation();
   const isEnglish = i18nDefault.language === 'en';
 
@@ -106,6 +112,20 @@ export default function SignupScreen() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Bug 4 / D2 — if this device was evicted (a newer sign-in on another device
+  // took over the account), the api.ts 401 handler flips the store flag and
+  // resets navigation here. Read it ONCE on mount, surface the notice, and
+  // clear the flag so it doesn't re-show on a later Signup visit.
+  const [evictedNotice, setEvictedNotice] = useState<'evicted' | 'reauth' | null>(null);
+  useEffect(() => {
+    const s = useAppStore.getState();
+    if (s.deviceEvicted) {
+      setEvictedNotice(s.deviceEvictedReason ?? 'evicted');
+      clearDeviceEvicted();
+      logEvent('signup_device_evicted_notice');
+    }
+  }, [clearDeviceEvicted]);
 
   const handleSignIn = useCallback(async () => {
     // Defense in depth — the CTA's `disabled` prop is the primary gate, but
@@ -194,6 +214,15 @@ export default function SignupScreen() {
       </View>
 
       <View style={styles.bottom}>
+        {evictedNotice ? (
+          <Text
+            variant="caption"
+            accessibilityLabel="device-evicted notice"
+            style={{ color: colors.coral, textAlign: 'center', marginBottom: spacing.m }}
+          >
+            {t(evictedNotice === 'reauth' ? 'signup.reauthRequired' : 'signup.deviceEvicted')}
+          </Text>
+        ) : null}
         {/* Plan 03-02 — CTA stacks immediately under the centered content
             block; alignSelf:'center' + paddingHorizontal makes the
             button content-driven width (~280-300 dp). Quick 260527-hkl —

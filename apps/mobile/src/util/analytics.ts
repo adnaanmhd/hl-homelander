@@ -42,6 +42,8 @@ export const EVENT_NAMES = [
   'signup_google_started',
   'signup_google_completed',
   'signup_google_failed',
+  // Bug 4 / D2 — shown on Signup when a newer sign-in evicted this device.
+  'signup_device_evicted_notice',
   // Quick 260527-hkl — fires when the user taps the modal's Agree button
   // (post scroll-gate). Payload: `{ consent_version }`. Server-side
   // consent_log persistence (LEGAL-02) is unchanged and remains the
@@ -54,6 +56,10 @@ export const EVENT_NAMES = [
   'permission_mic_requested',
   'permission_mic_granted',
   'permission_mic_denied',
+  // Bug 3 / D3 + D4 (2026-06-04) — precise Location gated in onboarding.
+  'permission_location_requested',
+  'permission_location_granted',
+  'permission_location_denied',
   // Compat
   'compat_started',
   'compat_check_passed',
@@ -79,7 +85,7 @@ export const EVENT_NAMES = [
   'recording_too_short',
   // IN-09 — fires when HumynCapture.stop() rejects (the segment may not have
   // finalized cleanly); the user gets a "finalizing failed" toast on the
-  // real-recording ≥60s path instead of the clean-save toast.
+  // real-recording ≥3min path instead of the clean-save toast.
   'recording_stop_failed',
   // Profile
   'profile_viewed',

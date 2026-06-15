@@ -12,14 +12,13 @@
 //   variant            label                    surface / text token pair
 //   ------------------ ------------------------ ----------------------------------
 //   progress           "Uploading…"             chipProgressBg / chipProgressText
-//   verifying          "Uploaded — verifying…"  chipProgressBg / chipProgressText
-//                       — a DISTINCT label so the user isn't told it's still
-//                         transferring while it's actually in the verify queue
-//                         (Pitfall 3)
 //   failed             "Upload failed"          chipFailedBg   / chipFailedText
 //   success            "✓ Uploaded"             chipSuccessBg  / chipSuccessText
-//                       — transient: the row is dropped the moment the bundle
-//                         is verified (D-10 discretion), so this only flashes
+//                       — transient: the row is dropped the moment the upload
+//                         finalizes (Enh 3 / D1 — no verify step), so this only
+//                         flashes
+//   (Enh 3 / D1, 2026-06-04: the `verifying` variant was removed — there is no
+//    verify queue anymore; /finalize 200 is terminal success.)
 //   paused-offline     "Paused — no Wi-Fi"      line           / text2 (NEW — the
 //                       only new visual element; no new tokens/curves)
 //
@@ -32,20 +31,14 @@ import { useTranslation } from 'react-i18next';
 import { Text } from '../ui/primitives/Text';
 import { colors, radii, spacing, typography } from '../ui/tokens';
 
-export type UploadStatusChipVariant =
-  | 'progress'
-  | 'verifying'
-  | 'failed'
-  | 'success'
-  | 'paused-offline';
+export type UploadStatusChipVariant = 'progress' | 'failed' | 'success' | 'paused-offline';
 
 // 07-11 G-09 closure — variant labels are now i18n keys under `uploadChip.*`.
 // The variant identifiers themselves stay as the existing canonical strings
-// (`progress` / `verifying` / `failed` / `success` / `paused-offline`); only
+// (`progress` / `failed` / `success` / `paused-offline`); only
 // the user-facing display text is translated.
 const LABEL_KEYS: Record<UploadStatusChipVariant, string> = {
   progress: 'uploadChip.uploading',
-  verifying: 'uploadChip.verifying',
   failed: 'uploadChip.failed',
   success: 'uploadChip.success',
   'paused-offline': 'uploadChip.pausedOffline',
@@ -53,7 +46,6 @@ const LABEL_KEYS: Record<UploadStatusChipVariant, string> = {
 
 const TOKENS: Record<UploadStatusChipVariant, { bg: string; fg: string }> = {
   progress: { bg: colors.chipProgressBg, fg: colors.chipProgressText },
-  verifying: { bg: colors.chipProgressBg, fg: colors.chipProgressText },
   failed: { bg: colors.chipFailedBg, fg: colors.chipFailedText },
   success: { bg: colors.chipSuccessBg, fg: colors.chipSuccessText },
   // The ONE new variant — the existing neutral pair, identical chip geometry.

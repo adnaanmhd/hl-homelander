@@ -341,8 +341,7 @@ export default async function recordingsInitRoute(app: FastifyInstance): Promise
           practice: body.practice,
           qaStatus: 'pending',
           durationMs: body.durationMs,
-          fileSha256: body.fileSha256,
-          imuSha256: body.imuSha256,
+          // (Enh 3 / D1: file_sha256 / imu_sha256 no longer captured or persisted.)
           fileSizeBytes: body.fileSizeBytes,
           imuSizeBytes: body.imuSizeBytes,
           s3KeyVideo: keys.video,
@@ -360,6 +359,14 @@ export default async function recordingsInitRoute(app: FastifyInstance): Promise
           // Null for pre-1.2.0 / older clients (zod-validated; null params
           // tolerated — T-elm-02).
           calibration: body.calibration ?? null,
+          // Bug 3 / D3 (2026-06-04) — persist the metadata.json precise-GPS
+          // block (capture_device_info.location, schema 1.5.0) as the queryable
+          // jsonb mirror, sibling to ip_address. Set only on the first insert
+          // (the idempotent re-presign path does not mutate the row). Null for a
+          // no-fix segment or a pre-1.5.0 client (zod LocationSchema, nullable +
+          // optional). Overrides the formerly-LOCKED coarse-only constraint
+          // (sign-off D3; consent + DPIA is a ship gate).
+          location: body.location ?? null,
           // /init mints the multipart upload; mirror /reupload's behavior of
           // stamping uploadStartedAt here so the column reflects when the
           // server first handed the client signed URLs to push bytes.

@@ -17,6 +17,7 @@ function tok(): string {
       applicationId: 'ai.humynlabs.capture',
       integrity_verdict: 'passed',
       token_version: 1,
+      installationId: 'inst-test',
     },
     process.env.JWT_SIGNING_SECRET!,
     { algorithm: 'HS256', expiresIn: '24h' },
@@ -35,6 +36,7 @@ beforeAll(async () => {
       name: 'L',
       consentVersion: '1.0.0',
       consentAcceptedAt: new Date(),
+      currentInstallationId: 'inst-test',
       flavor: 'playStore',
       applicationId: 'ai.humynlabs.capture',
     })
@@ -60,8 +62,8 @@ async function seedRec(
 ): Promise<string> {
   const id = ulid();
   await db.execute(sql`
-    INSERT INTO recordings (id, user_id, task_id, practice, qa_status, duration_ms, file_sha256, imu_sha256, file_size_bytes, imu_size_bytes, s3_key_video, s3_key_imu, s3_key_metadata, captured_at, created_at, flavor)
-    VALUES (${id}, ${TEST_USER_ID}, ${TEST_TASK_ID}, false, ${qaStatus}::qa_status, 1000, ${'a'.repeat(64)}, ${'b'.repeat(64)}, 1024, 1024, 'k1', 'k2', 'k3', now(), now() - (${daysAgo} || ' days')::interval, 'playStore'::build_flavor)
+    INSERT INTO recordings (id, user_id, task_id, practice, qa_status, duration_ms, file_size_bytes, imu_size_bytes, s3_key_video, s3_key_imu, s3_key_metadata, captured_at, created_at, flavor)
+    VALUES (${id}, ${TEST_USER_ID}, ${TEST_TASK_ID}, false, ${qaStatus}::qa_status, 1000, 1024, 1024, 'k1', 'k2', 'k3', now(), now() - (${daysAgo} || ' days')::interval, 'playStore'::build_flavor)
   `);
   return id;
 }
@@ -71,8 +73,8 @@ async function seedRec(
 async function seedRecAt(qaStatus: 'uploaded' | 'verified', createdAt: Date): Promise<string> {
   const id = ulid();
   await db.execute(sql`
-    INSERT INTO recordings (id, user_id, task_id, practice, qa_status, duration_ms, file_sha256, imu_sha256, file_size_bytes, imu_size_bytes, s3_key_video, s3_key_imu, s3_key_metadata, captured_at, created_at, flavor)
-    VALUES (${id}, ${TEST_USER_ID}, ${TEST_TASK_ID}, false, ${qaStatus}::qa_status, 1000, ${'a'.repeat(64)}, ${'b'.repeat(64)}, 1024, 1024, 'k1', 'k2', 'k3', ${createdAt.toISOString()}::timestamptz, ${createdAt.toISOString()}::timestamptz, 'playStore'::build_flavor)
+    INSERT INTO recordings (id, user_id, task_id, practice, qa_status, duration_ms, file_size_bytes, imu_size_bytes, s3_key_video, s3_key_imu, s3_key_metadata, captured_at, created_at, flavor)
+    VALUES (${id}, ${TEST_USER_ID}, ${TEST_TASK_ID}, false, ${qaStatus}::qa_status, 1000, 1024, 1024, 'k1', 'k2', 'k3', ${createdAt.toISOString()}::timestamptz, ${createdAt.toISOString()}::timestamptz, 'playStore'::build_flavor)
   `);
   return id;
 }

@@ -12,12 +12,14 @@ export const ContributionsLifetimeSchema = z.object({
   durationMs: z.number().int().min(0),
   recordingCount: z.number().int().min(0),
   taskCount: z.number().int().min(0),
-  // Strict count of `practice = false AND qa_status = 'verified'` recordings.
-  // The Home hero uses this as the trigger for the "Hi {first_name}." greeting
-  // — owner directive 2026-05-14 (Plan 06-12 follow-on, Finding 15). The
-  // broader `recordingCount` above still counts pending + flagged + practice;
-  // this field is intentionally stricter and never replaces it. Default 0 for
-  // pre-rollout clients reading old payloads.
+  // Strict count of non-practice recordings that reached terminal success —
+  // `practice = false AND qa_status IN ('uploaded','verified')` (Enh 3 / D1,
+  // 2026-06-04: `uploaded` is terminal success now; legacy `verified` rows still
+  // count as a synonym). The Home hero uses this as the trigger for the
+  // "Hi {first_name}." greeting — owner directive 2026-05-14 (Plan 06-12
+  // follow-on, Finding 15). The broader `recordingCount` above still counts
+  // pending + practice; this field is intentionally stricter and never replaces
+  // it. Name kept for wire/back-compat. Default 0 for clients reading old payloads.
   verifiedNonPracticeCount: z.number().int().min(0).default(0),
   perTask: z
     .array(

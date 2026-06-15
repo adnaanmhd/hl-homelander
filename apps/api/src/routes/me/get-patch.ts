@@ -25,6 +25,7 @@ function rowToMe(r: typeof schema.users.$inferSelect): {
   deletedAt: string | null;
   deleteGraceUntil: string | null;
   createdAt: string;
+  practiceCompletedAt: string | null;
 } {
   return {
     id: r.id,
@@ -39,6 +40,8 @@ function rowToMe(r: typeof schema.users.$inferSelect): {
     deletedAt: r.deletedAt?.toISOString() ?? null,
     deleteGraceUntil: r.deleteGraceUntil?.toISOString() ?? null,
     createdAt: r.createdAt.toISOString(),
+    // Bug 5 / D7 — practice-tutorial completion (or null).
+    practiceCompletedAt: r.practiceCompletedAt?.toISOString() ?? null,
   };
 }
 

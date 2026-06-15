@@ -20,6 +20,7 @@ function tok(): string {
       applicationId: 'ai.humynlabs.capture',
       integrity_verdict: 'passed',
       token_version: 1,
+      installationId: 'inst-test',
     },
     process.env.JWT_SIGNING_SECRET!,
     { algorithm: 'HS256', expiresIn: '24h' },
@@ -46,6 +47,7 @@ beforeEach(async () => {
     name: 'M',
     consentVersion: '1.0.0',
     consentAcceptedAt: new Date(),
+    currentInstallationId: 'inst-test',
     flavor: 'playStore',
     applicationId: 'ai.humynlabs.capture',
   });
@@ -75,6 +77,25 @@ describe('DELETE /me + POST /me/restore', () => {
     const grace = rows[0]!.deleteGraceUntil!.getTime() - Date.now();
     expect(grace).toBeGreaterThan(29 * 24 * 3600 * 1000);
     expect(grace).toBeLessThan(31 * 24 * 3600 * 1000);
+  });
+
+  it('DELETE with an unregistered content-type + body → 200, not 415 (Bug 1 catch-all parser)', async () => {
+    // Regression for Bug 1 (260604): RN/OkHttp attaches a content-type Fastify
+    // had no parser for, throwing FST_ERR_CTP_INVALID_MEDIA_TYPE (415) before the
+    // handler ran. The catch-all '*' parser in app.ts now drains + discards any
+    // unregistered body so bodiless verbs reach their handler. (inject can't
+    // replay OkHttp's exact default, so we force an unregistered type + a body.)
+    const r = await app.inject({
+      method: 'DELETE',
+      url: '/me?confirm=DELETE',
+      headers: {
+        authorization: `Bearer ${tok()}`,
+        'content-type': 'application/octet-stream',
+      },
+      payload: 'ignored-by-catch-all',
+    });
+    expect(r.statusCode).toBe(200);
+    expect(r.json().ok).toBe(true);
   });
 
   it('POST /me/restore within grace clears deletedAt', async () => {

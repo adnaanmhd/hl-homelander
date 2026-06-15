@@ -17,6 +17,7 @@ Phase 1 ships the backend skeleton, monorepo, and direct-to-users APK distributi
 - **Phase 1 mobile deliverable:** RN 0.83 scaffolded with all three flavors. Each flavor builds, signs, and runs a single 'Sign in with Google' screen that exercises `/auth/google` end-to-end. No tasks, no recording, no profile — that's Phase 2.
 
 **Explicitly OUT of Phase 1 scope (rescinded mid-discussion):**
+
 - DIST-07 (compatRecon APK to ~50 KGeN clan chiefs) — rescinded.
 - ROADMAP.md Phase 1 success criterion #3 (chief recon harvest go/no-go) — rescinded.
 - All clan-chief / KGeN-acquisition narrative — superseded; cleanup pending.
@@ -43,6 +44,7 @@ Phase 1 ships the backend skeleton, monorepo, and direct-to-users APK distributi
 - **D-AUTH-01:** Client sends `{flavor: 'apkRollout' | 'playStore' | 'iosAppStore', applicationId: string}` to `POST /auth/google` alongside the Google ID token + Play Integrity attestation token. Backend cross-checks `(flavor, applicationId)` against a server-side allowlist (`apkRollout ↔ ai.humynlabs.capture.apk`; `playStore/iosAppStore ↔ ai.humynlabs.capture`). Mismatch = `403 problem+json`.
 - **D-AUTH-02:** Install-source bypass for `apkRollout` is enforced server-side via the same allowlist. The client cannot toggle this. Play Integrity verdicts {DEVICE_INTEGRITY, APP_RECOGNITION} are still required and validated; only the `PLAY_RECOGNIZED` requirement is waived for `apkRollout`.
 - **D-AUTH-03:** JWT TTL = **30 days, long-lived, no refresh token, no server-side denylist**. Logout = client deletes token from Keychain (iOS) / Keystore (Android) per AUTH-07 + cancels in-flight upload per UP-13. Token-leak blast radius capped at 30-day expiry. After 30 days, user re-runs full Google Sign-In + Play Integrity.
+  - **⚠ OVERRIDDEN 2026-06-04 (Bug 4 / D2 — single-device, newest-login-wins; owner sign-off `.planning/260604-locked-override-signoff.md` D2).** Auth is no longer fully stateless / denylist-free: the minted JWT now also carries `installationId`, `users.current_installation_id` holds the most-recent sign-in's id, and `requireAuth` 401s (client slug `device-evicted`) any token whose `installationId` diverges from that row — backed by a per-request in-process LRU `sub → current_installation_id` lookup (60 s TTL) so the added DB read is negligible. The 30-day TTL / HS256 / `token_version` cluster kill-switch (D-AUTH-04/05) are unchanged; this layers a **single-device denylist-by-divergence** on top. A reinstall on the same phone rotates the installation id and counts as a new device (evicts the prior session — accepted). Legacy pre-Bug-4 JWTs lack the claim and are 401'd into a one-time re-sign-in. Trail: `IMPLEMENTATION-PLAN-260604.md` §4.
 - **D-AUTH-04:** JWT signed with **HS256**. Single 256-bit signing secret stored in **AWS Secrets Manager** (`humyn/jwt/signing-secret`). Fargate task definition references the secret ARN; ECS injects as env var at task start. Rotation via Secrets Manager + rolling Fargate task restart.
 - **D-AUTH-05:** JWT payload (rich claims): `{ sub: ULID, iat, exp, flavor, applicationId, integrity_verdict: 'passed' | 'bypassed_apk', token_version: 1 }`. Backend reads `flavor` + `integrity_verdict` from token directly — no per-request DB lookup. `token_version` reserved as cluster-wide kill-switch (bumping invalidates all outstanding tokens).
 
@@ -108,6 +110,7 @@ Areas where the user did not specify and the planner has flexibility:
 </decisions>
 
 <canonical_refs>
+
 ## Canonical References
 
 **Downstream agents MUST read these before planning or implementing.**
@@ -134,7 +137,7 @@ Areas where the user did not specify and the planner has flexibility:
 - `.planning/research/SUMMARY.md` — research synthesis. **NOTE:** still references chief-recon construct; treat that as superseded per `D-DIST-01`. Tech-stack pins and architecture sections remain valid.
 - `.planning/research/STACK.md` — tech-stack version pins, configuration recipes (HEVC encoder, MediaPipe wiring, foreground service manifest, Drizzle schema with pgvector + tsvector RRF SQL — directly applicable to Phase 1's `tasks` table design), what NOT to use.
 - `.planning/research/ARCHITECTURE.md` — system architecture (3-plane device → backend → infra), build-flavor + Remote Config bypass pattern. **NOTE:** the chief-recon-APK design called out here is rescinded; the rest of the architecture (Fastify monolith + RDS + S3 + lifecycle policy + ALB + Fargate) applies.
-- `.planning/research/PITFALLS.md` — pitfall catalog. Phase 1 hot spots: Pitfall 14 (DPDP/LGPD bystander consent — informs the `consent_log` table design), Pitfall 16 (S3 lifecycle policy from day 0 — locked as LEGAL-05). **NOTE:** Pitfall 2's "ship a *standalone compat-only APK* to 50 chiefs" recommendation is rescinded per `D-DIST-01`.
+- `.planning/research/PITFALLS.md` — pitfall catalog. Phase 1 hot spots: Pitfall 14 (DPDP/LGPD bystander consent — informs the `consent_log` table design), Pitfall 16 (S3 lifecycle policy from day 0 — locked as LEGAL-05). **NOTE:** Pitfall 2's "ship a _standalone compat-only APK_ to 50 chiefs" recommendation is rescinded per `D-DIST-01`.
 - `.planning/research/FEATURES.md` — competitor landscape, feature dependency graph (background; informs no Phase 1 decisions directly).
 
 ### Operational / future (referenced but not Phase 1 scope)
@@ -146,13 +149,14 @@ Areas where the user did not specify and the planner has flexibility:
 
 ### Active memories (apply unconditionally)
 
-- `feedback_no_clan_chief_constructs.md` — no clan-chief / clan-aware constructs; chief-network narrative in PROJECT.md/REQUIREMENTS.md/ROADMAP.md/research/* is stale.
+- `feedback_no_clan_chief_constructs.md` — no clan-chief / clan-aware constructs; chief-network narrative in PROJECT.md/REQUIREMENTS.md/ROADMAP.md/research/\* is stale.
 - `project_distribution_apk_then_play.md` — distribution = APK first then Play Store, direct to users. DIST-07 rescinded.
 - `project_drift_metrics.md` — per-segment metadata records `{max, mean, p99}` drift figures (Phase 3 territory; relevant only for Phase 1's Recording schema definition).
 
 </canonical_refs>
 
 <code_context>
+
 ## Existing Code Insights
 
 The repo is **fresh greenfield** at Phase 1 entry. No source code exists; the only buildable artifacts in the repo today are documentation (`.md`), the design-system assets, the Figure reference APK (`0.16.0.apk` + decompiled tree — NOT our app code), and reference media (`landscape_enforcement.mp4`, `home_screen_reference.png`, `logo.js`).
@@ -168,6 +172,7 @@ The repo is **fresh greenfield** at Phase 1 entry. No source code exists; the on
 ### Established Patterns
 
 None — Phase 1 establishes them. Phase 1 sets the precedents that Phase 2-7 inherit:
+
 - Drizzle migration file naming + folder layout under `apps/api/db/migrations/`
 - Zod schema sharing pattern under `shared/types/`
 - pnpm workspace topology
@@ -177,6 +182,7 @@ None — Phase 1 establishes them. Phase 1 sets the precedents that Phase 2-7 in
 ### Integration Points
 
 None yet. Phase 1 builds:
+
 - Backend → S3 (presigned URL minting via `@aws-sdk/s3-request-presigner`)
 - Backend → Postgres (Drizzle ORM)
 - Backend → AWS Secrets Manager (JWT signing secret retrieval)
@@ -225,5 +231,5 @@ None yet. Phase 1 builds:
 
 ---
 
-*Phase: 1-Foundation, Backend & Distribution Recon*
-*Context gathered: 2026-05-07*
+_Phase: 1-Foundation, Backend & Distribution Recon_
+_Context gathered: 2026-05-07_

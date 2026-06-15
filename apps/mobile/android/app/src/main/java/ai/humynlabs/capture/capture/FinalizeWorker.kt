@@ -13,19 +13,19 @@ import java.time.format.DateTimeFormatter
  * Phase 3 — concurrent finalize per Pattern 2 + checker issue #10 fix.
  *
  * Runs on `finalizeExecutor` (separate thread from `captureExecutor`).
- * Sequence:
- *   1. SHA-256 the MP4 + CSV via HashStreamer (FileChannel.read; never
- *      writes — CAP-18 file-fidelity invariant).
- *   2. DriftCalculator.compute against the video + IMU timestamps (CAP-08).
+ * Sequence (Enh 3 / D1, 2026-06-04: the former step 1 — SHA-256 of the MP4 +
+ * CSV via HashStreamer — is removed; all upload hashing is gone. CAP-18
+ * file-fidelity is unaffected: the bytes are still never decoded/re-encoded):
+ *   1. DriftCalculator.compute against the video + IMU timestamps (CAP-08).
  *      Skipped (drift=null) when either array has < 2 samples.
- *   3. ImuRateObserver.compute against the IMU timestamps (D-IMU-02 →
+ *   2. ImuRateObserver.compute against the IMU timestamps (D-IMU-02 →
  *      `imu_min_rate_hz_observed_p1`). Skipped when < 2 samples.
- *   4. MetadataComposer.compose(adapted-sidecar, metrics) → JSONObject.
- *   5. MetadataComposer.writeAtomic — `{file}.partial` → renameTo.
- *   6. SidecarManager.delete(seg.sidecarFile) — orphan-sidecar = "finalize
+ *   3. MetadataComposer.compose(adapted-sidecar, metrics) → JSONObject.
+ *   4. MetadataComposer.writeAtomic — `{file}.partial` → renameTo.
+ *   5. SidecarManager.delete(seg.sidecarFile) — orphan-sidecar = "finalize
  *      never completed"; deleting it signals completion to the app-launch
  *      sweep (Plan 03-09).
- *   7. emit("onSegmentComplete", payload) — D-API-03 shape.
+ *   6. emit("onSegmentComplete", payload) — D-API-03 shape.
  *
  * On any throwable mid-sequence, emits `onError` with code
  * `finalize_failed` (recoverable=false) instead of `onSegmentComplete`.
@@ -56,6 +56,18 @@ import java.time.format.DateTimeFormatter
 object FinalizeWorker {
 
     /**
+     * Bug 8 + Enh 1 / D6 (2026-06-04) — per-segment minimum-duration floor.
+     * A NON-practice segment shorter than this is canceled with
+     * [CancelReason.TooShort] (never enqueued; mirrors the existing fps /
+     * resolution cancel-gate model). Practice segments are EXEMPT — they have
+     * their own upstream 60s hard-cap and never upload. 180_000 ms = 3 min.
+     *
+     * `internal` so [FinalizeWorkerGatesTest] can reference the threshold
+     * instead of duplicating the magic number.
+     */
+    internal const val MIN_SEGMENT_MS = 180_000.0
+
+    /**
      * Finalize one segment. Visibility is `internal` because [Segment] is
      * `internal` — keeping the worker package-private avoids exposing
      * the segment data class as part of any public Kotlin API surface.
@@ -69,13 +81,16 @@ object FinalizeWorker {
             // segment that's about to be deleted).
             //
             // Gate ordering — deterministic per scope spec:
-            //   Step 1.5: videoFrameTimestamps.size < 2 → InsufficientFrames
-            //   Step 1.6: meanFps < 29.0                → FpsDropped
-            //   Step 1.7: width < 1920 OR height < 1080 → ResolutionDropped
+            //   Step 1.5: videoFrameTimestamps.size < 2  → InsufficientFrames
+            //   Step 1.55: !practice & durationMs < 3min → TooShort (D6)
+            //   Step 1.6: meanFps < 29.0                 → FpsDropped
+            //   Step 1.7: width < 1920 OR height < 1080  → ResolutionDropped
             //
             // FPS check runs BEFORE resolution check so simultaneous fps+res
             // failure consistently reports "fps_dropped" (the upstream root
-            // cause on an OEM-throttled / thermally-degraded path).
+            // cause on an OEM-throttled / thermally-degraded path). TooShort
+            // runs BEFORE fps/res (Bug 8 + Enh 1 / D6) — a sub-3-min clip's
+            // fps/res is moot; "record ≥3 min" is the user-actionable message.
             // ------------------------------------------------------------
             val videoTimestampsForGate = seg.videoFrameTimestamps.toLongArray()
 
@@ -93,7 +108,16 @@ object FinalizeWorker {
                 readMuxedResolution(seg.mp4File)
             }
 
-            val cancelReason = decideCancelReason(videoTimestampsForGate, videoWidth, videoHeight)
+            // Bug 8 + Enh 1 / D6 — same clock invariant as durationSeconds
+            // below: both stamps are elapsedRealtimeNanos (NOT System.nano).
+            val gateDurationMs = (seg.endedAtNs - seg.startedAtNs).toDouble() / 1_000_000.0
+            val cancelReason = decideCancelReason(
+                videoTimestampsForGate,
+                videoWidth,
+                videoHeight,
+                gateDurationMs,
+                seg.sidecar.isPractice,
+            )
             if (cancelReason != null) {
                 emitCanceled(seg, cancelReason, emit)
                 return
@@ -105,12 +129,10 @@ object FinalizeWorker {
             val measuredMeanFps = computeMeanFps(videoTimestampsForGate)
 
             // Gate passed — proceed with the normal finalize sequence.
-
-            // 1. SHA-256 the bytes (CAP-15 + CAP-18). HashStreamer opens the
-            //    file via FileChannel.read — never writes. The training pipeline
-            //    expects byte-for-byte preserved encoder output.
-            val mp4Sha = HashStreamer.sha256(seg.mp4File)
-            val csvSha = HashStreamer.sha256(seg.csvFile)
+            // (Enh 3 / D1, 2026-06-04: the former step 1 — SHA-256 of the MP4 +
+            // CSV via HashStreamer — is removed; all upload hashing is gone. The
+            // files are still byte-for-byte preserved encoder output, CAP-18.
+            // The steps below keep their original 2.. numbering for parity.)
 
             // 2. IMU timestamps snapshot. ImuWriter exposes `timestamps()` —
             //    a live snapshot of the physical event.timestamp values
@@ -155,8 +177,6 @@ object FinalizeWorker {
 
             val endIso = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
             val metrics = MetadataComposer.FinalizeMetrics(
-                mp4Sha = mp4Sha,
-                csvSha = csvSha,
                 mp4SizeBytes = seg.mp4File.length(),
                 csvSizeBytes = seg.csvFile.length(),
                 drift = drift,
@@ -210,7 +230,8 @@ object FinalizeWorker {
             //
             //       Path: filesDir/thumbs/<base>.thumb.jpg — a SIBLING of
             //       filesDir/recordings/<base>.mp4 (parentFile.parentFile is filesDir)
-            //       so the JPEG survives the post-`verified` MP4 delete (D-04).
+            //       so the JPEG survives the post-upload MP4 delete — the
+            //       /finalize-200 bundle cleanup, Enh 3 / D1 (D-04).
             val thumbsDir = File(seg.mp4File.parentFile?.parentFile, "thumbs")
             val thumbnailFile: File? = if (!seg.sidecar.isPractice) {
                 ThumbnailExtractor.extractFirstFrame(seg.mp4File, thumbsDir)
@@ -224,6 +245,12 @@ object FinalizeWorker {
             val payload = Arguments.createMap().apply {
                 putString("segmentId", seg.segmentId)
                 putString("recordingId", seg.recordingId)
+                // Bug 9 (260604) — the segment's OWN task, copied from the sidecar
+                // (written at capture-start). The JS enqueue uses this instead of a
+                // render closure so a late/re-subscribed onSegmentComplete can never
+                // upload under a different task selected after this segment started.
+                // Mirrors the onSegmentCanceled payload (emitCanceled below).
+                putString("taskId", seg.sidecar.taskInfoPartial.taskId)
                 putString("mp4Path", seg.mp4File.absolutePath)
                 putString("csvPath", seg.csvFile.absolutePath)
                 putString("jsonPath", seg.jsonFile.absolutePath)
@@ -262,18 +289,30 @@ object FinalizeWorker {
      *
      * Gate ordering — fps wins on simultaneous fps+resolution failure
      * (scope spec: the upstream root cause on an OEM-throttled / thermally-
-     * degraded path is fps, so report that first).
+     * degraded path is fps, so report that first). The 3-min TooShort gate
+     * (Bug 8 + Enh 1 / D6) runs BEFORE fps/res — a sub-3-min clip's fps/res
+     * is moot; "record ≥3 min" is the user-actionable message.
      *
+     * @param durationMs wall-clock segment length (elapsedRealtimeNanos
+     *   delta). Defaults to [Double.MAX_VALUE] so the orthogonal fps/res/
+     *   frame-count test call sites never trip the duration gate.
+     * @param isPractice practice segments are exempt from the 3-min floor
+     *   (their own 60s upstream hard-cap applies and they never upload).
      * @return [CancelReason] when the segment must be canceled; `null`
-     *   when both gates pass.
+     *   when all gates pass.
      */
     internal fun decideCancelReason(
         videoTimestampsNs: LongArray,
         muxedWidth: Int,
         muxedHeight: Int,
+        durationMs: Double = Double.MAX_VALUE,
+        isPractice: Boolean = false,
     ): CancelReason? {
         // Step 1.5: insufficient frames.
         if (videoTimestampsNs.size < 2) return CancelReason.InsufficientFrames
+        // Step 1.55: Bug 8 + Enh 1 / D6 — non-practice 3-min floor. Runs
+        // before fps/res (a too-short clip's fps/res is moot).
+        if (!isPractice && durationMs < MIN_SEGMENT_MS) return CancelReason.TooShort
         // Step 1.6: mean fps < 29.0 (fps wins over resolution). Threshold
         // tightened from 28.0 → 29.0 on 2026-05-17 after the Pixel-10a +
         // Pixel-8a cancel-walk; healthy recordings on those devices
@@ -421,6 +460,11 @@ object FinalizeWorker {
                     putNull("width")
                     putNull("height")
                 }
+                CancelReason.TooShort -> {
+                    putNull("meanFps")
+                    putNull("width")
+                    putNull("height")
+                }
             }
         }
         emit("onSegmentCanceled", payload)
@@ -527,5 +571,15 @@ sealed class CancelReason {
      */
     object InsufficientFrames : CancelReason() {
         override val code: String = "insufficient_frames"
+    }
+
+    /**
+     * A NON-practice segment ran shorter than the 3-min floor
+     * ([FinalizeWorker.MIN_SEGMENT_MS]) — Bug 8 + Enh 1 / D6 (2026-06-04).
+     * Dropped, never enqueued; the History row reads "Canceled — recording
+     * too short". Practice segments are exempt.
+     */
+    object TooShort : CancelReason() {
+        override val code: String = "too_short"
     }
 }

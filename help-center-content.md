@@ -72,7 +72,7 @@ No. By signing up you confirm everyone you record is 18 or older. Recordings of 
 Yes. Match your task to the setting — some tasks are naturally indoor (cooking, cleaning, laundry); others fit either.
 
 **Why does the app need my location?**
-Approximate location helps us understand the diversity of recordings in our dataset. We use coarse location only — never precise GPS.
+We capture your precise location (GPS coordinates) with each recording to understand the geographic diversity of our dataset. You consent to this at sign-in, and it's covered by our Privacy Policy.
 
 **How do I get paid?**
 Payouts run offline initially. Don't worry, your contributions are being tracked — we'll notify you when payouts start reflecting in the app.

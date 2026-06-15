@@ -56,6 +56,7 @@ describe('/auth/google — reject paths', () => {
         flavor: 'playStore',
         applicationId: 'ai.humynlabs.capture',
         nonceId,
+        installationId: 'inst-e2e',
       },
     });
     expect(r.statusCode).toBe(403);
@@ -74,6 +75,7 @@ describe('/auth/google — reject paths', () => {
         flavor: 'playStore',
         applicationId: 'ai.humynlabs.capture',
         nonceId,
+        installationId: 'inst-e2e',
       },
     });
     expect(r.statusCode).toBe(403);
@@ -94,6 +96,7 @@ describe('/auth/google — reject paths', () => {
         flavor: 'playStore',
         applicationId: 'ai.humynlabs.capture',
         nonceId,
+        installationId: 'inst-e2e',
       },
     });
     expect(r.statusCode).toBe(403);
@@ -115,6 +118,7 @@ describe('/auth/google — reject paths', () => {
         flavor: 'apkRollout',
         applicationId: 'ai.humynlabs.capture.apk',
         nonceId,
+        installationId: 'inst-e2e',
       },
     });
     expect(r.statusCode).toBe(403);
@@ -138,6 +142,7 @@ describe('/auth/google — reject paths', () => {
         flavor: 'apkRollout',
         applicationId: 'ai.humynlabs.capture.apk',
         nonceId,
+        installationId: 'inst-e2e',
       },
     });
     expect(r.statusCode).toBe(200);
@@ -156,6 +161,7 @@ describe('/auth/google — reject paths', () => {
         flavor: 'iosAppStore',
         applicationId: 'ai.humynlabs.capture',
         nonceId,
+        installationId: 'inst-e2e',
       },
     });
     expect(r.statusCode).toBe(501);

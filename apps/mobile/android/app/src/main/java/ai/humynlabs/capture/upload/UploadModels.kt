@@ -72,8 +72,6 @@ enum class UploadState {
     PENDING,
     UPLOADING,
     FINALIZING,
-    AWAITING_VERIFY,
-    VERIFIED,
     DEAD_LETTER,
     NEEDS_ATTENTION,
 }
@@ -112,13 +110,13 @@ data class PartState(
 
 /**
  * One upload-queue row — the durable record of "this recording's bundle
- * (MP4 + IMU CSV + metadata JSON) needs to reach S3 and be hash-verified".
+ * (MP4 + IMU CSV + metadata JSON) needs to reach S3".
  *
  * `ownerUserId` is the signed-in `sub` at the time the recording was finalized
  * — `UploadQueueStore.bootstrap(currentSub)` only resumes rows whose
  * `ownerUserId == currentSub` (UP-13 cross-account guard on a shared phone).
  *
- * `{init,parts,finalize,reupload}IdempotencyKey` are four PER-ROUTE stable
+ * `{init,parts,finalize}IdempotencyKey` are three PER-ROUTE stable
  * UUIDv4s minted ONCE at row construction. Each is sent as the
  * `Idempotency-Key` header on every retry of ITS OWN route — the server's
  * global idempotency pre-handler (`apps/api/src/plugins/idempotency.ts`)
@@ -153,14 +151,6 @@ data class UploadRow(
     var lastProgressAt: Long = System.currentTimeMillis(),
     var deadLetterReason: String? = null,
     /**
-     * `true` once a server `hash-mismatch` event (Plan 05-08) flags this row for
-     * a re-upload — `UploadCoordinator` then calls `POST /recordings/:id/reupload`
-     * (re-using the recordings row) instead of `POST /recordings/init`. Cleared
-     * when the re-upload finishes (the row goes `AWAITING_VERIFY` again). At
-     * Plan-05-06 nothing sets it; it's the seam Plan 05-08 wires.
-     */
-    var reupload: Boolean = false,
-    /**
      * Stable UUIDv4 sent as `Idempotency-Key` on every `POST /recordings/init`
      * for this row. Minted once at construction; reused only across retries of
      * THIS route within ONE upload session. Per-route split (not a single
@@ -170,13 +160,6 @@ data class UploadRow(
      * every (key,body) pair stable. Fix surfaces Wave-1.5 Item 1, see
      * 05-COSMETIC-GAPS.md + the 2026-05-13 walk log (recording
      * `01KRFZ91Y3E315AJVG75KXJZE6`).
-     *
-     * Rotated at the hash-mismatch boundary by `HumynUploadModule.reupload()`'s
-     * Path-A `else ->` branch (worker-fired re-upload). A hash-mismatch
-     * re-upload is logically a NEW upload session for /init/parts/finalize even
-     * though it shares the queue row — same key + different (uploadId, parts)
-     * body would 409 in the server's pre-handler. See debug session
-     * `.planning/debug/reupload-finalize-409.md` (2026-05-13).
      */
     var initIdempotencyKey: String = UUID.randomUUID().toString(),
     /**
@@ -191,18 +174,6 @@ data class UploadRow(
      * across retries of THIS route. See [initIdempotencyKey] for the rationale.
      */
     var finalizeIdempotencyKey: String = UUID.randomUUID().toString(),
-    /**
-     * Stable UUIDv4 sent as `Idempotency-Key` on every
-     * `POST /recordings/:id/reupload`. Minted once at construction; reused only
-     * across retries of THIS route. See [initIdempotencyKey] for the rationale.
-     *
-     * Asymmetry vs init/parts/finalize: this key is NOT rotated at the
-     * hash-mismatch boundary. `/reupload` is one-shot per re-upload cycle and
-     * the body is `{partsCount}` only — a replay with the same key + same body
-     * is correct idempotent behavior (the server returns the cached 200 +
-     * presigned URLs). See `HumynUploadModule.reupload()` Path-A.
-     */
-    var reuploadIdempotencyKey: String = UUID.randomUUID().toString(),
     /**
      * Quick task 260517-p5g CAPTURE-QA-04 — when set to a non-null code,
      * marks this row as a CANCELED segment that must NEVER be uploaded.
@@ -305,11 +276,9 @@ data class UploadRow(
         put("enqueuedAt", enqueuedAt)
         put("lastProgressAt", lastProgressAt)
         if (deadLetterReason != null) put("deadLetterReason", deadLetterReason)
-        if (reupload) put("reupload", true)
         put("initIdempotencyKey", initIdempotencyKey)
         put("partsIdempotencyKey", partsIdempotencyKey)
         put("finalizeIdempotencyKey", finalizeIdempotencyKey)
-        put("reuploadIdempotencyKey", reuploadIdempotencyKey)
         // Quick task 260517-p5g CAPTURE-QA-04 — only persist when set; a
         // null cancelReason is the common case and we don't bloat queue.json
         // on every non-canceled row.
@@ -333,6 +302,56 @@ data class UploadRow(
                 out.add(PartState.fromJson(o))
             }
             return out
+        }
+
+        /**
+         * Bug D1-mobile-1 (2026-06-05) — decode an on-disk `state` string into
+         * a current [UploadState], self-cleaning the two removed legacy states.
+         *
+         * Before Enh 3 / D1 (2026-06-04) the enum carried `AWAITING_VERIFY` and
+         * `VERIFIED`: a row reached `AWAITING_VERIFY` once every part had PUT to
+         * S3 AND `/finalize` had been POSTed, then advanced to `VERIFIED` when
+         * the server emitted the (now-removed) `verified` event. Both states mean
+         * the SAME thing under today's flow: "the bundle is already fully
+         * uploaded + finalized server-side" — `uploaded` is terminal success now
+         * (there is no on-device verify wait), so such a row should self-clean
+         * locally, not re-upload.
+         *
+         * A row persisted by a PRIOR app version with one of those values used to
+         * fall through `valueOf(...).getOrDefault(PENDING)` to **PENDING** → the
+         * next drain re-ran `/init` then `POST /:id/parts` against an
+         * already-`uploaded` recording → server **409** → DEAD_LETTER → only then
+         * cleared by the JS reconcile sweep. The user saw a transient "Upload
+         * failed" chip flash and the server logged avoidable 409s, purely from an
+         * app upgrade.
+         *
+         * Map both legacy strings to [UploadState.FINALIZING] instead. FINALIZING
+         * is the post-Enh-3 reconcile state for "uploaded, awaiting server
+         * confirm": `UploadCoordinator.uploadOne` short-circuits a FINALIZING row
+         * to a cheap `GET /recordings/:id` (NOT `/init` or `/parts`), and on the
+         * server's `qa_status ∈ {uploaded, verified}` calls
+         * `completeAndCleanup → UploadQueueStore.deleteLocalAndRemove` — deleting
+         * the local mp4/csv/json + dropping the row, with no `/parts` 409 and no
+         * "failed" chip (FINALIZING renders as in-flight, not failed). This routes
+         * the legacy row straight into the existing terminal-success cleanup path.
+         * (A literal zero-network cleanup would require a change to
+         * `UploadCoordinator`/`UploadQueueStore` or the JS `clearUploaded`
+         * backstop — all outside this module; FINALIZING is the minimal in-model
+         * mapping that avoids the 409 round-trip + DEAD_LETTER flash.)
+         *
+         * Any OTHER unknown string still defaults to PENDING (forward-compat with
+         * a hypothetical future enum value written by a newer build).
+         */
+        internal fun decodeState(raw: String): UploadState = when (raw) {
+            "AWAITING_VERIFY", "VERIFIED" -> {
+                Log.i(
+                    MODELS_TAG,
+                    "decodeState: legacy upload state '$raw' on disk → FINALIZING " +
+                        "(already uploaded pre-Enh-3; self-cleans via FINALIZING reconcile, no /parts 409)",
+                )
+                UploadState.FINALIZING
+            }
+            else -> runCatching { UploadState.valueOf(raw) }.getOrDefault(UploadState.PENDING)
         }
 
         fun fromJson(o: JSONObject): UploadRow {
@@ -369,7 +388,6 @@ data class UploadRow(
             val initKey = readOrMint("initIdempotencyKey")
             val partsKey = readOrMint("partsIdempotencyKey")
             val finalizeKey = readOrMint("finalizeIdempotencyKey")
-            val reuploadKey = readOrMint("reuploadIdempotencyKey")
             val row = UploadRow(
                 recordingId = recordingId,
                 ownerUserId = o.optString("ownerUserId", ""),
@@ -378,8 +396,7 @@ data class UploadRow(
                 jsonPath = o.optString("jsonPath", ""),
                 taskId = o.optString("taskId", ""),
                 isPractice = o.optBoolean("isPractice", false),
-                state = runCatching { UploadState.valueOf(o.optString("state", "PENDING")) }
-                    .getOrDefault(UploadState.PENDING),
+                state = decodeState(o.optString("state", "PENDING")),
                 uploadId = if (o.has("uploadId") && !o.isNull("uploadId")) o.getString("uploadId") else null,
                 imuUploadId = if (o.has("imuUploadId") && !o.isNull("imuUploadId")) o.getString("imuUploadId") else null,
                 partsCount = if (o.has("partsCount") && !o.isNull("partsCount")) o.getInt("partsCount") else null,
@@ -395,11 +412,9 @@ data class UploadRow(
                 } else {
                     null
                 },
-                reupload = o.optBoolean("reupload", false),
                 initIdempotencyKey = initKey,
                 partsIdempotencyKey = partsKey,
                 finalizeIdempotencyKey = finalizeKey,
-                reuploadIdempotencyKey = reuploadKey,
                 // Quick task 260517-p5g CAPTURE-QA-04 — backward-compatible
                 // load: legacy rows on disk that pre-date this field deserialize
                 // with cancelReason=null (the common case for non-canceled rows).

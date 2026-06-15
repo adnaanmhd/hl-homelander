@@ -42,7 +42,13 @@ function row(over: Partial<UploadQueueRow>): UploadQueueRow {
 
 const { mockQueue, mockState, hooks } = vi.hoisted(() => ({
   mockQueue: { rows: [] as UploadQueueRow[] },
-  mockState: { jwt: 'jwt-token' as string | null },
+  // Bug 7 — PendingUploads reads rows + progress from the store slice now;
+  // the `__test_rows` hatch still seeds rows, so these stay empty defaults.
+  mockState: {
+    jwt: 'jwt-token' as string | null,
+    uploadQueue: [] as UploadQueueRow[],
+    uploadProgressById: {} as Record<string, number>,
+  },
   hooks: {
     queueChangedRemove: vi.fn(),
     progressRemove: vi.fn(),
@@ -73,6 +79,8 @@ afterEach(() => {
   cleanup();
   mockQueue.rows = [];
   mockState.jwt = 'jwt-token';
+  mockState.uploadQueue = [];
+  mockState.uploadProgressById = {};
 });
 
 describe('PendingUploadsScreen — canceled-segment defensive guard (CAPTURE-QA-05)', () => {
@@ -126,8 +134,8 @@ describe('PendingUploadsScreen — canceled-segment defensive guard (CAPTURE-QA-
     expect(getByLabelText('pending-upload-retry')).toBeTruthy();
   });
 
-  it('Test H2 — live getQueueSafe path also filters canceled rows', async () => {
-    mockQueue.rows = [
+  it('Test H2 — live store-queue path also filters canceled rows', async () => {
+    mockState.uploadQueue = [
       row({ recordingId: 'mine-ok', ownerUserId: SUB }),
       row({
         recordingId: 'mine-canceled',

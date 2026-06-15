@@ -10,6 +10,13 @@ declare module 'fastify' {
   interface FastifyRequest {
     idempotency?: { key: string; userId: string; requestHash: string };
   }
+  // Route opt-out for the idempotency-key requirement. `config: { idempotency:
+  // false }` skips the preHandler gate (anonymous / naturally-idempotent
+  // routes — e.g. /auth/google, /me/practice-complete). Typed here so the
+  // config key is first-class on routes declared without a body schema too.
+  interface FastifyContextConfig {
+    idempotency?: boolean;
+  }
 }
 
 async function idempotencyPlugin(app: FastifyInstance) {

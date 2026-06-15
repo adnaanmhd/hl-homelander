@@ -33,8 +33,10 @@ import i18n from './src/i18n';
 import { hydrate } from './src/state/hydrate';
 import { installBootRecoveryListener } from './src/boot/bootRecoveryListener';
 import { installUploadReconcile } from './src/services/uploadReconcile';
+import { installUploadQueueStore } from './src/services/uploadQueueStore';
 import { ToastHost } from './src/components/Toast';
 import RootNativeStack from './src/navigation/RootNativeStack';
+import { navigationRef } from './src/navigation/navigationRef';
 import { linking } from './src/navigation/linking';
 
 enableScreens(true);
@@ -68,9 +70,20 @@ export default function App() {
     } catch {
       uploadReconcileTeardown = undefined;
     }
+    // Bug 7 + Bug 11 — install the single upload-queue → store bridge (one
+    // app-lifetime onUploadQueueChanged / onUploadProgress subscription feeding
+    // the Zustand `uploadQueue` slice). Same best-effort try/catch as the
+    // reconcile sweep so a build without HumynUpload / JSDOM never crashes boot.
+    let uploadQueueStoreTeardown: (() => void) | undefined;
+    try {
+      uploadQueueStoreTeardown = installUploadQueueStore();
+    } catch {
+      uploadQueueStoreTeardown = undefined;
+    }
     return () => {
       teardown();
       uploadReconcileTeardown?.();
+      uploadQueueStoreTeardown?.();
     };
   }, []);
   return (
@@ -84,7 +97,10 @@ export default function App() {
           correct locale. */}
       <I18nextProvider i18n={i18n}>
         <StatusBar barStyle="dark-content" />
-        <NavigationContainer linking={linking as unknown as LinkingOptions<Record<string, never>>}>
+        <NavigationContainer
+          ref={navigationRef}
+          linking={linking as unknown as LinkingOptions<Record<string, never>>}
+        >
           <RootNativeStack />
         </NavigationContainer>
         {/* D-LIFE-04 — transient toast host floats over the whole app (sibling of

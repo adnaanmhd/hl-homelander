@@ -52,6 +52,16 @@ export const PROBLEM_SLUGS = {
   integrityStale: 'integrity-stale',
   // Auth — W6 (plan 05 task 4): iosAppStore Phase-1 reject (App Attest in Phase 7)
   integrityFlavorNotSupported: 'integrity-flavor-not-supported',
+  // Auth — Bug 4 / D2 (2026-06-04): account used on a newer device; this device's
+  // JWT installationId no longer matches users.current_installation_id. The
+  // client maps this slug to a "signed out — used on another device" Signup msg.
+  deviceEvicted: 'device-evicted',
+  // Auth — Bug 4 / D2 follow-up: a legacy / pre-Bug-4 JWT carrying NO
+  // installationId claim (or an unbound row) is NOT an eviction — the user just
+  // needs to re-sign-in once so a claim-bearing JWT is minted. Distinct slug so
+  // the client shows "please sign in again" rather than the misleading "used on
+  // another device" eviction copy.
+  reauthRequired: 'reauth-required',
   // Recordings — plan 01-07 task 4 (API-08 + API-09)
   recordingNotFound: 'recording-not-found',
   recordingNotPlayable: 'recording-not-playable',

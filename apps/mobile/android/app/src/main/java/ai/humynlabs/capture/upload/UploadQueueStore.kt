@@ -201,24 +201,23 @@ class UploadQueueStore(private val context: Context) {
     }
 
     /**
-     * App-launch / login resume sweep (UP-13 + housekeeping):
-     *  - drops any `VERIFIED` row whose local mp4 is already gone (housekeeping);
-     *  - returns only rows whose `ownerUserId == currentSub` and which still need
-     *    work (`state != VERIFIED`).
-     * `currentSub == null` → nobody is signed in → resume nothing (wait for login;
-     * the rows stay on disk, UP-13).
+     * App-launch / login resume sweep (UP-13): returns the rows whose
+     * `ownerUserId == currentSub` (the signed-in user's own queue).
+     * `currentSub == null` → nobody is signed in → resume nothing (wait for
+     * login; the rows stay on disk, UP-13).
+     *
+     * Enh 3 / D1 (2026-06-04): the old `VERIFIED`-housekeeping pass is gone — a
+     * successful upload now deletes its bundle + drops its row inline the moment
+     * `/finalize` returns 200 ([deleteLocalAndRemove]), so no completed rows
+     * linger on disk to sweep.
      */
     fun bootstrap(currentSub: String?): List<UploadRow> {
         synchronized(lock) {
-            var rows = read()
-            val before = rows.size
-            rows = rows.filterNot { it.state == UploadState.VERIFIED && !File(it.mp4Path).exists() }
-                .toMutableList()
-            if (rows.size != before) writeAtomic(rows)
+            val rows = read()
             return if (currentSub == null) {
                 emptyList()
             } else {
-                rows.filter { it.ownerUserId == currentSub && it.state != UploadState.VERIFIED }
+                rows.filter { it.ownerUserId == currentSub }
             }
         }
     }
@@ -228,15 +227,22 @@ class UploadQueueStore(private val context: Context) {
         if (currentSub == null) emptyList() else read().filter { it.ownerUserId == currentSub }
 
     /**
-     * On a server `verified` event (Plan 05-08; UP-15): mark the row VERIFIED,
-     * unlink the local mp4 + csv + json, then drop the row from the queue.
-     * Local files are NEVER deleted before this point.
+     * Enh 3 / D1 (2026-06-04) — terminal-success cleanup. Unlink the local
+     * mp4 + IMU csv + metadata json and drop the row from the queue. Called by
+     * `UploadCoordinator` the instant `/finalize` returns 200 (`uploaded` is the
+     * terminal success state now — there is no on-device verify wait), and by
+     * the reconcile backstop (`HumynUploadModule.clearUploaded`) for ids the
+     * server reports terminal-success that still have a stale local row.
+     *
+     * The THUMBNAIL is intentionally preserved — History renders it from the
+     * local thumbnail ledger until Bug 6 (server-generated thumbnails) ships.
+     * Local bundle files are NEVER deleted before this point; a missing file
+     * here is fine (best-effort unlink).
      */
-    fun markVerifiedAndDeleteLocal(recordingId: String) {
+    fun deleteLocalAndRemove(recordingId: String) {
         synchronized(lock) {
             val rows = read()
             val row = rows.firstOrNull { it.recordingId == recordingId } ?: return
-            row.state = UploadState.VERIFIED
             // Best-effort unlink — a missing file is fine (already cleaned).
             runCatching { File(row.mp4Path).delete() }
             runCatching { File(row.csvPath).delete() }

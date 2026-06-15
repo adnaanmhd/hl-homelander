@@ -13,7 +13,6 @@
 // shared/types.
 
 import { z } from 'zod';
-import { RecordingServerEventSchema } from '@humyn/shared-types';
 
 // API-08 input
 export const RecordingsListQuerySchema = z.object({
@@ -41,13 +40,14 @@ export const RecordingsListItemSchema = z.object({
   qa_status: z.enum(['pending', 'uploaded', 'verified', 'hash-mismatch', 'rejected']),
   duration_ms: z.number().int(),
   created_at: z.string().datetime(),
+  // Bug 6 / D5 — short-TTL signed URL for the server poster JPEG; null when the
+  // row has no server thumbnail (the client falls back to its local ledger thumb).
+  thumbnail_url: z.string().url().nullable(),
 });
 export const RecordingsListResponseSchema = z.object({
   items: z.array(RecordingsListItemSchema),
   next_cursor: z.string().length(26).nullable(),
-  // Pattern 22 — the `events-outbox` onSend hook (Plan 05-05) may add this key
-  // to this authenticated response; the strict serializer must accept it.
-  _events: z.array(RecordingServerEventSchema).optional(),
+  // (Enh 3 / D1 — the `_events` envelope + events-outbox onSend hook were removed.)
 });
 export type RecordingsListResponse = z.infer<typeof RecordingsListResponseSchema>;
 
@@ -61,4 +61,6 @@ export const RecordingsGetResponseSchema = z.object({
   created_at: z.string().datetime(),
   playback_url: z.string().url(),
   playback_url_expires_at: z.string().datetime(),
+  // Bug 6 / D5 — short-TTL signed URL for the server poster JPEG; null when absent.
+  thumbnail_url: z.string().url().nullable(),
 });

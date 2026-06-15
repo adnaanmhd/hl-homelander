@@ -41,7 +41,7 @@ vi.mock('../../src/state/appStore', () => {
       // command (`vitest -u SignupScreen.visual.test.tsx`) regenerates the
       // PNG if the canonical text ever bumps and the hash changes; the
       // visual baseline encodes a single moment in time.
-      consentVersion: '6350b77b',
+      consentVersion: 'fc6aa4',
     },
     setJwt: () => undefined,
     setConsent: () => undefined,

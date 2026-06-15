@@ -137,7 +137,9 @@ export default async function recordingsStreamUrlRoute(app: FastifyInstance): Pr
         });
       }
 
-      // Available — qa_status ∈ {uploaded, verified, hash-mismatch}, age ≤ 90d.
+      // Available — qa_status = 'uploaded' (terminal success after Enh 3/D1) or a
+      // legacy 'verified'/'hash-mismatch' row, age ≤ 90d. (pending/rejected/
+      // takedown are handled above / 404'd.)
       // Short-TTL signed playable URL. Prefer CloudFront in prod (cache
       // hits + cheaper egress per 06-RESEARCH Q-1); fall back to S3
       // presigned GET in dev / LocalStack where the CLOUDFRONT_* env vars

@@ -19,6 +19,12 @@ import { render, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
 vi.mock('../../src/util/analytics', () => ({ logEvent: () => undefined }));
+// Bug 5 / D7 — mock profileService so PracticeCompleteScreen's server-write
+// import doesn't pull the real api.ts → navigationRef chain (the local
+// @react-navigation/native mock below omits createNavigationContainerRef).
+vi.mock('../../src/services/profileService', () => ({
+  postPracticeComplete: () => Promise.resolve({ practiceCompletedAt: '2026-06-04T00:00:00.000Z' }),
+}));
 vi.mock('@react-navigation/native', () => ({
   useNavigation: () => ({
     reset: vi.fn(),

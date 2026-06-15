@@ -40,7 +40,7 @@ async function seedRec(opts: {
   const id = ulid();
   await db.execute(sql`
     INSERT INTO recordings (
-      id, user_id, task_id, practice, qa_status, duration_ms, file_sha256, imu_sha256,
+      id, user_id, task_id, practice, qa_status, duration_ms,
       file_size_bytes, imu_size_bytes, s3_key_video, s3_key_imu, s3_key_metadata,
       captured_at, created_at, flavor
     )
@@ -51,8 +51,6 @@ async function seedRec(opts: {
       false,
       ${opts.qaStatus}::qa_status,
       1000,
-      ${'a'.repeat(64)},
-      ${'b'.repeat(64)},
       1024,
       1024,
       'k1',

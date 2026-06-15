@@ -17,6 +17,7 @@ function tok(): string {
       applicationId: 'ai.humynlabs.capture',
       integrity_verdict: 'passed',
       token_version: 1,
+      installationId: 'inst-test',
     },
     process.env.JWT_SIGNING_SECRET!,
     { algorithm: 'HS256', expiresIn: '24h' },
@@ -35,6 +36,7 @@ beforeAll(async () => {
       name: 'R',
       consentVersion: '1.0.0',
       consentAcceptedAt: new Date(),
+      currentInstallationId: 'inst-test',
       flavor: 'playStore',
       applicationId: 'ai.humynlabs.capture',
     })
@@ -45,7 +47,6 @@ beforeAll(async () => {
   );
 });
 afterAll(async () => {
-  await db.delete(schema.recordingsToVerify);
   await db.delete(schema.recordings).where(eq(schema.recordings.userId, TEST_USER_ID));
   await db.delete(schema.idempotencyKeys).where(eq(schema.idempotencyKeys.userId, TEST_USER_ID));
   await db.delete(schema.users).where(eq(schema.users.id, TEST_USER_ID));
@@ -59,8 +60,6 @@ const baseBody = (recordingId: string): Record<string, unknown> => ({
   practice: false,
   partsCount: 2,
   durationMs: 60000,
-  fileSha256: 'a'.repeat(64),
-  imuSha256: 'b'.repeat(64),
   fileSizeBytes: 1024 * 1024,
   imuSizeBytes: 16 * 1024,
   capturedAt: new Date().toISOString(),
@@ -259,5 +258,98 @@ describe('POST /recordings/init', () => {
       .from(schema.recordings)
       .where(eq(schema.recordings.id, recordingId));
     expect(rows[0]!.calibration).toBeNull();
+  });
+
+  // ----------------------------------------------------------------
+  // Bug 3 / D3 (2026-06-04) — the precise-GPS `location` jsonb column. Mirrors
+  // the metadata.json `capture_device_info.location` block (schema 1.5.0).
+  // Persisted on the new-row INSERT, sibling to ip_address. Overrides the
+  // formerly-LOCKED coarse-only constraint (sign-off D3; consent + DPIA is a
+  // ship gate). Nullable + optional: a no-fix segment / pre-1.5.0 client → null.
+  // ----------------------------------------------------------------
+
+  const locationBlock = {
+    lat: 12.9716,
+    lng: 77.5946,
+    accuracy_m: 8.5,
+    provider: 'fused',
+    captured_at: '2026-05-05T00:30:19.500+05:30',
+    label: 'Bangalore, India',
+  };
+
+  it('persists a precise location block on the new-row INSERT', async () => {
+    const recordingId = ulid();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/recordings/init',
+      headers: {
+        authorization: `Bearer ${tok()}`,
+        'idempotency-key': '4f7e8f5c-8d2a-4b7f-9c1d-1e3a2b1c4d71',
+      },
+      payload: { ...baseBody(recordingId), location: locationBlock },
+    });
+    expect(res.statusCode).toBe(201);
+    const rows = await db
+      .select()
+      .from(schema.recordings)
+      .where(eq(schema.recordings.id, recordingId));
+    expect(rows[0]!.location).toEqual(locationBlock);
+  });
+
+  it('persists a location with a null label (no reverse-geocode)', async () => {
+    const recordingId = ulid();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/recordings/init',
+      headers: {
+        authorization: `Bearer ${tok()}`,
+        'idempotency-key': '4f7e8f5c-8d2a-4b7f-9c1d-1e3a2b1c4d72',
+      },
+      payload: { ...baseBody(recordingId), location: { ...locationBlock, label: null } },
+    });
+    expect(res.statusCode).toBe(201);
+    const rows = await db
+      .select()
+      .from(schema.recordings)
+      .where(eq(schema.recordings.id, recordingId));
+    expect(rows[0]!.location).toEqual({ ...locationBlock, label: null });
+  });
+
+  it('column is null when no location is sent (backward compat)', async () => {
+    const recordingId = ulid();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/recordings/init',
+      headers: {
+        authorization: `Bearer ${tok()}`,
+        'idempotency-key': '4f7e8f5c-8d2a-4b7f-9c1d-1e3a2b1c4d73',
+      },
+      payload: baseBody(recordingId),
+    });
+    expect(res.statusCode).toBe(201);
+    const rows = await db
+      .select()
+      .from(schema.recordings)
+      .where(eq(schema.recordings.id, recordingId));
+    expect(rows[0]!.location).toBeNull();
+  });
+
+  it('rejects a malformed location (lat not a number) with 400', async () => {
+    const recordingId = ulid();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/recordings/init',
+      headers: {
+        authorization: `Bearer ${tok()}`,
+        'idempotency-key': '4f7e8f5c-8d2a-4b7f-9c1d-1e3a2b1c4d74',
+      },
+      payload: { ...baseBody(recordingId), location: { ...locationBlock, lat: 'nope' } },
+    });
+    expect(res.statusCode).toBe(400);
+    const rows = await db
+      .select()
+      .from(schema.recordings)
+      .where(eq(schema.recordings.id, recordingId));
+    expect(rows.length).toBe(0);
   });
 });

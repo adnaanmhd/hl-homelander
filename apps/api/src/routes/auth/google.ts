@@ -13,6 +13,7 @@ import { consumeNonce } from '../../auth/nonce-store.js';
 import { verifyGoogleIdToken } from '../../auth/verify-id-token.js';
 import { decodeIntegrityToken } from '../../auth/verify-play-integrity.js';
 import { mintJwt } from '../../auth/jwt-mint.js';
+import { invalidateInstallation } from '../../auth/installation-binding.js';
 import { buildProblemDetail, PROBLEM_SLUGS } from '../../lib/problem-detail.js';
 import { AuthGoogleRequestSchema, AuthGoogleResponseSchema } from '@humyn/shared-types';
 import { CONSENT_VERSION } from '../../legal/consent-text.js';
@@ -210,6 +211,8 @@ export default async function googleAuthRoutes(app: FastifyInstance) {
               consentVersion: CONSENT_VERSION,
               consentAcceptedAt: new Date(),
               updatedAt: new Date(),
+              // Bug 4 / D2 — last-writer-wins: bind the account to THIS device.
+              currentInstallationId: body.installationId,
             })
             .where(eq(schema.users.id, userId));
         } else {
@@ -227,6 +230,8 @@ export default async function googleAuthRoutes(app: FastifyInstance) {
             consentAcceptedAt: new Date(),
             flavor: body.flavor,
             applicationId: body.applicationId,
+            // Bug 4 / D2 — bind the new account to this first device.
+            currentInstallationId: body.installationId,
           });
           await tx.insert(schema.profiles).values({ userId });
         }
@@ -249,13 +254,19 @@ export default async function googleAuthRoutes(app: FastifyInstance) {
         return { user: refreshed[0]!, isNewUser };
       });
 
-      // f. Mint JWT per D-AUTH-03 + D-AUTH-05
+      // Bug 4 / D2 — the row was just rebound to this device's installationId;
+      // drop any cached binding so requireAuth sees the new value on the very
+      // next request (and the prior device is evicted without a TTL wait).
+      invalidateInstallation(userRecord.user.id);
+
+      // f. Mint JWT per D-AUTH-03 + D-AUTH-05 + Bug 4 / D2 (installationId claim).
       const jwt = await mintJwt({
         app,
         sub: userRecord.user.id,
         flavor: body.flavor,
         applicationId: body.applicationId,
         integrity_verdict,
+        installationId: body.installationId,
       });
 
       return reply.status(200).send({
@@ -268,6 +279,12 @@ export default async function googleAuthRoutes(app: FastifyInstance) {
           flavor: body.flavor,
           applicationId: body.applicationId,
           consentVersion: CONSENT_VERSION,
+          // Bug 5 / D7 — let the client seed its local practice-done flag at
+          // sign-in so a returning user skips the tutorial on a new device's
+          // first launch (the row was just re-read inside the tx above).
+          practiceCompletedAt: userRecord.user.practiceCompletedAt
+            ? userRecord.user.practiceCompletedAt.toISOString()
+            : null,
         },
       });
     },

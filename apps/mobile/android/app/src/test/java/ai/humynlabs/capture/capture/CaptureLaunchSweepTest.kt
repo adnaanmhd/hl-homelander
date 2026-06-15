@@ -45,7 +45,9 @@ class CaptureLaunchSweepTest {
         contributorInfo = ContributorInfo("Alice", "alice@example.com", 26, "female", true),
         startGate = StartGate("hand_detection", true, false, false, 3420, 5, 400),
         captureDeviceInfoPartial = CaptureDeviceInfoPartial(
-            "phone", "Pixel 10a", "android", "19.4.2", "1.0.0", 115.0, null, "Bangalore, India",
+            // Bug 3 / D3 — location incidental to the sweep; null exercises the
+            // unavailable-fix path (was a coarse string label pre-1.5.0).
+            "phone", "Pixel 10a", "android", "19.4.2", "1.0.0", 115.0, null, null,
         ),
     )
 

@@ -63,7 +63,18 @@ class CaptureSessionOptsBridgeTest {
                 putInt("platformCadenceMs", 400)
             },
         )
-        putString("location", "Bangalore, India")
+        // Bug 3 / D3 — location is now a precise object, not a coarse string.
+        putMap(
+            "location",
+            JavaOnlyMap().apply {
+                putDouble("lat", 12.9716)
+                putDouble("lng", 77.5946)
+                putDouble("accuracy_m", 8.5)
+                putString("provider", "fused")
+                putString("captured_at", "2026-05-05T00:30:19.500+05:30")
+                putString("label", "Bangalore, India")
+            },
+        )
         putString("appVersion", "1.0.0")
         putDouble("dfovDegrees", 115.0)
     }
@@ -86,7 +97,13 @@ class CaptureSessionOptsBridgeTest {
         assertEquals(3420, opts.startGate.durationMs)
         assertEquals(5, opts.startGate.consecutiveHitsRequired)
         assertEquals(400, opts.startGate.platformCadenceMs)
-        assertEquals("Bangalore, India", opts.location)
+        // Bug 3 / D3 — precise LocationFix parsed from the nested map.
+        assertEquals(12.9716, opts.location!!.lat, 0.0001)
+        assertEquals(77.5946, opts.location!!.lng, 0.0001)
+        assertEquals(8.5, opts.location!!.accuracyM, 0.0001)
+        assertEquals("fused", opts.location!!.provider)
+        assertEquals("2026-05-05T00:30:19.500+05:30", opts.location!!.capturedAt)
+        assertEquals("Bangalore, India", opts.location!!.label)
         assertEquals("1.0.0", opts.appVersion)
         assertEquals(115.0, opts.dfovDegrees, 0.0)
     }

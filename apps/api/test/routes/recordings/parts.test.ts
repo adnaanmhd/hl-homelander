@@ -10,7 +10,6 @@ import { ulid } from 'ulid';
 import { eq, sql } from 'drizzle-orm';
 import { db, schema } from '../../../src/db/index.js';
 import { recordingKeys } from '../../../src/lib/s3-client.js';
-import { getQueue, getRedisConnection } from '../../../src/lib/queue.js';
 import { buildApp } from '../../../src/app.js';
 
 const HAS_LOCALSTACK = !!process.env.AWS_ENDPOINT_URL;
@@ -28,6 +27,7 @@ function tok(sub: string): string {
       applicationId: 'ai.humynlabs.capture',
       integrity_verdict: 'passed',
       token_version: 1,
+      installationId: 'inst-test',
     },
     process.env.JWT_SIGNING_SECRET!,
     { algorithm: 'HS256', expiresIn: '24h' },
@@ -36,7 +36,7 @@ function tok(sub: string): string {
 
 async function mkRecording(
   userId: string,
-  qaStatus: 'pending' | 'uploaded' | 'verified' | 'hash-mismatch',
+  qaStatus: 'pending' | 'uploaded',
   s3UploadId: string | null = 'video-upload-id-abc',
 ): Promise<string> {
   const id = ulid();
@@ -48,8 +48,6 @@ async function mkRecording(
     practice: false,
     qaStatus,
     durationMs: 1000,
-    fileSha256: 'a'.repeat(64),
-    imuSha256: 'b'.repeat(64),
     fileSizeBytes: 1024,
     imuSizeBytes: 64,
     s3KeyVideo: keys.video,
@@ -72,12 +70,6 @@ function idemKey(): string {
 
 async function cleanup(): Promise<void> {
   for (const id of [USER_A, USER_B]) {
-    await db
-      .delete(schema.recordingsToVerify)
-      .where(sql`recording_id IN (SELECT id FROM recordings WHERE user_id = ${id})`);
-    await db
-      .delete(schema.recordingEventsOutbox)
-      .where(eq(schema.recordingEventsOutbox.userId, id));
     await db.delete(schema.recordings).where(eq(schema.recordings.userId, id));
     await db.delete(schema.idempotencyKeys).where(eq(schema.idempotencyKeys.userId, id));
   }
@@ -95,6 +87,7 @@ beforeAll(async () => {
         name: 'Parts',
         consentVersion: '1.0.0',
         consentAcceptedAt: new Date(),
+        currentInstallationId: 'inst-test',
         flavor: 'playStore',
         applicationId: 'ai.humynlabs.capture',
       })
@@ -113,16 +106,6 @@ afterAll(async () => {
   await db.delete(schema.users).where(eq(schema.users.id, USER_B));
   await db.delete(schema.tasks).where(eq(schema.tasks.id, TASK_ID));
   await app.close();
-  try {
-    await getQueue().close();
-  } catch {
-    /* not opened */
-  }
-  try {
-    getRedisConnection().disconnect();
-  } catch {
-    /* not opened */
-  }
 });
 
 describeIf('POST /recordings/:id/parts (LocalStack)', () => {
@@ -172,7 +155,6 @@ describeIf('POST /recordings/:id/parts (LocalStack)', () => {
     const body = res.json();
     expect(body.uploadId).toBeUndefined();
     expect(body.s3UploadId).toBeUndefined();
-    expect(body.fileSha256).toBeUndefined();
   });
 
   it('non-pending row (uploaded) → 409', async () => {
